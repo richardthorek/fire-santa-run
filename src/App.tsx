@@ -6,6 +6,7 @@ import { storageAdapter } from './storage';
 import { initializeMockData } from './utils/mockData';
 import { Dashboard, RouteEditor, NavigationView } from './pages';
 import { useRoutes } from './hooks';
+import type { Route as RouteType } from './types';
 
 function App() {
   const [initialized, setInitialized] = useState(false);
@@ -90,7 +91,7 @@ function NavigationViewWrapper() {
   const pathSegments = window.location.pathname.split('/');
   const routeId = pathSegments[pathSegments.length - 2]; // /routes/:id/navigate
   const { getRoute } = useRoutes();
-  const [route, setRoute] = useState<any>(null);
+  const [route, setRoute] = useState<RouteType | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

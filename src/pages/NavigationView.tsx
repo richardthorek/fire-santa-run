@@ -48,6 +48,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   useEffect(() => {
     if (!hasStarted) {
       startNavigation();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHasStarted(true);
     }
   }, [hasStarted, startNavigation]);

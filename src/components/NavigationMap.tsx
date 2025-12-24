@@ -7,14 +7,14 @@ import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Route } from '../types';
-import type { GeolocationPosition } from '../hooks/useGeolocation';
+import type { GeolocationCoordinates } from '../hooks/useGeolocation';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
 export interface NavigationMapProps {
   route: Route;
-  userPosition: GeolocationPosition | null;
+  userPosition: GeolocationCoordinates | null;
   completedWaypointIds: string[];
 }
 

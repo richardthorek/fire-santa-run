@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useGeolocation } from './useGeolocation';
-import type { Route, Waypoint, NavigationStep } from '../types';
+import type { Route, Waypoint } from '../types';
 import {
   findCurrentStep,
   findNextWaypoint,
@@ -14,7 +14,6 @@ import {
   calculateETA,
   formatETA,
   isNearWaypoint,
-  getRemainingDistance,
   calculateDistance,
 } from '../utils/navigation';
 import {
@@ -216,11 +215,12 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     const offRoute = isOffRoute(userLocation, updatedRoute.geometry, 100);
 
     // Update state
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNavigationState(prev => ({
       ...prev,
       currentStepIndex: stepIndex,
       currentInstruction: currentStep?.instruction || '',
-      distanceToNextManeuver,
+      distanceToNextManeuver: distanceToManeuver,
       nextWaypoint,
       distanceToNextWaypoint,
       etaToNextWaypoint: eta ? formatETA(eta) : null,

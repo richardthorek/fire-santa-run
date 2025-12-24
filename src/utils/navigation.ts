@@ -239,7 +239,6 @@ export function isNearWaypoint(
  */
 export function getRemainingDistance(
   userLocation: [number, number],
-  routeGeometry: GeoJSON.LineString,
   steps: NavigationStep[],
   currentStepIndex: number
 ): number {

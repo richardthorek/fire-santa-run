@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-export interface GeolocationPosition {
+export interface GeolocationCoordinates {
   coordinates: [number, number]; // [lng, lat]
   accuracy: number;
   heading: number | null;
@@ -33,7 +33,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     watch = false,
   } = options;
 
-  const [position, setPosition] = useState<GeolocationPosition | null>(null);
+  const [position, setPosition] = useState<GeolocationCoordinates | null>(null);
   const [error, setError] = useState<GeolocationError | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [permission, setPermission] = useState<PermissionState | null>(null);
@@ -133,6 +133,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
   // Start/stop watching based on watch option
   useEffect(() => {
     if (watch) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       startWatching();
     } else {
       stopWatching();
@@ -146,6 +147,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
   // Get initial position if not watching
   useEffect(() => {
     if (!watch && position === null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       getCurrentPosition();
     }
   }, [watch, position, getCurrentPosition]);
