@@ -1,17 +1,16 @@
-import { useEffect, useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-import { useAuth, useBrigade } from './context'
-import { storageAdapter } from './storage'
-import { initializeMockData } from './utils/mockData'
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import './App.css';
+import { useAuth, useBrigade } from './context';
+import { storageAdapter } from './storage';
+import { initializeMockData } from './utils/mockData';
+import { Dashboard, RouteEditor } from './pages';
 
 function App() {
-  const [count, setCount] = useState(0)
-  const [initialized, setInitialized] = useState(false)
-  const { isAuthenticated, user, isLoading: authLoading } = useAuth()
-  const { brigade, isLoading: brigadeLoading } = useBrigade()
-  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true'
+  const [initialized, setInitialized] = useState(false);
+  const { user, isLoading: authLoading } = useAuth();
+  const { brigade, isLoading: brigadeLoading } = useBrigade();
+  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 
   // Initialize mock data in dev mode
   useEffect(() => {
@@ -20,78 +19,117 @@ function App() {
         await initializeMockData(
           storageAdapter.saveBrigade.bind(storageAdapter),
           storageAdapter.saveRoute.bind(storageAdapter)
-        )
-        setInitialized(true)
+        );
+        setInitialized(true);
       }
-    }
-    init()
-  }, [isDevMode, initialized])
+    };
+    init();
+  }, [isDevMode, initialized]);
 
   if (authLoading || brigadeLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <p>Loading...</p>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🎅</div>
+          <p>Loading Fire Santa Run...</p>
+        </div>
       </div>
-    )
+    );
   }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Fire Santa Run 🎅🚒</h1>
-      
-      {/* Dev Mode Indicator */}
-      {isDevMode && (
-        <div style={{ 
-          backgroundColor: '#FFA726', 
-          color: '#212121', 
-          padding: '0.5rem 1rem', 
-          borderRadius: '0.5rem',
-          marginBottom: '1rem',
-          fontWeight: 'bold'
-        }}>
-          🛠️ Development Mode Active
-        </div>
-      )}
-
-      {/* Auth & Brigade Info */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h2>Phase 1: Infrastructure Setup Complete ✅</h2>
-        <div style={{ textAlign: 'left', display: 'inline-block' }}>
-          <p><strong>Authentication:</strong> {isAuthenticated ? '✅ Authenticated' : '❌ Not authenticated'}</p>
-          {user && (
-            <>
-              <p><strong>User:</strong> {user.name || user.email}</p>
-              <p><strong>Brigade ID:</strong> {user.brigadeId}</p>
-            </>
-          )}
-          {brigade && (
-            <p><strong>Brigade:</strong> {brigade.name}</p>
-          )}
+    <BrowserRouter>
+      <div className="app">
+        {/* Dev Mode Indicator */}
+        {isDevMode && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: '#FFA726',
+            color: '#212121',
+            padding: '0.5rem',
+            textAlign: 'center',
+            fontWeight: 'bold',
+            fontSize: '0.875rem',
+            zIndex: 9999,
+          }}>
+            🛠️ Development Mode • {user?.email} • {brigade?.name}
+          </div>
+        )}
+        
+        {/* Main Routes */}
+        <div style={{ paddingTop: isDevMode ? '2.5rem' : 0 }}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/routes/new" element={<RouteEditor mode="new" />} />
+            <Route path="/routes/:id/edit" element={<RouteEditorWrapper />} />
+            <Route path="/routes/:id" element={<RouteDetailPlaceholder />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </div>
       </div>
-
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      
-      <p className="read-the-docs">
-        Phase 1 complete! Ready for Phase 2: Route Planning Interface
-      </p>
-    </>
-  )
+    </BrowserRouter>
+  );
 }
 
-export default App
+// Wrapper to extract route ID from URL params
+function RouteEditorWrapper() {
+  const pathSegments = window.location.pathname.split('/');
+  const routeId = pathSegments[pathSegments.length - 2]; // /routes/:id/edit
+  
+  return <RouteEditor mode="edit" routeId={routeId} />;
+}
+
+// Placeholder for route detail page
+function RouteDetailPlaceholder() {
+  const pathSegments = window.location.pathname.split('/');
+  const routeId = pathSegments[pathSegments.length - 1];
+  
+  return (
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <h1>Route Detail Page</h1>
+      <p>Route ID: {routeId}</p>
+      <p>This page will be implemented in a future phase.</p>
+      <a href="/dashboard" style={{ color: '#D32F2F' }}>← Back to Dashboard</a>
+    </div>
+  );
+}
+
+// 404 Page
+function NotFound() {
+  return (
+    <div style={{ 
+      padding: '4rem 2rem', 
+      textAlign: 'center',
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      <div style={{ fontSize: '64px', marginBottom: '1rem' }}>🎅</div>
+      <h1 style={{ marginBottom: '0.5rem', color: '#D32F2F' }}>404 - Page Not Found</h1>
+      <p style={{ marginBottom: '2rem', color: '#616161' }}>
+        Santa couldn't find this page!
+      </p>
+      <a 
+        href="/dashboard"
+        style={{
+          padding: '0.75rem 1.5rem',
+          background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
+          color: 'white',
+          textDecoration: 'none',
+          borderRadius: '12px',
+          fontWeight: 600,
+        }}
+      >
+        Go to Dashboard
+      </a>
+    </div>
+  );
+}
+
+export default App;
