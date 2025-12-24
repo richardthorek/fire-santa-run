@@ -643,3 +643,950 @@ Admin/Setup Routes:
 5. **Single brigade vs multi-brigade first?**
    - Recommendation: Build multi-brigade from start (easier than retrofitting)
 
+---
+
+## 21. GitHub Copilot Agent Integration & Development Setup
+
+### Overview
+This section provides comprehensive instructions for GitHub Copilot development agents to fully test, develop, and deploy the application with all required cloud resources and secrets properly configured.
+
+### Required GitHub Secrets
+
+The following secrets must be configured in the GitHub repository Settings > Secrets and variables > Actions:
+
+#### Mapbox Configuration
+- **`VITE_MAPBOX_TOKEN`** (Required)
+  - **Description:** Mapbox GL JS public access token for map rendering
+  - **How to obtain:**
+    1. Sign up at https://account.mapbox.com/
+    2. Navigate to Access Tokens
+    3. Create a new token with `styles:read` and `fonts:read` scopes
+    4. Copy the token (starts with `pk.`)
+  - **Example value:** `pk.eyJ1IjoieW91cnVzZXJuYW1lIiwiYSI6ImNsZXhhbXBsZSJ9.example_token`
+
+#### Azure Storage Configuration
+- **`AZURE_STORAGE_CONNECTION_STRING`** (Required for production)
+  - **Description:** Connection string for Azure Table Storage to persist routes and brigade data
+  - **Format:** `DefaultEndpointsProtocol=https;AccountName=<account>;AccountKey=<key>;EndpointSuffix=core.windows.net`
+
+- **`AZURE_STORAGE_ACCOUNT_NAME`** (Required for production)
+  - **Description:** Azure Storage account name
+  - **Example:** `santaruns` or `firesantarun`
+
+- **`AZURE_STORAGE_ACCOUNT_KEY`** (Required for production)
+  - **Description:** Azure Storage account access key (Primary or Secondary)
+  - **How to obtain:** See Azure Storage setup instructions below
+
+#### Real-time Service Configuration (Choose One)
+- **`PUSHER_APP_ID`**, **`PUSHER_KEY`**, **`PUSHER_SECRET`**, **`PUSHER_CLUSTER`**
+  - **Description:** Pusher credentials for WebSocket real-time tracking
+  - **How to obtain:** Sign up at https://pusher.com/ and create a new app
+
+OR
+
+- **`FIREBASE_API_KEY`**, **`FIREBASE_PROJECT_ID`**, **`FIREBASE_APP_ID`**
+  - **Description:** Firebase credentials for Realtime Database
+  - **How to obtain:** Create project at https://console.firebase.google.com/
+
+OR
+
+- **`SUPABASE_URL`**, **`SUPABASE_ANON_KEY`**
+  - **Description:** Supabase credentials for real-time functionality
+  - **How to obtain:** Create project at https://supabase.com/dashboard
+
+#### Deployment Configuration
+- **`VERCEL_TOKEN`** (If using Vercel deployment)
+  - **Description:** Vercel deployment token for CI/CD
+  - **How to obtain:** Vercel Account Settings > Tokens
+
+- **`NETLIFY_AUTH_TOKEN`** (If using Netlify deployment)
+  - **Description:** Netlify deployment token for CI/CD
+  - **How to obtain:** Netlify User Settings > Applications > Personal Access Tokens
+
+### Environment Variables File Structure
+
+Create a `.env.example` file in the repository root:
+
+```bash
+# Mapbox Configuration (Required)
+VITE_MAPBOX_TOKEN=pk.your_mapbox_token_here
+
+# Azure Storage Configuration (Production)
+VITE_AZURE_STORAGE_CONNECTION_STRING=your_connection_string_here
+VITE_AZURE_STORAGE_ACCOUNT_NAME=your_account_name
+
+# Real-time Service - Choose ONE of the following:
+
+# Option 1: Pusher
+VITE_PUSHER_KEY=your_pusher_key
+VITE_PUSHER_CLUSTER=your_cluster
+
+# Option 2: Firebase
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_APP_ID=your_app_id
+
+# Option 3: Supabase
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key
+
+# Application Configuration
+VITE_APP_NAME="Fire Santa Run"
+VITE_APP_URL=https://your-domain.com
+```
+
+Create a `.env.local` file for local development (add to `.gitignore`):
+```bash
+# Copy .env.example to .env.local and fill in your actual values
+# This file should NEVER be committed to git
+```
+
+---
+
+## 22. Azure Storage Setup Instructions
+
+### Prerequisites
+- Azure account (free tier available: https://azure.microsoft.com/free/)
+- Azure CLI installed (optional but recommended)
+
+### Step 1: Create Azure Storage Account
+
+#### Option A: Using Azure Portal (Web UI)
+
+1. **Navigate to Azure Portal**
+   - Go to https://portal.azure.com/
+   - Sign in with your Microsoft account
+
+2. **Create Storage Account**
+   - Click "Create a resource"
+   - Search for "Storage account"
+   - Click "Create"
+
+3. **Configure Storage Account**
+   - **Subscription:** Select your subscription
+   - **Resource Group:** Create new or select existing (e.g., `rg-santa-run`)
+   - **Storage account name:** Enter unique name (e.g., `santarunsstorage`)
+     - Must be 3-24 characters, lowercase letters and numbers only
+     - Must be globally unique across all Azure
+   - **Region:** Select closest to your users (e.g., `Australia East`, `Australia Southeast`)
+   - **Performance:** Standard (sufficient for this application)
+   - **Redundancy:** LRS (Locally-redundant storage) for development, GRS for production
+   - Click "Review + Create" then "Create"
+
+4. **Get Connection String**
+   - Navigate to your storage account
+   - Go to "Access keys" under Security + networking
+   - Copy "Connection string" from Key1 or Key2
+   - This is your `AZURE_STORAGE_CONNECTION_STRING`
+
+#### Option B: Using Azure CLI
+
+```bash
+# Login to Azure
+az login
+
+# Set variables
+RESOURCE_GROUP="rg-santa-run"
+STORAGE_ACCOUNT="santarunsstorage"
+LOCATION="australiaeast"
+
+# Create resource group
+az group create --name $RESOURCE_GROUP --location $LOCATION
+
+# Create storage account
+az storage account create \
+  --name $STORAGE_ACCOUNT \
+  --resource-group $RESOURCE_GROUP \
+  --location $LOCATION \
+  --sku Standard_LRS \
+  --kind StorageV2
+
+# Get connection string
+az storage account show-connection-string \
+  --name $STORAGE_ACCOUNT \
+  --resource-group $RESOURCE_GROUP \
+  --query connectionString \
+  --output tsv
+
+# Get account key
+az storage account keys list \
+  --account-name $STORAGE_ACCOUNT \
+  --resource-group $RESOURCE_GROUP \
+  --query "[0].value" \
+  --output tsv
+```
+
+### Step 2: Create Required Tables
+
+The application requires the following Azure Table Storage tables:
+
+1. **`brigades`** - Stores brigade information and credentials
+   - Partition Key: `brigade_id`
+   - Row Key: `metadata`
+   - Columns: name, slug, passwordHash, location, logo, themeColor, contact, createdAt
+
+2. **`routes`** - Stores all Santa run routes
+   - Partition Key: `brigade_id`
+   - Row Key: `route_id`
+   - Columns: name, description, date, startTime, status, waypoints (JSON), shareableLink, qrCodeUrl, createdAt, publishedAt, startedAt, completedAt
+
+3. **`waypoints`** - Stores individual waypoints (optional, can be embedded in routes)
+   - Partition Key: `route_id`
+   - Row Key: `waypoint_id`
+   - Columns: order, coordinates (JSON), address, name, estimatedArrival, actualArrival, isCompleted
+
+4. **`tracking_sessions`** - Stores active tracking sessions
+   - Partition Key: `route_id`
+   - Row Key: `session_id`
+   - Columns: brigadeId, startedAt, isActive, lastUpdate, currentLocation (JSON)
+
+#### Create Tables via Azure Portal
+1. Navigate to your Storage Account
+2. Go to "Storage browser" > "Tables"
+3. Click "+ Table"
+4. Enter table name (e.g., `brigades`)
+5. Repeat for all required tables
+
+#### Create Tables via Azure CLI
+```bash
+STORAGE_ACCOUNT="santarunsstorage"
+CONNECTION_STRING="your_connection_string_here"
+
+# Create tables
+az storage table create --name brigades --connection-string "$CONNECTION_STRING"
+az storage table create --name routes --connection-string "$CONNECTION_STRING"
+az storage table create --name waypoints --connection-string "$CONNECTION_STRING"
+az storage table create --name trackingsessions --connection-string "$CONNECTION_STRING"
+```
+
+### Step 3: Configure CORS for Azure Storage
+
+To allow the web application to access Azure Storage from the browser:
+
+#### Via Azure Portal
+1. Navigate to Storage Account > Settings > Resource sharing (CORS)
+2. Select "Table service"
+3. Add CORS rule:
+   - **Allowed origins:** `https://your-domain.com` (or `*` for development)
+   - **Allowed methods:** GET, POST, PUT, DELETE, OPTIONS
+   - **Allowed headers:** `*`
+   - **Exposed headers:** `*`
+   - **Max age:** 3600
+4. Click "Save"
+
+#### Via Azure CLI
+```bash
+az storage cors add \
+  --services t \
+  --methods GET POST PUT DELETE OPTIONS \
+  --origins "https://your-domain.com" \
+  --allowed-headers "*" \
+  --exposed-headers "*" \
+  --max-age 3600 \
+  --account-name $STORAGE_ACCOUNT
+```
+
+### Step 4: Set Up Shared Access Signature (SAS) (Optional)
+
+For enhanced security, use SAS tokens instead of connection strings:
+
+```bash
+# Generate SAS token for table service
+az storage account generate-sas \
+  --account-name $STORAGE_ACCOUNT \
+  --services t \
+  --resource-types sco \
+  --permissions rwdlacu \
+  --expiry 2025-12-31T23:59:59Z \
+  --https-only \
+  --output tsv
+```
+
+### Step 5: Verify Setup
+
+Test connection using Azure Storage Explorer or code:
+
+```typescript
+// Test connection in TypeScript
+import { TableClient } from "@azure/data-tables";
+
+const connectionString = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
+const tableName = "brigades";
+
+const tableClient = TableClient.fromConnectionString(connectionString, tableName);
+
+// Test: List all brigades
+const entities = tableClient.listEntities();
+for await (const entity of entities) {
+  console.log(entity);
+}
+```
+
+---
+
+## 23. Storage Layer Architecture
+
+### Data Persistence Strategy
+
+The application supports a **hybrid storage approach**:
+
+#### Development Mode (Default)
+- **LocalStorage** for all data persistence
+- No Azure Storage required
+- Perfect for testing, demos, and development
+- Data isolated to browser
+- Easy to reset and test
+
+#### Production Mode
+- **Azure Table Storage** for persistent, multi-device data
+- **LocalStorage** as cache/offline fallback
+- Automatic sync when online
+- Brigade data persists across devices
+- Routes accessible from multiple operator devices
+
+### Storage Adapter Pattern
+
+Implement a storage adapter to switch between localStorage and Azure:
+
+```typescript
+// src/storage/StorageAdapter.ts
+export interface IStorageAdapter {
+  saveBrigade(brigade: Brigade): Promise<void>;
+  getBrigade(brigadeId: string): Promise<Brigade | null>;
+  saveRoute(route: Route): Promise<void>;
+  getRoute(routeId: string): Promise<Route | null>;
+  getRoutesByBrigade(brigadeId: string): Promise<Route[]>;
+  deleteRoute(routeId: string): Promise<void>;
+  saveTrackingSession(session: TrackingSession): Promise<void>;
+  getActiveTrackingSessions(): Promise<TrackingSession[]>;
+}
+
+// src/storage/LocalStorageAdapter.ts
+export class LocalStorageAdapter implements IStorageAdapter {
+  // Implementation using localStorage
+}
+
+// src/storage/AzureTableStorageAdapter.ts
+export class AzureTableStorageAdapter implements IStorageAdapter {
+  // Implementation using @azure/data-tables
+}
+
+// src/storage/index.ts
+export const storageAdapter: IStorageAdapter = 
+  import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING
+    ? new AzureTableStorageAdapter()
+    : new LocalStorageAdapter();
+```
+
+### Azure Table Storage Schema Design
+
+#### Brigades Table
+```typescript
+interface BrigadeEntity {
+  partitionKey: string;  // brigade_id
+  rowKey: string;        // "metadata"
+  name: string;
+  slug: string;
+  passwordHash: string;
+  location: string;
+  logo?: string;
+  themeColor?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactWebsite?: string;
+  createdAt: string;
+  timestamp: Date;       // Azure-managed
+  etag: string;          // Azure-managed for optimistic concurrency
+}
+```
+
+#### Routes Table
+```typescript
+interface RouteEntity {
+  partitionKey: string;  // brigade_id (enables efficient brigade queries)
+  rowKey: string;        // route_id
+  name: string;
+  description?: string;
+  date: string;
+  startTime: string;
+  endTime?: string;
+  status: string;        // 'draft' | 'published' | 'active' | 'completed'
+  waypoints: string;     // JSON serialized Waypoint[]
+  estimatedDuration?: number;
+  actualDuration?: number;
+  shareableLink: string;
+  qrCodeUrl?: string;
+  viewCount: number;
+  createdAt: string;
+  publishedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  timestamp: Date;
+  etag: string;
+}
+```
+
+### Migration from localStorage to Azure
+
+Provide an export/import utility for brigades to migrate data:
+
+```typescript
+// src/utils/migration.ts
+export async function migrateToAzure() {
+  const localRoutes = getLocalStorageRoutes();
+  const azureAdapter = new AzureTableStorageAdapter();
+  
+  for (const route of localRoutes) {
+    await azureAdapter.saveRoute(route);
+  }
+  
+  console.log(`Migrated ${localRoutes.length} routes to Azure`);
+}
+```
+
+---
+
+## 24. GitHub Actions Workflows
+
+### Required Workflows
+
+Create `.github/workflows/` directory with the following workflow files:
+
+#### 1. CI/CD Pipeline (`.github/workflows/deploy.yml`)
+
+```yaml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Lint
+        run: npm run lint
+      
+      - name: Type check
+        run: npm run build
+      
+      - name: Run tests
+        run: npm test
+        if: always()
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build
+        env:
+          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
+          VITE_AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          VITE_AZURE_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
+          VITE_PUSHER_KEY: ${{ secrets.PUSHER_KEY }}
+          VITE_PUSHER_CLUSTER: ${{ secrets.PUSHER_CLUSTER }}
+        run: npm run build
+      
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        if: success()
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+```
+
+#### 2. Dependency Security Scan (`.github/workflows/security.yml`)
+
+```yaml
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  schedule:
+    - cron: '0 0 * * 0' # Weekly on Sunday
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+      
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+        continue-on-error: true
+```
+
+#### 3. Preview Deployments (`.github/workflows/preview.yml`)
+
+```yaml
+name: Deploy Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build
+        env:
+          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
+        run: npm run build
+      
+      - name: Deploy Preview to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          github-comment: true
+```
+
+---
+
+## 25. Copilot Agent Instructions
+
+### Agent Setup File
+
+Create `.github/copilot-instructions.md`:
+
+```markdown
+# GitHub Copilot Agent Instructions for Fire Santa Run
+
+## Project Overview
+React + TypeScript web application for Australian Rural Fire Service brigades to plan and track Santa runs with real-time GPS tracking.
+
+## Key Technologies
+- React 19 + TypeScript
+- Vite build system
+- Mapbox GL JS for mapping
+- Azure Table Storage for data persistence
+- Socket.io / Pusher for real-time tracking
+- React Router for navigation
+
+## Development Environment Setup
+
+### Prerequisites Check
+Before making changes, verify all required secrets are configured:
+- `VITE_MAPBOX_TOKEN` - Required for all map functionality
+- `AZURE_STORAGE_CONNECTION_STRING` - Required for production data persistence
+- Real-time service credentials (Pusher, Firebase, or Supabase)
+
+### Local Development
+1. Clone repository
+2. Copy `.env.example` to `.env.local`
+3. Fill in required environment variables
+4. Run `npm install`
+5. Run `npm run dev`
+6. Access at `http://localhost:5173`
+
+## Architecture Guidelines
+
+### Storage Layer
+- Always use `storageAdapter` interface, never directly access localStorage or Azure
+- Support both localStorage (dev) and Azure Table Storage (prod)
+- Implement offline-first with sync when online
+
+### Authentication
+- Brigade-specific password-based auth (client-side only)
+- Hash passwords using Web Crypto API (SHA-256)
+- Store session tokens in sessionStorage (not localStorage)
+- Never commit credentials or hardcode secrets
+
+### Route Management
+- Routes belong to brigades (multi-tenancy)
+- Route IDs must be globally unique
+- Support draft, published, active, completed, archived states
+- Generate QR codes using qrcode.react library
+
+### Real-time Tracking
+- Use WebSocket for production (Pusher/Firebase/Supabase)
+- BroadcastChannel API for local multi-tab testing
+- Graceful degradation if WebSocket unavailable
+- Throttle location updates (max 1 per 5 seconds)
+
+## Code Style
+- Use TypeScript strict mode
+- Functional components with hooks (no class components)
+- Named exports for components
+- Comprehensive JSDoc comments for utilities
+- Mobile-first responsive design
+
+## Testing Approach
+- Test with mock Mapbox token for CI
+- Use in-memory storage adapter for tests
+- Mock WebSocket connections
+- Test across mobile and desktop viewports
+
+## Common Tasks
+
+### Adding New Route Fields
+1. Update `Route` interface in `src/types/index.ts`
+2. Update both storage adapters (localStorage and Azure)
+3. Update route form components
+4. Update route display components
+5. Run type check: `npm run build`
+
+### Adding New Brigade Settings
+1. Update `Brigade` interface in `src/types/index.ts`
+2. Update brigade setup flow
+3. Update storage adapters
+4. Test with fresh localStorage and Azure table
+
+### Deploying Changes
+1. Ensure all tests pass: `npm test`
+2. Ensure lint passes: `npm run lint`
+3. Build successfully: `npm run build`
+4. Commit changes to feature branch
+5. Create PR (preview deployment automatic)
+6. Merge to main (production deployment automatic)
+
+## Troubleshooting
+
+### Mapbox Not Loading
+- Check `VITE_MAPBOX_TOKEN` is set correctly
+- Verify token has correct scopes in Mapbox dashboard
+- Check browser console for CORS errors
+
+### Azure Storage Connection Fails
+- Verify connection string format is correct
+- Check CORS settings allow your domain
+- Ensure tables exist in storage account
+- Check Azure Storage firewall rules
+
+### Real-time Tracking Not Working
+- Verify WebSocket service credentials
+- Check network tab for WebSocket connection
+- Ensure location permissions granted in browser
+- Check firewall/proxy doesn't block WebSocket
+
+## Security Checklist
+- [ ] No secrets in code or git history
+- [ ] All user inputs sanitized
+- [ ] Passwords properly hashed
+- [ ] HTTPS enforced in production
+- [ ] CORS properly configured
+- [ ] CSP headers configured
+- [ ] Dependencies regularly updated
+
+## Performance Targets
+- First Contentful Paint < 1.5s
+- Time to Interactive < 3.5s
+- Lighthouse Performance Score > 90
+- Bundle size < 500KB (gzipped)
+
+## Accessibility Requirements
+- WCAG 2.1 AA compliance
+- Keyboard navigation support
+- Screen reader compatibility
+- High contrast mode support
+- Touch targets minimum 44x44px
+
+## Resources
+- Mapbox GL JS Docs: https://docs.mapbox.com/mapbox-gl-js/
+- Azure Table Storage SDK: https://learn.microsoft.com/en-us/javascript/api/@azure/data-tables/
+- React Router v6 Docs: https://reactrouter.com/
+- TypeScript Handbook: https://www.typescriptlang.org/docs/
+```
+
+---
+
+## 26. Testing Guide for GitHub Copilot Agents
+
+### Automated Testing Setup
+
+#### Install Testing Dependencies
+```bash
+npm install -D vitest @testing-library/react @testing-library/jest-dom @testing-library/user-event jsdom
+```
+
+#### Configure Vitest (`vitest.config.ts`)
+```typescript
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: ['node_modules/', 'src/test/'],
+    },
+  },
+});
+```
+
+#### Test Setup File (`src/test/setup.ts`)
+```typescript
+import '@testing-library/jest-dom';
+import { vi } from 'vitest';
+
+// Mock Mapbox GL
+vi.mock('mapbox-gl', () => ({
+  Map: vi.fn(),
+  NavigationControl: vi.fn(),
+  Marker: vi.fn(),
+  Popup: vi.fn(),
+}));
+
+// Mock environment variables
+process.env.VITE_MAPBOX_TOKEN = 'pk.test.token';
+```
+
+### Test Categories
+
+#### 1. Storage Adapter Tests (`src/storage/__tests__/`)
+- Test localStorage adapter CRUD operations
+- Test Azure adapter CRUD operations
+- Test adapter switching logic
+- Test error handling and retries
+
+#### 2. Route Management Tests (`src/utils/__tests__/`)
+- Test route creation
+- Test waypoint management
+- Test route status transitions
+- Test link generation
+
+#### 3. Authentication Tests (`src/utils/__tests__/`)
+- Test password hashing
+- Test login flow
+- Test session management
+- Test brigade isolation
+
+#### 4. Component Tests (`src/components/__tests__/`)
+- Test map rendering (mocked)
+- Test route form validation
+- Test QR code generation
+- Test tracking display
+
+### Manual Testing Checklist
+
+#### For Copilot Agents - Pre-Commit Verification
+1. [ ] App builds without errors (`npm run build`)
+2. [ ] No TypeScript errors (`npm run build`)
+3. [ ] Linter passes (`npm run lint`)
+4. [ ] All tests pass (`npm test`)
+5. [ ] App runs locally (`npm run dev`)
+6. [ ] Can create a brigade
+7. [ ] Can create a route with waypoints
+8. [ ] Can generate QR code
+9. [ ] Can view tracking page
+10. [ ] Mobile responsive (test at 375px width)
+
+#### Integration Testing with Real Services
+1. [ ] Mapbox maps load correctly with real token
+2. [ ] Azure Table Storage operations work
+3. [ ] WebSocket connection establishes
+4. [ ] Location updates transmit and display
+5. [ ] QR codes scan correctly on mobile devices
+6. [ ] Social media previews display correctly
+
+### CI/CD Testing
+
+The GitHub Actions workflows will automatically run:
+- Linting on every PR
+- Type checking on every PR
+- Unit tests on every PR
+- Build verification on every PR
+- Security scanning weekly
+- Preview deployments for PRs
+- Production deployment on main branch merge
+
+---
+
+## 27. Secrets Management Best Practices
+
+### Secret Storage Hierarchy
+
+1. **Development (Local):**
+   - `.env.local` file (gitignored)
+   - Never committed to repository
+   - Each developer maintains their own
+
+2. **CI/CD (GitHub Actions):**
+   - GitHub Repository Secrets
+   - Encrypted at rest by GitHub
+   - Only accessible during workflow runs
+   - Masked in logs
+
+3. **Production (Hosting):**
+   - Vercel Environment Variables
+   - Netlify Environment Variables
+   - Azure App Configuration
+   - Separate production/staging/preview environments
+
+### Secret Rotation Policy
+
+- **Mapbox Tokens:** Rotate annually or if compromised
+- **Azure Storage Keys:** Rotate quarterly (use Azure Key Vault for automated rotation)
+- **WebSocket Service Keys:** Rotate semi-annually
+- **Deployment Tokens:** Rotate when team members leave
+
+### Emergency Secret Revocation
+
+If a secret is accidentally committed:
+1. Immediately rotate the secret in the source service
+2. Update GitHub secrets
+3. Update deployment environment variables
+4. Use `git filter-repo` or BFG to remove from history
+5. Force push to remote (document the incident)
+
+### Secret Validation
+
+Add a pre-deployment validation script:
+
+```typescript
+// scripts/validate-secrets.ts
+const requiredSecrets = [
+  'VITE_MAPBOX_TOKEN',
+  'VITE_AZURE_STORAGE_CONNECTION_STRING',
+];
+
+const missingSecrets = requiredSecrets.filter(
+  key => !process.env[key]
+);
+
+if (missingSecrets.length > 0) {
+  console.error('Missing required secrets:', missingSecrets);
+  process.exit(1);
+}
+
+console.log('All required secrets are configured ✓');
+```
+
+Run in CI: `ts-node scripts/validate-secrets.ts`
+
+---
+
+## 28. Cost Management & Resource Planning
+
+### Azure Storage Costs (Estimated)
+
+**Table Storage Pricing (Australia East, as of 2024):**
+- Storage: $0.07 AUD per GB/month
+- Transactions: $0.005 AUD per 10,000 transactions
+
+**Estimated Monthly Costs:**
+- 10 brigades, 50 routes each, 20 waypoints per route
+- Storage: ~10 MB = $0.001 AUD/month
+- Transactions: ~100,000 = $0.05 AUD/month
+- **Total: ~$0.05 AUD/month**
+
+**At Scale (100 brigades):**
+- Storage: ~100 MB = $0.007 AUD/month
+- Transactions: ~1,000,000 = $0.50 AUD/month
+- **Total: ~$0.51 AUD/month**
+
+### Real-time Service Costs
+
+**Pusher:**
+- Free tier: 200 max connections, 200k messages/day
+- Pro: $49 USD/month for 500 connections
+- **Recommendation:** Start with free tier
+
+**Firebase:**
+- Free tier: 50k simultaneous connections, 10 GB/month downloads
+- Pay-as-you-go: Very generous free tier
+- **Recommendation:** Firebase for better free tier
+
+**Supabase:**
+- Free tier: Unlimited API requests, 2 GB database, 50 MB file storage
+- Pro: $25 USD/month
+- **Recommendation:** Best value for open-source option
+
+### Hosting Costs
+
+**Vercel:**
+- Hobby: Free (personal projects)
+- Pro: $20 USD/month per member
+- **Recommendation:** Start with Hobby tier
+
+**Netlify:**
+- Starter: Free (100 GB bandwidth)
+- Pro: $19 USD/month (400 GB bandwidth)
+- **Recommendation:** Start with Starter tier
+
+### Total Monthly Cost Estimate
+
+**Minimal Setup (Free Tier):**
+- Hosting: $0 (Vercel/Netlify free tier)
+- Azure Storage: $0.05 AUD
+- Real-time: $0 (Firebase free tier)
+- **Total: ~$0.05 AUD/month**
+
+**Production Setup (Paid Tiers):**
+- Hosting: $20 USD (Vercel Pro)
+- Azure Storage: $0.51 AUD
+- Real-time: $49 USD (Pusher Pro) or $0 (Firebase free tier)
+- **Total: ~$69 USD/month with Pusher, or $20 USD/month with Firebase**
+
+---
+
+## Summary for GitHub Copilot Agents
+
+To make this application fully testable and deployable:
+
+1. **Set up GitHub Secrets** (Section 21) - Configure all required tokens and keys
+2. **Create Azure Storage** (Section 22) - Follow step-by-step Azure setup
+3. **Implement Storage Adapters** (Section 23) - Build abstraction layer for localStorage/Azure
+4. **Configure GitHub Actions** (Section 24) - Set up CI/CD pipelines
+5. **Follow Copilot Instructions** (Section 25) - Use as reference for all development
+6. **Run Tests** (Section 26) - Validate all changes before committing
+7. **Manage Secrets Properly** (Section 27) - Never commit secrets, rotate regularly
+8. **Monitor Costs** (Section 28) - Stay within budget using free tiers initially
+
