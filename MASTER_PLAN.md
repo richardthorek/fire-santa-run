@@ -1,7 +1,7 @@
 # Fire Santa Run - Comprehensive Master Plan
 
 ## Executive Summary
-A web application for Australian Rural Fire Service (RFS) brigades to plan, publish, and track Santa runs. Each brigade gets authenticated access to create multiple routes over time, generate shareable links with QR codes, and enable real-time public tracking.
+A web application for Australian Rural Fire Service (RFS) brigades to plan, publish, and track Santa runs. Each brigade gets authenticated access via Microsoft Entra External ID to create multiple routes over time, generate shareable links with QR codes, and enable real-time public tracking. The application runs on Azure Static Web Apps with Azure Table Storage for persistence and Azure Web PubSub for real-time communication. Brigade operators receive turn-by-turn navigation powered by Mapbox Directions API while broadcasting their location as "Santa" to the public.
 
 ---
 
@@ -22,24 +22,51 @@ A web application for Australian Rural Fire Service (RFS) brigades to plan, publ
 ---
 
 ### 2. Authentication & Authorization
+
 **Requirements:**
-- Simple password-based authentication per brigade
-- No complex user management (keep it simple)
-- Session persistence
-- Logout functionality
+- Enterprise-grade authentication using Microsoft Entra External ID
+- Domain whitelisting for brigade member verification
+- Support for multiple email domains per brigade
+- Role-based access control (admin, operator, viewer)
+- Session persistence across devices
+- Secure logout functionality
 
 **Technical Approach:**
-- Basic auth: brigade slug + password
-- Stored as hashed credentials in local config
-- Session token in sessionStorage
-- Protected routes using React Router
-- Public routes don't require auth (tracking pages)
+- **Microsoft Entra External ID (Azure AD B2C successor)** for authentication
+- Email domain validation against brigade whitelist
+  - Example: Only users with `@griffithrfs.org.au` or `@rfs.nsw.gov.au` can access Griffith RFS brigade
+- OAuth 2.0 / OpenID Connect flows
+- JWT tokens for API authentication
+- Role claims in tokens for authorization
+- Brigade assignment based on email domain or manual approval
+
+**Domain Whitelisting Strategy:**
+```typescript
+interface BrigadeAuth {
+  brigadeId: string;
+  allowedDomains: string[]; // ['@rfs.nsw.gov.au', '@griffithrfs.org.au']
+  allowedEmails: string[];  // Specific email addresses if not domain-based
+  requireApproval: boolean; // Manual admin approval for new users
+}
+```
+
+**Authentication Flow:**
+1. User clicks "Login" → Redirects to Entra External ID
+2. User authenticates with social or email provider
+3. Token returned with email claim
+4. App checks email against brigade whitelists
+5. If match found, grant access to that brigade
+6. If no match, show "Request Access" form for admin approval
+7. Session stored in browser with refresh token
 
 **Security Considerations:**
-- Client-side only (static hosting)
-- Brigade passwords hashed with crypto API
-- Clear instructions about security limitations
-- Recommendation for strong passwords
+- Enterprise-grade security with Entra External ID
+- Multi-factor authentication support (MFA)
+- Conditional access policies
+- Token expiration and refresh
+- Audit logging of authentication events
+- HTTPS enforced
+- CORS properly configured for Azure Static Web Apps
 
 ---
 
@@ -58,18 +85,141 @@ A web application for Australian Rural Fire Service (RFS) brigades to plan, publ
 - Publish routes to generate tracking link
 
 **Technical Approach:**
-- Mapbox GL JS with Draw plugin
-- Click-to-add waypoints on map
-- Geocoding API for address lookup (optional)
+- Mapbox GL JS with Draw plugin for manual waypoint placement
+- **Mapbox Directions API** for route optimization and navigation
+- Click-to-add waypoints on map, then optimize with Directions API
+- Geocoding API for address lookup and search
+- Store both waypoints and optimized route geometry
 - Route polyline rendering between waypoints
-- Route list with status (draft/published/completed)
+- Route list with status (draft/published/active/completed)
 - Edit mode for existing routes
+
+**Route Creation Workflow:**
+1. User clicks on map to add waypoints manually
+2. User can search for addresses to add waypoints
+3. System calls Mapbox Directions API to generate optimized route
+4. Display optimized route polyline with turn-by-turn instructions
+5. User can review/adjust waypoints
+6. Save route with both waypoints and navigation data
+
+**Data Storage:**
+```typescript
+interface Route {
+  waypoints: Waypoint[];          // User-defined stops
+  geometry: GeoJSON.LineString;   // Mapbox Directions route geometry
+  steps: NavigationStep[];        // Turn-by-turn instructions
+  distance: number;               // Total distance in meters
+  duration: number;               // Estimated duration in seconds
+}
+
+interface NavigationStep {
+  instruction: string;            // "Turn left onto Main St"
+  distance: number;               // Distance to next step
+  duration: number;               // Time to next step
+  geometry: GeoJSON.LineString;   // Geometry for this step
+  maneuver: {
+    type: string;                 // "turn", "arrive", etc.
+    modifier?: string;            // "left", "right", "straight"
+    location: [number, number];   // [lng, lat]
+  };
+}
+```
 
 **UI Components:**
 - Map canvas (full screen or split view)
 - Sidebar with route details form
 - Waypoint list with drag-to-reorder
+- Route optimization button (calls Directions API)
+- Preview navigation instructions
 - Action buttons (Save, Publish, Delete)
+
+---
+
+### 3a. Turn-by-Turn Navigation for Brigade Operators
+
+**Requirements:**
+- Real-time navigation interface for drivers during Santa run
+- Voice-guided turn-by-turn directions
+- Current location tracking
+- Next waypoint/stop information
+- Rerouting if driver goes off course
+- ETA updates to next stop and end of route
+- Progress indicators
+- Ability to mark waypoints as "completed"
+
+**Technical Approach:**
+- **Mapbox Navigation SDK for Web** or custom implementation using Directions API
+- Geolocation API for continuous position tracking
+- Match driver's location to route geometry
+- Calculate bearing and distance to next maneuver
+- Trigger instruction updates based on proximity
+- Reroute using Directions API if significantly off course
+
+**Navigation Interface Components:**
+
+**Main Navigation View:**
+```typescript
+interface NavigationState {
+  currentPosition: [number, number];
+  currentStepIndex: number;
+  distanceToNextManeuver: number;  // meters
+  nextInstruction: string;         // "Turn left in 200m"
+  nextWaypointIndex: number;
+  distanceToNextWaypoint: number;
+  etaToNextWaypoint: string;       // "Arrives at 7:45 PM"
+  routeProgress: number;           // 0-100%
+}
+```
+
+**UI Features:**
+- **Top Banner:** Next instruction with distance ("Turn left in 200m onto Main St")
+- **Map View:** 
+  - Driver's location (animated Santa icon)
+  - Upcoming route highlighted
+  - Next waypoint emphasized
+  - Completed waypoints grayed out
+- **Bottom Panel:**
+  - Next waypoint name and ETA
+  - Distance remaining
+  - Current speed
+  - "Mark as Complete" button for current waypoint
+- **Voice Instructions:**
+  - Text-to-speech for turn warnings
+  - "In 200 meters, turn left"
+  - "Turn left now"
+  - "Arriving at [waypoint name]"
+
+**Navigation Logic:**
+1. When brigade starts route, switch to navigation mode
+2. Request location permissions
+3. Load route geometry and navigation steps
+4. Start location tracking (every 5 seconds or on movement)
+5. Match current location to nearest point on route
+6. Identify current navigation step
+7. Calculate distance to next maneuver
+8. Update UI with instructions
+9. When within 50m of maneuver, show alert
+10. When within 10m of maneuver, trigger voice instruction
+11. Advance to next step when maneuver passed
+12. When within 100m of waypoint, enable "Mark Complete" button
+13. Update ETA based on current speed and remaining distance
+14. Broadcast current location to public tracking page via Azure Web PubSub
+15. If >100m off route, offer reroute option
+
+**Rerouting:**
+- Detect when driver is >100m off planned route
+- Show banner: "You're off route. Reroute?"
+- If user accepts, call Mapbox Directions API from current location to next unvisited waypoint
+- Update route geometry and steps
+- Continue navigation with new route
+
+**Mobile Optimization:**
+- Portrait mode optimized layout
+- Large, touch-friendly buttons
+- High contrast for outdoor visibility
+- Prevent screen sleep during navigation
+- Background location tracking
+- Lock screen controls for audio instructions
 
 ---
 
@@ -118,6 +268,7 @@ A web application for Australian Rural Fire Service (RFS) brigades to plan, publ
 ---
 
 ### 6. Real-Time Tracking System
+
 **Requirements:**
 - Public tracking page (no auth required)
 - Live location updates from brigade device
@@ -129,53 +280,306 @@ A web application for Australian Rural Fire Service (RFS) brigades to plan, publ
 - "Santa is on the way!" messaging
 
 **Technical Approach:**
-- WebSocket connection for real-time updates
-- Brigade device broadcasts GPS location
-- Public page receives location updates
+- **Azure Web PubSub** for real-time bidirectional communication
+- Brigade device broadcasts GPS location to Web PubSub hub
+- Public tracking pages subscribe to route-specific groups
 - Smooth marker animation between updates
-- Fallback to polling if WebSocket unavailable
-- Mock WebSocket server for demo/testing
+- Server-less architecture using Static Web Apps with API functions
+- Connection string management via Azure Key Vault
+
+**Azure Web PubSub Architecture:**
+```
+Brigade Operator (Navigator) 
+    ↓ [Publishes GPS location]
+Azure Web PubSub Hub (route_{routeId} group)
+    ↓ [Broadcasts to subscribers]
+Public Viewers (Tracking Page)
+```
+
+**Implementation:**
+```typescript
+// Web PubSub configuration
+interface WebPubSubConfig {
+  endpoint: string;  // From Azure Portal
+  hubName: string;   // 'santa-tracking'
+  group: string;     // 'route_{routeId}'
+}
+
+// Location broadcast message
+interface LocationBroadcast {
+  routeId: string;
+  location: [number, number];
+  timestamp: number;
+  heading?: number;
+  speed?: number;
+  currentWaypointIndex: number;
+  nextWaypointEta?: string;
+}
+```
+
+**Connection Flow:**
+1. Public viewer opens tracking page `/track/{routeId}`
+2. Static Web App API function generates Web PubSub connection token
+3. Client establishes WebSocket connection to Azure Web PubSub
+4. Client joins group `route_{routeId}`
+5. Brigade operator starts navigation, begins broadcasting
+6. Operator's location sent to Web PubSub every 5 seconds
+7. Web PubSub broadcasts to all group members
+8. Viewers' maps update with new Santa position
 
 **Location Broadcasting:**
-- Brigade operator keeps tracking page open
+- Brigade operator uses navigation interface
 - Geolocation API for GPS position
-- Manual "Start Route" button to begin broadcasting
-- Auto-broadcast every 5-10 seconds
-- "Pause" functionality for breaks
+- "Start Broadcast" button to begin location sharing
+- Auto-broadcast every 5 seconds when active
+- "Pause" functionality for breaks (stops broadcasting)
+- "End Route" stops broadcasting and completes route
+
+**API Functions (Serverless):**
+```typescript
+// /api/negotiate - Generate Web PubSub connection token
+export async function negotiate(context: Context) {
+  const routeId = context.req.query.routeId;
+  const service = new WebPubSubServiceClient(
+    process.env.WEBPUBSUB_CONNECTION_STRING,
+    'santa-tracking'
+  );
+  
+  const token = await service.getClientAccessToken({
+    groups: [`route_${routeId}`],
+    roles: ['webpubsub.sendToGroup', 'webpubsub.joinLeaveGroup']
+  });
+  
+  return { url: token.url };
+}
+
+// /api/broadcast - Receive location from operator, broadcast to group
+export async function broadcast(context: Context) {
+  const { routeId, location, timestamp } = context.req.body;
+  
+  // Verify operator is authenticated
+  // Store location in Azure Table Storage
+  // Broadcast via Web PubSub
+  
+  const service = new WebPubSubServiceClient(
+    process.env.WEBPUBSUB_CONNECTION_STRING,
+    'santa-tracking'
+  );
+  
+  await service.sendToGroup(`route_${routeId}`, {
+    location,
+    timestamp,
+    // ... other data
+  });
+  
+  return { status: 'success' };
+}
+```
 
 **UI Components:**
-- Full-screen map with Santa marker
+- Full-screen map with animated Santa marker
 - Route polyline and waypoints
-- Progress bar or waypoint checklist
-- ETA display
+- Progress bar showing completed waypoints
+- ETA display to next waypoint
+- "Santa is currently on [Street Name]" banner
+- Viewer count (optional)
+- Share buttons
+- Mobile-optimized controls
+
+---
+
+### 7. Azure Static Web Apps Architecture
+
+**Why Azure Static Web Apps?**
+- Serverless hosting for static content (HTML, CSS, JS)
+- Built-in API support using Azure Functions
+- Automatic SSL certificates
+- Global CDN distribution
+- GitHub Actions integration for CI/CD
+- Easy integration with Azure services
+- Free tier available (100 GB bandwidth/month)
+- Custom domain support
+- Preview environments for pull requests
+
+**Architecture Overview:**
+```
+┌─────────────────────────────────────────────┐
+│     Azure Static Web App                    │
+├─────────────────────────────────────────────┤
+│  Frontend (React + TypeScript)              │
+│  - Route planning interface                 │
+│  - Navigation interface                     │
+│  - Public tracking page                     │
+│  - Authentication flows                     │
+├─────────────────────────────────────────────┤
+│  API Functions (Serverless)                 │
+│  - /api/negotiate (Web PubSub tokens)       │
+│  - /api/broadcast (Location updates)        │
+│  - /api/routes/* (CRUD operations)          │
+│  - /api/auth/* (Entra ID helpers)           │
+└─────────────────────────────────────────────┘
+           ↓                    ↓
+    ┌──────────┐         ┌──────────────┐
+    │  Azure   │         │    Azure     │
+    │  Table   │         │  Web PubSub  │
+    │ Storage  │         │              │
+    └──────────┘         └──────────────┘
+           ↓
+    ┌──────────────┐
+    │ Entra        │
+    │ External ID  │
+    └──────────────┘
+```
+
+**Project Structure:**
+```
+fire-santa-run/
+├── src/                    # React frontend
+│   ├── components/
+│   ├── pages/
+│   ├── hooks/
+│   └── utils/
+├── api/                    # Azure Functions (API)
+│   ├── negotiate.ts        # Web PubSub token generation
+│   ├── broadcast.ts        # Location broadcasting
+│   ├── routes/            # Route CRUD operations
+│   │   ├── create.ts
+│   │   ├── get.ts
+│   │   ├── update.ts
+│   │   └── delete.ts
+│   └── auth/              # Authentication helpers
+│       └── validate.ts
+├── public/                 # Static assets
+├── staticwebapp.config.json  # Azure SWA configuration
+└── package.json
+```
+
+**Static Web App Configuration:**
+```json
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "/assets/*"]
+  },
+  "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/dashboard/*",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/track/*",
+      "allowedRoles": ["anonymous"]
+    }
+  ],
+  "mimeTypes": {
+    ".json": "application/json"
+  },
+  "globalHeaders": {
+    "content-security-policy": "default-src 'self' https:",
+    "x-frame-options": "DENY",
+    "x-content-type-options": "nosniff"
+  }
+}
+```
+
+**Deployment:**
+- Push to GitHub triggers Azure Static Web Apps deployment
+- Automatic build and deployment via GitHub Actions
+- Environment variables configured in Azure Portal
+- Custom domain mapping via Azure DNS or external DNS
+- SSL certificates automatically provisioned
+
+---
+
+### 8. WebSocket Architecture (Azure Web PubSub)
 - "Where's Santa?" header
 - Mobile-optimized controls
 
 ---
 
-### 7. WebSocket Architecture (Simplified)
+### 8. WebSocket Architecture (Azure Web PubSub)
+
 **Requirements:**
 - Real-time bidirectional communication
-- Scalable to multiple concurrent routes
+- Scalable to multiple concurrent routes (1000+ viewers per route)
 - Graceful degradation if connection fails
+- Azure-native solution for seamless integration
 
-**Technical Approach:**
-- **For Demo/Development:** Mock WebSocket using broadcast channels or local state
-- **For Production:** Recommend integration with services like:
-  - Pusher (managed WebSocket service)
-  - Ably
-  - Socket.io with backend server
-  - Firebase Realtime Database
-  - Supabase Realtime
+**Technical Approach: Azure Web PubSub**
 
-**Initial Implementation:**
-- Simulated WebSocket using React Context + localStorage
-- Same browser tabs can communicate via BroadcastChannel API
-- Instructions for production WebSocket setup
+**Why Azure Web PubSub?**
+- Fully managed WebSocket service
+- Native Azure integration with Static Web Apps
+- Supports standard WebSocket protocol
+- Built-in scaling (thousands of connections)
+- Group messaging for route-specific broadcasts
+- Connection lifecycle management
+- Free tier: 20 concurrent connections, 20K messages/day
+- Standard tier: 1,000 concurrent connections for $49/month
+
+**Setup Steps:**
+1. Create Azure Web PubSub resource in Azure Portal
+2. Get connection string from Azure Portal
+3. Configure in Static Web App settings
+4. Implement negotiate API function
+5. Client connects using generated token
+
+**Connection Management:**
+```typescript
+// Client-side connection
+import { WebPubSubClient } from '@azure/web-pubsub-client';
+
+class TrackingConnection {
+  private client: WebPubSubClient;
+  
+  async connect(routeId: string) {
+    // Get token from API
+    const response = await fetch(`/api/negotiate?routeId=${routeId}`);
+    const { url } = await response.json();
+    
+    // Connect to Web PubSub
+    this.client = new WebPubSubClient(url);
+    
+    // Join route-specific group
+    await this.client.start();
+    await this.client.joinGroup(`route_${routeId}`);
+    
+    // Listen for location updates
+    this.client.on('group-message', (message) => {
+      this.handleLocationUpdate(message.data);
+    });
+  }
+  
+  async broadcastLocation(location: LocationBroadcast) {
+    await this.client.sendToGroup(`route_${this.routeId}`, location);
+  }
+  
+  disconnect() {
+    this.client.stop();
+  }
+}
+```
+
+**Fallback Strategy:**
+- Primary: Azure Web PubSub WebSocket connection
+- Fallback 1: Long polling via API if WebSocket fails
+- Fallback 2: Client-side refresh every 10 seconds
+- Show connection status indicator to users
+
+**Cost Optimization:**
+- Use free tier for development/testing
+- Standard tier for production (1000 connections = $49/month)
+- Implement connection pooling
+- Auto-disconnect idle connections after 5 minutes
+- Use groups to reduce broadcast overhead
 
 ---
 
-### 8. Brigade Dashboard Features
+### 9. Brigade Dashboard Features
 
 #### Route Management:
 - List all routes (past, present, future)
@@ -201,7 +605,7 @@ A web application for Australian Rural Fire Service (RFS) brigades to plan, publ
 
 ---
 
-### 9. Public Tracking Page Features
+### 10. Public Tracking Page Features
 
 #### Before Route Starts:
 - Show planned route and waypoints
@@ -230,7 +634,7 @@ A web application for Australian Rural Fire Service (RFS) brigades to plan, publ
 
 ---
 
-### 10. Mobile Optimization
+### 11. Mobile Optimization
 **Requirements:**
 - Responsive design for all screen sizes
 - Touch-friendly map controls
@@ -246,7 +650,7 @@ A web application for Australian Rural Fire Service (RFS) brigades to plan, publ
 
 ---
 
-### 11. Data Model
+### 12. Data Model
 
 ```typescript
 interface Brigade {
@@ -254,15 +658,28 @@ interface Brigade {
   slug: string; // URL-friendly identifier
   name: string; // "Griffith Rural Fire Service"
   location: string; // "Griffith, NSW"
-  passwordHash: string;
   logo?: string; // URL or base64
   themeColor?: string;
+  allowedDomains: string[]; // ['@griffithrfs.org.au', '@rfs.nsw.gov.au']
+  allowedEmails: string[]; // Specific approved emails
+  requireApproval: boolean; // Manual approval for new members
   contact?: {
     email?: string;
     phone?: string;
     website?: string;
   };
   createdAt: string;
+}
+
+interface BrigadeMember {
+  id: string;
+  brigadeId: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'operator' | 'viewer';
+  entraUserId: string; // Microsoft Entra External ID user ID
+  approvedAt?: string;
+  approvedBy?: string;
 }
 
 interface Route {
@@ -275,9 +692,13 @@ interface Route {
   endTime?: string;
   status: 'draft' | 'published' | 'active' | 'completed' | 'archived';
   waypoints: Waypoint[];
-  estimatedDuration?: number; // minutes
+  geometry: GeoJSON.LineString; // Mapbox Directions API route
+  navigationSteps: NavigationStep[]; // Turn-by-turn instructions
+  distance: number; // Total distance in meters
+  estimatedDuration: number; // minutes
   actualDuration?: number; // minutes
   createdAt: string;
+  createdBy: string; // User email
   publishedAt?: string;
   startedAt?: string;
   completedAt?: string;
@@ -299,6 +720,18 @@ interface Waypoint {
   isCompleted: boolean;
 }
 
+interface NavigationStep {
+  instruction: string; // "Turn left onto Main St"
+  distance: number; // Distance to next step (meters)
+  duration: number; // Time to next step (seconds)
+  geometry: GeoJSON.LineString; // Geometry for this step
+  maneuver: {
+    type: string; // "turn", "arrive", "depart", etc.
+    modifier?: string; // "left", "right", "straight"
+    location: [number, number]; // [lng, lat]
+  };
+}
+
 interface LiveLocation {
   routeId: string;
   coordinates: [number, number];
@@ -307,177 +740,293 @@ interface LiveLocation {
   speed?: number; // km/h
   accuracy?: number; // meters
   currentWaypointIndex: number;
+  currentStepIndex?: number; // Current navigation step
+  distanceToNextManeuver?: number; // meters
 }
 
 interface TrackingSession {
   routeId: string;
   brigadeId: string;
+  operatorEmail: string;
   startedAt: number;
   isActive: boolean;
   lastUpdate: number;
+  isPaused: boolean;
+  pausedAt?: number;
 }
 ```
 
 ---
 
-### 12. Application Routes (URL Structure)
+### 13. Application Routes (URL Structure)
 
 ```
 Public Routes:
-/                           - Landing page (brigade selection or single brigade info)
+/                           - Landing page (brigade selection or info)
 /track/:routeId            - Public tracking page
 /brigade/:brigadeSlug      - Brigade public page (all published routes)
 
-Protected Routes (Auth Required):
+Protected Routes (Entra ID Auth Required):
 /dashboard                  - Brigade dashboard (route list)
 /dashboard/routes/new       - Create new route
-/dashboard/routes/:id/edit  - Edit route
+/dashboard/routes/:id/edit  - Edit route (planning mode)
+/dashboard/routes/:id/navigate - Navigation mode (turn-by-turn)
 /dashboard/routes/:id       - View route details + controls
 /dashboard/settings         - Brigade settings
-/login                      - Login page
-/logout                     - Logout
+/dashboard/members          - Manage brigade members
+/login                      - Login redirect (Entra ID)
+/logout                     - Logout and clear session
+/access-request             - Request access to brigade
 
-Admin/Setup Routes:
-/setup                      - Initial brigade setup (first time)
+Admin Routes:
+/admin/brigades             - Manage all brigades (super admin)
+/admin/approve              - Approve pending member requests
 ```
 
 ---
 
-### 13. Technology Stack
+### 14. Technology Stack
+
+**Hosting & Infrastructure:**
+- **Azure Static Web Apps** - Serverless hosting with built-in API support
+- **Azure Functions** - Serverless API backend
+- **Azure Table Storage** - NoSQL data persistence
+- **Azure Web PubSub** - Real-time WebSocket communication
+- **Azure CDN** - Global content delivery
+- **Microsoft Entra External ID** - Enterprise authentication
 
 **Frontend:**
-- React 18+ with TypeScript
+- React 19 with TypeScript
 - Vite for build tooling
 - React Router v6 for routing
-- Mapbox GL JS for mapping
-- @mapbox/mapbox-gl-draw for route drawing
-- qrcode.react for QR generation
-- socket.io-client for WebSocket (or equivalent)
+- **Mapbox GL JS** for mapping
+- **@mapbox/mapbox-gl-draw** for route drawing
+- **Mapbox Directions API** for turn-by-turn navigation
+- **Mapbox Geocoding API** for address search
+- **@azure/web-pubsub-client** for WebSocket connections
+- **@azure/data-tables** for Azure Table Storage
+- **@azure/msal-browser** for Entra ID authentication
+- qrcode.react for QR code generation
 - React Helmet Async for meta tags
-- Tailwind CSS or styled-components for styling
+- Tailwind CSS for styling
 - date-fns for date handling
+- Framer Motion for animations (optional)
+
+**Backend (Azure Functions):**
+- TypeScript/Node.js runtime
+- **@azure/web-pubsub** - Server SDK
+- **@azure/data-tables** - Storage operations
+- **@azure/identity** - Authentication
+
+**Development Tools:**
+- Azure Static Web Apps CLI for local development
+- Azure Functions Core Tools
+- ESLint + Prettier for code quality
+- Vitest for unit testing
+- Playwright for E2E testing
 
 **State Management:**
 - React Context API for global state
 - Custom hooks for route management
-- localStorage for persistence
-
-**Optional Enhancements:**
-- React Query for data fetching
-- Zustand for state management
-- Framer Motion for animations
+- React Query for server state (API calls)
+- Zustand for client state (optional)
 
 ---
 
-### 14. Deployment & Hosting
+### 15. Deployment & Hosting
 
-**Static Hosting Options:**
-- Vercel (recommended - supports serverless functions for meta tags)
-- Netlify
-- GitHub Pages
-- Cloudflare Pages
-- AWS S3 + CloudFront
+**Azure Static Web Apps Architecture:**
+```
+┌──────────────────────────────────────────┐
+│   Azure Static Web Apps                  │
+│   ├── Static Files (CDN)                 │
+│   ├── API Functions (Serverless)         │
+│   ├── Authentication (Entra ID)          │
+│   └── Custom Domains + SSL              │
+└──────────────────────────────────────────┘
+            ↓           ↓          ↓
+    ┌───────────┐  ┌────────┐  ┌──────────┐
+    │  Azure    │  │ Azure  │  │  Azure   │
+    │   Table   │  │  Web   │  │ Entra    │
+    │  Storage  │  │ PubSub │  │External│
+    └───────────┘  └────────┘  └──────────┘
+```
 
-**Real-time Backend Options:**
-- Vercel Serverless Functions + Pusher
-- Netlify Functions + Ably
-- Firebase (Hosting + Realtime Database)
-- Supabase (Hosting + Realtime + Auth)
-- Custom Node.js server (Socket.io)
+**Deployment Process:**
+1. Push code to GitHub
+2. GitHub Actions automatically triggers
+3. Azure Static Web Apps builds and deploys
+4. Frontend deployed to global CDN
+5. API functions deployed to Azure Functions
+6. Environment variables configured in Azure Portal
+7. Custom domain configured (optional)
 
-**Recommended Setup:**
-- Frontend: Vercel (static + functions)
-- Real-time: Pusher or Ably (managed service)
-- Database: None (localStorage) or Firebase/Supabase for persistence
+**Environment Configuration:**
+- Development: `.env.local` for local testing
+- Staging: Azure Static Web Apps preview environments
+- Production: Azure Static Web Apps production environment
+
+**Cost Estimate (Azure):**
+- Static Web Apps Standard: $9 USD/month
+- Table Storage: ~$0.50 AUD/month (100 brigades)
+- Web PubSub Free tier: 20 connections, 20K messages/day
+- Web PubSub Standard: $49 USD/month (1,000 connections)
+- Entra External ID: Free for up to 50,000 MAU
+- Total (with free Web PubSub): ~$10 USD/month
+- Total (with standard Web PubSub): ~$59 USD/month
+
+**Scaling:**
+- Static Web Apps: Auto-scales globally
+- Azure Functions: Auto-scales based on load
+- Table Storage: Unlimited scalability
+- Web PubSub: Scales to thousands of connections
 
 ---
 
-### 15. Implementation Phases
+### 16. Implementation Phases (Revised)
 
-#### Phase 1: Foundation (Week 1)
-- [x] Initialize React + TypeScript + Vite
-- [x] Install dependencies
-- [ ] Create project structure
-- [ ] Set up routing
-- [ ] Create basic layout components
-- [ ] Implement theme/styling system
+#### Phase 1: Azure Infrastructure Setup (Week 1)
+- [ ] Create Azure Static Web App resource
+- [ ] Create Azure Table Storage account
+- [ ] Create Azure Web PubSub resource
+- [ ] Set up Entra External ID tenant
+- [ ] Configure GitHub Actions deployment
+- [ ] Set up development environment
+- [ ] Initialize React + TypeScript project
+- [ ] Install dependencies
+- [ ] Create project structure (frontend + API)
+- [ ] Set up Static Web Apps CLI for local dev
 
-#### Phase 2: Authentication & Brigade Setup (Week 1)
-- [ ] Brigade setup flow
-- [ ] Login/logout functionality
+#### Phase 2: Authentication with Entra External ID (Week 1-2)
+- [ ] Configure Entra External ID application
+- [ ] Implement MSAL authentication flow
+- [ ] Create login/logout pages
 - [ ] Protected route guards
-- [ ] Brigade context provider
-- [ ] Password hashing utilities
+- [ ] Brigade domain whitelist validation
+- [ ] Member approval workflow
+- [ ] Role-based access control
+- [ ] Session management
 
-#### Phase 3: Route Planning (Week 2)
-- [ ] Mapbox integration
-- [ ] Route creation interface
+#### Phase 3: Route Planning Interface (Week 2-3)
+- [ ] Mapbox GL JS integration
+- [ ] Route creation interface with map
 - [ ] Waypoint management (add/edit/delete/reorder)
-- [ ] Route form (name, date, time)
-- [ ] Save/load routes from localStorage
-- [ ] Route list dashboard
+- [ ] Address search with Geocoding API
+- [ ] **Mapbox Directions API integration**
+- [ ] **Route optimization and navigation data generation**
+- [ ] Route metadata form (name, date, time)
+- [ ] Azure Table Storage persistence
+- [ ] Brigade dashboard with route list
+- [ ] Route editing and management
 
-#### Phase 4: Publishing & Sharing (Week 2)
-- [ ] Generate shareable links
-- [ ] QR code generation and download
-- [ ] Copy-to-clipboard functionality
-- [ ] Route status management (draft/published)
-- [ ] Route preview page
+#### Phase 4: Turn-by-Turn Navigation (Week 3-4)
+- [ ] **Navigation interface design**
+- [ ] **Current location tracking**
+- [ ] **Match location to route geometry**
+- [ ] **Turn-by-turn instruction display**
+- [ ] **Distance and ETA calculations**
+- [ ] **Voice instruction system (text-to-speech)**
+- [ ] **Rerouting when off course**
+- [ ] **Waypoint completion tracking**
+- [ ] **Mobile-optimized navigation UI**
+- [ ] **Background location tracking**
 
-#### Phase 5: Real-Time Tracking (Week 3)
-- [ ] WebSocket/real-time implementation (mock first)
-- [ ] Location broadcasting from brigade device
+#### Phase 5: Real-Time Tracking with Azure Web PubSub (Week 4-5)
+- [ ] Azure Web PubSub integration
+- [ ] Negotiate API function for token generation
+- [ ] Broadcast API function for location updates
+- [ ] WebSocket connection management
+- [ ] Group-based messaging (route-specific)
 - [ ] Public tracking page
-- [ ] Live marker updates
-- [ ] Progress tracking
-- [ ] ETA calculations
+- [ ] Live Santa marker with animations
+- [ ] Progress indicators
+- [ ] Connection status indicators
+- [ ] Fallback to polling
 
-#### Phase 6: Social Media & UX Polish (Week 3)
+#### Phase 6: Shareable Links & QR Codes (Week 5)
+- [ ] Generate unique tracking URLs
+- [ ] QR code generation with qrcode.react
+- [ ] QR code download as PNG
+- [ ] Copy-to-clipboard functionality
+- [ ] Route publishing workflow
+- [ ] Social media share buttons
+
+#### Phase 7: Social Media Previews & UX Polish (Week 6)
 - [ ] Dynamic meta tags with React Helmet
 - [ ] Open Graph preview optimization
-- [ ] Mobile responsive design
+- [ ] Twitter Card implementation
+- [ ] Mobile responsive design (mobile-first)
+- [ ] Australian RFS theme and branding
 - [ ] Loading states and error handling
-- [ ] Animations and transitions
-- [ ] Australian theme (colors, imagery)
+- [ ] Smooth animations with Framer Motion
+- [ ] Touch-friendly controls
+- [ ] Accessibility improvements (WCAG AA)
+- [ ] Performance optimization
 
-#### Phase 7: Testing & Documentation (Week 4)
-- [ ] End-to-end testing
+#### Phase 8: Testing & Documentation (Week 7)
+- [ ] Unit tests with Vitest
+- [ ] E2E tests with Playwright
 - [ ] Mobile device testing
 - [ ] Cross-browser testing
-- [ ] Performance optimization
-- [ ] Documentation (README, user guide)
+- [ ] Load testing (1000+ concurrent viewers)
+- [ ] Security audit
+- [ ] User documentation (brigade guide)
+- [ ] Technical documentation
 - [ ] Deployment guide
+- [ ] Production deployment
 
 ---
 
-### 16. User Flows
+### 17. User Flows (Updated)
 
-#### Brigade Admin Flow:
-1. First time setup: Create brigade profile + password
-2. Login to dashboard
-3. Create new route:
+#### Brigade Operator Flow (Updated):
+1. **First time access:**
+   - Navigate to application
+   - Click "Login with Microsoft"
+   - Authenticate via Entra External ID
+   - System checks email against brigade whitelists
+   - If match: Grant access to brigade
+   - If no match: Show "Request Access" form
+   - Admin approves access request
+
+2. **Create route:**
+   - Login to dashboard
    - Click "New Route"
    - Add route name, date, start time
-   - Click on map to add waypoints
-   - Reorder waypoints as needed
+   - Click on map or search addresses to add waypoints
+   - Click "Optimize Route" to generate navigation
+   - Review turn-by-turn instructions
+   - Adjust waypoints if needed
    - Save as draft
-4. Publish route:
+
+3. **Publish route:**
    - Review route details
    - Click "Publish"
    - Get shareable link + QR code
-   - Download QR code
-   - Share on social media
-5. On event day:
+   - Download QR code for flyers
+   - Share link on social media
+
+4. **On event day (Navigation):**
    - Login to dashboard
    - Open route
-   - Click "Start Tracking"
-   - Keep browser open on phone/tablet in vehicle
-   - GPS location auto-broadcasts
-   - Monitor progress on map
-6. After event:
-   - Click "End Tracking"
+   - Click "Start Navigation"
+   - Grant location permissions
+   - **Turn-by-turn navigation begins:**
+     - See next instruction ("Turn left in 200m")
+     - Hear voice instructions
+     - View current location on map
+     - Monitor ETA to next waypoint
+     - Mark waypoints as "Complete" when visited
+   - **Location automatically broadcasts to public**
+   - If off route: Option to reroute
+   - Pause navigation for breaks
+   - End navigation when complete
+
+5. **After event:**
+   - Click "End Navigation"
    - Route marked as completed
-   - View statistics
+   - View statistics (distance, time, viewers)
+   - Archive route
 
 #### Public User Flow:
 1. Receive link or scan QR code
@@ -492,38 +1041,64 @@ Admin/Setup Routes:
 
 ---
 
-### 17. Key Technical Decisions
+### 18. Key Technical Decisions (Updated)
 
-**Why static/client-side only?**
-- Simplicity: No server maintenance
-- Cost: Free hosting options
-- Scalability: CDN-distributed
-- Speed: Fast loading times
-- Trade-off: Limited auth security, requires creative solutions for dynamic meta tags
+**Why Azure Static Web Apps?**
+- Serverless hosting - no infrastructure management
+- Built-in API support with Azure Functions
+- Native Azure service integration
+- Global CDN distribution
+- Automatic SSL certificates
+- GitHub Actions integration for CI/CD
+- Preview environments for pull requests
+- Cost-effective ($9/month for standard tier)
+- Scales automatically based on demand
 
-**Why localStorage for data?**
-- No backend required
-- Instant read/write
-- Perfect for brigade-specific data
-- Easy backup/export
-- Trade-off: Data loss if browser storage cleared (add export/import feature)
+**Why Azure Table Storage?**
+- NoSQL storage perfect for route and brigade data
+- Extremely low cost (~$0.50/month for 100 brigades)
+- Unlimited scalability
+- Native Azure integration
+- No schema management required
+- Simple partition/row key model fits our use case
+- Built-in redundancy and durability
+- Easy to query and filter data
 
-**Why mock WebSocket initially?**
-- Prove concept without backend
-- Easy local development
-- Clear upgrade path to real WebSocket service
-- Can use BroadcastChannel API for same-device testing
+**Why Microsoft Entra External ID?**
+- Enterprise-grade authentication
+- Email domain validation built-in
+- No password management required
+- Multi-factor authentication support
+- Social login providers
+- OAuth 2.0 / OpenID Connect standard
+- Audit logging and compliance
+- Free for up to 50,000 monthly active users
+- Better security than client-side password hashing
 
-**Production WebSocket options:**
-- Pusher: $49/mo for production (free tier available)
-- Ably: Similar pricing
-- Firebase: Generous free tier
-- Supabase: Open source, free tier
-- Custom: More work, more control
+**Why Azure Web PubSub?**
+- Native Azure WebSocket service
+- Scales to thousands of concurrent connections
+- Standard WebSocket protocol (no vendor lock-in)
+- Group messaging perfect for route-specific broadcasts
+- Connection lifecycle management
+- Free tier for development (20 connections)
+- Seamless integration with Static Web Apps
+- No server to manage
+
+**Why Mapbox Directions API for navigation?**
+- Industry-leading routing algorithms
+- Turn-by-turn navigation instructions
+- Accurate ETAs based on real traffic data
+- Rerouting capabilities
+- Multiple routing profiles (driving, walking)
+- Global coverage including Australia
+- Well-documented API
+- Generous free tier (100,000 requests/month)
+- Native integration with Mapbox GL JS
 
 ---
 
-### 18. Future Enhancements (V2+)
+### 19. Future Enhancements (V2+)
 
 - **Multi-device sync:** Sync routes across devices (requires backend)
 - **Route analytics:** View count, geographic distribution of viewers
@@ -540,7 +1115,7 @@ Admin/Setup Routes:
 
 ---
 
-### 19. Documentation Requirements
+### 20. Documentation Requirements
 
 **For Brigades:**
 - Getting started guide
@@ -566,7 +1141,7 @@ Admin/Setup Routes:
 
 ---
 
-### 20. Security & Privacy Considerations
+### 21. Security ### 20. Security & Privacy Considerations Privacy Considerations
 
 **Brigade Data:**
 - Passwords hashed (never stored plain text)
@@ -1561,32 +2136,107 @@ Run in CI: `ts-node scripts/validate-secrets.ts`
 - Pro: $19 USD/month (400 GB bandwidth)
 - **Recommendation:** Start with Starter tier
 
-### Total Monthly Cost Estimate
+### Total Monthly Cost Estimate (Updated for Azure Architecture)
 
-**Minimal Setup (Free Tier):**
-- Hosting: $0 (Vercel/Netlify free tier)
-- Azure Storage: $0.05 AUD
-- Real-time: $0 (Firebase free tier)
-- **Total: ~$0.05 AUD/month**
+**Development/Testing (Free/Minimal Tiers):**
+- Azure Static Web Apps Standard: $9 USD/month
+- Azure Table Storage: $0.05 AUD/month
+- Azure Web PubSub Free: $0 (20 connections, 20K messages/day)
+- Entra External ID: $0 (free up to 50K MAU)
+- Mapbox: $0 (100K API calls/month free)
+- **Total: ~$9 USD/month**
 
-**Production Setup (Paid Tiers):**
-- Hosting: $20 USD (Vercel Pro)
-- Azure Storage: $0.51 AUD
-- Real-time: $49 USD (Pusher Pro) or $0 (Firebase free tier)
-- **Total: ~$69 USD/month with Pusher, or $20 USD/month with Firebase**
+**Production Setup (100 brigades, high traffic):**
+- Azure Static Web Apps Standard: $9 USD/month
+- Azure Table Storage: $0.51 AUD/month
+- Azure Web PubSub Standard: $49 USD/month (1,000 connections)
+- Entra External ID: $0 (free up to 50K MAU)
+- Mapbox: $0-50 USD/month (depending on usage beyond free tier)
+- **Total: ~$58-108 USD/month**
+
+**Cost Optimization Tips:**
+- Use Web PubSub Free tier during development
+- Monitor Mapbox API usage to stay within free tier
+- Use Static Web Apps preview environments for testing
+- Implement connection pooling in Web PubSub
+- Use Azure Cost Management alerts
 
 ---
 
-## Summary for GitHub Copilot Agents
+## Summary for GitHub Copilot Agents (Updated)
 
-To make this application fully testable and deployable:
+### Quick Start Checklist
 
-1. **Set up GitHub Secrets** (Section 21) - Configure all required tokens and keys
-2. **Create Azure Storage** (Section 22) - Follow step-by-step Azure setup
-3. **Implement Storage Adapters** (Section 23) - Build abstraction layer for localStorage/Azure
-4. **Configure GitHub Actions** (Section 24) - Set up CI/CD pipelines
-5. **Follow Copilot Instructions** (Section 25) - Use as reference for all development
-6. **Run Tests** (Section 26) - Validate all changes before committing
-7. **Manage Secrets Properly** (Section 27) - Never commit secrets, rotate regularly
-8. **Monitor Costs** (Section 28) - Stay within budget using free tiers initially
+To make this application fully testable and deployable with new Azure architecture:
+
+1. **Set up Azure Resources**
+   - Create Azure Static Web App (Section 7)
+   - Create Azure Table Storage (Section 22)
+   - Create Azure Web PubSub (Section 8)
+   - Configure Entra External ID tenant (Section 2)
+
+2. **Configure GitHub Secrets** (Section 21)
+   - `VITE_MAPBOX_TOKEN` - For map rendering and navigation
+   - `AZURE_STORAGE_CONNECTION_STRING` - Table Storage access
+   - `AZURE_WEBPUBSUB_CONNECTION_STRING` - Real-time messaging
+   - `ENTRA_CLIENT_ID` and `ENTRA_TENANT_ID` - Authentication
+
+3. **Set up Local Development**
+   - Install Azure Static Web Apps CLI
+   - Install Azure Functions Core Tools
+   - Copy `.env.example` to `.env.local`
+   - Run `npm install`
+   - Run `swa start` for local development
+
+4. **Implement Core Features** (Section 16 - Implementation Phases)
+   - Phase 1: Azure infrastructure and project setup
+   - Phase 2: Entra ID authentication with domain whitelisting
+   - Phase 3: Route planning with Mapbox Directions API
+   - Phase 4: Turn-by-turn navigation interface
+   - Phase 5: Real-time tracking with Azure Web PubSub
+   - Phase 6: QR codes and sharing
+   - Phase 7: Social previews and UX polish
+   - Phase 8: Testing and deployment
+
+5. **Key New Features**
+   - ✅ **Turn-by-turn navigation** for brigade operators (Section 3a)
+   - ✅ **Mapbox Directions API** integration for route optimization
+   - ✅ **Azure Static Web Apps** for hosting and API functions (Section 7)
+   - ✅ **Azure Web PubSub** for real-time WebSocket communication (Section 8)
+   - ✅ **Microsoft Entra External ID** for enterprise authentication (Section 2)
+   - ✅ **Domain whitelisting** for brigade member verification
+   - ✅ **Voice-guided navigation** with text-to-speech
+   - ✅ **Automatic rerouting** when driver goes off course
+   - ✅ **Waypoint completion tracking** during navigation
+
+6. **Run Tests** (Section 26)
+   - Unit tests: `npm test`
+   - E2E tests: `npm run test:e2e`
+   - Lint: `npm run lint`
+   - Build: `npm run build`
+
+7. **Deploy** (Section 15)
+   - Push to GitHub
+   - GitHub Actions automatically deploys to Azure
+   - Monitor deployment in Azure Portal
+   - Test in production environment
+
+### Architecture Highlights
+
+**Azure-Native Stack:**
+- Frontend: Azure Static Web Apps (CDN-distributed React app)
+- API: Azure Functions (serverless API endpoints)
+- Database: Azure Table Storage (NoSQL persistence)
+- Real-time: Azure Web PubSub (WebSocket service)
+- Auth: Microsoft Entra External ID (OAuth 2.0)
+- Navigation: Mapbox Directions API (turn-by-turn)
+
+**Benefits:**
+- Fully serverless - no infrastructure to manage
+- Auto-scaling to handle traffic spikes
+- Pay-per-use pricing model
+- Enterprise-grade security
+- Global distribution
+- Integrated monitoring and logging
+- DevOps-ready with GitHub Actions
 
