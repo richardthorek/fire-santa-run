@@ -36,12 +36,14 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     route,
     onRouteComplete: async () => {
       // Mark route as completed
+      // eslint-disable-next-line react-hooks/purity
+      const now = Date.now(); // Capture timestamp once
       const completedRoute = {
         ...updatedRoute,
         status: 'completed' as const,
         completedAt: new Date().toISOString(),
         actualDuration: updatedRoute.startedAt 
-          ? Math.floor((Date.now() - new Date(updatedRoute.startedAt).getTime()) / 1000)
+          ? Math.floor((now - new Date(updatedRoute.startedAt).getTime()) / 1000)
           : undefined,
       };
       await saveRoute(completedRoute);
@@ -73,7 +75,6 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
         });
       }
       
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHasStarted(true);
     }
   }, [hasStarted, startNavigation, route, saveRoute]);
