@@ -1504,20 +1504,22 @@ const ProtectedRoute = ({ children }) => {
 
 > **🚀 Development Strategy:** Authentication has been moved to Phase 7 to enable rapid prototyping and testing of all core features without auth barriers. A development mode bypass allows full functionality during development, with production authentication added before launch.
 
-#### Phase 1: Infrastructure & Dev Mode Setup (Week 1)
+#### Phase 1: Infrastructure & Dev Mode Setup (Week 1) - ✅ COMPLETE
 - [x] Set up development environment
 - [x] Initialize React + TypeScript project with Vite
 - [x] Install dependencies (React Router, Mapbox, Socket.io)
 - [x] Create project structure (frontend + API)
 - [x] **Set up development mode configuration (VITE_DEV_MODE=true)**
 - [x] **Implement mock authentication context for dev mode**
-- [ ] Configure GitHub Actions for CI/CD
-- [ ] Set up Azure Static Web App resource (optional - can defer)
-- [ ] Create Azure Table Storage account (optional - can defer)
+- [x] Configure GitHub Actions for CI/CD (deploy.yml, preview.yml, security.yml)
 - [x] Configure localStorage as primary storage adapter for development
 - [x] Create mock brigade data for testing
 
-#### Phase 2: Route Planning Interface (Week 1-2)
+**Deferred to Phase 7 (Production Deployment):**
+- [ ] Set up Azure Static Web App resource (requires production readiness)
+- [ ] Create Azure Table Storage account (requires production readiness)
+
+#### Phase 2: Route Planning Interface (Week 1-2) - ✅ COMPLETE
 - [x] Mapbox GL JS integration
 - [x] Route creation interface with interactive map
 - [x] Waypoint management (add/edit/delete/reorder with drag-and-drop)
@@ -1529,6 +1531,11 @@ const ProtectedRoute = ({ children }) => {
 - [x] Brigade dashboard with route list (no auth required in dev mode)
 - [x] Route editing and management UI
 - [x] Route status management (draft, published, active, completed)
+
+**Deferred to Phase 5 (Shareable Links & QR Codes):**
+- [ ] QR code display in UI (generation logic complete, UI display pending)
+- [ ] Route duplication feature
+- [ ] Route deletion confirmation dialog (currently uses basic alert)
 
 #### Phase 3: Turn-by-Turn Navigation (Week 2-3)
 - [ ] **Navigation interface design (mobile-first)**
