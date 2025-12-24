@@ -66,6 +66,8 @@ export interface RouteProgress {
 }
 
 // GeoJSON types for TypeScript
+// Using namespace for better type organization and avoiding conflicts
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace GeoJSON {
   export interface LineString {
     type: 'LineString';

@@ -171,7 +171,7 @@ export function calculateEstimatedArrivals(
     return route.waypoints;
   }
 
-  let currentTime = startDateTime.getTime();
+  const currentTime = startDateTime.getTime();
   const updatedWaypoints = [...route.waypoints];
 
   // For each waypoint, calculate estimated arrival based on duration
