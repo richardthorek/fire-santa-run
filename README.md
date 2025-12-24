@@ -34,10 +34,10 @@ This application enables RFS brigades to:
 
 ### Prerequisites
 - Node.js 20+ and npm
-- Mapbox account (free tier available)
-- Azure account (optional, for production data persistence)
+- Mapbox account (free tier available) - [Sign up here](https://account.mapbox.com/)
+- **No authentication setup required for development!**
 
-### Installation
+### Minimal Setup (Development Mode)
 
 ```bash
 # Clone the repository
@@ -47,31 +47,64 @@ cd fire-santa-run
 # Install dependencies
 npm install
 
-# Set up environment variables
+# Set up minimal environment variables
 cp .env.example .env.local
-# Edit .env.local with your API keys
+# Edit .env.local and add only these two lines:
+# VITE_DEV_MODE=true
+# VITE_MAPBOX_TOKEN=pk.your_mapbox_token_here
 
 # Start development server
 npm run dev
 ```
 
-Visit `http://localhost:5173` to see the application.
+Visit `http://localhost:5173` to see the application. **No login required in dev mode!**
+
+## Development Mode 🚀
+
+Fire Santa Run supports **Development Mode** for rapid prototyping:
+
+✅ **Enabled by default** for local development  
+✅ **No authentication required** - instant access to all features  
+✅ **No Azure setup needed** - uses localStorage only  
+✅ **Fast iteration** - test features immediately  
+
+See [Development Mode Guide](./docs/DEV_MODE.md) for details on the dev mode strategy.
 
 ## Configuration
 
-### Required Environment Variables
+### Development Mode (Default)
+
+For local development, you only need:
 
 ```bash
+# Enable development mode (default)
+VITE_DEV_MODE=true
+
 # Mapbox API Token (Required)
 VITE_MAPBOX_TOKEN=pk.your_mapbox_token_here
+
+# Mock brigade for testing
+VITE_MOCK_BRIGADE_ID=dev-brigade-1
 ```
 
-### Optional Environment Variables
+### Production Mode
+
+For production deployment, additional configuration required:
 
 ```bash
-# Azure Storage (Production)
+# Disable development mode
+VITE_DEV_MODE=false
+
+# Mapbox API Token
+VITE_MAPBOX_TOKEN=pk.your_production_token
+
+# Azure Storage
 VITE_AZURE_STORAGE_CONNECTION_STRING=your_connection_string
 VITE_AZURE_STORAGE_ACCOUNT_NAME=your_account_name
+
+# Microsoft Entra External ID (authentication)
+VITE_ENTRA_CLIENT_ID=your_client_id
+VITE_ENTRA_TENANT_ID=your_tenant_id
 
 # Real-time Service (Choose one: Pusher, Firebase, or Supabase)
 VITE_PUSHER_KEY=your_key
@@ -83,12 +116,14 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 ## Documentation
 
 ### Setup Guides
+- 🚀 **[Development Mode Guide](./docs/DEV_MODE.md)** - **NEW!** Rapid development without auth barriers
 - 📘 **[Master Plan](./MASTER_PLAN.md)** - Comprehensive architecture and feature roadmap
 - 🔐 **[Secrets Management](./docs/SECRETS_MANAGEMENT.md)** - API keys and environment variables setup
 - ☁️ **[Azure Storage Setup](./docs/AZURE_SETUP.md)** - Step-by-step Azure Table Storage configuration
 - 🤖 **[GitHub Copilot Instructions](./.github/copilot-instructions.md)** - Guidelines for AI-assisted development
 
 ### For Developers
+- **Authentication Strategy:** Phase 7 implementation (dev mode bypass enabled for Phases 1-6)
 - Architecture overview and data models in [MASTER_PLAN.md](./MASTER_PLAN.md)
 - TypeScript interfaces in `src/types/`
 - Storage adapter pattern in `src/storage/` (supports localStorage and Azure)

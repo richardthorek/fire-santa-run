@@ -1396,104 +1396,278 @@ Admin Routes:
 
 ---
 
-### 16. Implementation Phases (Revised)
+### 15b. Development Mode vs Production Mode Strategy
 
-#### Phase 1: Azure Infrastructure Setup (Week 1)
-- [ ] Create Azure Static Web App resource
-- [ ] Create Azure Table Storage account
-- [ ] Create Azure Web PubSub resource
-- [ ] Set up Entra External ID tenant
-- [ ] Configure GitHub Actions deployment
-- [ ] Set up development environment
-- [ ] Initialize React + TypeScript project
-- [ ] Install dependencies
-- [ ] Create project structure (frontend + API)
-- [ ] Set up Static Web Apps CLI for local dev
+#### Overview
+To accelerate development and enable iterative testing of features, the application supports two distinct modes:
 
-#### Phase 2: Authentication with Entra External ID (Week 1-2)
-- [ ] Configure Entra External ID application
-- [ ] Implement MSAL authentication flow
-- [ ] Create login/logout pages
-- [ ] Protected route guards
-- [ ] Brigade domain whitelist validation
-- [ ] Member approval workflow
-- [ ] Role-based access control
-- [ ] Session management
+**🛠️ Development Mode (Default during development):**
+- No authentication required
+- All features accessible without login
+- Mock brigade context automatically provided
+- LocalStorage for data persistence
+- No cloud resources required
+- Fast iteration and testing
 
-#### Phase 3: Route Planning Interface (Week 2-3)
-- [ ] Mapbox GL JS integration
-- [ ] Route creation interface with map
-- [ ] Waypoint management (add/edit/delete/reorder)
-- [ ] Address search with Geocoding API
-- [ ] **Mapbox Directions API integration**
-- [ ] **Route optimization and navigation data generation**
-- [ ] Route metadata form (name, date, time)
-- [ ] Azure Table Storage persistence
-- [ ] Brigade dashboard with route list
-- [ ] Route editing and management
+**🔒 Production Mode (Enabled for deployment):**
+- Microsoft Entra External ID authentication required
+- Brigade isolation enforced
+- Domain whitelist validation
+- Azure Table Storage for persistence
+- Azure Web PubSub for real-time features
+- Full security controls
 
-#### Phase 4: Turn-by-Turn Navigation (Week 3-4)
-- [ ] **Navigation interface design**
-- [ ] **Current location tracking**
-- [ ] **Match location to route geometry**
-- [ ] **Turn-by-turn instruction display**
-- [ ] **Distance and ETA calculations**
-- [ ] **Voice instruction system (text-to-speech)**
-- [ ] **Rerouting when off course**
-- [ ] **Waypoint completion tracking**
-- [ ] **Mobile-optimized navigation UI**
-- [ ] **Background location tracking**
+#### Implementation Approach
 
-#### Phase 5: Real-Time Tracking with Azure Web PubSub (Week 4-5)
-- [ ] Azure Web PubSub integration
-- [ ] Negotiate API function for token generation
-- [ ] Broadcast API function for location updates
-- [ ] WebSocket connection management
-- [ ] Group-based messaging (route-specific)
-- [ ] Public tracking page
-- [ ] Live Santa marker with animations
-- [ ] Progress indicators
-- [ ] Connection status indicators
-- [ ] Fallback to polling
+**Environment Variable Configuration:**
+```bash
+# .env.local (Development)
+VITE_DEV_MODE=true
+VITE_MOCK_BRIGADE_ID=dev-brigade-1
+VITE_MAPBOX_TOKEN=pk.your_token_here
 
-#### Phase 6: Shareable Links & QR Codes (Week 5)
-- [ ] Generate unique tracking URLs
-- [ ] QR code generation with qrcode.react
-- [ ] QR code download as PNG
-- [ ] Copy-to-clipboard functionality
-- [ ] Route publishing workflow
-- [ ] Social media share buttons
+# .env.production (Production)
+VITE_DEV_MODE=false
+VITE_AZURE_STORAGE_CONNECTION_STRING=...
+VITE_ENTRA_CLIENT_ID=...
+VITE_ENTRA_TENANT_ID=...
+```
 
-#### Phase 7: Social Media Previews & UX Polish (Week 6)
-- [ ] Dynamic meta tags with React Helmet
-- [ ] Open Graph preview optimization
-- [ ] Twitter Card implementation
-- [ ] Mobile responsive design (mobile-first)
-- [ ] Australian RFS theme and branding
-- [ ] Loading states and error handling
-- [ ] Smooth animations with Framer Motion
-- [ ] Touch-friendly controls
-- [ ] Accessibility improvements (WCAG AA)
-- [ ] Performance optimization
+**Authentication Context Pattern:**
+```typescript
+// src/context/AuthContext.tsx
+export const useAuth = () => {
+  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+  
+  if (isDevMode) {
+    // Mock authenticated user for development
+    return {
+      isAuthenticated: true,
+      user: { email: 'dev@example.com', brigadeId: 'dev-brigade-1' },
+      login: () => Promise.resolve(),
+      logout: () => Promise.resolve(),
+    };
+  }
+  
+  // Real authentication flow using MSAL
+  return useMSALAuth();
+};
+```
 
-#### Phase 8: Testing & Documentation (Week 7)
-- [ ] Unit tests with Vitest
-- [ ] E2E tests with Playwright
-- [ ] Mobile device testing
-- [ ] Cross-browser testing
-- [ ] Load testing (1000+ concurrent viewers)
-- [ ] Security audit
-- [ ] User documentation (brigade guide)
-- [ ] Technical documentation
-- [ ] Deployment guide
-- [ ] Production deployment
+**Route Guards Pattern:**
+```typescript
+// src/components/ProtectedRoute.tsx
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+  
+  // In dev mode, always allow access
+  if (isDevMode) {
+    return children;
+  }
+  
+  // In production, require authentication
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+  
+  return children;
+};
+```
+
+#### Benefits of This Approach
+
+1. **Rapid Development:** Build and test features immediately without auth setup
+2. **Demo-Friendly:** Showcase features to stakeholders without account setup
+3. **Easier Testing:** Automated tests don't need auth mocking
+4. **Progressive Enhancement:** Add security layer when features are stable
+5. **No Sensitive Data:** Public tracking is inherently public, so dev mode is safe
+6. **Flexible:** Easy to switch between modes for different deployment targets
+
+#### Security Considerations
+
+✅ **Safe for this application because:**
+- No sensitive user data (names, addresses, payment info)
+- Route tracking is intended to be publicly accessible
+- Brigade data in dev mode is mock/test data only
+- Production mode enforces full authentication before real data access
+
+⚠️ **Important Notes:**
+- Never commit real brigade credentials to dev mode
+- Always verify VITE_DEV_MODE=false in production builds
+- Run security audit before enabling production mode
+- Test both modes thoroughly before launch
 
 ---
 
-### 17. User Flows (Updated)
+### 16. Implementation Phases (Revised - Authentication Moved to Phase 7)
 
-#### Brigade Operator Flow (Updated):
-1. **First time access:**
+> **🚀 Development Strategy:** Authentication has been moved to Phase 7 to enable rapid prototyping and testing of all core features without auth barriers. A development mode bypass allows full functionality during development, with production authentication added before launch.
+
+#### Phase 1: Infrastructure & Dev Mode Setup (Week 1)
+- [ ] Set up development environment
+- [ ] Initialize React + TypeScript project with Vite
+- [ ] Install dependencies (React Router, Mapbox, Socket.io)
+- [ ] Create project structure (frontend + API)
+- [ ] **Set up development mode configuration (VITE_DEV_MODE=true)**
+- [ ] **Implement mock authentication context for dev mode**
+- [ ] Configure GitHub Actions for CI/CD
+- [ ] Set up Azure Static Web App resource (optional - can defer)
+- [ ] Create Azure Table Storage account (optional - can defer)
+- [ ] Configure localStorage as primary storage adapter for development
+- [ ] Create mock brigade data for testing
+
+#### Phase 2: Route Planning Interface (Week 1-2)
+- [ ] Mapbox GL JS integration
+- [ ] Route creation interface with interactive map
+- [ ] Waypoint management (add/edit/delete/reorder with drag-and-drop)
+- [ ] Address search with Geocoding API
+- [ ] **Mapbox Directions API integration**
+- [ ] **Route optimization and navigation data generation**
+- [ ] Route metadata form (name, date, time, description)
+- [ ] LocalStorage persistence with storage adapter pattern
+- [ ] Brigade dashboard with route list (no auth required in dev mode)
+- [ ] Route editing and management UI
+- [ ] Route status management (draft, published, active, completed)
+
+#### Phase 3: Turn-by-Turn Navigation (Week 2-3)
+- [ ] **Navigation interface design (mobile-first)**
+- [ ] **Geolocation API integration for current location tracking**
+- [ ] **Match user location to route geometry**
+- [ ] **Turn-by-turn instruction display with visual indicators**
+- [ ] **Distance and ETA calculations in real-time**
+- [ ] **Voice instruction system (Web Speech API text-to-speech)**
+- [ ] **Automatic rerouting when driver goes off course**
+- [ ] **Waypoint completion tracking with visual feedback**
+- [ ] **Mobile-optimized navigation UI (large buttons, high contrast)**
+- [ ] **Background location tracking with wake lock API**
+- [ ] **Progress indicators and route completion percentage**
+
+#### Phase 4: Real-Time Tracking with WebSocket (Week 3-4)
+- [ ] Choose WebSocket service (Pusher, Firebase, or Supabase)
+- [ ] WebSocket client integration
+- [ ] Broadcast location updates from navigator device
+- [ ] Public tracking page (no auth required)
+- [ ] Live Santa marker with smooth animations
+- [ ] Route polyline rendering
+- [ ] Progress indicators showing completed waypoints
+- [ ] ETA display to next waypoint
+- [ ] Connection status indicators
+- [ ] Fallback to polling if WebSocket unavailable
+- [ ] Multi-viewer support (1000+ concurrent viewers)
+- [ ] BroadcastChannel API for local testing across tabs
+
+#### Phase 5: Shareable Links & QR Codes (Week 4-5)
+- [ ] Generate unique tracking URLs per route
+- [ ] QR code generation with qrcode.react library
+- [ ] QR code download as PNG image
+- [ ] Copy-to-clipboard functionality with feedback
+- [ ] Route publishing workflow (draft → published)
+- [ ] Social media share buttons (Twitter, Facebook, WhatsApp)
+- [ ] Short URL generation (optional)
+- [ ] Print-friendly QR code layouts for flyers
+
+#### Phase 6: Social Media Previews & UX Polish (Week 5-6)
+- [ ] Dynamic meta tags with React Helmet Async
+- [ ] Open Graph tags for Facebook/LinkedIn previews
+- [ ] Twitter Card implementation
+- [ ] Custom preview images for each route
+- [ ] Mobile responsive design (fully mobile-first)
+- [ ] Australian summer Christmas theme and RFS branding
+- [ ] Loading states with skeleton screens
+- [ ] Error handling with friendly messages
+- [ ] Smooth animations with CSS transitions
+- [ ] Touch-friendly controls (44x44px minimum)
+- [ ] Accessibility improvements (WCAG 2.1 AA)
+- [ ] Performance optimization (code splitting, lazy loading)
+- [ ] PWA manifest and service worker (optional)
+
+#### Phase 7: Authentication with Microsoft Entra External ID (Week 6-7)
+**🔒 Production Security Implementation**
+
+- [ ] Create Azure Entra External ID tenant
+- [ ] Configure Entra External ID application registration
+- [ ] Implement MSAL authentication flow
+- [ ] Create login/logout pages
+- [ ] **Implement authentication toggle (dev mode bypass vs production)**
+- [ ] Protected route guards for brigade dashboard
+- [ ] Brigade domain whitelist validation
+- [ ] Member approval workflow for new users
+- [ ] Role-based access control (admin, operator, viewer)
+- [ ] Session management with token refresh
+- [ ] Secure API endpoints with JWT validation
+- [ ] Audit logging for authentication events
+- [ ] **Update deployment configuration to enable auth in production**
+- [ ] **Keep dev mode bypass for local development and testing**
+
+#### Phase 8: Testing & Production Deployment (Week 7-8)
+- [ ] Unit tests with Vitest
+- [ ] Integration tests for storage adapters
+- [ ] E2E tests with Playwright
+- [ ] Test authentication flow (both dev and production modes)
+- [ ] Mobile device testing (iOS Safari, Android Chrome)
+- [ ] Cross-browser testing (Chrome, Firefox, Safari, Edge)
+- [ ] Load testing with 1000+ concurrent viewers
+- [ ] Security audit and vulnerability scan
+- [ ] Performance testing (Lighthouse scores)
+- [ ] User documentation (brigade operator guide)
+- [ ] Technical documentation (developer guide)
+- [ ] Deployment guide (Azure setup instructions)
+- [ ] Production deployment with authentication enabled
+- [ ] Post-launch monitoring and bug fixes
+
+---
+
+### 17. User Flows (Updated with Dev Mode)
+
+#### Brigade Operator Flow - Development Mode:
+1. **First time access (dev mode):**
+   - Navigate to application
+   - **Automatically logged in as mock user**
+   - **Access dashboard immediately (no login required)**
+   - **Mock brigade context provided automatically**
+
+2. **Create route (dev mode - no auth barrier):**
+   - Navigate directly to dashboard
+   - Click "New Route"
+   - Add route name, date, start time
+   - Click on map or search addresses to add waypoints
+   - Click "Optimize Route" to generate navigation
+   - Review turn-by-turn instructions
+   - Adjust waypoints if needed
+   - Save as draft (persisted to localStorage)
+
+3. **Publish route (dev mode):**
+   - Review route details
+   - Click "Publish"
+   - Get shareable link + QR code
+   - Download QR code for testing
+   - Test sharing functionality
+
+4. **On event day - Navigation (dev mode):**
+   - Navigate to dashboard
+   - Open route
+   - Click "Start Navigation"
+   - Grant location permissions (browser prompt)
+   - **Turn-by-turn navigation begins:**
+     - See next instruction ("Turn left in 200m")
+     - Hear voice instructions (text-to-speech)
+     - View current location on map
+     - Monitor ETA to next waypoint
+     - Mark waypoints as "Complete" when visited
+   - **Location broadcasts via WebSocket/BroadcastChannel**
+   - Test rerouting functionality
+   - Test pause/resume navigation
+   - End navigation when complete
+
+5. **After event:**
+   - Click "End Navigation"
+   - Route marked as completed
+   - View statistics (distance, time, viewers)
+   - Test archive functionality
+
+#### Brigade Operator Flow - Production Mode:
+1. **First time access (production with auth):**
    - Navigate to application
    - Click "Login with Microsoft"
    - Authenticate via Entra External ID
@@ -1502,24 +1676,24 @@ Admin Routes:
    - If no match: Show "Request Access" form
    - Admin approves access request
 
-2. **Create route:**
-   - Login to dashboard
+2. **Create route (production):**
+   - Login to dashboard (authentication required)
    - Click "New Route"
    - Add route name, date, start time
    - Click on map or search addresses to add waypoints
    - Click "Optimize Route" to generate navigation
    - Review turn-by-turn instructions
    - Adjust waypoints if needed
-   - Save as draft
+   - Save as draft (persisted to Azure Table Storage)
 
-3. **Publish route:**
+3. **Publish route (production):**
    - Review route details
    - Click "Publish"
    - Get shareable link + QR code
    - Download QR code for flyers
    - Share link on social media
 
-4. **On event day (Navigation):**
+4. **On event day - Navigation (production):**
    - Login to dashboard
    - Open route
    - Click "Start Navigation"
@@ -1530,7 +1704,7 @@ Admin Routes:
      - View current location on map
      - Monitor ETA to next waypoint
      - Mark waypoints as "Complete" when visited
-   - **Location automatically broadcasts to public**
+   - **Location automatically broadcasts to public via Azure Web PubSub**
    - If off route: Option to reroute
    - Pause navigation for breaks
    - End navigation when complete
@@ -1541,12 +1715,12 @@ Admin Routes:
    - View statistics (distance, time, viewers)
    - Archive route
 
-#### Public User Flow:
+#### Public User Flow (Same for both modes):
 1. Receive link or scan QR code
-2. View tracking page
+2. View tracking page (no auth required)
 3. See planned route and start time
 4. When tracking starts:
-   - See Santa moving on map
+   - See Santa moving on map in real-time
    - See progress through waypoints
    - See ETA to next location
 5. Share link with others
