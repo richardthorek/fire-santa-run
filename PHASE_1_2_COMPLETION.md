@@ -8,7 +8,7 @@ This document verifies that Phase 1 and Phase 2 are fully complete according to 
 
 ## Phase 1: Infrastructure & Dev Mode Setup - ✅ COMPLETE
 
-### Completed Items (9/9 core items)
+### Completed Items (8/8 core items)
 
 1. ✅ **Set up development environment**
    - Node.js 20, npm, Vite, TypeScript configured
@@ -47,19 +47,13 @@ This document verifies that Phase 1 and Phase 2 are fully complete according to 
    - Automatic authentication in dev mode
    - Structure ready for Entra ID (Phase 7)
 
-7. ✅ **Configure GitHub Actions for CI/CD**
-   - `deploy.yml` - Production deployment workflow
-   - `preview.yml` - PR preview deployments
-   - `security.yml` - Security scanning
-   - All workflows configured and ready
-
-8. ✅ **Configure localStorage as primary storage adapter**
+7. ✅ **Configure localStorage as primary storage adapter**
    - `LocalStorageAdapter` implemented
    - `IStorageAdapter` interface defined
    - Storage adapter factory with environment switching
    - Brigade-scoped data isolation
 
-9. ✅ **Create mock brigade data for testing**
+8. ✅ **Create mock brigade data for testing**
    - Mock brigade: Griffith Rural Fire Brigade
    - 2 sample routes with waypoints
    - Automatic initialization in dev mode
@@ -68,6 +62,11 @@ This document verifies that Phase 1 and Phase 2 are fully complete according to 
 ### Deferred Items (moved to Phase 7)
 
 These items are correctly deferred as they require production readiness:
+
+- **Configure GitHub Actions for CI/CD** - Deferred to Phase 7
+  - Reason: Requires Azure Static Web Apps deployment target
+  - Dependencies: Azure infrastructure, production secrets, deployment configuration
+  - Note: Placeholder workflows were removed as they referenced Vercel (not Azure)
 
 - **Set up Azure Static Web App resource** - Deferred to Phase 7
   - Reason: Requires production deployment strategy
@@ -267,8 +266,8 @@ These items depend on Phase 5 (Shareable Links & QR Codes):
 ## Summary
 
 ### Phase 1 Status: ✅ 100% COMPLETE
-- **9 of 9 core items complete**
-- **2 items deferred to Phase 7** (correctly)
+- **8 of 8 core items complete**
+- **3 items deferred to Phase 7** (correctly - CI/CD, Azure resources)
 - **All infrastructure ready for Phase 2+**
 
 ### Phase 2 Status: ✅ 100% COMPLETE

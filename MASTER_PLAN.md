@@ -1511,11 +1511,11 @@ const ProtectedRoute = ({ children }) => {
 - [x] Create project structure (frontend + API)
 - [x] **Set up development mode configuration (VITE_DEV_MODE=true)**
 - [x] **Implement mock authentication context for dev mode**
-- [x] Configure GitHub Actions for CI/CD (deploy.yml, preview.yml, security.yml)
 - [x] Configure localStorage as primary storage adapter for development
 - [x] Create mock brigade data for testing
 
 **Deferred to Phase 7 (Production Deployment):**
+- [ ] Configure GitHub Actions for CI/CD (requires Azure Static Web Apps deployment target)
 - [ ] Set up Azure Static Web App resource (requires production readiness)
 - [ ] Create Azure Table Storage account (requires production readiness)
 
