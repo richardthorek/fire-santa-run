@@ -129,8 +129,121 @@ Before making changes, verify all required secrets are configured:
 - High contrast mode support
 - Touch targets minimum 44x44px
 
+## Visual Design Guidelines
+
+### Design Theme
+This is a **fun, magical, whimsical Christmas app** with an **Australian summer Christmas style**. The design should be **modern, sleek, and impressive** while supporting fire brigade Santa run events.
+
+### Australian Summer Christmas Aesthetic
+- 🌞 Bright, sunny atmosphere with vibrant colors
+- 🏖️ Beach-inspired elements (sand, surf, sunshine)
+- 🌺 Native Australian flora (Christmas bush, bottlebrush, eucalyptus)
+- 🎄 Australian twist on traditions (Santa in summer setting)
+- 🚒 Fire service heritage and community pride
+
+### Color Palette
+```css
+/* Primary Colors */
+--fire-red: #D32F2F;           /* Fire brigade primary */
+--fire-red-dark: #B71C1C;      /* Hover/active states */
+--summer-gold: #FFA726;        /* Secondary highlights */
+--christmas-green: #43A047;    /* Success states */
+
+/* Supporting Colors */
+--sky-blue: #29B6F6;          /* Info states */
+--sand-beige: #FFECB3;        /* Neutral backgrounds */
+--sunset-orange: #FF7043;     /* Warm accents */
+
+/* Neutrals */
+--neutral-50 to --neutral-900  /* Modern gray scale */
+```
+
+### Typography
+- **Headings**: Nunito, Montserrat, or Poppins (bold, modern)
+- **Body**: Inter or Open Sans (clean, readable)
+- **Monospace**: JetBrains Mono for technical elements
+- Mobile-first responsive scale (0.75rem to 3rem)
+
+### Component Styling Approach
+
+#### Cards
+- Rounded corners (16px border-radius)
+- Subtle gradient backgrounds
+- Soft shadows with hover lift effects
+- Optional festive decorative elements (sparkles, icons)
+
+#### Buttons
+- Gradient backgrounds for primary actions
+- Generous padding (0.75rem 1.5rem)
+- 12px border-radius
+- Smooth transitions and hover effects
+- Fire red for primary, summer gold for secondary
+
+#### Navigation
+- Sticky header with fire red gradient
+- White text with semi-transparent hover states
+- Mobile-friendly hamburger menu
+- Clear active state indicators
+
+#### Map Elements
+- **Santa marker**: Pulsing red circle with animation
+- **Waypoints**: Numbered circles, green when completed
+- Custom styled popups matching color scheme
+- Smooth marker animations
+
+### Decorative Elements
+- Subtle sparkle effects on success states
+- Christmas lights as dividers (tasteful)
+- Native flower illustrations in empty states
+- Sun motifs and warm glows
+- Fire service badge/emblem styling
+
+### Animations
+- Use `cubic-bezier(0.4, 0, 0.2, 1)` for smooth transitions
+- Gentle bounce for attention (`translateY(-8px)`)
+- Pulse animation for live tracking
+- Sparkle effects for celebrations
+- Respect `prefers-reduced-motion`
+
+### Accessibility
+- WCAG 2.1 AA compliance minimum
+- 4.5:1 contrast ratio for text
+- 3px outline on focus states (summer gold)
+- Touch targets minimum 44x44px
+- Keyboard navigation support
+- Screen reader friendly labels
+
+### Responsive Design
+- Mobile-first approach
+- Breakpoints: 640px, 768px, 1024px, 1280px, 1536px
+- Full-screen map on tracking pages
+- Card-based layouts for dashboards
+- Bottom sheets for mobile waypoint lists
+
+### Dark Mode
+- Optional dark mode support
+- Adjust colors for dark backgrounds
+- Use --neutral-900 base with lighter accents
+- Maintain festive feel with adjusted saturation
+
+### Implementation Best Practices
+1. Use CSS custom properties for all colors and spacing
+2. Create utility classes for common patterns
+3. Build consistent component library
+4. Optimize animations (use transforms, not layout properties)
+5. Lazy load images, use WebP format
+6. Progressive enhancement approach
+7. Allow brigade-specific color customization
+
+### Design System Resources
+- Icons: Material Symbols Rounded or Phosphor Icons (rounded)
+- Illustrations: undraw.co for empty states
+- Color testing: WebAIM Contrast Checker
+- Inspiration: NORAD Santa Tracker, modern SaaS dashboards
+
 ## Resources
 - Mapbox GL JS Docs: https://docs.mapbox.com/mapbox-gl-js/
 - Azure Table Storage SDK: https://learn.microsoft.com/en-us/javascript/api/@azure/data-tables/
 - React Router v6 Docs: https://reactrouter.com/
 - TypeScript Handbook: https://www.typescriptlang.org/docs/
+- Visual Design: See MASTER_PLAN.md "Visual Design & Brand Identity" section

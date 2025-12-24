@@ -5,6 +5,519 @@ A web application for Australian Rural Fire Service (RFS) brigades to plan, publ
 
 ---
 
+## Visual Design & Brand Identity
+
+### Design Philosophy
+The Fire Santa Run application embodies a **fun, magical, whimsical Christmas experience** with an **Australian summer twist**. The design balances festive joy with professional firefighting heritage, creating a modern, sleek interface that delights users while maintaining credibility and ease of use.
+
+### Australian Summer Christmas Theme
+Unlike traditional northern hemisphere Christmas imagery (snow, winter), this app celebrates **Australian summer Christmas**:
+- 🌞 **Bright, sunny atmosphere** - vibrant colors reflecting summer heat
+- 🏖️ **Beach-inspired elements** - sand, surf, sunshine
+- 🌺 **Native flora** - Christmas bush, bottlebrush, eucalyptus
+- 🎄 **Aussie twist on traditions** - Santa in shorts, BBQ celebrations, outdoor gatherings
+- 🚒 **Fire service heritage** - rural fire service pride, community service
+
+### Color Palette
+
+#### Primary Colors
+```css
+/* Fire Brigade Red - Primary brand color */
+--fire-red: #D32F2F;           /* Main CTA buttons, important alerts */
+--fire-red-dark: #B71C1C;      /* Hover states, active elements */
+--fire-red-light: #EF5350;     /* Backgrounds, lighter accents */
+
+/* Summer Gold - Warmth and sunshine */
+--summer-gold: #FFA726;        /* Secondary CTAs, highlights */
+--summer-gold-light: #FFB74D;  /* Accents, decorative elements */
+
+/* Christmas Green - Festive touch */
+--christmas-green: #43A047;    /* Success states, completed markers */
+--eucalyptus-green: #66BB6A;   /* Lighter accents */
+```
+
+#### Supporting Colors
+```css
+/* Sky Blue - Australian summer sky */
+--sky-blue: #29B6F6;          /* Links, info states */
+--ocean-blue: #0288D1;        /* Deep water, backgrounds */
+
+/* Sandy Beige - Beach and outback */
+--sand-beige: #FFECB3;        /* Neutral backgrounds */
+--sand-light: #FFF9E6;        /* Card backgrounds */
+
+/* Sunset Orange - Summer evening */
+--sunset-orange: #FF7043;     /* Warm accents */
+--sunset-pink: #FF8A80;       /* Decorative highlights */
+```
+
+#### Neutral Colors
+```css
+/* Modern grays for contrast and readability */
+--neutral-50: #FAFAFA;
+--neutral-100: #F5F5F5;
+--neutral-200: #EEEEEE;
+--neutral-300: #E0E0E0;
+--neutral-700: #616161;
+--neutral-800: #424242;
+--neutral-900: #212121;
+```
+
+### Typography
+
+#### Font Families
+```css
+/* Headings - Modern, bold, attention-grabbing */
+--font-heading: 'Nunito', 'Montserrat', 'Poppins', system-ui, sans-serif;
+font-weight: 700-900;
+
+/* Body Text - Clean, readable, professional */
+--font-body: 'Inter', 'Open Sans', system-ui, -apple-system, sans-serif;
+font-weight: 400-600;
+
+/* Monospace - Technical elements, coordinates */
+--font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+```
+
+#### Typography Scale
+```css
+/* Mobile-first responsive typography */
+--text-xs: 0.75rem;    /* 12px - Small labels, captions */
+--text-sm: 0.875rem;   /* 14px - Secondary text */
+--text-base: 1rem;     /* 16px - Body text */
+--text-lg: 1.125rem;   /* 18px - Emphasized text */
+--text-xl: 1.25rem;    /* 20px - Small headings */
+--text-2xl: 1.5rem;    /* 24px - Section headings */
+--text-3xl: 1.875rem;  /* 30px - Page titles */
+--text-4xl: 2.25rem;   /* 36px - Hero headings */
+--text-5xl: 3rem;      /* 48px - Large displays */
+```
+
+### Visual Elements & Decorations
+
+#### Christmas Decorations (Whimsical Touches)
+- **Subtle sparkles** - Animated twinkle effects on success states
+- **Christmas lights** - String of lights as divider elements
+- **Festive icons** - Santa hat, gift box, candy cane as decorative elements
+- **Snow(?) consideration** - Falling snow animation toggle (respectful of Australian context)
+- **Star trails** - Following Santa's route with star/sparkle effects
+
+#### Australian Elements
+- **Native flowers** - Stylized Christmas bush, bottlebrush illustrations
+- **Sun motifs** - Sunshine rays, warm glows
+- **Wave patterns** - Subtle wave textures in backgrounds
+- **Gum leaf silhouettes** - Header/footer decorative elements
+- **Outback textures** - Subtle sand/earth patterns in neutral areas
+
+#### Fire Service Elements
+- **Badge/Emblem styling** - Brigade logos prominently displayed
+- **Chevron patterns** - Inspired by fire truck safety markings
+- **Alert indicators** - Emergency-style flashing for critical actions
+- **Service ribbons** - Decorative ribbon/banner elements for announcements
+
+### Iconography
+
+#### Icon System
+Use **rounded, friendly icons** with consistent 2px stroke weight:
+- Material Symbols Rounded (Google)
+- Phosphor Icons (rounded variant)
+- Custom SVG icons for specific fire/Christmas elements
+
+#### Key Icons
+```typescript
+interface IconSet {
+  // Navigation
+  dashboard: '🏠',
+  map: '🗺️',
+  routes: '🛣️',
+  settings: '⚙️',
+  
+  // Actions
+  add: '➕',
+  edit: '✏️',
+  delete: '🗑️',
+  share: '🔗',
+  save: '💾',
+  
+  // Santa & Christmas
+  santa: '🎅',
+  gift: '🎁',
+  tree: '🎄',
+  bell: '🔔',
+  star: '⭐',
+  
+  // Fire Service
+  fire_truck: '🚒',
+  badge: '🛡️',
+  siren: '🚨',
+  
+  // Status
+  live: '🔴',
+  scheduled: '📅',
+  completed: '✅',
+  draft: '📝'
+}
+```
+
+### Component Styling Patterns
+
+#### Cards & Containers
+```css
+.card {
+  background: linear-gradient(135deg, var(--sand-light) 0%, white 100%);
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+              0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 1.5rem;
+  border: 1px solid var(--neutral-200);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+              0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.card--festive {
+  border-top: 4px solid var(--fire-red);
+  position: relative;
+  overflow: hidden;
+}
+
+.card--festive::before {
+  content: '✨';
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.5rem;
+  opacity: 0.3;
+}
+```
+
+#### Buttons
+```css
+/* Primary - Fire Brigade Red */
+.btn-primary {
+  background: linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(211, 47, 47, 0.4);
+}
+
+/* Secondary - Summer Gold */
+.btn-secondary {
+  background: linear-gradient(135deg, var(--summer-gold) 0%, var(--summer-gold-light) 100%);
+  color: var(--neutral-900);
+}
+
+/* Success - Christmas Green */
+.btn-success {
+  background: linear-gradient(135deg, var(--christmas-green) 0%, var(--eucalyptus-green) 100%);
+  color: white;
+}
+```
+
+#### Navigation
+```css
+.navbar {
+  background: linear-gradient(90deg, var(--fire-red) 0%, var(--fire-red-dark) 100%);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.nav-item {
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.nav-item.active {
+  background: rgba(255, 255, 255, 0.2);
+  font-weight: 600;
+}
+```
+
+#### Map Markers
+```css
+/* Santa Marker - Animated, prominent */
+.marker-santa {
+  width: 48px;
+  height: 48px;
+  background: radial-gradient(circle, var(--fire-red) 0%, var(--fire-red-dark) 100%);
+  border: 4px solid white;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.5),
+              0 0 0 8px rgba(211, 47, 47, 0.2);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(211, 47, 47, 0.5),
+                0 0 0 8px rgba(211, 47, 47, 0.2);
+  }
+  50% {
+    box-shadow: 0 4px 16px rgba(211, 47, 47, 0.7),
+                0 0 0 12px rgba(211, 47, 47, 0.3);
+  }
+}
+
+/* Waypoint Markers - Numbered, clean */
+.marker-waypoint {
+  width: 36px;
+  height: 36px;
+  background: white;
+  border: 3px solid var(--christmas-green);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--christmas-green);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.marker-waypoint.completed {
+  background: var(--christmas-green);
+  color: white;
+}
+```
+
+### Animations & Interactions
+
+#### Micro-interactions
+```css
+/* Sparkle effect on success */
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(180deg); }
+}
+
+/* Sleigh slide entrance */
+@keyframes slide-in {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Bounce for attention */
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* Glow effect for live tracking */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 10px var(--fire-red); }
+  50% { box-shadow: 0 0 20px var(--fire-red), 0 0 30px var(--fire-red); }
+}
+```
+
+#### Transition Timings
+```css
+--transition-fast: 150ms;
+--transition-base: 200ms;
+--transition-slow: 300ms;
+--transition-slower: 500ms;
+
+--easing-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+--easing-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+```
+
+### Layout Patterns
+
+#### Page Structure
+```
+┌─────────────────────────────────────┐
+│ Header/Navbar (Festive red)        │
+│ 🎅 Fire Santa Run | Nav Items      │
+├─────────────────────────────────────┤
+│ Hero Banner (Optional)              │
+│ Seasonal greeting, key message      │
+├─────────────────────────────────────┤
+│                                     │
+│ Main Content Area                   │
+│ (Dashboard, Map, Forms, etc.)       │
+│                                     │
+├─────────────────────────────────────┤
+│ Footer                              │
+│ Brigade info, social, copyright     │
+└─────────────────────────────────────┘
+```
+
+#### Responsive Breakpoints
+```css
+/* Mobile-first approach */
+--breakpoint-sm: 640px;   /* Small tablets, large phones */
+--breakpoint-md: 768px;   /* Tablets */
+--breakpoint-lg: 1024px;  /* Desktops */
+--breakpoint-xl: 1280px;  /* Large desktops */
+--breakpoint-2xl: 1536px; /* Extra large screens */
+```
+
+### Accessibility Considerations
+
+#### Color Contrast (WCAG AA Compliance)
+- Fire red on white: ✅ 4.5:1 contrast ratio
+- Text on colored backgrounds must meet 4.5:1 minimum
+- Interactive elements: 3:1 minimum for non-text contrast
+
+#### Focus States
+```css
+*:focus-visible {
+  outline: 3px solid var(--summer-gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+```
+
+#### Motion Preferences
+```css
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+### Dark Mode Considerations
+
+While the primary theme is bright and festive (summer Christmas), provide optional dark mode:
+
+```css
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: var(--neutral-900);
+    --bg-secondary: var(--neutral-800);
+    --text-primary: var(--neutral-50);
+    --text-secondary: var(--neutral-300);
+    
+    /* Adjust colors for dark backgrounds */
+    --fire-red: #EF5350;
+    --summer-gold: #FFB74D;
+    --christmas-green: #66BB6A;
+  }
+  
+  .card {
+    background: linear-gradient(135deg, var(--neutral-800) 0%, var(--neutral-900) 100%);
+    border-color: var(--neutral-700);
+  }
+}
+```
+
+### Loading States & Empty States
+
+#### Loading Skeleton
+```css
+.skeleton {
+  background: linear-gradient(90deg, 
+    var(--neutral-200) 25%, 
+    var(--neutral-100) 50%, 
+    var(--neutral-200) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+```
+
+#### Empty State Illustrations
+- Friendly, whimsical illustrations for empty states
+- "No routes yet - Create your first Santa run!" with Santa waving
+- "Waiting for Santa..." with clock and present icons
+
+### Page-Specific Design Guidelines
+
+#### Public Tracking Page
+- **Full-screen map** - Immersive experience
+- **Floating info card** - Translucent overlay with Santa status
+- **Progress bar** - Visual route completion indicator
+- **Festive cursor trail** - Optional sparkles following cursor
+- **Share button** - Prominent, easy to find
+
+#### Brigade Dashboard
+- **Card-based layout** - Each route as a festive card
+- **Status badges** - Color-coded (draft, live, completed)
+- **Quick actions** - Edit, share, start navigation
+- **Stats overview** - Total routes, active routes, total viewers
+
+#### Route Planning Interface
+- **Split view** - Map on left, waypoint list on right (desktop)
+- **Stacked view** - Map top, controls bottom (mobile)
+- **Drag handles** - Clear visual indicators for reordering
+- **Contextual tooltips** - Helpful hints without cluttering
+
+#### Navigation View (Brigade Operator)
+- **Minimal distractions** - Clean, focused UI
+- **Large turn indicators** - Easy to read while driving
+- **High contrast** - Readable in bright sunlight
+- **Voice instruction preview** - Text of next instruction displayed prominently
+
+### Brand Assets & Logo Guidelines
+
+#### Fire Santa Run Logo
+Concept: Combine fire service badge/shield with Santa hat and sleigh
+- **Primary logo**: Full color with text
+- **Icon only**: For mobile, favicons
+- **Monochrome**: For print, single-color applications
+
+#### Brigade Logo Integration
+- Prominent display of brigade logo in header
+- Respect brigade brand colors as accent where appropriate
+- Clear attribution: "Powered by Fire Santa Run"
+
+### Implementation Guidelines for Developers
+
+1. **CSS Custom Properties**: Define all colors, spacing, and typography as CSS variables
+2. **Utility Classes**: Create reusable classes for common patterns (.card-festive, .btn-christmas)
+3. **Component Library**: Build a consistent component library (buttons, cards, modals)
+4. **Responsive Images**: Use WebP format with fallbacks, lazy loading
+5. **Performance**: Optimize animations, use CSS transforms over layout properties
+6. **Progressive Enhancement**: Core functionality works without JavaScript, enhancements layer on
+7. **Theme Switching**: Allow brigades to customize primary color to match their branding
+
+### Design System Resources
+
+#### Recommended Tools
+- **Figma**: Design mockups and prototypes
+- **Coolors.co**: Color palette generation and testing
+- **WebAIM Contrast Checker**: Ensure accessibility compliance
+- **undraw.co**: Free illustrations for empty states
+- **Heroicons / Phosphor Icons**: Consistent icon library
+
+#### Inspiration Sources
+- Australian summer lifestyle imagery
+- Fire service websites and marketing materials
+- Christmas festival websites (Sydney Christmas, Carols by Candlelight)
+- Modern SaaS dashboards (Linear, Notion, Vercel)
+- Holiday tracking apps (NORAD Santa Tracker)
+
+---
+
 ## Core Features & Architecture
 
 ### 1. Multi-Brigade System
