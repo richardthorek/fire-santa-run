@@ -1,54 +1,181 @@
 # GitHub Copilot Agent Instructions for Fire Santa Run
 
+## 📋 Master Plan Document (CRITICAL)
+
+**⚠️ SINGLE SOURCE OF TRUTH: The `MASTER_PLAN.md` file is the ONLY planning document for this project.**
+
+### Master Plan Rules:
+- **ALWAYS** refer to `MASTER_PLAN.md` for comprehensive project documentation
+- **UPDATE** the master plan when adding features, changing architecture, or modifying workflows
+- **NEVER** create separate planning documents (no `plan.md`, `architecture.md`, `roadmap.md`, etc.)
+- **MAINTAIN** the master plan as development progresses with current status and decisions
+- **REFERENCE** specific sections of the master plan in commits and PRs
+
+All architectural decisions, feature specifications, implementation sequences, design guidelines, and technical details live in `MASTER_PLAN.md`. This includes:
+- Visual design & brand identity (Section 2)
+- Core features & architecture (Sections 3-12)
+- Implementation phases (Section 16)
+- Data models and API contracts (Sections 12-13)
+- Deployment and infrastructure (Sections 7, 15)
+- Testing strategies (Section 26)
+
 ## Project Overview
 React + TypeScript web application for Australian Rural Fire Service brigades to plan and track Santa runs with real-time GPS tracking.
 
 ## Key Technologies
 - React 19 + TypeScript
 - Vite build system
-- Mapbox GL JS for mapping
-- Azure Table Storage for data persistence
-- Socket.io / Pusher for real-time tracking
-- React Router for navigation
+- Mapbox GL JS for mapping and navigation (Directions API)
+- Azure Static Web Apps (hosting + serverless API)
+- Azure Table Storage (data persistence)
+- Azure Web PubSub (real-time tracking)
+- Microsoft Entra External ID (authentication)
 
-## 🚀 Development Mode Strategy (IMPORTANT)
+## 🏗️ Project Structure & Organization
 
-**Authentication has been moved to Phase 7** to enable rapid development and testing. The application supports two modes:
+### Core Directory Structure
+```
+fire-santa-run/
+├── src/
+│   ├── components/       # React components (UI building blocks)
+│   ├── pages/           # Page-level components (routes)
+│   ├── context/         # React Context providers (state management)
+│   ├── hooks/           # Custom React hooks (reusable logic)
+│   ├── utils/           # Utility functions (helpers)
+│   ├── storage/         # Storage adapters (localStorage, Azure)
+│   ├── types/           # TypeScript interfaces and types
+│   └── styles/          # Global styles and CSS
+├── api/                 # Azure Functions (serverless API)
+├── public/              # Static assets
+├── docs/                # Additional documentation
+├── MASTER_PLAN.md      # 📋 SINGLE SOURCE OF TRUTH
+└── .github/
+    └── copilot-instructions.md  # This file
+```
 
-### Development Mode (VITE_DEV_MODE=true)
-- **No authentication required** - All features accessible without login
-- Mock brigade context automatically provided
-- LocalStorage for data persistence (no Azure required)
-- All routes and features publicly accessible
-- Fast iteration and testing without auth barriers
-- **Use this mode for all development until Phase 7**
+### Architecture Principles
 
-### Production Mode (VITE_DEV_MODE=false)
-- Microsoft Entra External ID authentication required
-- Brigade isolation enforced
-- Azure Table Storage for persistence
-- Domain whitelist validation
-- Full security controls
+**1. Storage Adapter Pattern**
+- **Intent:** Support both local development and Azure production seamlessly
+- **Method:** Use interface-based adapters (`IStorageAdapter`) that switch based on environment
+- **Never:** Directly access `localStorage` or Azure APIs - always use `storageAdapter`
+- **Location:** `src/storage/` directory with `LocalStorageAdapter` and `AzureTableStorageAdapter`
 
-### When to Use Each Mode
-- **Local Development:** Always use dev mode (VITE_DEV_MODE=true)
-- **Preview Deployments:** Use dev mode for feature previews
-- **Testing:** Use dev mode for easier test setup
-- **Production:** Use production mode (VITE_DEV_MODE=false)
+**2. Development Mode Strategy**
+- **Intent:** Rapid development without authentication barriers until production-ready
+- **Method:** Environment variable `VITE_DEV_MODE=true` bypasses auth and uses localStorage
+- **Production:** `VITE_DEV_MODE=false` enables full Azure + Entra ID authentication
+- **See:** MASTER_PLAN.md Section 15b for complete strategy
 
-## Development Environment Setup
+**3. Multi-Brigade Isolation**
+- **Intent:** Each fire brigade has isolated data and configuration
+- **Method:** Brigade ID used as partition key in Azure Table Storage
+- **Design:** All routes/data scoped to `brigadeId` for data isolation
+- **Auth:** Domain whitelisting validates brigade membership (production mode)
 
-### Prerequisites Check
-**Minimal Setup (Dev Mode):**
-- `VITE_MAPBOX_TOKEN` - Required for all map functionality
-- `VITE_DEV_MODE=true` - Enable dev mode bypass
+## 🎯 Development Intent & Methodology
 
-**Optional (Production Mode):**
-- `AZURE_STORAGE_CONNECTION_STRING` - Required for production data persistence
-- Real-time service credentials (Pusher, Firebase, or Supabase)
-- `VITE_ENTRA_CLIENT_ID` and `VITE_ENTRA_TENANT_ID` - For authentication
+### Primary Goals
+1. **Public-First Experience:** Real-time Santa tracking accessible to anyone with a link (no login required)
+2. **Brigade-Friendly:** Simple route planning interface for fire service volunteers
+3. **Mobile-Optimized:** Navigation for drivers, tracking for families on mobile devices
+4. **Reliable:** Graceful degradation when network/services unavailable
 
-### Local Development
+### Development Workflow
+
+**Phase-Based Implementation:**
+- Follow the 8-phase plan in MASTER_PLAN.md Section 16
+- Each phase builds on previous work with clear deliverables
+- Authentication deferred to Phase 7 (rapid prototyping first)
+
+**Feature Development Process:**
+1. Check MASTER_PLAN.md for feature specification
+2. Update master plan if feature scope changes
+3. Implement with storage adapter pattern (dev mode first)
+4. Test in development mode (`VITE_DEV_MODE=true`)
+5. Validate production mode compatibility
+6. Update MASTER_PLAN.md with implementation notes
+
+**Code Change Methodology:**
+- Make minimal, surgical changes to achieve the goal
+- Use existing patterns and conventions from codebase
+- Implement features mobile-first (primary use case)
+- Support offline-first where possible
+- Test across browsers (Chrome, Safari, Firefox, Edge)
+
+## 🎨 Design Patterns & Principles
+
+### UI/UX Design Language
+- **Theme:** Fun, magical, whimsical Australian summer Christmas
+- **Colors:** Fire red (#D32F2F), summer gold (#FFA726), Christmas green (#43A047)
+- **Typography:** Bold headings (Nunito/Montserrat), clean body (Inter/Open Sans)
+- **Components:** Rounded corners, gradient buttons, festive decorations
+- **Reference:** MASTER_PLAN.md Section 2 for complete design system
+
+### Component Patterns
+
+**Functional Components with Hooks:**
+```typescript
+// ✅ Correct pattern
+export function RouteList() {
+  const { routes } = useRoutes();
+  const { brigade } = useBrigade();
+  // ... implementation
+}
+
+// ❌ Avoid class components
+```
+
+**Named Exports:**
+```typescript
+// ✅ Correct
+export function MapView() { }
+export function WaypointList() { }
+
+// ❌ Avoid default exports
+export default MapView;
+```
+
+**Context-Based State Management:**
+```typescript
+// Use React Context for global state (auth, brigade, routes)
+// See src/context/ for existing patterns
+export const BrigadeContext = createContext<BrigadeContextType>(null);
+export function useBrigade() { return useContext(BrigadeContext); }
+```
+
+### Data Flow Patterns
+
+**Storage Abstraction:**
+```typescript
+// ✅ Always use storage adapter
+import { storageAdapter } from '@/storage';
+await storageAdapter.saveRoute(route);
+
+// ❌ Never access directly
+localStorage.setItem('route', JSON.stringify(route));
+```
+
+**Environment-Based Behavior:**
+```typescript
+// ✅ Check dev mode flag
+const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+if (isDevMode) {
+  // Mock/bypass for development
+} else {
+  // Real implementation for production
+}
+```
+
+### API & Data Contracts
+- Follow data models in MASTER_PLAN.md Section 12
+- Use TypeScript interfaces from `src/types/index.ts`
+- Maintain backward compatibility when updating schemas
+- Version API endpoints if breaking changes needed
+
+## ⚙️ Development Methods & Workflows
+
+### Local Development Setup
 1. Clone repository
 2. Copy `.env.example` to `.env.local`
 3. Set `VITE_DEV_MODE=true` in `.env.local`
@@ -57,245 +184,114 @@ React + TypeScript web application for Australian Rural Fire Service brigades to
 6. Run `npm run dev`
 7. Access at `http://localhost:5173`
 
-## Architecture Guidelines
+### Common Development Tasks
 
-### Authentication (Updated Strategy)
-**Development Mode (Phase 1-6):**
-- Mock authentication context that always returns "authenticated"
-- Automatic brigade context without login
-- No auth guards on protected routes in dev mode
-- All features accessible for testing
-
-**Production Mode (Phase 7+):**
-- Microsoft Entra External ID (enterprise OAuth 2.0)
-- Domain whitelist validation for brigade membership
-- Protected route guards enforced
-- Role-based access control (admin, operator, viewer)
-- Session management with JWT tokens
-
-**Implementation Pattern:**
-```typescript
-// Use environment variable to toggle auth mode
-const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-
-// Auth context returns mock data in dev mode
-if (isDevMode) {
-  return { isAuthenticated: true, user: mockUser };
-}
-
-// Real auth in production
-return useMSALAuth();
-```
-
-### Storage Layer
-- Always use `storageAdapter` interface, never directly access localStorage or Azure
-- Support both localStorage (dev) and Azure Table Storage (prod)
-- Implement offline-first with sync when online
-
-### Route Management
-- Routes belong to brigades (multi-tenancy)
-- Route IDs must be globally unique
-- Support draft, published, active, completed, archived states
-- Generate QR codes using qrcode.react library
-
-### Real-time Tracking
-- Use WebSocket for production (Pusher/Firebase/Supabase)
-- BroadcastChannel API for local multi-tab testing
-- Graceful degradation if WebSocket unavailable
-- Throttle location updates (max 1 per 5 seconds)
-
-## Code Style
-- Use TypeScript strict mode
-- Functional components with hooks (no class components)
-- Named exports for components
-- Comprehensive JSDoc comments for utilities
-- Mobile-first responsive design
-
-## Testing Approach
-- Test with mock Mapbox token for CI
-- Use in-memory storage adapter for tests
-- Mock WebSocket connections
-- Test across mobile and desktop viewports
-
-## Common Tasks
-
-### Adding New Route Fields
+**Adding New Route Fields:**
 1. Update `Route` interface in `src/types/index.ts`
-2. Update both storage adapters (localStorage and Azure)
+2. Update both storage adapters (`src/storage/localStorage.ts` and `azure.ts`)
 3. Update route form components
 4. Update route display components
 5. Run type check: `npm run build`
+6. Update MASTER_PLAN.md Section 12 (Data Model) with new field
 
-### Adding New Brigade Settings
-1. Update `Brigade` interface in `src/types/index.ts`
-2. Update brigade setup flow
-3. Update storage adapters
-4. Test with fresh localStorage and Azure table
+**Adding New Features:**
+1. Check MASTER_PLAN.md for existing specification
+2. If not specified, document the feature in MASTER_PLAN.md first
+3. Implement following existing patterns in codebase
+4. Test in development mode
+5. Verify production mode compatibility
+6. Update MASTER_PLAN.md with implementation status
 
-### Deploying Changes
-1. Ensure all tests pass: `npm test`
-2. Ensure lint passes: `npm run lint`
-3. Build successfully: `npm run build`
-4. Commit changes to feature branch
-5. Create PR (preview deployment automatic)
-6. Merge to main (production deployment automatic)
+**Modifying Architecture:**
+1. **FIRST:** Update MASTER_PLAN.md with architectural change and rationale
+2. Implement the change following the updated plan
+3. Update any affected documentation sections in MASTER_PLAN.md
+4. Document migration path if breaking change
 
-## Troubleshooting
+### Code Quality Standards
+- **TypeScript:** Strict mode enabled, no `any` types without justification
+- **Linting:** Must pass `npm run lint` before committing
+- **Building:** Must pass `npm run build` (type checking)
+- **Testing:** Write tests for new utilities and complex logic
+- **Mobile-First:** Design and test on mobile viewports first (375px width)
+- **Accessibility:** WCAG 2.1 AA compliance (see MASTER_PLAN.md Section 2)
 
-### Mapbox Not Loading
-- Check `VITE_MAPBOX_TOKEN` is set correctly
-- Verify token has correct scopes in Mapbox dashboard
-- Check browser console for CORS errors
+### Git Workflow
+- Feature branches from `main`
+- Descriptive commit messages referencing MASTER_PLAN.md sections when relevant
+- PR descriptions should reference master plan sections being implemented
+- Preview deployments automatic for PRs
+- Production deployment on merge to `main`
 
-### Azure Storage Connection Fails
-- Verify connection string format is correct
-- Check CORS settings allow your domain
-- Ensure tables exist in storage account
-- Check Azure Storage firewall rules
+## 🔧 Key Technical Integrations
 
-### Real-time Tracking Not Working
-- Verify WebSocket service credentials
-- Check network tab for WebSocket connection
-- Ensure location permissions granted in browser
-- Check firewall/proxy doesn't block WebSocket
+### Mapbox Integration
+- **Maps:** Mapbox GL JS for interactive maps
+- **Navigation:** Mapbox Directions API for turn-by-turn routing
+- **Geocoding:** Address search and reverse geocoding
+- **Setup:** Requires `VITE_MAPBOX_TOKEN` in environment
+- **Reference:** MASTER_PLAN.md Sections 3, 3a for route planning and navigation
 
-## Security Checklist
-- [ ] No secrets in code or git history
-- [ ] All user inputs sanitized
-- [ ] Passwords properly hashed
-- [ ] HTTPS enforced in production
-- [ ] CORS properly configured
-- [ ] CSP headers configured
-- [ ] Dependencies regularly updated
+### Azure Services
+- **Static Web Apps:** Hosting + serverless API functions
+- **Table Storage:** NoSQL data persistence with partition/row key model
+- **Web PubSub:** Real-time WebSocket communication for live tracking
+- **Entra External ID:** OAuth 2.0 authentication (Phase 7)
+- **Reference:** MASTER_PLAN.md Sections 7, 8, 15, 22 for complete setup
 
-## Performance Targets
-- First Contentful Paint < 1.5s
-- Time to Interactive < 3.5s
-- Lighthouse Performance Score > 90
-- Bundle size < 500KB (gzipped)
+### Real-Time Architecture
+- **Brigade Operator:** Broadcasts GPS location via Azure Web PubSub
+- **Public Viewers:** Subscribe to route-specific groups, receive updates
+- **Fallback:** BroadcastChannel API for local multi-tab testing
+- **Throttling:** Max 1 location update per 5 seconds
+- **Reference:** MASTER_PLAN.md Section 6 for tracking system details
 
-## Accessibility Requirements
-- WCAG 2.1 AA compliance
-- Keyboard navigation support
-- Screen reader compatibility
-- High contrast mode support
-- Touch targets minimum 44x44px
+## 🚨 Critical Rules
 
-## Visual Design Guidelines
+### Documentation
+- ✅ **DO:** Update MASTER_PLAN.md when making architectural decisions
+- ✅ **DO:** Reference master plan sections in commits and PRs
+- ✅ **DO:** Keep implementation status current in master plan
+- ❌ **DON'T:** Create separate planning documents (plan.md, roadmap.md, etc.)
+- ❌ **DON'T:** Document features outside of MASTER_PLAN.md
+- ❌ **DON'T:** Let master plan become outdated
 
-### Design Theme
-This is a **fun, magical, whimsical Christmas app** with an **Australian summer Christmas style**. The design should be **modern, sleek, and impressive** while supporting fire brigade Santa run events.
+### Storage & Data
+- ✅ **DO:** Always use `storageAdapter` interface
+- ✅ **DO:** Test both localStorage and Azure adapters
+- ✅ **DO:** Implement offline-first with sync
+- ❌ **DON'T:** Directly access localStorage or Azure APIs
+- ❌ **DON'T:** Bypass storage adapter for "quick fixes"
 
-### Australian Summer Christmas Aesthetic
-- 🌞 Bright, sunny atmosphere with vibrant colors
-- 🏖️ Beach-inspired elements (sand, surf, sunshine)
-- 🌺 Native Australian flora (Christmas bush, bottlebrush, eucalyptus)
-- 🎄 Australian twist on traditions (Santa in summer setting)
-- 🚒 Fire service heritage and community pride
+### Security & Privacy
+- ✅ **DO:** Hash passwords using Web Crypto API
+- ✅ **DO:** Validate and sanitize all user inputs
+- ✅ **DO:** Use HTTPS in production
+- ✅ **DO:** Implement domain whitelisting for brigades (production)
+- ❌ **DON'T:** Store secrets in code or git history
+- ❌ **DON'T:** Commit API keys or connection strings
+- ❌ **DON'T:** Trust client-side data without validation
 
-### Color Palette
-```css
-/* Primary Colors */
---fire-red: #D32F2F;           /* Fire brigade primary */
---fire-red-dark: #B71C1C;      /* Hover/active states */
---summer-gold: #FFA726;        /* Secondary highlights */
---christmas-green: #43A047;    /* Success states */
+## 📚 Quick Reference Links
 
-/* Supporting Colors */
---sky-blue: #29B6F6;          /* Info states */
---sand-beige: #FFECB3;        /* Neutral backgrounds */
---sunset-orange: #FF7043;     /* Warm accents */
+### Within This Repository
+- **MASTER_PLAN.md** - Complete project documentation (ALWAYS CHECK FIRST)
+- **docs/DEV_MODE.md** - Development mode detailed guide
+- **docs/AZURE_SETUP.md** - Azure infrastructure setup
+- **docs/SECRETS_MANAGEMENT.md** - Environment variables and secrets
 
-/* Neutrals */
---neutral-50 to --neutral-900  /* Modern gray scale */
-```
-
-### Typography
-- **Headings**: Nunito, Montserrat, or Poppins (bold, modern)
-- **Body**: Inter or Open Sans (clean, readable)
-- **Monospace**: JetBrains Mono for technical elements
-- Mobile-first responsive scale (0.75rem to 3rem)
-
-### Component Styling Approach
-
-#### Cards
-- Rounded corners (16px border-radius)
-- Subtle gradient backgrounds
-- Soft shadows with hover lift effects
-- Optional festive decorative elements (sparkles, icons)
-
-#### Buttons
-- Gradient backgrounds for primary actions
-- Generous padding (0.75rem 1.5rem)
-- 12px border-radius
-- Smooth transitions and hover effects
-- Fire red for primary, summer gold for secondary
-
-#### Navigation
-- Sticky header with fire red gradient
-- White text with semi-transparent hover states
-- Mobile-friendly hamburger menu
-- Clear active state indicators
-
-#### Map Elements
-- **Santa marker**: Pulsing red circle with animation
-- **Waypoints**: Numbered circles, green when completed
-- Custom styled popups matching color scheme
-- Smooth marker animations
-
-### Decorative Elements
-- Subtle sparkle effects on success states
-- Christmas lights as dividers (tasteful)
-- Native flower illustrations in empty states
-- Sun motifs and warm glows
-- Fire service badge/emblem styling
-
-### Animations
-- Use `cubic-bezier(0.4, 0, 0.2, 1)` for smooth transitions
-- Gentle bounce for attention (`translateY(-8px)`)
-- Pulse animation for live tracking
-- Sparkle effects for celebrations
-- Respect `prefers-reduced-motion`
-
-### Accessibility
-- WCAG 2.1 AA compliance minimum
-- 4.5:1 contrast ratio for text
-- 3px outline on focus states (summer gold)
-- Touch targets minimum 44x44px
-- Keyboard navigation support
-- Screen reader friendly labels
-
-### Responsive Design
-- Mobile-first approach
-- Breakpoints: 640px, 768px, 1024px, 1280px, 1536px
-- Full-screen map on tracking pages
-- Card-based layouts for dashboards
-- Bottom sheets for mobile waypoint lists
-
-### Dark Mode
-- Optional dark mode support
-- Adjust colors for dark backgrounds
-- Use --neutral-900 base with lighter accents
-- Maintain festive feel with adjusted saturation
-
-### Implementation Best Practices
-1. Use CSS custom properties for all colors and spacing
-2. Create utility classes for common patterns
-3. Build consistent component library
-4. Optimize animations (use transforms, not layout properties)
-5. Lazy load images, use WebP format
-6. Progressive enhancement approach
-7. Allow brigade-specific color customization
-
-### Design System Resources
-- Icons: Material Symbols Rounded or Phosphor Icons (rounded)
-- Illustrations: undraw.co for empty states
-- Color testing: WebAIM Contrast Checker
-- Inspiration: NORAD Santa Tracker, modern SaaS dashboards
-
-## Resources
-- Mapbox GL JS Docs: https://docs.mapbox.com/mapbox-gl-js/
+### External Documentation
+- Mapbox GL JS: https://docs.mapbox.com/mapbox-gl-js/
+- Mapbox Directions API: https://docs.mapbox.com/api/navigation/directions/
+- Azure Static Web Apps: https://learn.microsoft.com/en-us/azure/static-web-apps/
 - Azure Table Storage SDK: https://learn.microsoft.com/en-us/javascript/api/@azure/data-tables/
-- React Router v6 Docs: https://reactrouter.com/
+- Azure Web PubSub: https://learn.microsoft.com/en-us/azure/azure-web-pubsub/
+- React Router v6: https://reactrouter.com/
 - TypeScript Handbook: https://www.typescriptlang.org/docs/
-- Visual Design: See MASTER_PLAN.md "Visual Design & Brand Identity" section
+
+## 🎯 When in Doubt
+1. Check MASTER_PLAN.md for the answer
+2. Follow existing code patterns in the repository
+3. Maintain consistency with the master plan
+4. Update the master plan if something is unclear or missing
+5. Ask for clarification rather than making assumptions that contradict the master plan
