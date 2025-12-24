@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigation } from '../hooks';
+import { useNavigation, useRoutes } from '../hooks';
 import { useWakeLock } from '../utils/wakeLock';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { NavigationMap } from '../components/NavigationMap';
@@ -21,6 +21,7 @@ export interface NavigationViewProps {
 export function NavigationView({ route, onComplete, onExit }: NavigationViewProps) {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
+  const { saveRoute } = useRoutes();
 
   const {
     navigationState,
@@ -33,7 +34,18 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     completeWaypoint,
   } = useNavigation({
     route,
-    onRouteComplete: () => {
+    onRouteComplete: async () => {
+      // Mark route as completed
+      const completedRoute = {
+        ...updatedRoute,
+        status: 'completed' as const,
+        completedAt: new Date().toISOString(),
+        actualDuration: updatedRoute.startedAt 
+          ? Math.floor((Date.now() - new Date(updatedRoute.startedAt).getTime()) / 1000)
+          : undefined,
+      };
+      await saveRoute(completedRoute);
+      
       if (onComplete) {
         onComplete();
       }
@@ -44,14 +56,27 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   // Keep screen awake during navigation
   const { isSupported: wakeLockSupported } = useWakeLock(navigationState.isNavigating);
 
-  // Auto-start navigation on mount
+  // Auto-start navigation on mount and mark route as active
   useEffect(() => {
     if (!hasStarted) {
       startNavigation();
+      
+      // Update route status to active
+      if (route.status !== 'active') {
+        const activeRoute = {
+          ...route,
+          status: 'active' as const,
+          startedAt: new Date().toISOString(),
+        };
+        saveRoute(activeRoute).catch(error => {
+          console.error('Failed to update route status:', error);
+        });
+      }
+      
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setHasStarted(true);
     }
-  }, [hasStarted, startNavigation]);
+  }, [hasStarted, startNavigation, route, saveRoute]);
 
   const handleStopNavigation = useCallback(() => {
     stopNavigation();
