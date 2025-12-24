@@ -11,34 +11,86 @@ React + TypeScript web application for Australian Rural Fire Service brigades to
 - Socket.io / Pusher for real-time tracking
 - React Router for navigation
 
+## 🚀 Development Mode Strategy (IMPORTANT)
+
+**Authentication has been moved to Phase 7** to enable rapid development and testing. The application supports two modes:
+
+### Development Mode (VITE_DEV_MODE=true)
+- **No authentication required** - All features accessible without login
+- Mock brigade context automatically provided
+- LocalStorage for data persistence (no Azure required)
+- All routes and features publicly accessible
+- Fast iteration and testing without auth barriers
+- **Use this mode for all development until Phase 7**
+
+### Production Mode (VITE_DEV_MODE=false)
+- Microsoft Entra External ID authentication required
+- Brigade isolation enforced
+- Azure Table Storage for persistence
+- Domain whitelist validation
+- Full security controls
+
+### When to Use Each Mode
+- **Local Development:** Always use dev mode (VITE_DEV_MODE=true)
+- **Preview Deployments:** Use dev mode for feature previews
+- **Testing:** Use dev mode for easier test setup
+- **Production:** Use production mode (VITE_DEV_MODE=false)
+
 ## Development Environment Setup
 
 ### Prerequisites Check
-Before making changes, verify all required secrets are configured:
+**Minimal Setup (Dev Mode):**
 - `VITE_MAPBOX_TOKEN` - Required for all map functionality
+- `VITE_DEV_MODE=true` - Enable dev mode bypass
+
+**Optional (Production Mode):**
 - `AZURE_STORAGE_CONNECTION_STRING` - Required for production data persistence
 - Real-time service credentials (Pusher, Firebase, or Supabase)
+- `VITE_ENTRA_CLIENT_ID` and `VITE_ENTRA_TENANT_ID` - For authentication
 
 ### Local Development
 1. Clone repository
 2. Copy `.env.example` to `.env.local`
-3. Fill in required environment variables
-4. Run `npm install`
-5. Run `npm run dev`
-6. Access at `http://localhost:5173`
+3. Set `VITE_DEV_MODE=true` in `.env.local`
+4. Add `VITE_MAPBOX_TOKEN` (only required variable for dev mode)
+5. Run `npm install`
+6. Run `npm run dev`
+7. Access at `http://localhost:5173`
 
 ## Architecture Guidelines
+
+### Authentication (Updated Strategy)
+**Development Mode (Phase 1-6):**
+- Mock authentication context that always returns "authenticated"
+- Automatic brigade context without login
+- No auth guards on protected routes in dev mode
+- All features accessible for testing
+
+**Production Mode (Phase 7+):**
+- Microsoft Entra External ID (enterprise OAuth 2.0)
+- Domain whitelist validation for brigade membership
+- Protected route guards enforced
+- Role-based access control (admin, operator, viewer)
+- Session management with JWT tokens
+
+**Implementation Pattern:**
+```typescript
+// Use environment variable to toggle auth mode
+const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+
+// Auth context returns mock data in dev mode
+if (isDevMode) {
+  return { isAuthenticated: true, user: mockUser };
+}
+
+// Real auth in production
+return useMSALAuth();
+```
 
 ### Storage Layer
 - Always use `storageAdapter` interface, never directly access localStorage or Azure
 - Support both localStorage (dev) and Azure Table Storage (prod)
 - Implement offline-first with sync when online
-
-### Authentication
-- Brigade-specific password-based auth (client-side only)
-- Hash passwords using Web Crypto API (SHA-256)
-- Store session tokens in sessionStorage (not localStorage)
-- Never commit credentials or hardcode secrets
 
 ### Route Management
 - Routes belong to brigades (multi-tenancy)
