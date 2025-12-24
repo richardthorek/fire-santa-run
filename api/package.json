@@ -1,0 +1,22 @@
+{
+  "name": "fire-santa-run-api",
+  "version": "1.0.0",
+  "description": "Azure Functions API for Fire Santa Run",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rimraf dist",
+    "start": "func start",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "azure-functions-core-tools": "^4.0.5907",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.9.3"
+  }
+}
