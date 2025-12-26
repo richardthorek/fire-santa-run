@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRoutes } from '../hooks';
-import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton } from '../components';
+import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { format } from 'date-fns';
@@ -73,6 +73,7 @@ export function Dashboard() {
   return (
     <>
       <SEO title="Dashboard" description="Manage your Santa Run routes - Plan and track Christmas Eve routes for your Rural Fire Service brigade" />
+      <AppLayout>
       <div style={{ 
       width: '100%', 
       height: '100%', 
@@ -360,6 +361,7 @@ export function Dashboard() {
       )}
     </div>
     </div>
+    </AppLayout>
     </>
   );
 }

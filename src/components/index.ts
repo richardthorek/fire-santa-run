@@ -1,3 +1,5 @@
+export { AppHeader } from './AppHeader';
+export { AppLayout } from './AppLayout';
 export { MapView } from './MapView';
 export { RouteStatusBadge } from './RouteStatusBadge';
 export { WaypointList } from './WaypointList';
@@ -17,6 +19,8 @@ export { RoleBadge } from './RoleBadge';
 // Convenience export for LoadingSkeleton (for consistency)
 export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';
 
+export type { AppHeaderProps } from './AppHeader';
+export type { AppLayoutProps } from './AppLayout';
 export type { MapViewProps } from './MapView';
 export type { RouteStatusBadgeProps } from './RouteStatusBadge';
 export type { WaypointListProps } from './WaypointList';

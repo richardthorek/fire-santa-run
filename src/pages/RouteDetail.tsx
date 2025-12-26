@@ -5,7 +5,7 @@ import {
   RouteStatusBadge, 
   ShareModal, 
   SEO, 
-  LoadingSkeleton 
+  LoadingSkeleton
 } from '../components';
 import type { Route } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
