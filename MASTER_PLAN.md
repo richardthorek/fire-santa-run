@@ -3336,6 +3336,7 @@ The following secrets must be configured in the GitHub repository Settings > Sec
     3. Create a new token with `styles:read` and `fonts:read` scopes
     4. Copy the token (starts with `pk.`)
   - **Example value:** `pk.eyJ1IjoieW91cnVzZXJuYW1lIiwiYSI6ImNsZXhhbXBsZSJ9.example_token`
+  - **Note:** Mapbox telemetry is disabled (`collectResourceTiming: false`) to prevent `ERR_BLOCKED_BY_CLIENT` errors when browser extensions block analytics requests to `events.mapbox.com`. This does not affect map functionality.
 
 #### Azure Storage Configuration
 - **`AZURE_STORAGE_CONNECTION_STRING`** (Required for production)
