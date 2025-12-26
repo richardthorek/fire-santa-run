@@ -1,9 +1,10 @@
 /**
  * SEO component for dynamic meta tags
  * Implements Open Graph and Twitter Card tags for social media previews
+ * 
+ * Uses React 19's native document metadata support - no external dependencies required.
+ * React 19 automatically hoists <title>, <meta>, and <link> tags to the document <head>.
  */
-
-import { Helmet } from 'react-helmet-async';
 
 export interface SEOProps {
   title?: string;
@@ -32,8 +33,8 @@ export function SEO({
   const fullTitle = title ? `${title} | ${DEFAULT_TITLE}` : DEFAULT_TITLE;
 
   return (
-    <Helmet>
-      {/* Basic Meta Tags */}
+    <>
+      {/* Basic Meta Tags - React 19 automatically hoists to <head> */}
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
 
@@ -54,6 +55,6 @@ export function SEO({
       {/* Additional SEO Tags */}
       <meta name="theme-color" content="#D32F2F" />
       <link rel="canonical" href={url} />
-    </Helmet>
+    </>
   );
 }
