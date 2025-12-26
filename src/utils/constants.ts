@@ -95,6 +95,23 @@ export const Z_INDEX = {
   map: 0,
   floatingButton: 999,
   floatingPanel: 1000,
+  errorMessage: 1001,
   modal: 2000,
   devModeIndicator: 9999,
+} as const;
+
+// Map Layout
+export const MAP_LAYOUT = {
+  // Padding for fitBounds to account for UI panels
+  fitBoundsPadding: {
+    standard: 50,
+    withSidebar: {
+      top: 100,
+      bottom: 100,
+      left: 100,
+      right: 450, // Accounts for sidebar width (400px) + margin
+    },
+  },
+  // Header positioning
+  headerTop: '6rem',
 } as const;

@@ -5,7 +5,7 @@ import { MapView, WaypointList, AddressSearch } from '../components';
 import { createNewRoute, generateShareableLink, canPublishRoute } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
-import { BREAKPOINTS, COLORS } from '../utils/constants';
+import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
 import type { Route, Waypoint } from '../types';
 
 export interface RouteEditorProps {
@@ -23,6 +23,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   const [showWaypointModal, setShowWaypointModal] = useState(false);
   const [editingWaypoint, setEditingWaypoint] = useState<Waypoint | null>(null);
   const [waypointForm, setWaypointForm] = useState({ name: '', notes: '' });
+  const [autoZoom, setAutoZoom] = useState(true);
 
   // Load existing route for edit mode
   useEffect(() => {
@@ -146,6 +147,8 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           routeGeometry={route.geometry}
           onMapClick={handleMapClick}
           height="100%"
+          autoZoom={autoZoom}
+          fitBoundsPadding={MAP_LAYOUT.fitBoundsPadding.withSidebar}
         />
       </div>
 
@@ -280,47 +283,18 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         </div>
       )}
 
-      {/* Optimize Button Overlay */}
-      {route.waypoints.length >= 2 && !route.geometry && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 999,
-        }}>
-          <button
-            onClick={optimizeRoute}
-            disabled={isOptimizing}
-            style={{
-              padding: '1rem 2rem',
-              background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '16px',
-              fontWeight: 600,
-              fontSize: '1rem',
-              cursor: isOptimizing ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 12px rgba(211, 47, 47, 0.4)',
-            }}
-          >
-            {isOptimizing ? '🔄 Optimizing...' : '🗺️ Optimize Route'}
-          </button>
-        </div>
-      )}
-
       {optimizationError && (
         <div style={{
           position: 'absolute',
-          top: '50%',
+          top: MAP_LAYOUT.headerTop,
           left: '50%',
-          transform: 'translate(-50%, calc(-50% + 5rem))',
+          transform: 'translateX(-50%)',
           padding: '1rem 1.5rem',
           backgroundColor: '#ffebee',
           color: '#d32f2f',
           borderRadius: '12px',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-          zIndex: 1000,
+          zIndex: Z_INDEX.errorMessage,
           maxWidth: '90%',
         }}>
           {optimizationError}
@@ -469,6 +443,85 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#9e9e9e' }}>
             Or click on the map to add a waypoint
           </p>
+        </div>
+
+        {/* Map Controls Section */}
+        <div>
+          <h3 style={{ 
+            margin: '0 0 1rem 0', 
+            fontSize: '1.125rem', 
+            color: 'var(--fire-red)',
+            fontFamily: 'var(--font-heading)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}>
+            <span>🗺️</span> Map Controls
+          </h3>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {/* Plan Route Button */}
+            {route.waypoints.length >= 2 && !route.geometry && (
+              <button
+                onClick={optimizeRoute}
+                disabled={isOptimizing}
+                style={{
+                  width: '100%',
+                  padding: '0.875rem 1.5rem',
+                  background: isOptimizing 
+                    ? 'linear-gradient(135deg, #9e9e9e 0%, #757575 100%)' 
+                    : 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  cursor: isOptimizing ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 12px rgba(211, 47, 47, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                {isOptimizing ? '🔄 Planning...' : '🗺️ Plan Route'}
+              </button>
+            )}
+            
+            {/* Auto-Zoom Toggle */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.75rem',
+              backgroundColor: '#f5f5f5',
+              borderRadius: '8px',
+              border: '1px solid #e0e0e0',
+            }}>
+              <label 
+                htmlFor="auto-zoom-toggle" 
+                style={{ 
+                  fontSize: '0.875rem', 
+                  fontWeight: 500,
+                  color: '#424242',
+                  cursor: 'pointer',
+                }}
+              >
+                Auto-zoom to fit markers
+              </label>
+              <input
+                id="auto-zoom-toggle"
+                type="checkbox"
+                checked={autoZoom}
+                onChange={(e) => setAutoZoom(e.target.checked)}
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  cursor: 'pointer',
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Waypoints List */}
