@@ -219,6 +219,73 @@ GitHub Actions will now have access to these secrets. Check workflow runs:
 
 ## Deployment Setup
 
+### Azure Static Web Apps Deployment
+
+The repository includes an Azure Static Web Apps CI/CD workflow that automatically deploys the application when changes are pushed to the `main` branch.
+
+#### Prerequisites
+1. Azure subscription
+2. Azure Static Web Apps resource created
+3. Deployment token from Azure Portal
+
+#### Setup Steps
+
+1. **Create Azure Static Web Apps resource:**
+   - Go to [Azure Portal](https://portal.azure.com/)
+   - Create a new Static Web App
+   - Connect to your GitHub repository
+   - Azure will create the workflow file automatically
+
+2. **Add required GitHub secrets:**
+
+   Navigate to your repository's **Settings** > **Secrets and variables** > **Actions** and add:
+
+   ```
+   Name: VITE_MAPBOX_TOKEN
+   Value: pk.your_mapbox_token_here
+   Description: Required for Mapbox maps and geocoding
+   ```
+
+   The workflow will automatically use this secret during the build process.
+
+3. **Optional production secrets** (add when ready for production):
+   ```
+   Name: VITE_AZURE_STORAGE_CONNECTION_STRING
+   Value: DefaultEndpointsProtocol=https;AccountName=...
+   
+   Name: AZURE_WEBPUBSUB_CONNECTION_STRING
+   Value: Endpoint=https://...webpubsub.azure.com;AccessKey=...
+   ```
+
+4. **Verify workflow:**
+   - Go to **Actions** tab in your repository
+   - Check the latest "Azure Static Web Apps CI/CD" workflow run
+   - Ensure it completes successfully
+
+#### Environment Variables in Azure Static Web Apps
+
+The workflow is configured to pass the following environment variables during build:
+
+- `VITE_DEV_MODE`: Set to `'false'` for production builds
+- `VITE_MAPBOX_TOKEN`: From GitHub secret
+- `VITE_APP_NAME`: Set to `'Fire Santa Run'`
+
+Additional environment variables can be added in the workflow file's `env` section under the "Build And Deploy" step.
+
+#### Troubleshooting
+
+**Build fails with "VITE_MAPBOX_TOKEN is not defined":**
+- Ensure the secret is added to GitHub repository secrets (not organization secrets)
+- Secret name must be exactly `VITE_MAPBOX_TOKEN`
+- Re-run the workflow after adding the secret
+
+**Deployment succeeds but app doesn't work:**
+- Check that production environment variables are set correctly
+- Verify Azure Storage and Web PubSub secrets are added if using those features
+- Check browser console for specific errors
+
+---
+
 ### Vercel Deployment
 
 #### Via Dashboard (Recommended)
