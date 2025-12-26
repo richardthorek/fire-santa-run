@@ -12,6 +12,7 @@ const Dashboard = lazy(() => import('./pages').then(m => ({ default: m.Dashboard
 const RouteEditor = lazy(() => import('./pages').then(m => ({ default: m.RouteEditor })));
 const NavigationView = lazy(() => import('./pages').then(m => ({ default: m.NavigationView })));
 const TrackingView = lazy(() => import('./pages').then(m => ({ default: m.TrackingView })));
+const RouteDetail = lazy(() => import('./pages').then(m => ({ default: m.RouteDetail })));
 
 // Loading component
 function PageLoader() {
@@ -86,7 +87,7 @@ function App() {
             <Route path="/routes/new" element={<RouteEditor mode="new" />} />
             <Route path="/routes/:id/edit" element={<RouteEditorWrapper />} />
             <Route path="/routes/:id/navigate" element={<NavigationViewWrapper />} />
-            <Route path="/routes/:id" element={<RouteDetailPlaceholder />} />
+            <Route path="/routes/:id" element={<RouteDetailWrapper />} />
             <Route path="/track/:id" element={<TrackingViewWrapper />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -152,19 +153,12 @@ function NavigationViewWrapper() {
   );
 }
 
-// Placeholder for route detail page
-function RouteDetailPlaceholder() {
+// Wrapper for Route Detail page
+function RouteDetailWrapper() {
   const pathSegments = window.location.pathname.split('/');
-  const routeId = pathSegments[pathSegments.length - 1];
+  const routeId = pathSegments[pathSegments.length - 1]; // /routes/:id
   
-  return (
-    <div style={{ padding: '2rem', textAlign: 'center' }}>
-      <h1>Route Detail Page</h1>
-      <p>Route ID: {routeId}</p>
-      <p>This page will be implemented in a future phase.</p>
-      <a href="/dashboard" style={{ color: '#D32F2F' }}>← Back to Dashboard</a>
-    </div>
-  );
+  return <RouteDetail routeId={routeId} />;
 }
 
 // Wrapper for Tracking View (public page - no auth required)
