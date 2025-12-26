@@ -44,11 +44,23 @@ export async function broadcast(request: HttpRequest, context: InvocationContext
       };
     }
 
-    if (!body.location || !Array.isArray(body.location) || body.location.length !== 2) {
+    // Validate location coordinates
+    if (!Array.isArray(body.location) || body.location.length !== 2) {
       return {
         status: 400,
         jsonBody: {
           error: 'Invalid location. Must be [longitude, latitude]'
+        }
+      };
+    }
+
+    const [lng, lat] = body.location;
+    if (typeof lng !== 'number' || typeof lat !== 'number' ||
+        lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+      return {
+        status: 400,
+        jsonBody: {
+          error: 'Invalid coordinates. Longitude must be -180 to 180, latitude must be -90 to 90'
         }
       };
     }

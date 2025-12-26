@@ -65,7 +65,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: Use
         console.log(`[Dev Mode] Connected to BroadcastChannel: ${channelName}`);
       } else {
         // Production mode: Use Azure Web PubSub
-        const negotiateUrl = `${API_BASE_URL}/negotiate?routeId=${routeId}&role=${role}`;
+        const negotiateUrl = `${API_BASE_URL}/negotiate?routeId=${encodeURIComponent(routeId)}&role=${role}`;
         const response = await fetch(negotiateUrl);
 
         if (!response.ok) {

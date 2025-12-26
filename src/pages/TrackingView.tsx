@@ -139,6 +139,10 @@ export function TrackingView({ routeId }: TrackingViewProps) {
     return () => {
       map.remove();
       mapRef.current = null;
+      if (santaMarkerRef.current) {
+        santaMarkerRef.current.remove();
+        santaMarkerRef.current = null;
+      }
     };
   }, [route]);
 
