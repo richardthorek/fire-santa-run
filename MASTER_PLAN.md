@@ -718,6 +718,10 @@ interface BrigadeAuth {
 6. If no match, show "Request Access" form for admin approval
 7. Session stored in browser with refresh token
 
+**Login UX hardening (tenant-specific):**
+- `VITE_ENTRA_AUTHORITY` must be tenant-specific (no `/common`, `/organizations`, or `/consumers`) so users stay within the brigade tenant during auth.
+- All login requests force `prompt=login` and support an optional `domain_hint` via `VITE_ENTRA_DOMAIN_HINT` to bypass the Microsoft account picker and go straight to email entry.
+
 **Security Considerations:**
 - Enterprise-grade security with Entra External ID
 - Multi-factor authentication support (MFA)

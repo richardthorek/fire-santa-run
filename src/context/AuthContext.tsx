@@ -82,12 +82,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
             }, 30 * 60 * 1000); // 30 minutes
             
+            setIsLoading(false);
             return () => clearInterval(refreshInterval);
           } else {
             // No authenticated user
             setUser(null);
+            setIsLoading(false);
           }
-          setIsLoading(false);
         } else {
           // Authentication in progress, keep loading
           setIsLoading(true);

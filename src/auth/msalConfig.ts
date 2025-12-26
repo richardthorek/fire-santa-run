@@ -11,8 +11,10 @@
  * For setup instructions, see: docs/ENTRA_EXTERNAL_ID_SETUP.md
  */
 
-import type { Configuration } from '@azure/msal-browser';
+import type { Configuration, RedirectRequest, SilentRequest } from '@azure/msal-browser';
 import { LogLevel, BrowserCacheLocation } from '@azure/msal-browser';
+
+type TokenRequestShape = Omit<SilentRequest, 'account'>;
 
 /**
  * Validate MSAL configuration and throw helpful errors if misconfigured
@@ -40,6 +42,24 @@ export function validateMsalConfig(): void {
       `${missing.map(v => `  - ${v}`).join('\n')}\n\n` +
       `Please add these to your .env.local file or Azure Static Web App configuration.\n` +
       `See docs/ENTRA_EXTERNAL_ID_SETUP.md for setup instructions.`
+    );
+  }
+
+  const authority = import.meta.env.VITE_ENTRA_AUTHORITY || '';
+  const normalizedAuthority = authority.toLowerCase();
+  if (/\/(common|organizations|consumers)\b/.test(normalizedAuthority)) {
+    throw new Error(
+      'VITE_ENTRA_AUTHORITY must be tenant-specific (no /common, /organizations, or /consumers). ' +
+      'Set it to https://login.microsoftonline.com/<tenant-id> or your CIAM policy endpoint.'
+    );
+  }
+
+  // CIAM/B2C authorities must point to the policy root, NOT the authorize endpoint
+  // e.g. https://<tenant>.ciamlogin.com/<tenant>.onmicrosoft.com/<policy>
+  if (/\/oauth2\//.test(normalizedAuthority) || /\/authorize/.test(normalizedAuthority)) {
+    throw new Error(
+      'VITE_ENTRA_AUTHORITY should not include /oauth2/v2.0/authorize. ' +
+      'Use the policy root only, e.g. https://<tenant>.ciamlogin.com/<tenant>.onmicrosoft.com/<policy>'
     );
   }
 
@@ -160,13 +180,17 @@ export const msalConfig: Configuration = {
  * These scopes define what permissions the application requests from the user.
  * They should match the permissions configured in Azure App Registration.
  */
-export const loginRequest = {
+const domainHint = import.meta.env.VITE_ENTRA_DOMAIN_HINT;
+
+export const loginRequest: RedirectRequest = {
   scopes: [
     'openid',      // Required for authentication
     'profile',     // Access to user's profile info (name, etc.)
     'email',       // Access to user's email address
     'User.Read',   // Microsoft Graph API - read user profile
   ],
+  prompt: 'login',                // Force email entry instead of account picker
+  ...(domainHint ? { domainHint } : {}),
 };
 
 /**
@@ -175,7 +199,7 @@ export const loginRequest = {
  * These scopes are used when silently refreshing tokens without user interaction.
  * Should be a subset of loginRequest scopes.
  */
-export const tokenRequest = {
+export const tokenRequest: TokenRequestShape = {
   scopes: [
     'openid',
     'profile',
