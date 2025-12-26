@@ -4664,6 +4664,20 @@ Run in CI: `ts-node scripts/validate-secrets.ts`
 
 ---
 
+## Product Roadmap Reference
+
+**📋 For comprehensive roadmap and release planning, see [ROADMAP.md](./ROADMAP.md)**
+
+The ROADMAP.md document provides:
+- **Release 1 Summary:** Consolidated implementation achievements (Phases 1-6A)
+- **Known Gaps:** Feature analysis from MISSING_FEATURES_ANALYSIS.md
+- **Forward Trajectory:** 6-month roadmap with Releases 2-4
+- **Issue Schedule:** GitHub issue breakdown with estimates and priorities
+- **Success Metrics:** Measurable goals for each release
+- **Risk Assessment:** Identified risks and mitigation strategies
+
+---
+
 ## Summary for GitHub Copilot Agents (Updated)
 
 ### Quick Start Checklist
