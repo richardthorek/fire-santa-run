@@ -2,8 +2,8 @@
 
 **Last Updated:** December 26, 2024  
 **Status:** Active Development  
-**Current Release:** Release 1 (Complete)  
-**Next Target:** Release 2 (Q1 2025)
+**Current Release:** Release 1 (Quality Uplift Phase)  
+**Next Target:** Release 1 Completion → Release 2 (Q1 2025)
 
 ---
 
@@ -29,14 +29,25 @@ Fire Santa Run is a web application enabling Australian Rural Fire Service briga
 
 ---
 
-## Release 1 Summary (Complete)
+## Release 1 Summary (Quality Uplift Phase)
 
 ### Overview
 
 Release 1 establishes the **foundation** of Fire Santa Run with core route planning, navigation, real-time tracking, and sharing capabilities. All essential features for a brigade to execute a successful Santa run are now operational.
 
-**Status:** ✅ Complete (December 2024)  
-**Implementation Phases:** 1-6 + 7D-7F (Authentication deferred to future release)
+**Status:** 🔄 Quality Uplift Phase (December 2024 - January 2025)  
+**Implementation Phases:** 1-6 + 7D-7F (Authentication deferred to future release)  
+**Remaining Tasks:** Quality assurance, test coverage, performance optimization
+
+### Completion Criteria
+
+Before declaring Release 1 complete, the following quality gates must be met:
+- ✅ All core features implemented (15/15)
+- 🔄 Test coverage increased to 40%+ (currently 15%)
+- 🔄 Lighthouse performance score > 90 (currently untested)
+- 🔄 Accessibility audit passed (WCAG AA)
+- 🔄 Code quality issues resolved
+- 🔄 Production readiness validated
 
 ---
 
@@ -423,30 +434,51 @@ Based on `MISSING_FEATURES_ANALYSIS.md` and MASTER_PLAN.md review, the following
 
 ### Technical Debt & Known Issues
 
-1. **Authentication Complexity**
+1. **Test Coverage (CRITICAL - Release 1 Blocker)**
+   - Current: 9 unit tests (navigation utils only) = ~15% coverage
+   - Gap: No component tests, integration tests, E2E tests
+   - Impact: Regression risk, production bugs undetected
+   - Resolution: **Must increase to 40%+ before Release 1 completion**
+   - Priority: **HIGH - Release 1 Quality Gate**
+
+2. **Performance Optimization (CRITICAL - Release 1 Blocker)**
+   - Current: Lighthouse score untested
+   - Gap: No performance audit conducted
+   - Impact: Slow load times, poor mobile experience
+   - Resolution: **Lighthouse score > 90 required for Release 1**
+   - Priority: **HIGH - Release 1 Quality Gate**
+
+3. **Accessibility Audit (CRITICAL - Release 1 Blocker)**
+   - Current: WCAG AA claimed but not formally audited
+   - Gap: No automated a11y testing (axe-core, lighthouse)
+   - Impact: Legal compliance risk, poor accessibility
+   - Resolution: **Formal audit and fixes required for Release 1**
+   - Priority: **HIGH - Release 1 Quality Gate**
+
+4. **Code Quality & Linting Issues**
+   - Current: 35+ ESLint errors/warnings
+   - Gap: Unused variables, `any` types, React hook dependencies
+   - Impact: Maintainability issues, potential bugs
+   - Resolution: **Clean up before Release 1 completion**
+   - Priority: **MEDIUM - Release 1 Quality Gate**
+
+5. **Authentication Complexity**
    - Current: Optional in dev mode, full Entra ID in production
    - Issue: Hybrid approach adds complexity
    - Resolution: Phase out dev mode passwords post-launch
+   - Priority: **LOW - Post-Release 1**
 
-2. **Mapbox API Rate Limits**
+6. **Mapbox API Rate Limits**
    - Free tier: 100K requests/month
    - Risk: High-traffic routes may exceed limits
    - Resolution: Monitor usage, upgrade to paid tier if needed
+   - Priority: **LOW - Monitor Post-Launch**
 
-3. **Azure Costs at Scale**
+7. **Azure Costs at Scale**
    - Web PubSub Standard: $49/month (1,000 connections)
    - Risk: Multiple simultaneous routes require scaling
    - Resolution: Cost monitoring, connection pooling
-
-4. **Test Coverage**
-   - Current: 9 unit tests (navigation utils only)
-   - Gap: No component tests, integration tests
-   - Resolution: Increase coverage in Release 2
-
-5. **Accessibility Audits**
-   - WCAG AA claimed but not formally audited
-   - Gap: No automated a11y testing
-   - Resolution: Integrate axe-core or similar tool
+   - Priority: **LOW - Monitor Post-Launch**
 
 ---
 
@@ -456,19 +488,22 @@ Based on `MISSING_FEATURES_ANALYSIS.md` and MASTER_PLAN.md review, the following
 
 ```
 Dec 2024          Jan 2025          Feb 2025          Mar 2025          Apr 2025          May 2025
-   |                 |                 |                 |                 |                 |
-   v                 v                 v                 v                 v                 v
-Release 1       Release 2.1       Release 2.2       Release 3.1       Release 3.2       Release 4
-(COMPLETE)      UX Polish         Analytics         PWA Core          Offline           Multi-Brigade
-                Social Previews   Route Optimizer   Service Worker    Route Cache       Platform
+   │                 │                 │                 |                 │                 │
+   ▼                 ▼                 ▼                 ▼                 ▼                 ▼
+Release 1       Release 1       Release 2.1       Release 2.2       Release 3.1       Release 3.2       Release 4
+(FEATURES)      (QUALITY)       UX Polish         Analytics         PWA Core          Offline           Multi-Brigade
+Core Features   Test Coverage   Social            Route             Service           Route Cache       Platform
+Complete        Performance     Previews          Optimizer         Worker            Background        Branding
+                A11y Audit
 ```
 
 ### Milestones
 
 | Release | Target Date | Focus | Key Deliverables |
 |---------|-------------|-------|------------------|
-| **Release 1** | Dec 2024 | Foundation | Core planning, navigation, tracking, sharing |
-| **Release 2.1** | Jan 2025 | UX Enhancement | Social previews, route duplication, countdown |
+| **Release 1 Features** | Dec 2024 | Foundation | Core planning, navigation, tracking, sharing ✅ |
+| **Release 1 Quality** | Early Jan 2025 | Quality Gates | Test coverage 40%+, Lighthouse > 90, A11y audit |
+| **Release 2.1** | Late Jan 2025 | UX Enhancement | Social previews, route duplication, countdown |
 | **Release 2.2** | Feb 2025 | Analytics | Viewer insights, route optimization, search |
 | **Release 3.1** | Mar 2025 | Mobile PWA | Service worker, offline routing, installability |
 | **Release 3.2** | Apr 2025 | Advanced Mobile | Background tracking, lock screen controls |
@@ -1149,7 +1184,153 @@ Release 1       Release 2.1       Release 2.2       Release 3.1       Release 3.
 
 Below is a proposed GitHub issue schedule to implement the 6-month roadmap. Each issue is scoped for 1-2 week sprints.
 
-### Release 2.1 Issues (January 2025)
+### Release 1 Quality Uplift Issues (Early January 2025)
+
+**Goal:** Complete quality gates before declaring Release 1 production-ready.
+
+| Issue # | Title | Estimate | Priority | Assignee |
+|---------|-------|----------|----------|----------|
+| #95 | Increase Unit Test Coverage to 40%+ | 20h | CRITICAL | TBD |
+| #96 | Run Lighthouse Performance Audit and Optimize | 12h | CRITICAL | TBD |
+| #97 | Conduct WCAG AA Accessibility Audit and Remediation | 15h | CRITICAL | TBD |
+| #98 | Fix ESLint Errors and Code Quality Issues | 10h | HIGH | TBD |
+| #99 | Add Integration Tests for Core User Flows | 15h | HIGH | TBD |
+| #100 | Production Deployment Validation and Smoke Tests | 8h | HIGH | TBD |
+
+**Total: 80 hours (~2 weeks with team)**
+
+#### Issue Details
+
+##### #95: Increase Unit Test Coverage to 40%+
+**Current:** 9 tests, ~15% coverage  
+**Target:** 40%+ coverage (at least 50 tests)
+
+**Key Tasks:**
+- Add unit tests for utility functions (`src/utils/`)
+- Add tests for custom hooks (`src/hooks/`)
+- Test storage adapters (localStorage, Azure)
+- Test navigation logic and GPS calculations
+- Test route planning utilities
+- Configure Vitest coverage reporting
+- Set up coverage gates in CI/CD
+
+**Success Criteria:**
+- [ ] Test coverage ≥ 40%
+- [ ] All critical paths tested
+- [ ] Coverage report in CI/CD
+- [ ] No untested critical functions
+
+---
+
+##### #96: Run Lighthouse Performance Audit and Optimize
+**Current:** Not tested  
+**Target:** Lighthouse score > 90 (Performance, Best Practices, SEO)
+
+**Key Tasks:**
+- Run Lighthouse audit on production build
+- Identify performance bottlenecks
+- Optimize bundle size (code-splitting)
+- Optimize images and assets
+- Implement lazy loading for routes
+- Add performance monitoring
+- Test on mobile devices (3G/4G)
+
+**Success Criteria:**
+- [ ] Performance score > 90
+- [ ] First Contentful Paint < 1.5s
+- [ ] Time to Interactive < 3.5s
+- [ ] Bundle size optimized (< 500KB main chunk)
+
+---
+
+##### #97: Conduct WCAG AA Accessibility Audit and Remediation
+**Current:** WCAG AA claimed, not audited  
+**Target:** Formal WCAG AA compliance with automated testing
+
+**Key Tasks:**
+- Run axe-core accessibility scan
+- Run Lighthouse accessibility audit
+- Test keyboard navigation (all interactive elements)
+- Test screen reader compatibility (NVDA, JAWS, VoiceOver)
+- Fix color contrast issues
+- Add ARIA labels where missing
+- Test with 200% zoom
+- Integrate axe-core into CI/CD
+
+**Success Criteria:**
+- [ ] Zero critical a11y issues (axe-core)
+- [ ] Lighthouse accessibility score 100
+- [ ] Full keyboard navigation support
+- [ ] Screen reader tested and working
+
+---
+
+##### #98: Fix ESLint Errors and Code Quality Issues
+**Current:** 35+ ESLint errors/warnings  
+**Target:** Zero errors, minimal warnings
+
+**Key Tasks:**
+- Fix unused variable warnings
+- Replace `any` types with proper types
+- Fix React hook dependency warnings
+- Remove unused imports and code
+- Fix `setState` in effect issues
+- Enable stricter ESLint rules
+- Run Prettier for code formatting
+
+**Success Criteria:**
+- [ ] Zero ESLint errors
+- [ ] < 5 ESLint warnings (justified)
+- [ ] All `any` types replaced
+- [ ] Clean TypeScript strict mode build
+
+---
+
+##### #99: Add Integration Tests for Core User Flows
+**Current:** No integration tests  
+**Target:** Critical user flows covered
+
+**Key Tasks:**
+- Set up React Testing Library
+- Test route creation flow (end-to-end)
+- Test navigation flow (mock GPS)
+- Test public tracking page
+- Test authentication flow (dev mode)
+- Test real-time tracking (mock WebSocket)
+- Add CI/CD integration test step
+
+**Success Criteria:**
+- [ ] 5+ integration tests covering critical flows
+- [ ] Tests run in CI/CD
+- [ ] Mock external dependencies (Mapbox, Azure)
+- [ ] Fast execution (< 30 seconds total)
+
+---
+
+##### #100: Production Deployment Validation and Smoke Tests
+**Current:** Not tested in production-like environment  
+**Target:** Verified production readiness
+
+**Key Tasks:**
+- Deploy to staging environment (Azure)
+- Run smoke tests on all core features
+- Test with real Mapbox API
+- Test with real Azure services (Table Storage, Web PubSub)
+- Load test with multiple concurrent users
+- Test on real mobile devices (iOS, Android)
+- Document deployment issues and fixes
+- Create production deployment checklist
+
+**Success Criteria:**
+- [ ] All core features work in staging
+- [ ] Real Azure services functional
+- [ ] Mobile devices tested (iOS, Android)
+- [ ] Load test passed (50+ concurrent users)
+- [ ] Deployment checklist created
+
+---
+
+### Release 2.1 Issues (Late January 2025)
 
 | Issue # | Title | Estimate | Priority | Assignee |
 |---------|-------|----------|----------|----------|
@@ -1228,6 +1409,21 @@ Below is a proposed GitHub issue schedule to implement the 6-month roadmap. Each
 ---
 
 ## Success Metrics
+
+### Release 1 Quality Gates (Early Jan 2025)
+
+**Must achieve before Release 1 completion:**
+
+| Metric | Current | Target | Status |
+|--------|---------|--------|--------|
+| **Test Coverage** | 15% | 40%+ | 🔄 In Progress |
+| **Lighthouse Performance** | Not tested | > 90 | 🔄 In Progress |
+| **Lighthouse Accessibility** | Not tested | 100 | 🔄 In Progress |
+| **ESLint Errors** | 35+ | 0 | 🔄 In Progress |
+| **Integration Tests** | 0 | 5+ flows | 🔄 In Progress |
+| **Production Validation** | Not done | Passed | 🔄 In Progress |
+
+---
 
 ### Release 2 (Q1 2025)
 
