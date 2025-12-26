@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useWebPubSub, useRoutes } from '../hooks';
-import { ShareModal } from '../components';
+import { ShareModal, SEO } from '../components';
 import mapboxgl from 'mapbox-gl';
 import type { Route, LocationBroadcast } from '../types';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -236,8 +236,21 @@ export function TrackingView({ routeId }: TrackingViewProps) {
   const totalWaypoints = route.waypoints.length;
   const progressPercent = (completedWaypoints / totalWaypoints) * 100;
 
+  // SEO meta tags for social sharing
+  const seoTitle = `Track Santa - ${route.name}`;
+  const seoDescription = `🎅 Track Santa in real-time for ${route.name}! See Santa's location live as the ${route.brigadeId} Rural Fire Service brings Christmas joy on ${route.date}.`;
+  const seoUrl = route.shareableLink || `${window.location.origin}/track/${route.id}`;
+
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+    <>
+      <SEO
+        title={seoTitle}
+        description={seoDescription}
+        url={seoUrl}
+        type="website"
+        twitterCard="summary_large_image"
+      />
+      <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
       {/* Map Container */}
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
@@ -400,5 +413,6 @@ export function TrackingView({ routeId }: TrackingViewProps) {
         }
       `}</style>
     </div>
+    </>
   );
 }

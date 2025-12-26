@@ -1,12 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
 import { initializeMockData } from './utils/mockData';
-import { Dashboard, RouteEditor, NavigationView, TrackingView } from './pages';
 import { useRoutes } from './hooks';
 import type { Route as RouteType } from './types';
+
+// Lazy load pages for code splitting
+const Dashboard = lazy(() => import('./pages').then(m => ({ default: m.Dashboard })));
+const RouteEditor = lazy(() => import('./pages').then(m => ({ default: m.RouteEditor })));
+const NavigationView = lazy(() => import('./pages').then(m => ({ default: m.NavigationView })));
+const TrackingView = lazy(() => import('./pages').then(m => ({ default: m.TrackingView })));
+
+// Loading component
+function PageLoader() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🎅</div>
+        <p>Loading...</p>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const [initialized, setInitialized] = useState(false);
@@ -62,16 +79,18 @@ function App() {
       
       {/* Main Routes */}
       <div style={{ paddingTop: isDevMode ? '2.5rem' : 0, height: '100%', width: '100%' }}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/routes/new" element={<RouteEditor mode="new" />} />
-          <Route path="/routes/:id/edit" element={<RouteEditorWrapper />} />
-          <Route path="/routes/:id/navigate" element={<NavigationViewWrapper />} />
-          <Route path="/routes/:id" element={<RouteDetailPlaceholder />} />
-          <Route path="/track/:id" element={<TrackingViewWrapper />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/routes/new" element={<RouteEditor mode="new" />} />
+            <Route path="/routes/:id/edit" element={<RouteEditorWrapper />} />
+            <Route path="/routes/:id/navigate" element={<NavigationViewWrapper />} />
+            <Route path="/routes/:id" element={<RouteDetailPlaceholder />} />
+            <Route path="/track/:id" element={<TrackingViewWrapper />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </div>
     </BrowserRouter>
   );

@@ -31,6 +31,7 @@ a {
   font-weight: 500;
   color: #646cff;
   text-decoration: inherit;
+  transition: color 0.2s ease;
 }
 a:hover {
   color: #535bf2;
@@ -50,14 +51,47 @@ button {
   font-family: inherit;
   background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: all 0.25s ease;
 }
 button:hover {
   border-color: #646cff;
+  transform: translateY(-1px);
+}
+button:active {
+  transform: translateY(0);
 }
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* Smooth transitions for interactive elements */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-in-out;
+}
+
+/* Disable transitions for reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #FFA726;
+  outline-offset: 2px;
 }
 
 @media (prefers-color-scheme: light) {
