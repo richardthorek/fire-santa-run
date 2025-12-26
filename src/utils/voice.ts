@@ -105,8 +105,14 @@ class VoiceInstructionService {
 
       utterance.onerror = (event) => {
         this.currentUtterance = null;
-        console.error('Speech synthesis error:', event);
-        reject(event);
+        // Don't treat "interrupted" as an error - it's expected when canceling speech
+        if (event.error === 'interrupted' || event.error === 'canceled') {
+          console.log('Speech synthesis interrupted/canceled');
+          resolve();
+        } else {
+          console.error('Speech synthesis error:', event);
+          reject(event);
+        }
       };
 
       this.currentUtterance = utterance;
