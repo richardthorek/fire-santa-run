@@ -3,6 +3,8 @@ import { createContext, useState, useEffect, type ReactNode } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { InteractionStatus } from '@azure/msal-browser';
 import { loginRequest, isMsalConfigured } from '../auth/msalConfig';
+import { refreshToken } from '../auth/tokenManager';
+import { logLogin, logLogout, logLoginFailed } from '../utils/auditLog';
 
 export interface User {
   id: string;        // User ID (from Entra or generated in dev mode)
@@ -60,12 +62,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (accounts && accounts.length > 0) {
             // User is authenticated
             const account = accounts[0];
-            setUser({
+            const authenticatedUser = {
               id: account.homeAccountId, // Unique user identifier from Entra
               email: account.username,
               name: account.name || account.username,
               brigadeId: undefined, // Will be set by BrigadeContext
-            });
+            };
+            setUser(authenticatedUser);
+            
+            // Log successful login
+            logLogin(authenticatedUser.id, authenticatedUser.email);
+            
+            // Start token refresh interval (refresh every 30 minutes)
+            const refreshInterval = setInterval(async () => {
+              try {
+                await refreshToken(instance, account);
+              } catch (error) {
+                console.error('[Auth] Token refresh failed:', error);
+              }
+            }, 30 * 60 * 1000); // 30 minutes
+            
+            return () => clearInterval(refreshInterval);
           } else {
             // No authenticated user
             setUser(null);
@@ -87,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     
     initializeAuth();
-  }, [isDevMode, accounts, inProgress]);
+  }, [isDevMode, accounts, inProgress, instance]);
 
   const login = async () => {
     if (isDevMode) {
@@ -96,11 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     if (!isMsalConfigured()) {
-      throw new Error(
+      const error = new Error(
         'Production authentication not configured. ' +
         'Set VITE_DEV_MODE=true for development or configure Entra External ID. ' +
         'See docs/ENTRA_EXTERNAL_ID_SETUP.md for setup instructions.'
       );
+      logLoginFailed('unknown', error.message);
+      throw error;
     }
 
     try {
@@ -111,6 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // and the auth state will be updated automatically
     } catch (error) {
       console.error('[Auth] Login failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logLoginFailed('unknown', errorMessage);
       setIsLoading(false);
       throw error;
     }
@@ -129,6 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       setIsLoading(true);
+      
+      // Log logout before clearing session
+      if (user) {
+        logLogout(user.id, user.email);
+      }
+      
       // Use redirect flow for logout
       await instance.logoutRedirect({
         postLogoutRedirectUri: window.location.origin,

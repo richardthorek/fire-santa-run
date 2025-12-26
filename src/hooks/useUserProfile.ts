@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context';
 import { storageAdapter } from '../storage';
+import { logAuditEvent } from '../utils/auditLog';
 import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
 
@@ -56,6 +57,12 @@ export function useUserProfile(): UseUserProfileResult {
           lastLoginAt: new Date().toISOString(),
         };
         await storageAdapter.saveUser(dbUser);
+        
+        // Log user creation
+        logAuditEvent('user.created', `User created: ${dbUser.email}`, {
+          userId: dbUser.id,
+          userEmail: dbUser.email,
+        });
       } else {
         // Update last login time
         dbUser.lastLoginAt = new Date().toISOString();
@@ -87,6 +94,13 @@ export function useUserProfile(): UseUserProfileResult {
       };
       await storageAdapter.saveUser(updatedUser);
       setUser(updatedUser);
+      
+      // Log profile update
+      logAuditEvent('user.updated', `User profile updated: ${user.email}`, {
+        userId: user.id,
+        userEmail: user.email,
+        metadata: { updatedFields: Object.keys(updates) },
+      });
     } catch (err) {
       console.error('Failed to update profile:', err);
       throw err;

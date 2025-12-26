@@ -12,6 +12,7 @@ import { searchStationsByName, getStationsByState } from '../utils/rfsData';
 import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
 import { isGovernmentEmail } from '../utils/emailValidation';
+import { logBrigadeClaimed } from '../utils/auditLog';
 import { COLORS } from '../utils/constants';
 import type { RFSStation } from '../types/rfs';
 import type { Brigade } from '../types';
@@ -117,6 +118,9 @@ export function BrigadeClaimingPage() {
         setClaiming(null);
         return;
       }
+
+      // Log brigade claiming
+      logBrigadeClaimed(user.id, user.email, brigade.id, brigade.name);
 
       // Success! Refresh profile to get new membership
       await refreshProfile();
