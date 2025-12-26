@@ -106,9 +106,9 @@ VITE_AZURE_STORAGE_ACCOUNT_NAME=your_account_name
 VITE_ENTRA_CLIENT_ID=your_client_id
 VITE_ENTRA_TENANT_ID=your_tenant_id
 
-# Real-time Service (Choose one: Pusher, Firebase, or Supabase)
-VITE_PUSHER_KEY=your_key
-VITE_PUSHER_CLUSTER=ap4
+# Azure Web PubSub (real-time tracking)
+AZURE_WEBPUBSUB_CONNECTION_STRING=your_connection_string
+AZURE_WEBPUBSUB_HUB_NAME=santa-tracking
 ```
 
 See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup instructions.
@@ -137,10 +137,11 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 
 ### Technology Stack
 - **Frontend:** React 19 + TypeScript + Vite
-- **Mapping:** Mapbox GL JS with Draw plugin
+- **Mapping:** Mapbox GL JS with Draw plugin and Directions API
 - **Routing:** React Router v6
-- **Real-time:** WebSocket (Pusher/Firebase/Supabase)
+- **Real-time:** Azure Web PubSub (WebSocket with HTTP fallback)
 - **Storage:** LocalStorage (dev) or Azure Table Storage (production)
+- **Authentication:** Microsoft Entra External ID (production)
 - **QR Codes:** qrcode.react
 - **Meta Tags:** React Helmet Async
 
@@ -268,9 +269,10 @@ The repository includes three workflows:
 
 Configure in Repository Settings > Secrets > Actions:
 - `VITE_MAPBOX_TOKEN` - Mapbox API token
-- `AZURE_STORAGE_CONNECTION_STRING` - Azure connection string
-- `PUSHER_KEY` / `FIREBASE_API_KEY` / `SUPABASE_URL` - Real-time service credentials
-- `VERCEL_TOKEN` / `NETLIFY_AUTH_TOKEN` - Deployment tokens
+- `AZURE_STORAGE_CONNECTION_STRING` - Azure Table Storage connection string
+- `AZURE_WEBPUBSUB_CONNECTION_STRING` - Azure Web PubSub connection string
+- `AZURE_WEBPUBSUB_HUB_NAME` - Web PubSub hub name (optional, defaults to 'santa-tracking')
+- `VERCEL_TOKEN` / `NETLIFY_AUTH_TOKEN` - Deployment tokens (if using these platforms)
 
 See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for complete setup.
 
@@ -279,16 +281,16 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for complete setup.
 ### Free Tier Setup (Development)
 - **Hosting:** Vercel/Netlify Free Tier
 - **Mapbox:** 50k map loads/month free
-- **Firebase:** 50k connections, 10GB/month free
+- **Azure Web PubSub:** Free tier (20 connections, 20K messages/day)
 - **Azure Storage:** $0.05 AUD/month
 - **Total:** ~$0.05 AUD/month
 
 ### Production Setup (100 brigades)
-- **Hosting:** $20 USD/month (Vercel Pro)
+- **Hosting:** $20 USD/month (Vercel Pro) or $9 USD/month (Azure Static Web Apps)
 - **Mapbox:** $0-50 USD/month (depending on usage)
-- **Firebase:** Free tier sufficient or $25 USD/month
+- **Azure Web PubSub:** $49 USD/month (Standard tier, 1000 connections)
 - **Azure Storage:** ~$0.50 AUD/month
-- **Total:** ~$45-95 USD/month
+- **Total:** ~$59-120 USD/month
 
 See cost breakdown in [MASTER_PLAN.md](./MASTER_PLAN.md#cost-management--resource-planning).
 

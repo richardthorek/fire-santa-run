@@ -85,9 +85,9 @@ VITE_AZURE_STORAGE_ACCOUNT_NAME=your_account
 VITE_ENTRA_CLIENT_ID=your_client_id
 VITE_ENTRA_TENANT_ID=your_tenant_id
 
-# Real-time service credentials
-VITE_PUSHER_KEY=your_key
-VITE_PUSHER_CLUSTER=your_cluster
+# Azure Web PubSub (real-time tracking)
+AZURE_WEBPUBSUB_CONNECTION_STRING=your_connection_string
+AZURE_WEBPUBSUB_HUB_NAME=santa-tracking
 ```
 
 ## Implementation Patterns
@@ -357,6 +357,7 @@ VITE_DEV_MODE=false
 VITE_MAPBOX_TOKEN=pk.production_token
 VITE_AZURE_STORAGE_CONNECTION_STRING=...
 VITE_ENTRA_CLIENT_ID=...
+AZURE_WEBPUBSUB_CONNECTION_STRING=...
 ```
 
 ### Staging Environment

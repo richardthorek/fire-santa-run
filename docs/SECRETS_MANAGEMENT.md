@@ -54,58 +54,35 @@ This guide explains how to properly manage secrets and API keys for the Fire San
 
 ---
 
-### 3. Real-time Service (CHOOSE ONE)
+### 3. Azure Web PubSub (PRODUCTION REAL-TIME)
 
-#### Option A: Pusher (Easiest)
-
-**Purpose:** WebSocket service for live tracking
+**Purpose:** WebSocket service for live Santa tracking with real-time location updates
 
 **How to obtain:**
-1. Sign up at [Pusher](https://dashboard.pusher.com/accounts/sign_up)
-2. Create new app
-3. Copy credentials from "App Keys" tab
+1. Sign in to [Azure Portal](https://portal.azure.com/)
+2. Click "Create a resource"
+3. Search for "Web PubSub Service"
+4. Click "Create"
+5. Configure:
+   - **Resource Group:** Use existing `rg-santa-run` (same as Storage)
+   - **Name:** `santa-tracking-pubsub` (must be globally unique)
+   - **Region:** Same as Azure Storage (e.g., `Australia East`)
+   - **Pricing tier:** Free (dev) or Standard (production)
+6. Go to "Keys" under Settings
+7. Copy "Connection String"
 
 **Secrets needed:**
-- `PUSHER_APP_ID`
-- `PUSHER_KEY` (public)
-- `PUSHER_SECRET` (private)
-- `PUSHER_CLUSTER` (e.g., "ap4" for Asia Pacific)
+- `AZURE_WEBPUBSUB_CONNECTION_STRING` - Full connection string from Keys section
+- `AZURE_WEBPUBSUB_HUB_NAME` - Hub name (optional, defaults to 'santa-tracking')
 
-**Free Tier:** 200 connections, 200k messages/day
+**Free Tier:** 20 concurrent connections, 20,000 messages/day (perfect for development)
 
-#### Option B: Firebase (Best Free Tier)
+**Standard Tier:** $49 USD/month per unit, 1,000 connections per unit (production-ready)
 
-**Purpose:** Realtime Database for live tracking
-
-**How to obtain:**
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create new project
-3. Enable Realtime Database
-4. Go to Project Settings > General
-5. Copy Web API Key and other credentials
-
-**Secrets needed:**
-- `FIREBASE_API_KEY`
-- `FIREBASE_PROJECT_ID`
-- `FIREBASE_APP_ID`
-
-**Free Tier:** 50k simultaneous connections, 10GB/month downloads
-
-#### Option C: Supabase (Open Source)
-
-**Purpose:** Realtime service with PostgreSQL backend
-
-**How to obtain:**
-1. Sign up at [Supabase](https://supabase.com/dashboard)
-2. Create new project
-3. Go to Settings > API
-4. Copy URL and anon key
-
-**Secrets needed:**
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-
-**Free Tier:** Unlimited API requests, 2GB database
+**Alternative for Local Development:**
+- Use BroadcastChannel API for cross-tab testing
+- No Azure setup required for dev mode
+- See [Development Mode Guide](./DEV_MODE.md)
 
 ---
 
@@ -158,21 +135,9 @@ VITE_MAPBOX_TOKEN=pk.eyJ1IjoieW91cnVzZXJuYW1lIiwiYSI6ImNsZXhhbXBsZSJ9.example
 VITE_AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...
 VITE_AZURE_STORAGE_ACCOUNT_NAME=santarun
 
-# Real-time Service (Optional for local dev)
-# Choose ONE of the following:
-
-# Pusher
-VITE_PUSHER_KEY=your_key_here
-VITE_PUSHER_CLUSTER=ap4
-
-# OR Firebase
-VITE_FIREBASE_API_KEY=your_key_here
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_APP_ID=your_app_id
-
-# OR Supabase
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_anon_key
+# Azure Web PubSub (Optional for local dev - use BroadcastChannel API instead)
+AZURE_WEBPUBSUB_CONNECTION_STRING=Endpoint=https://...webpubsub.azure.com;AccessKey=...;Version=1.0;
+AZURE_WEBPUBSUB_HUB_NAME=santa-tracking
 ```
 
 ### Step 3: Verify Setup
@@ -224,11 +189,11 @@ Value: DefaultEndpointsProtocol=https;AccountName=...
 Name: AZURE_STORAGE_ACCOUNT_NAME
 Value: santarun
 
-Name: PUSHER_KEY
-Value: your_pusher_key
+Name: AZURE_WEBPUBSUB_CONNECTION_STRING
+Value: Endpoint=https://...webpubsub.azure.com;AccessKey=...;Version=1.0;
 
-Name: PUSHER_CLUSTER
-Value: ap4
+Name: AZURE_WEBPUBSUB_HUB_NAME
+Value: santa-tracking
 ```
 
 #### Deployment (If using Vercel)
@@ -292,8 +257,8 @@ vercel env add VITE_AZURE_STORAGE_CONNECTION_STRING
 VITE_MAPBOX_TOKEN
 VITE_AZURE_STORAGE_CONNECTION_STRING
 VITE_AZURE_STORAGE_ACCOUNT_NAME
-VITE_PUSHER_KEY
-VITE_PUSHER_CLUSTER
+AZURE_WEBPUBSUB_CONNECTION_STRING
+AZURE_WEBPUBSUB_HUB_NAME
 VITE_APP_NAME
 VITE_APP_URL
 ```
@@ -456,10 +421,12 @@ Then update in all environments.
 **Symptom:** Live tracking doesn't update
 
 **Solution:**
-1. Check which service you're using (Pusher/Firebase/Supabase)
-2. Verify all required credentials are set
+1. Verify Azure Web PubSub connection string is set: `AZURE_WEBPUBSUB_CONNECTION_STRING`
+2. Check `/api/negotiate` endpoint returns valid connection URL
 3. Check browser console for WebSocket errors
-4. Verify firewall doesn't block WebSocket connections
+4. Verify firewall doesn't block WebSocket connections (port 443)
+5. Test fallback to BroadcastChannel API in dev mode
+6. Check Azure Web PubSub service status in Azure Portal
 
 ### Issue: "Environment variables not loading"
 
@@ -514,16 +481,9 @@ VITE_MAPBOX_TOKEN=pk.xxx
 VITE_AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https...
 VITE_AZURE_STORAGE_ACCOUNT_NAME=santarun
 
-# Real-time (Choose ONE)
-VITE_PUSHER_KEY=xxx
-VITE_PUSHER_CLUSTER=ap4
-# OR
-VITE_FIREBASE_API_KEY=xxx
-VITE_FIREBASE_PROJECT_ID=xxx
-VITE_FIREBASE_APP_ID=xxx
-# OR
-VITE_SUPABASE_URL=https://xxx.supabase.co
-VITE_SUPABASE_ANON_KEY=xxx
+# Real-time (Production)
+AZURE_WEBPUBSUB_CONNECTION_STRING=Endpoint=https://...webpubsub.azure.com;AccessKey=...;Version=1.0;
+AZURE_WEBPUBSUB_HUB_NAME=santa-tracking
 
 # Deployment (Optional)
 VERCEL_TOKEN=xxx
@@ -538,9 +498,9 @@ NETLIFY_SITE_ID=xxx
 
 - [Mapbox Dashboard](https://account.mapbox.com/)
 - [Azure Portal](https://portal.azure.com/)
-- [Pusher Dashboard](https://dashboard.pusher.com/)
-- [Firebase Console](https://console.firebase.google.com/)
-- [Supabase Dashboard](https://supabase.com/dashboard)
+- [Azure Web PubSub Documentation](https://learn.microsoft.com/en-us/azure/azure-web-pubsub/)
+- [Vercel Dashboard](https://vercel.com/dashboard)
+- [Netlify Dashboard](https://app.netlify.com/)
 - [Vercel Dashboard](https://vercel.com/dashboard)
 - [Netlify Dashboard](https://app.netlify.com/)
 - [GitHub Secrets](https://github.com/settings/secrets/actions)
