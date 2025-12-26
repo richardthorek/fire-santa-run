@@ -124,7 +124,7 @@ export function LoginPage() {
           marginBottom: '0.5rem',
           textAlign: 'center',
         }}>
-          Sign In
+          Sign In or Sign Up
         </h2>
         <p style={{
           fontSize: '0.875rem',
@@ -134,7 +134,7 @@ export function LoginPage() {
         }}>
           {isDevMode 
             ? 'Development mode is enabled - you are automatically authenticated'
-            : 'Sign in with your brigade email address to continue'}
+            : 'Sign in with your brigade email address, or create a new account to get started'}
         </p>
 
         {loginError && (
@@ -172,35 +172,113 @@ export function LoginPage() {
             </p>
           </div>
         ) : (
-          <button
-            onClick={handleLogin}
-            disabled={isLoggingIn}
-            style={{
-              width: '100%',
+          <>
+            <button
+              onClick={handleLogin}
+              disabled={isLoggingIn}
+              style={{
+                width: '100%',
+                padding: '1rem',
+                fontSize: '1rem',
+                fontWeight: 600,
+                color: 'white',
+                background: `linear-gradient(135deg, ${COLORS.fireRed} 0%, ${COLORS.fireRedDark} 100%)`,
+                border: 'none',
+                borderRadius: '12px',
+                cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                opacity: isLoggingIn ? 0.7 : 1,
+                transition: 'all 0.3s ease',
+                marginBottom: '1rem',
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoggingIn) {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(211, 47, 47, 0.3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              {isLoggingIn ? 'Signing in...' : 'Sign In with Microsoft'}
+            </button>
+            
+            <div style={{
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              margin: '1rem 0',
+            }}>
+              <div style={{
+                flex: 1,
+                height: '1px',
+                backgroundColor: COLORS.neutral300,
+              }} />
+              <span style={{
+                padding: '0 1rem',
+                fontSize: '0.75rem',
+                color: COLORS.neutral700,
+                fontWeight: 500,
+              }}>
+                OR
+              </span>
+              <div style={{
+                flex: 1,
+                height: '1px',
+                backgroundColor: COLORS.neutral300,
+              }} />
+            </div>
+            
+            <button
+              onClick={handleLogin}
+              disabled={isLoggingIn}
+              style={{
+                width: '100%',
+                padding: '1rem',
+                fontSize: '1rem',
+                fontWeight: 600,
+                color: COLORS.fireRed,
+                background: 'white',
+                border: `2px solid ${COLORS.fireRed}`,
+                borderRadius: '12px',
+                cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                opacity: isLoggingIn ? 0.7 : 1,
+                transition: 'all 0.3s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoggingIn) {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(211, 47, 47, 0.15)';
+                  e.currentTarget.style.backgroundColor = COLORS.neutral50;
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+                e.currentTarget.style.backgroundColor = 'white';
+              }}
+            >
+              {isLoggingIn ? 'Creating account...' : 'Create New Account'}
+            </button>
+            
+            <div style={{
               padding: '1rem',
-              fontSize: '1rem',
-              fontWeight: 600,
-              color: 'white',
-              background: `linear-gradient(135deg, ${COLORS.fireRed} 0%, ${COLORS.fireRedDark} 100%)`,
-              border: 'none',
-              borderRadius: '12px',
-              cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-              opacity: isLoggingIn ? 0.7 : 1,
-              transition: 'all 0.3s ease',
-            }}
-            onMouseEnter={(e) => {
-              if (!isLoggingIn) {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(211, 47, 47, 0.3)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            {isLoggingIn ? 'Signing in...' : 'Sign in with Microsoft'}
-          </button>
+              backgroundColor: COLORS.neutral100,
+              borderRadius: '8px',
+              marginTop: '1.5rem',
+            }}>
+              <p style={{
+                fontSize: '0.75rem',
+                color: COLORS.neutral700,
+                margin: 0,
+                lineHeight: 1.5,
+              }}>
+                <strong>New to Fire Santa Run?</strong><br />
+                Click "Create New Account" to register. You'll be able to create an account using your email address through Microsoft's secure authentication system.
+              </p>
+            </div>
+          </>
         )}
 
         <p style={{
