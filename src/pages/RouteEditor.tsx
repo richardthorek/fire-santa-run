@@ -5,7 +5,7 @@ import { MapView, WaypointList, AddressSearch } from '../components';
 import { createNewRoute, generateShareableLink, canPublishRoute } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
-import { BREAKPOINTS, COLORS } from '../utils/constants';
+import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
 import type { Route, Waypoint } from '../types';
 
 export interface RouteEditorProps {
@@ -148,7 +148,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           onMapClick={handleMapClick}
           height="100%"
           autoZoom={autoZoom}
-          fitBoundsPadding={{ top: 100, bottom: 100, left: 100, right: 450 }}
+          fitBoundsPadding={MAP_LAYOUT.fitBoundsPadding.withSidebar}
         />
       </div>
 
@@ -286,7 +286,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
       {optimizationError && (
         <div style={{
           position: 'absolute',
-          top: '6rem',
+          top: MAP_LAYOUT.headerTop,
           left: '50%',
           transform: 'translateX(-50%)',
           padding: '1rem 1.5rem',
@@ -294,7 +294,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           color: '#d32f2f',
           borderRadius: '12px',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-          zIndex: 1001,
+          zIndex: Z_INDEX.errorMessage,
           maxWidth: '90%',
         }}>
           {optimizationError}
