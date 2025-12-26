@@ -5,10 +5,11 @@ Successfully integrated the Rural & Country Fire Service (RFS) Facilities datase
 
 ## Dataset Information
 - **Source**: [Digital Atlas of Australia - RFS Facilities](https://digital.atlas.gov.au/datasets/digitalatlas::rural-country-fire-service-facilities/api)
-- **Type**: ArcGIS Feature Service REST API
+- **API Endpoint**: `https://services.ga.gov.au/gis/rest/services/Emergency_Management_Facilities/MapServer/4`
+- **Type**: ArcGIS MapServer REST API (Geoscience Australia)
 - **Coverage**: All Australian states and territories
-- **Size**: ~2000-3000 fire service facilities
-- **License**: Australian Government Open Data
+- **Size**: 4,486 fire service facilities (as of Dec 2024)
+- **License**: Creative Commons Attribution 4.0 International
 
 ## Implementation Architecture
 
@@ -175,9 +176,9 @@ curl "https://your-app.azurestaticapps.net/api/rfs-stations?state=NSW&limit=10"
 ## Caching Strategy
 
 ### Performance Metrics
-- **Initial Load**: 2-5 seconds (fetches all ~2000-3000 records)
+- **Initial Load**: 3-8 seconds (fetches all ~4,486 records)
 - **Cached Queries**: < 50ms (loaded from localStorage/memory)
-- **Cache Size**: ~500KB - 1MB (compressed JSON)
+- **Cache Size**: ~600KB - 1.2MB (compressed JSON)
 - **Cache Duration**: 7 days (dev), 24 hours (API responses)
 
 ### Cache Invalidation

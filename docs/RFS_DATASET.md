@@ -7,27 +7,31 @@ This document describes the integration of the Rural & Country Fire Service (RFS
 ## Dataset Information
 
 - **Source**: [Digital Atlas of Australia - Rural & Country Fire Service Facilities](https://digital.atlas.gov.au/datasets/digitalatlas::rural-country-fire-service-facilities/api)
-- **API Type**: ArcGIS Feature Service (REST API)
+- **API Endpoint**: `https://services.ga.gov.au/gis/rest/services/Emergency_Management_Facilities/MapServer/4`
+- **API Type**: ArcGIS MapServer (REST API) - Geoscience Australia
 - **Coverage**: All Australian states and territories
-- **Update Frequency**: Regularly updated by government agencies
-- **License**: Open data (Australian Government)
+- **Dataset Size**: ~4,486 fire service facilities (as of Dec 2024)
+- **Update Frequency**: Regularly updated by Geoscience Australia
+- **License**: Creative Commons Attribution 4.0 International (CC BY 4.0)
 
 ## Dataset Schema
 
-The dataset includes the following key fields:
+The dataset includes the following key fields (field names are lowercase in the API):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `OBJECTID` | number | Unique identifier for each facility |
-| `FACILITY_NAME` | string | Official name of the fire service facility |
-| `FACILITY_ADDRESS` | string | Street address of the facility |
-| `FACILITY_STATE` | string | Australian state/territory (NSW, VIC, QLD, etc.) |
-| `FACILITY_LAT` | number | Latitude (WGS84) |
-| `FACILITY_LONG` | number | Longitude (WGS84) |
-| `FACILITY_OPERATIONALSTATUS` | string | Operational status of the facility |
-| `ABS_SUBURB` | string | Suburb name |
-| `ABS_POSTCODE` | string | Postcode |
-| `FACILITY_DATE` | number | Last update timestamp |
+| `objectid` | number | Unique identifier for each facility |
+| `facility_name` | string | Official name of the fire service facility |
+| `facility_address` | string | Street address of the facility |
+| `facility_state` | string | Australian state/territory (NEW SOUTH WALES, VICTORIA, etc.) |
+| `facility_lat` | string | Latitude (WGS84) |
+| `facility_long` | string | Longitude (WGS84) |
+| `facility_operationalstatus` | string | Operational status of the facility |
+| `abs_suburb` | string | Suburb name |
+| `abs_postcode` | string | Postcode |
+| `facility_date` | number | Last update timestamp |
+
+**Note:** The API returns coordinates in the geometry object as `{x: longitude, y: latitude}` in WGS84 (EPSG:4326).
 
 ## Architecture
 
@@ -216,12 +220,13 @@ async function findNearbyBrigades(userLocation: [number, number]) {
 
 ### Initial Load Time
 
-- **First visit**: ~2-5 seconds to fetch and cache all stations (typically 2000-3000 records)
+- **First visit**: ~3-8 seconds to fetch and cache all stations (4,486 records as of Dec 2024)
 - **Subsequent visits**: < 50ms (loaded from cache)
 
 ### Data Size
 
-- Full dataset: ~500KB - 1MB JSON (compressed)
+- Full dataset: ~600KB - 1.2MB JSON (compressed)
+- Total stations: 4,486 facilities
 - Each station record: ~200-300 bytes
 
 ### Optimization Tips

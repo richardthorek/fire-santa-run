@@ -14,11 +14,12 @@ import type {
 } from '../types/rfs';
 
 // ArcGIS REST API endpoint for RFS facilities
-const RFS_API_BASE = 'https://services1.arcgis.com/vHnIGBHHqDR6y0CR/arcgis/rest/services/Rural_Country_Fire_Service_Facilities/FeatureServer/0';
+// Using Geoscience Australia's Emergency Management Facilities MapServer
+const RFS_API_BASE = 'https://services.ga.gov.au/gis/rest/services/Emergency_Management_Facilities/MapServer/4';
 
 // Cache configuration
 const CACHE_KEY = 'rfs-stations-cache';
-const CACHE_VERSION = '1.0.0';
+const CACHE_VERSION = '1.1.0'; // Updated for new API endpoint
 const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 /**
@@ -26,18 +27,21 @@ const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
  */
 function convertFeatureToStation(feature: RFSStationFeature): RFSStation {
   const { attributes, geometry } = feature;
+  const id = attributes.objectid ?? attributes.OBJECTID ?? 0;
+  const name = attributes.facility_name ?? attributes.FACILITY_NAME ?? '';
+  const state = attributes.facility_state ?? attributes.FACILITY_STATE ?? '';
+  const dateValue = attributes.facility_date ?? attributes.FACILITY_DATE;
+  
   return {
-    id: attributes.OBJECTID,
-    name: attributes.FACILITY_NAME,
-    address: attributes.FACILITY_ADDRESS,
-    state: attributes.FACILITY_STATE,
-    suburb: attributes.ABS_SUBURB,
-    postcode: attributes.ABS_POSTCODE,
+    id,
+    name,
+    address: attributes.facility_address ?? attributes.FACILITY_ADDRESS,
+    state,
+    suburb: attributes.abs_suburb ?? attributes.ABS_SUBURB,
+    postcode: attributes.abs_postcode ?? attributes.ABS_POSTCODE,
     coordinates: [geometry.x, geometry.y], // [lng, lat]
-    operationalStatus: attributes.FACILITY_OPERATIONALSTATUS,
-    lastUpdated: attributes.FACILITY_DATE 
-      ? new Date(attributes.FACILITY_DATE) 
-      : undefined,
+    operationalStatus: attributes.facility_operationalstatus ?? attributes.FACILITY_OPERATIONALSTATUS,
+    lastUpdated: dateValue ? new Date(dateValue) : undefined,
   };
 }
 
@@ -121,7 +125,7 @@ async function fetchAllStations(): Promise<RFSStation[]> {
   while (hasMore) {
     const params = new URLSearchParams({
       where: '1=1', // Get all records
-      outFields: 'OBJECTID,FACILITY_NAME,FACILITY_ADDRESS,FACILITY_STATE,FACILITY_LAT,FACILITY_LONG,FACILITY_OPERATIONALSTATUS,ABS_SUBURB,ABS_POSTCODE,FACILITY_DATE',
+      outFields: 'objectid,facility_name,facility_address,facility_state,facility_lat,facility_long,facility_operationalstatus,abs_suburb,abs_postcode,facility_date',
       returnGeometry: 'true',
       outSR: '4326', // WGS84 coordinate system
       f: 'json',

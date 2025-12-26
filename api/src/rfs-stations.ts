@@ -16,19 +16,30 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 
 // ArcGIS REST API endpoint for RFS facilities
-const RFS_API_BASE = 'https://services1.arcgis.com/vHnIGBHHqDR6y0CR/arcgis/rest/services/Rural_Country_Fire_Service_Facilities/FeatureServer/0';
+// Using Geoscience Australia's Emergency Management Facilities MapServer
+const RFS_API_BASE = 'https://services.ga.gov.au/gis/rest/services/Emergency_Management_Facilities/MapServer/4';
 
 interface RFSStationFeature {
   attributes: {
-    OBJECTID: number;
-    FACILITY_NAME: string;
+    objectid?: number;
+    OBJECTID?: number;
+    facility_name?: string;
+    FACILITY_NAME?: string;
+    facility_address?: string;
     FACILITY_ADDRESS?: string;
-    FACILITY_STATE: string;
-    FACILITY_LAT: number;
-    FACILITY_LONG: number;
+    facility_state?: string;
+    FACILITY_STATE?: string;
+    facility_lat?: number;
+    FACILITY_LAT?: number;
+    facility_long?: number;
+    FACILITY_LONG?: number;
+    facility_operationalstatus?: string;
     FACILITY_OPERATIONALSTATUS?: string;
+    abs_suburb?: string;
     ABS_SUBURB?: string;
+    abs_postcode?: string;
     ABS_POSTCODE?: string;
+    facility_date?: number;
     FACILITY_DATE?: number;
   };
   geometry: {
@@ -52,16 +63,16 @@ interface RFSStation {
 function convertFeatureToStation(feature: RFSStationFeature): RFSStation {
   const { attributes, geometry } = feature;
   return {
-    id: attributes.OBJECTID,
-    name: attributes.FACILITY_NAME,
-    address: attributes.FACILITY_ADDRESS,
-    state: attributes.FACILITY_STATE,
-    suburb: attributes.ABS_SUBURB,
-    postcode: attributes.ABS_POSTCODE,
+    id: attributes.objectid || attributes.OBJECTID || 0,
+    name: attributes.facility_name || attributes.FACILITY_NAME || '',
+    address: attributes.facility_address || attributes.FACILITY_ADDRESS,
+    state: attributes.facility_state || attributes.FACILITY_STATE || '',
+    suburb: attributes.abs_suburb || attributes.ABS_SUBURB,
+    postcode: attributes.abs_postcode || attributes.ABS_POSTCODE,
     coordinates: [geometry.x, geometry.y],
-    operationalStatus: attributes.FACILITY_OPERATIONALSTATUS,
-    lastUpdated: attributes.FACILITY_DATE 
-      ? new Date(attributes.FACILITY_DATE).toISOString() 
+    operationalStatus: attributes.facility_operationalstatus || attributes.FACILITY_OPERATIONALSTATUS,
+    lastUpdated: attributes.facility_date || attributes.FACILITY_DATE
+      ? new Date(attributes.facility_date || attributes.FACILITY_DATE).toISOString() 
       : undefined,
   };
 }
@@ -102,11 +113,12 @@ export async function rfsStations(request: HttpRequest, context: InvocationConte
     const whereConditions: string[] = [];
     
     if (state) {
-      whereConditions.push(`FACILITY_STATE = '${state.toUpperCase()}'`);
+      // Use lowercase field names for the new API
+      whereConditions.push(`facility_state = '${state.toUpperCase()}'`);
     }
     
     if (postcode) {
-      whereConditions.push(`ABS_POSTCODE = '${postcode}'`);
+      whereConditions.push(`abs_postcode = '${postcode}'`);
     }
     
     const whereClause = whereConditions.length > 0 
@@ -116,7 +128,7 @@ export async function rfsStations(request: HttpRequest, context: InvocationConte
     // Build query parameters
     const params = new URLSearchParams({
       where: whereClause,
-      outFields: 'OBJECTID,FACILITY_NAME,FACILITY_ADDRESS,FACILITY_STATE,FACILITY_LAT,FACILITY_LONG,FACILITY_OPERATIONALSTATUS,ABS_SUBURB,ABS_POSTCODE,FACILITY_DATE',
+      outFields: 'objectid,facility_name,facility_address,facility_state,facility_lat,facility_long,facility_operationalstatus,abs_suburb,abs_postcode,facility_date',
       returnGeometry: 'true',
       outSR: '4326',
       f: 'json',

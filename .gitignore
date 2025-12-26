@@ -44,3 +44,4 @@ __azurite_db*__.json
 .vercel
 .netlify
 .azure
+test-rfs-api.js
