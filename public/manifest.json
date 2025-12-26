@@ -1,0 +1,27 @@
+{
+  "name": "Fire Santa Run",
+  "short_name": "Santa Run",
+  "description": "Track Santa in real-time as your local Rural Fire Service brings Christmas joy to your community",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#D32F2F",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/og-image.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social", "navigation", "lifestyle"],
+  "screenshots": [
+    {
+      "src": "/og-image.svg",
+      "sizes": "1200x630",
+      "type": "image/svg+xml",
+      "form_factor": "wide"
+    }
+  ]
+}

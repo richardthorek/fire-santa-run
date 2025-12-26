@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRoutes } from '../hooks';
-import { RouteStatusBadge, ShareModal } from '../components';
+import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { format } from 'date-fns';
@@ -24,22 +24,56 @@ export function Dashboard() {
 
   if (isLoading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <p>Loading routes...</p>
-      </div>
+      <>
+        <SEO title="Dashboard" description="Manage your Santa Run routes" />
+        <DashboardSkeleton />
+      </>
     );
   }
 
   if (error) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#d32f2f' }}>
-        <p>Error loading routes: {error.message}</p>
-      </div>
+      <>
+        <SEO title="Dashboard" description="Manage your Santa Run routes" />
+        <div style={{ 
+          padding: '2rem', 
+          textAlign: 'center', 
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '60vh',
+        }}>
+          <div style={{ fontSize: '64px', marginBottom: '1rem' }}>⚠️</div>
+          <h2 style={{ color: '#d32f2f', marginBottom: '1rem' }}>Unable to Load Routes</h2>
+          <p style={{ color: '#616161', maxWidth: '400px' }}>
+            {error.message}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: '1.5rem',
+              padding: '0.75rem 1.5rem',
+              background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '1rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            🔄 Retry
+          </button>
+        </div>
+      </>
     );
   }
 
   return (
-    <div style={{ 
+    <>
+      <SEO title="Dashboard" description="Manage your Santa Run routes - Plan and track Christmas Eve routes for your Rural Fire Service brigade" />
+      <div style={{ 
       width: '100%', 
       height: '100%', 
       overflow: 'auto',
@@ -326,5 +360,6 @@ export function Dashboard() {
       )}
     </div>
     </div>
+    </>
   );
 }

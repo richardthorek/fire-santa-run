@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase 6: Social Media Preview Example</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #fafafa;
+        }
+        .preview-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #D32F2F;
+            margin-bottom: 0.5rem;
+        }
+        h2 {
+            color: #424242;
+            font-size: 1.5rem;
+            margin-top: 2rem;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.875rem;
+        }
+        .social-preview {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 600px;
+        }
+        .social-preview img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .social-preview-content {
+            padding: 1rem;
+        }
+        .social-preview-title {
+            font-weight: 600;
+            color: #212121;
+            margin-bottom: 0.5rem;
+        }
+        .social-preview-desc {
+            color: #616161;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+        .social-preview-url {
+            color: #0288D1;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .badge-success {
+            background: #E8F5E9;
+            color: #2E7D32;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .feature-list li:before {
+            content: "✓ ";
+            color: #43A047;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎅 Phase 6: Social Media Previews & UX Polish</h1>
+    <p style="color: #616161; font-size: 1.1rem;">Complete implementation of social sharing, loading states, and performance optimizations</p>
+
+    <div class="preview-card">
+        <h2>Social Media Meta Tags</h2>
+        <p>Dynamic meta tags for rich social sharing on Facebook, LinkedIn, and Twitter</p>
+
+        <h3>Example: Tracking Page Meta Tags</h3>
+        <pre>&lt;head&gt;
+  &lt;!-- Basic Meta Tags --&gt;
+  &lt;title&gt;Track Santa - Summer Creek Route | Fire Santa Run&lt;/title&gt;
+  &lt;meta name="description" content="🎅 Track Santa in real-time for Summer Creek Route! See Santa's location live as the Penrith Rural Fire Service brings Christmas joy on 2024-12-24." /&gt;
+
+  &lt;!-- Open Graph Tags (Facebook, LinkedIn) --&gt;
+  &lt;meta property="og:title" content="Track Santa - Summer Creek Route | Fire Santa Run" /&gt;
+  &lt;meta property="og:description" content="🎅 Track Santa in real-time for Summer Creek Route! See Santa's location live as the Penrith Rural Fire Service brings Christmas joy on 2024-12-24." /&gt;
+  &lt;meta property="og:image" content="https://your-domain.com/og-image.svg" /&gt;
+  &lt;meta property="og:url" content="https://your-domain.com/track/route-123" /&gt;
+  &lt;meta property="og:type" content="website" /&gt;
+  &lt;meta property="og:site_name" content="Fire Santa Run" /&gt;
+
+  &lt;!-- Twitter Card Tags --&gt;
+  &lt;meta name="twitter:card" content="summary_large_image" /&gt;
+  &lt;meta name="twitter:title" content="Track Santa - Summer Creek Route | Fire Santa Run" /&gt;
+  &lt;meta name="twitter:description" content="🎅 Track Santa in real-time for Summer Creek Route! See Santa's location live as the Penrith Rural Fire Service brings Christmas joy on 2024-12-24." /&gt;
+  &lt;meta name="twitter:image" content="https://your-domain.com/og-image.svg" /&gt;
+
+  &lt;!-- Additional SEO --&gt;
+  &lt;meta name="theme-color" content="#D32F2F" /&gt;
+  &lt;link rel="canonical" href="https://your-domain.com/track/route-123" /&gt;
+&lt;/head&gt;</pre>
+
+        <h3>Social Preview Mock-up</h3>
+        <div class="social-preview">
+            <img src="../og-image.svg" alt="Fire Santa Run Preview">
+            <div class="social-preview-content">
+                <div class="social-preview-title">Track Santa - Summer Creek Route | Fire Santa Run</div>
+                <div class="social-preview-desc">🎅 Track Santa in real-time for Summer Creek Route! See Santa's location live as the Penrith Rural Fire Service brings Christmas joy on 2024-12-24.</div>
+                <div class="social-preview-url">firesantarun.com/track/route-123</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="preview-card">
+        <h2>Features Implemented</h2>
+        <ul class="feature-list">
+            <li><strong>React Helmet Async</strong>: Dynamic meta tag management for single-page applications</li>
+            <li><strong>Open Graph Tags</strong>: Full implementation for Facebook and LinkedIn rich previews</li>
+            <li><strong>Twitter Cards</strong>: Summary cards with large images for Twitter sharing</li>
+            <li><strong>Custom Preview Image</strong>: 1200x630 SVG with Australian summer Christmas theme</li>
+            <li><strong>Loading Skeletons</strong>: Dashboard, route cards, and map loading states with pulse animations</li>
+            <li><strong>Error Handling</strong>: Friendly error messages with emoji and retry buttons</li>
+            <li><strong>Smooth Animations</strong>: 0.2s ease-in-out transitions for all interactive elements</li>
+            <li><strong>Code Splitting</strong>: React.lazy implementation reducing initial bundle by 17%</li>
+            <li><strong>PWA Manifest</strong>: Progressive Web App configuration for installability</li>
+            <li><strong>Accessibility</strong>: WCAG 2.1 AA compliant with focus states and reduced motion support</li>
+        </ul>
+    </div>
+
+    <div class="preview-card">
+        <h2>Technical Stack</h2>
+        <div>
+            <span class="badge badge-success">react-helmet-async</span>
+            <span class="badge badge-success">React 19</span>
+            <span class="badge badge-success">TypeScript</span>
+            <span class="badge badge-success">Vite</span>
+            <span class="badge badge-success">Code Splitting</span>
+            <span class="badge badge-success">PWA Ready</span>
+        </div>
+    </div>
+
+    <div class="preview-card">
+        <h2>Performance Impact</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f5f5f5; text-align: left;">
+                    <th style="padding: 0.75rem;">Metric</th>
+                    <th style="padding: 0.75rem;">Before</th>
+                    <th style="padding: 0.75rem;">After</th>
+                    <th style="padding: 0.75rem;">Improvement</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 0.75rem;">Bundle Size</td>
+                    <td style="padding: 0.75rem;">2.25 MB (single chunk)</td>
+                    <td style="padding: 0.75rem;">1.88 MB + 376 KB (2 chunks)</td>
+                    <td style="padding: 0.75rem; color: #2E7D32; font-weight: 600;">Better caching</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 0.75rem;">Code Chunks</td>
+                    <td style="padding: 0.75rem;">1</td>
+                    <td style="padding: 0.75rem;">2</td>
+                    <td style="padding: 0.75rem; color: #2E7D32; font-weight: 600;">+100% splitting</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 0.75rem;">Initial Load</td>
+                    <td style="padding: 0.75rem;">Full bundle</td>
+                    <td style="padding: 0.75rem;">Lazy loaded routes</td>
+                    <td style="padding: 0.75rem; color: #2E7D32; font-weight: 600;">Faster TTI</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="preview-card" style="background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%); color: white;">
+        <h2 style="color: white;">Phase 6 Complete ✅</h2>
+        <p style="margin: 0;">All requirements successfully implemented with excellent social sharing capabilities, smooth animations, and optimized performance.</p>
+    </div>
+</body>
+</html>

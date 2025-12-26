@@ -1,0 +1,36 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient: Australian summer sky -->
+  <defs>
+    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#29B6F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0288D1;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Sky background -->
+  <rect width="1200" height="630" fill="url(#skyGradient)"/>
+  
+  <!-- Sun -->
+  <circle cx="950" cy="120" r="80" fill="#FFA726" opacity="0.8"/>
+  
+  <!-- Main text background -->
+  <rect x="50" y="150" width="1100" height="330" rx="30" fill="white" opacity="0.95"/>
+  
+  <!-- Fire Santa Run title -->
+  <text x="600" y="260" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="#D32F2F" text-anchor="middle">
+    🎅 Fire Santa Run
+  </text>
+  
+  <!-- Subtitle -->
+  <text x="600" y="340" font-family="Arial, sans-serif" font-size="36" fill="#424242" text-anchor="middle">
+    Track Santa in Real-Time
+  </text>
+  
+  <!-- Description -->
+  <text x="600" y="400" font-family="Arial, sans-serif" font-size="28" fill="#616161" text-anchor="middle">
+    Australian Rural Fire Service • Christmas Community Service
+  </text>
+  
+  <!-- Bottom accent -->
+  <rect x="50" y="520" width="1100" height="8" rx="4" fill="#FFA726"/>
+</svg>

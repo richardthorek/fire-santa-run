@@ -9,6 +9,8 @@ export { ManeuverIcon } from './ManeuverIcon';
 export { ProgressBar } from './ProgressBar';
 export { SharePanel } from './SharePanel';
 export { ShareModal } from './ShareModal';
+export { SEO } from './SEO';
+export { SkeletonBox, RouteCardSkeleton, DashboardSkeleton, MapSkeleton } from './LoadingSkeleton';
 
 export type { MapViewProps } from './MapView';
 export type { RouteStatusBadgeProps } from './RouteStatusBadge';
@@ -21,3 +23,4 @@ export type { ManeuverIconProps } from './ManeuverIcon';
 export type { ProgressBarProps } from './ProgressBar';
 export type { SharePanelProps } from './SharePanel';
 export type { ShareModalProps } from './ShareModal';
+export type { SEOProps } from './SEO';
