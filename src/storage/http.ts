@@ -139,20 +139,41 @@ export class HttpStorageAdapter implements IStorageAdapter {
     }
   }
 
-  // User operations (Phase 6a - API endpoints to be implemented in Phase 7)
-  async saveUser(_user: User): Promise<void> {
-    throw new Error('User operations not yet implemented in HTTP adapter');
+  // User operations
+  async saveUser(user: User): Promise<void> {
+    const response = await fetch(`${this.apiBaseUrl}/users`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(user),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to save user: ${response.statusText}`);
+    }
   }
 
-  async getUser(_userId: string): Promise<User | null> {
-    throw new Error('User operations not yet implemented in HTTP adapter');
+  async getUser(userId: string): Promise<User | null> {
+    const response = await fetch(`${this.apiBaseUrl}/users/${encodeURIComponent(userId)}`);
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user: ${response.statusText}`);
+    }
+    return await response.json();
   }
 
-  async getUserByEmail(_email: string): Promise<User | null> {
-    throw new Error('User operations not yet implemented in HTTP adapter');
+  async getUserByEmail(email: string): Promise<User | null> {
+    const response = await fetch(`${this.apiBaseUrl}/users/by-email/${encodeURIComponent(email)}`);
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user by email: ${response.statusText}`);
+    }
+    return await response.json();
   }
 
-  // Membership operations (Phase 6a - API endpoints to be implemented in Phase 7)
+  // Membership operations
   async saveMembership(_membership: BrigadeMembership): Promise<void> {
     throw new Error('Membership operations not yet implemented in HTTP adapter');
   }
@@ -169,16 +190,28 @@ export class HttpStorageAdapter implements IStorageAdapter {
     throw new Error('Membership operations not yet implemented in HTTP adapter');
   }
 
-  async getMembershipsByUser(_userId: string): Promise<BrigadeMembership[]> {
-    throw new Error('Membership operations not yet implemented in HTTP adapter');
+  async getMembershipsByUser(userId: string): Promise<BrigadeMembership[]> {
+    const response = await fetch(`${this.apiBaseUrl}/users/${encodeURIComponent(userId)}/memberships`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user memberships: ${response.statusText}`);
+    }
+    return await response.json();
   }
 
-  async getMembershipsByBrigade(_brigadeId: string): Promise<BrigadeMembership[]> {
-    throw new Error('Membership operations not yet implemented in HTTP adapter');
+  async getMembershipsByBrigade(brigadeId: string): Promise<BrigadeMembership[]> {
+    const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigadeId)}/members`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch brigade memberships: ${response.statusText}`);
+    }
+    return await response.json();
   }
 
-  async getPendingMembershipsByBrigade(_brigadeId: string): Promise<BrigadeMembership[]> {
-    throw new Error('Membership operations not yet implemented in HTTP adapter');
+  async getPendingMembershipsByBrigade(brigadeId: string): Promise<BrigadeMembership[]> {
+    const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigadeId)}/members/pending`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch pending brigade memberships: ${response.statusText}`);
+    }
+    return await response.json();
   }
 
   // Invitation operations (Phase 6a - API endpoints to be implemented in Phase 7)
