@@ -7,10 +7,26 @@ import type { Brigade } from '../storage';
  */
 export const mockBrigade: Brigade = {
   id: 'dev-brigade-1',
+  slug: 'griffith-rfs',
   name: 'Griffith Rural Fire Brigade',
+  location: 'Griffith, NSW',
+  rfsStationId: undefined,
+  logo: undefined,
+  themeColor: '#D32F2F',
   allowedDomains: ['@griffithrfs.org.au', '@rfs.nsw.gov.au'],
   allowedEmails: ['dev@example.com'],
+  requireManualApproval: false,
+  adminUserIds: ['dev-user-1'],
+  isClaimed: true,
+  claimedAt: '2024-12-01T00:00:00.000Z',
+  claimedBy: 'dev-user-1',
+  contact: {
+    email: 'griffith@rfs.nsw.gov.au',
+    phone: '02 6962 1234',
+    website: 'https://www.rfs.nsw.gov.au',
+  },
   createdAt: '2024-12-01T00:00:00.000Z',
+  updatedAt: '2024-12-01T00:00:00.000Z',
 };
 
 /**
