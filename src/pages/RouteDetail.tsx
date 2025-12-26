@@ -10,7 +10,7 @@ import {
 import type { Route } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { format } from 'date-fns';
-import { COLORS } from '../utils/constants';
+import { COLORS, FLOATING_PANEL, Z_INDEX } from '../utils/constants';
 
 export interface RouteDetailProps {
   routeId: string;
@@ -24,6 +24,7 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
 
   useEffect(() => {
     const loadRoute = async () => {
@@ -132,7 +133,6 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
     );
   }
 
-  const shareableLink = route.shareableLink || `${window.location.origin}/track/${route.id}`;
   const canNavigate = route.geometry && route.navigationSteps && route.navigationSteps.length > 0;
   const canShare = route.status === 'published' || route.status === 'active' || route.status === 'completed';
 
@@ -142,272 +142,326 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
         title={`${route.name} - Route Details`}
         description={route.description || `View details for ${route.name} Santa Run route`}
       />
+      {/* Full-Screen Container */}
       <div style={{ 
-        width: '100%', 
-        height: '100%', 
-        overflow: 'auto',
-        backgroundColor: COLORS.neutral50,
+        position: 'relative',
+        width: '100vw', 
+        height: '100vh', 
+        overflow: 'hidden',
       }}>
-        <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-          {/* Header */}
-          <div style={{ marginBottom: '2rem' }}>
-            <a
-              href="/dashboard"
+        {/* Full-Screen Map */}
+        <div style={{ width: '100%', height: '100%' }}>
+          <MapView
+            waypoints={route.waypoints}
+            routeGeometry={route.geometry}
+            center={route.waypoints.length > 0 ? route.waypoints[0].coordinates : undefined}
+            zoom={12}
+            showControls={true}
+            interactive={true}
+            height="100%"
+          />
+        </div>
+
+        {/* Floating Header Panel */}
+        <div style={{
+          position: 'absolute',
+          top: FLOATING_PANEL.spacing.edge,
+          left: FLOATING_PANEL.spacing.edge,
+          right: FLOATING_PANEL.spacing.edge,
+          background: `rgba(255, 255, 255, ${FLOATING_PANEL.backdrop.opacity})`,
+          backdropFilter: FLOATING_PANEL.backdrop.blur,
+          WebkitBackdropFilter: FLOATING_PANEL.backdrop.blur,
+          borderRadius: FLOATING_PANEL.borderRadius.standard,
+          boxShadow: FLOATING_PANEL.shadow.standard,
+          padding: FLOATING_PANEL.spacing.internal,
+          zIndex: Z_INDEX.floatingPanel,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'start', gap: '1rem', flexWrap: 'wrap' }}>
+            {/* Back Button */}
+            <button
+              onClick={() => window.location.href = '/dashboard'}
               style={{
-                display: 'inline-flex',
+                padding: '0.5rem 1rem',
+                background: 'transparent',
+                border: `2px solid ${COLORS.neutral300}`,
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: COLORS.neutral900,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                color: COLORS.neutral700,
-                textDecoration: 'none',
-                fontSize: '0.875rem',
-                marginBottom: '1rem',
-                transition: 'color 0.2s',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.color = COLORS.fireRed}
-              onMouseLeave={(e) => e.currentTarget.style.color = COLORS.neutral700}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = COLORS.fireRed;
+                e.currentTarget.style.color = COLORS.fireRed;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = COLORS.neutral300;
+                e.currentTarget.style.color = COLORS.neutral900;
+              }}
             >
-              ← Back to Dashboard
-            </a>
-            
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'start',
-              flexWrap: 'wrap',
-              gap: '1rem',
-            }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-                  <h1 style={{ margin: 0, fontSize: '2rem', color: COLORS.neutral900 }}>
-                    {route.name}
-                  </h1>
-                  <RouteStatusBadge status={route.status} />
-                </div>
-                {route.description && (
-                  <p style={{ margin: 0, color: COLORS.neutral700, fontSize: '1rem' }}>
-                    {route.description}
-                  </p>
+              ← Back
+            </button>
+
+            {/* Route Title and Status */}
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                <h1 style={{ margin: 0, fontSize: '1.5rem', color: COLORS.neutral900 }}>
+                  {route.name}
+                </h1>
+                <RouteStatusBadge status={route.status} />
+              </div>
+              {route.description && (
+                <p style={{ margin: 0, color: COLORS.neutral700, fontSize: '0.875rem' }}>
+                  {route.description}
+                </p>
+              )}
+            </div>
+
+            {/* Info Toggle Button */}
+            <button
+              onClick={() => setShowInfoPanel(!showInfoPanel)}
+              style={{
+                padding: '0.5rem 1rem',
+                background: showInfoPanel 
+                  ? `linear-gradient(135deg, ${COLORS.skyBlue} 0%, ${COLORS.oceanBlue} 100%)`
+                  : 'transparent',
+                border: `2px solid ${showInfoPanel ? COLORS.skyBlue : COLORS.neutral300}`,
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: showInfoPanel ? 'white' : COLORS.neutral900,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {showInfoPanel ? '✕ Close Info' : 'ℹ️ Route Info'}
+            </button>
+          </div>
+
+          {/* Quick Stats Bar */}
+          <div style={{
+            marginTop: '1rem',
+            display: 'flex',
+            gap: '1rem',
+            flexWrap: 'wrap',
+            justifyContent: 'space-around',
+            padding: '0.75rem',
+            backgroundColor: 'rgba(245, 245, 245, 0.8)',
+            borderRadius: '8px',
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 600, color: COLORS.fireRed, fontSize: '1.25rem' }}>
+                {route.waypoints.length}
+              </div>
+              <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>Stops</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 600, color: COLORS.summerGold, fontSize: '1.25rem' }}>
+                {route.distance ? formatDistance(route.distance) : '—'}
+              </div>
+              <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>Distance</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 600, color: COLORS.christmasGreen, fontSize: '1.25rem' }}>
+                {route.estimatedDuration ? formatDuration(route.estimatedDuration) : '—'}
+              </div>
+              <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>Duration</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 600, color: COLORS.neutral900, fontSize: '1.25rem' }}>
+                {route.date ? format(new Date(route.date), 'MMM dd') : '—'}
+              </div>
+              <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>Date</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Floating Info Side Panel (Conditional) */}
+        {showInfoPanel && (
+          <div style={{
+            position: 'absolute',
+            top: '11rem',
+            right: FLOATING_PANEL.spacing.edge,
+            width: 'min(400px, calc(100vw - 2rem))',
+            maxHeight: 'calc(100vh - 24rem)',
+            background: `rgba(255, 255, 255, ${FLOATING_PANEL.backdrop.opacity})`,
+            backdropFilter: FLOATING_PANEL.backdrop.blur,
+            WebkitBackdropFilter: FLOATING_PANEL.backdrop.blur,
+            borderRadius: FLOATING_PANEL.borderRadius.standard,
+            boxShadow: FLOATING_PANEL.shadow.emphasis,
+            padding: FLOATING_PANEL.spacing.internal,
+            overflowY: 'auto',
+            zIndex: Z_INDEX.floatingPanel,
+          }}>
+            {/* Waypoints List */}
+            <h3 style={{ margin: 0, marginBottom: '1rem', fontSize: '1rem', color: COLORS.neutral900 }}>
+              📍 Waypoints ({route.waypoints.length})
+            </h3>
+            {route.waypoints.length === 0 ? (
+              <p style={{ color: COLORS.neutral700, fontSize: '0.875rem' }}>
+                No waypoints added yet.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {route.waypoints
+                  .sort((a, b) => a.order - b.order)
+                  .map((waypoint, index) => (
+                    <div
+                      key={waypoint.id}
+                      style={{
+                        padding: '0.75rem',
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        borderRadius: '8px',
+                        border: `1px solid ${COLORS.neutral200}`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem' }}>
+                        <div style={{
+                          width: '28px',
+                          height: '28px',
+                          backgroundColor: COLORS.christmasGreen,
+                          color: 'white',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 600,
+                          fontSize: '0.875rem',
+                          flexShrink: 0,
+                        }}>
+                          {index + 1}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, color: COLORS.neutral900, marginBottom: '0.25rem', fontSize: '0.875rem' }}>
+                            {waypoint.name || `Stop ${index + 1}`}
+                          </div>
+                          {waypoint.address && (
+                            <div style={{ fontSize: '0.75rem', color: COLORS.neutral700 }}>
+                              {waypoint.address}
+                            </div>
+                          )}
+                          {waypoint.notes && (
+                            <div style={{ fontSize: '0.75rem', color: COLORS.neutral700, marginTop: '0.25rem', fontStyle: 'italic' }}>
+                              {waypoint.notes}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {/* Timestamps */}
+            <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: `1px solid ${COLORS.neutral200}` }}>
+              <h3 style={{ margin: 0, marginBottom: '0.75rem', fontSize: '0.875rem', color: COLORS.neutral700 }}>
+                Timeline
+              </h3>
+              <div style={{ fontSize: '0.75rem', color: COLORS.neutral700, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {route.createdAt && (
+                  <div>📝 Created: {format(new Date(route.createdAt), 'MMM dd, h:mm a')}</div>
+                )}
+                {route.publishedAt && (
+                  <div>📢 Published: {format(new Date(route.publishedAt), 'MMM dd, h:mm a')}</div>
+                )}
+                {route.startedAt && (
+                  <div>🚀 Started: {format(new Date(route.startedAt), 'MMM dd, h:mm a')}</div>
+                )}
+                {route.completedAt && (
+                  <div>✅ Completed: {format(new Date(route.completedAt), 'MMM dd, h:mm a')}</div>
                 )}
               </div>
             </div>
           </div>
+        )}
 
-          {/* Main Content Grid */}
-          <div style={{ 
-            display: 'grid', 
-            gap: '1.5rem',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-          }}>
-            {/* Map Preview Card */}
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-              gridColumn: '1 / -1',
-            }}>
-              <h2 style={{ margin: 0, marginBottom: '1rem', fontSize: '1.25rem', color: COLORS.neutral900 }}>
-                🗺️ Route Map
-              </h2>
-              <div style={{ 
-                borderRadius: '8px', 
-                overflow: 'hidden',
-                border: `1px solid ${COLORS.neutral200}`,
-              }}>
-                <MapView
-                  waypoints={route.waypoints}
-                  routeGeometry={route.geometry}
-                  center={route.waypoints.length > 0 ? route.waypoints[0].coordinates : undefined}
-                  zoom={12}
-                  showControls={true}
-                  interactive={true}
-                  height="400px"
-                />
-              </div>
-            </div>
-
-            {/* Route Information Card */}
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            }}>
-              <h2 style={{ margin: 0, marginBottom: '1rem', fontSize: '1.25rem', color: COLORS.neutral900 }}>
-                📋 Route Information
-              </h2>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {/* Date & Time */}
-                <div>
-                  <div style={{ fontSize: '0.875rem', color: COLORS.neutral700, marginBottom: '0.25rem' }}>
-                    Date & Time
-                  </div>
-                  <div style={{ fontSize: '1rem', color: COLORS.neutral900, fontWeight: 600 }}>
-                    📅 {route.date ? format(new Date(route.date), 'MMMM dd, yyyy') : 'Not set'}
-                  </div>
-                  <div style={{ fontSize: '1rem', color: COLORS.neutral900 }}>
-                    🕐 {route.startTime || 'Not set'}
-                    {route.endTime && ` - ${route.endTime}`}
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '1rem',
-                  padding: '1rem',
-                  backgroundColor: COLORS.neutral100,
-                  borderRadius: '8px',
-                }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontWeight: 600, color: COLORS.fireRed, fontSize: '1.5rem' }}>
-                      {route.waypoints.length}
-                    </div>
-                    <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>Stops</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontWeight: 600, color: COLORS.summerGold, fontSize: '1.5rem' }}>
-                      {route.distance ? formatDistance(route.distance) : '—'}
-                    </div>
-                    <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>Distance</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontWeight: 600, color: COLORS.christmasGreen, fontSize: '1.5rem' }}>
-                      {route.estimatedDuration ? formatDuration(route.estimatedDuration) : '—'}
-                    </div>
-                    <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>Duration</div>
-                  </div>
-                </div>
-
-                {/* Timestamps */}
-                <div style={{ fontSize: '0.875rem', color: COLORS.neutral700 }}>
-                  {route.createdAt && (
-                    <div>Created: {format(new Date(route.createdAt), 'MMM dd, yyyy h:mm a')}</div>
-                  )}
-                  {route.publishedAt && (
-                    <div>Published: {format(new Date(route.publishedAt), 'MMM dd, yyyy h:mm a')}</div>
-                  )}
-                  {route.startedAt && (
-                    <div>Started: {format(new Date(route.startedAt), 'MMM dd, yyyy h:mm a')}</div>
-                  )}
-                  {route.completedAt && (
-                    <div>Completed: {format(new Date(route.completedAt), 'MMM dd, yyyy h:mm a')}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Waypoints Card */}
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            }}>
-              <h2 style={{ margin: 0, marginBottom: '1rem', fontSize: '1.25rem', color: COLORS.neutral900 }}>
-                📍 Waypoints ({route.waypoints.length})
-              </h2>
-              
-              {route.waypoints.length === 0 ? (
-                <p style={{ color: COLORS.neutral700, fontSize: '0.875rem' }}>
-                  No waypoints added yet.
-                </p>
-              ) : (
-                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                  {route.waypoints
-                    .sort((a, b) => a.order - b.order)
-                    .map((waypoint, index) => (
-                      <div
-                        key={waypoint.id}
-                        style={{
-                          padding: '0.75rem',
-                          marginBottom: '0.5rem',
-                          backgroundColor: COLORS.neutral50,
-                          borderRadius: '8px',
-                          border: `1px solid ${COLORS.neutral200}`,
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem' }}>
-                          <div style={{
-                            width: '28px',
-                            height: '28px',
-                            backgroundColor: COLORS.christmasGreen,
-                            color: 'white',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 600,
-                            fontSize: '0.875rem',
-                            flexShrink: 0,
-                          }}>
-                            {index + 1}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, color: COLORS.neutral900, marginBottom: '0.25rem' }}>
-                              {waypoint.name || `Stop ${index + 1}`}
-                            </div>
-                            {waypoint.address && (
-                              <div style={{ fontSize: '0.875rem', color: COLORS.neutral700 }}>
-                                {waypoint.address}
-                              </div>
-                            )}
-                            {waypoint.notes && (
-                              <div style={{ fontSize: '0.75rem', color: COLORS.neutral700, marginTop: '0.25rem' }}>
-                                {waypoint.notes}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
+        {/* Floating Bottom Action Panel */}
+        <div style={{
+          position: 'absolute',
+          bottom: FLOATING_PANEL.spacing.edge,
+          left: FLOATING_PANEL.spacing.edge,
+          right: FLOATING_PANEL.spacing.edge,
+          background: `rgba(255, 255, 255, ${FLOATING_PANEL.backdrop.opacity})`,
+          backdropFilter: FLOATING_PANEL.backdrop.blur,
+          WebkitBackdropFilter: FLOATING_PANEL.backdrop.blur,
+          borderRadius: FLOATING_PANEL.borderRadius.standard,
+          boxShadow: FLOATING_PANEL.shadow.standard,
+          padding: FLOATING_PANEL.spacing.internal,
+          zIndex: Z_INDEX.floatingPanel,
+        }}>
+          {/* Primary Action Buttons */}
           <div style={{
-            marginTop: '2rem',
             display: 'grid',
-            gap: '1rem',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: '0.75rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
           }}>
-            {/* Navigate Button */}
-            {canNavigate && (
-              <button
-                onClick={() => window.location.href = `/routes/${route.id}/navigate`}
-                style={{
-                  padding: '1rem',
-                  background: `linear-gradient(135deg, ${COLORS.skyBlue} 0%, ${COLORS.oceanBlue} 100%)`,
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(41, 182, 246, 0.3)',
-                  transition: 'transform 0.2s',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-              >
-                🧭 Start Navigation
-              </button>
-            )}
+            {/* Navigate Button - Always shown */}
+            <button
+              onClick={() => canNavigate 
+                ? window.location.href = `/routes/${route.id}/navigate`
+                : alert('Route must have waypoints and navigation data. Please edit the route to add stops.')
+              }
+              disabled={!canNavigate}
+              style={{
+                padding: '0.875rem 1rem',
+                background: canNavigate
+                  ? `linear-gradient(135deg, ${COLORS.skyBlue} 0%, ${COLORS.oceanBlue} 100%)`
+                  : COLORS.neutral200,
+                color: canNavigate ? 'white' : COLORS.neutral700,
+                border: 'none',
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: canNavigate ? 'pointer' : 'not-allowed',
+                boxShadow: canNavigate ? '0 4px 12px rgba(41, 182, 246, 0.3)' : 'none',
+                transition: 'transform 0.2s',
+                opacity: canNavigate ? 1 : 0.6,
+              }}
+              onMouseEnter={(e) => canNavigate && (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={(e) => canNavigate && (e.currentTarget.style.transform = 'translateY(0)')}
+            >
+              🧭 Navigate
+            </button>
+
+            {/* Preview Public Link Button */}
+            <button
+              onClick={() => {
+                const trackingUrl = `/track/${route.id}`;
+                window.open(trackingUrl, '_blank');
+              }}
+              style={{
+                padding: '0.875rem 1rem',
+                background: `linear-gradient(135deg, ${COLORS.summerGold} 0%, ${COLORS.summerGoldLight} 100%)`,
+                color: 'white',
+                border: 'none',
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(255, 167, 38, 0.3)',
+                transition: 'transform 0.2s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              👁️ Preview
+            </button>
 
             {/* Edit Button */}
             <button
               onClick={() => window.location.href = `/routes/${route.id}/edit`}
               style={{
-                padding: '1rem',
+                padding: '0.875rem 1rem',
                 background: 'white',
                 color: COLORS.neutral900,
                 border: `2px solid ${COLORS.neutral300}`,
-                borderRadius: '12px',
-                fontSize: '1rem',
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
                 fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'all 0.2s',
@@ -421,7 +475,7 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                 e.currentTarget.style.color = COLORS.neutral900;
               }}
             >
-              ✏️ Edit Route
+              ✏️ Edit
             </button>
 
             {/* Share Button */}
@@ -429,37 +483,47 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               onClick={() => canShare ? setShareModalOpen(true) : alert('Route must be published before sharing')}
               disabled={!canShare}
               style={{
-                padding: '1rem',
+                padding: '0.875rem 1rem',
                 background: canShare 
-                  ? `linear-gradient(135deg, ${COLORS.summerGold} 0%, ${COLORS.summerGoldLight} 100%)`
+                  ? `linear-gradient(135deg, ${COLORS.christmasGreen} 0%, ${COLORS.eucalyptusGreen} 100%)`
                   : COLORS.neutral200,
                 color: canShare ? 'white' : COLORS.neutral700,
                 border: 'none',
-                borderRadius: '12px',
-                fontSize: '1rem',
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
                 fontWeight: 600,
                 cursor: canShare ? 'pointer' : 'not-allowed',
-                opacity: canShare ? 1 : 0.5,
-                boxShadow: canShare ? '0 4px 12px rgba(255, 167, 38, 0.3)' : 'none',
+                opacity: canShare ? 1 : 0.6,
+                boxShadow: canShare ? '0 4px 12px rgba(67, 160, 71, 0.3)' : 'none',
                 transition: 'transform 0.2s',
               }}
               onMouseEnter={(e) => canShare && (e.currentTarget.style.transform = 'translateY(-2px)')}
               onMouseLeave={(e) => canShare && (e.currentTarget.style.transform = 'translateY(0)')}
             >
-              🔗 Share Route
+              🔗 Share
             </button>
+          </div>
 
+          {/* Secondary Actions Row */}
+          <div style={{
+            marginTop: '0.75rem',
+            display: 'flex',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+          }}>
             {/* Status Change Buttons */}
             {route.status === 'draft' && (
               <button
                 onClick={() => handleStatusChange('published')}
                 style={{
-                  padding: '1rem',
+                  flex: 1,
+                  minWidth: '140px',
+                  padding: '0.75rem 1rem',
                   background: `linear-gradient(135deg, ${COLORS.christmasGreen} 0%, ${COLORS.eucalyptusGreen} 100%)`,
                   color: 'white',
                   border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '1rem',
+                  borderRadius: FLOATING_PANEL.borderRadius.button,
+                  fontSize: '0.875rem',
                   fontWeight: 600,
                   cursor: 'pointer',
                   boxShadow: '0 4px 12px rgba(67, 160, 71, 0.3)',
@@ -476,12 +540,14 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               <button
                 onClick={() => handleStatusChange('active')}
                 style={{
-                  padding: '1rem',
+                  flex: 1,
+                  minWidth: '140px',
+                  padding: '0.75rem 1rem',
                   background: `linear-gradient(135deg, ${COLORS.fireRed} 0%, ${COLORS.fireRedDark} 100%)`,
                   color: 'white',
                   border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '1rem',
+                  borderRadius: FLOATING_PANEL.borderRadius.button,
+                  fontSize: '0.875rem',
                   fontWeight: 600,
                   cursor: 'pointer',
                   boxShadow: '0 4px 12px rgba(211, 47, 47, 0.3)',
@@ -498,12 +564,14 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               <button
                 onClick={() => handleStatusChange('completed')}
                 style={{
-                  padding: '1rem',
+                  flex: 1,
+                  minWidth: '140px',
+                  padding: '0.75rem 1rem',
                   background: `linear-gradient(135deg, ${COLORS.neutral700} 0%, ${COLORS.neutral800} 100%)`,
                   color: 'white',
                   border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '1rem',
+                  borderRadius: FLOATING_PANEL.borderRadius.button,
+                  fontSize: '0.875rem',
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'transform 0.2s',
@@ -519,12 +587,14 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
             <button
               onClick={() => setDeleteConfirmOpen(true)}
               style={{
-                padding: '1rem',
+                flex: 1,
+                minWidth: '140px',
+                padding: '0.75rem 1rem',
                 background: 'white',
                 color: COLORS.fireRed,
                 border: `2px solid ${COLORS.fireRed}`,
-                borderRadius: '12px',
-                fontSize: '1rem',
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
                 fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'all 0.2s',
@@ -538,64 +608,9 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                 e.currentTarget.style.color = COLORS.fireRed;
               }}
             >
-              🗑️ Delete Route
+              🗑️ Delete
             </button>
           </div>
-
-          {/* Public Tracking Link (if published) */}
-          {canShare && (
-            <div style={{
-              marginTop: '2rem',
-              padding: '1.5rem',
-              backgroundColor: COLORS.sandLight,
-              borderRadius: '12px',
-              border: `2px solid ${COLORS.summerGold}`,
-            }}>
-              <h3 style={{ margin: 0, marginBottom: '0.75rem', fontSize: '1rem', color: COLORS.neutral900 }}>
-                📡 Public Tracking Link
-              </h3>
-              <div style={{
-                display: 'flex',
-                gap: '0.5rem',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              }}>
-                <input
-                  type="text"
-                  value={shareableLink}
-                  readOnly
-                  style={{
-                    flex: 1,
-                    minWidth: '300px',
-                    padding: '0.75rem',
-                    border: `1px solid ${COLORS.neutral300}`,
-                    borderRadius: '8px',
-                    backgroundColor: 'white',
-                    fontSize: '0.875rem',
-                    fontFamily: 'monospace',
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(shareableLink);
-                  }}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: COLORS.skyBlue,
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  📋 Copy Link
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
