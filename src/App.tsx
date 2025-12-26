@@ -4,7 +4,9 @@ import './App.css';
 import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
 import { initializeMockData } from './utils/mockData';
-import { Dashboard, RouteEditor } from './pages';
+import { Dashboard, RouteEditor, NavigationView } from './pages';
+import { useRoutes } from './hooks';
+import type { Route as RouteType } from './types';
 
 function App() {
   const [initialized, setInitialized] = useState(false);
@@ -66,6 +68,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/routes/new" element={<RouteEditor mode="new" />} />
             <Route path="/routes/:id/edit" element={<RouteEditorWrapper />} />
+            <Route path="/routes/:id/navigate" element={<NavigationViewWrapper />} />
             <Route path="/routes/:id" element={<RouteDetailPlaceholder />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -81,6 +84,54 @@ function RouteEditorWrapper() {
   const routeId = pathSegments[pathSegments.length - 2]; // /routes/:id/edit
   
   return <RouteEditor mode="edit" routeId={routeId} />;
+}
+
+// Wrapper for Navigation View
+function NavigationViewWrapper() {
+  const pathSegments = window.location.pathname.split('/');
+  const routeId = pathSegments[pathSegments.length - 2]; // /routes/:id/navigate
+  const { getRoute } = useRoutes();
+  const [route, setRoute] = useState<RouteType | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getRoute(routeId).then(r => {
+      setRoute(r);
+      setLoading(false);
+    });
+  }, [routeId, getRoute]);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🎅</div>
+          <p>Loading route...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!route) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <h1>Route Not Found</h1>
+        <a href="/dashboard" style={{ color: '#D32F2F' }}>← Back to Dashboard</a>
+      </div>
+    );
+  }
+
+  return (
+    <NavigationView
+      route={route}
+      onExit={() => {
+        window.location.href = '/dashboard';
+      }}
+      onComplete={() => {
+        window.location.href = '/dashboard';
+      }}
+    />
+  );
 }
 
 // Placeholder for route detail page

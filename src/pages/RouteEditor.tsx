@@ -145,6 +145,26 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
             </h1>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {/* Start Navigation button (only show if route has navigation data) */}
+            {route.geometry && route.navigationSteps && route.navigationSteps.length > 0 && (
+              <button
+                onClick={() => window.location.href = `/routes/${route.id}/navigate`}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #29B6F6 0%, #0288D1 100%)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                🧭 Start Navigation
+              </button>
+            )}
             <button
               onClick={() => window.location.href = '/dashboard'}
               style={{
