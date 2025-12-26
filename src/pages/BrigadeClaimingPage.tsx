@@ -14,6 +14,7 @@ import { MembershipService } from '../services/membershipService';
 import { isGovernmentEmail } from '../utils/emailValidation';
 import { logBrigadeClaimed } from '../utils/auditLog';
 import { COLORS } from '../utils/constants';
+import { AppLayout } from '../components';
 import type { RFSStation } from '../types/rfs';
 
 const membershipService = new MembershipService(storageAdapter);
@@ -143,6 +144,7 @@ export function BrigadeClaimingPage() {
   };
 
   return (
+    <AppLayout>
     <div style={{
       minHeight: '100vh',
       backgroundColor: COLORS.neutral50,
@@ -372,6 +374,7 @@ export function BrigadeClaimingPage() {
         ) : null}
       </div>
     </div>
+    </AppLayout>
   );
 }
 
