@@ -21,6 +21,8 @@ export interface MapViewProps {
   interactive?: boolean;
   height?: string;
   className?: string;
+  autoZoom?: boolean;
+  fitBoundsPadding?: number | mapboxgl.PaddingOptions;
 }
 
 /**
@@ -36,6 +38,8 @@ export function MapView({
   interactive = true,
   height = '600px',
   className = '',
+  autoZoom = true,
+  fitBoundsPadding = 50,
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -62,7 +66,7 @@ export function MapView({
       });
 
       if (showControls) {
-        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-left');
       }
 
       map.current.on('load', () => {
@@ -136,12 +140,12 @@ export function MapView({
     });
 
     // Fit bounds to show all waypoints
-    if (waypoints.length > 0) {
+    if (waypoints.length > 0 && autoZoom) {
       const bounds = new mapboxgl.LngLatBounds();
       waypoints.forEach(wp => bounds.extend(wp.coordinates));
-      map.current!.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+      map.current!.fitBounds(bounds, { padding: fitBoundsPadding, maxZoom: 15 });
     }
-  }, [waypoints, mapLoaded]);
+  }, [waypoints, mapLoaded, autoZoom, fitBoundsPadding]);
 
   // Update route polyline with candy cane styling
   useEffect(() => {
@@ -220,14 +224,16 @@ export function MapView({
       });
 
       // Fit bounds to show the route
-      const coordinates = routeGeometry.coordinates as [number, number][];
-      if (coordinates.length > 0) {
-        const bounds = new mapboxgl.LngLatBounds();
-        coordinates.forEach((coord) => bounds.extend(coord));
-        map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+      if (autoZoom) {
+        const coordinates = routeGeometry.coordinates as [number, number][];
+        if (coordinates.length > 0) {
+          const bounds = new mapboxgl.LngLatBounds();
+          coordinates.forEach((coord) => bounds.extend(coord));
+          map.current.fitBounds(bounds, { padding: fitBoundsPadding, maxZoom: 15 });
+        }
       }
     }
-  }, [routeGeometry, mapLoaded]);
+  }, [routeGeometry, mapLoaded, autoZoom, fitBoundsPadding]);
 
   if (!MAPBOX_TOKEN) {
     return (
