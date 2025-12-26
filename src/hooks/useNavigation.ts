@@ -60,7 +60,11 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
   const lastAnnouncedStepRef = useRef<number>(-1);
   const lastAnnouncedWaypointRef = useRef<string | null>(null);
   const hasAnnouncedOffRouteRef = useRef(false);
-  const rerouteTimeoutRef = useRef<number | null>(null);
+  const rerouteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const waypointCompletionQueueRef = useRef<Set<string>>(new Set());
+
+  // Constants
+  const REROUTE_DEBOUNCE_MS = 2000;
 
   // Configure voice settings
   useEffect(() => {
@@ -266,13 +270,17 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       }
     }
 
-    // Auto-complete waypoint when near (deferred to avoid setState in effect warning)
+    // Auto-complete waypoint when near
+    // Queue waypoint for completion if not already completed or queued
     if (nextWaypoint && isNearWaypoint(userLocation, nextWaypoint, 50)) {
-      if (!completedWaypointIds.includes(nextWaypoint.id)) {
-        // Queue the state update asynchronously
-        setTimeout(() => {
+      if (!completedWaypointIds.includes(nextWaypoint.id) && 
+          !waypointCompletionQueueRef.current.has(nextWaypoint.id)) {
+        waypointCompletionQueueRef.current.add(nextWaypoint.id);
+        // Use queueMicrotask to defer state update to next microtask queue
+        queueMicrotask(() => {
           completeWaypoint(nextWaypoint.id);
-        }, 0);
+          waypointCompletionQueueRef.current.delete(nextWaypoint.id);
+        });
       }
     }
 
@@ -283,12 +291,12 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       }
       rerouteTimeoutRef.current = setTimeout(() => {
         reroute();
-      }, 2000); // Debounce rerouting by 2 seconds
+      }, REROUTE_DEBOUNCE_MS);
     } else if (!offRoute && rerouteTimeoutRef.current) {
       clearTimeout(rerouteTimeoutRef.current);
       rerouteTimeoutRef.current = null;
     }
-  }, [isNavigating, position, updatedRoute, voiceEnabled, navigationState, completedWaypointIds, isRerouting, completeWaypoint, reroute]);
+  }, [isNavigating, position, updatedRoute, voiceEnabled, navigationState, completedWaypointIds, isRerouting, completeWaypoint, reroute, REROUTE_DEBOUNCE_MS]);
 
   return {
     navigationState,
