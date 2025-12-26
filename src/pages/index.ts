@@ -3,6 +3,8 @@ export { RouteEditor } from './RouteEditor';
 export { NavigationView } from './NavigationView';
 export { TrackingView } from './TrackingView';
 export { RouteDetail } from './RouteDetail';
+export { ProfilePage } from './ProfilePage';
+export { BrigadeClaimingPage } from './BrigadeClaimingPage';
 export { LoginPage, LogoutPage, CallbackPage } from './auth';
 
 export type { RouteEditorProps } from './RouteEditor';

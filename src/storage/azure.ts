@@ -156,6 +156,29 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
     }
   }
 
+  async getBrigadeByRFSId(rfsStationId: string): Promise<Brigade | null> {
+    try {
+      // Query for brigades where rfsStationId matches
+      const queryResults = this.brigadesClient.listEntities({
+        queryOptions: {
+          filter: `rfsStationId eq '${rfsStationId}'`,
+        },
+      });
+      
+      // Get first matching brigade
+      for await (const entity of queryResults) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { partitionKey, rowKey, timestamp, etag, ...brigadeData } = entity;
+        return brigadeData as unknown as Brigade;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to query brigade by RFS ID from Azure Table Storage:', error);
+      throw new Error('Failed to query brigade by RFS ID');
+    }
+  }
+
   async saveBrigade(brigade: Brigade): Promise<void> {
     const entity = {
       partitionKey: 'brigades',
