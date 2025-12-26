@@ -10,7 +10,7 @@ import { useAuth } from '../context';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
-import { RoleBadge, SEO } from '../components';
+import { RoleBadge, SEO, AppLayout } from '../components';
 import { canInviteMembers, canManageMembers, canApproveMembership } from '../utils/permissions';
 import type { BrigadeMembership } from '../types/membership';
 import type { MemberInvitation } from '../types/invitation';
@@ -184,6 +184,7 @@ export function MemberManagementPage() {
   return (
     <>
       <SEO title={`Member Management - ${brigade.name}`} description="Manage brigade members and invitations" />
+      <AppLayout>
       <div style={{
         width: '100%',
         height: '100%',
@@ -385,6 +386,7 @@ export function MemberManagementPage() {
           }}
         />
       )}
+      </AppLayout>
     </>
   );
 }

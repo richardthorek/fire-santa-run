@@ -41,3 +41,18 @@
 .read-the-docs {
   color: #888;
 }
+
+/* AppHeader responsive styles */
+@media (max-width: 640px) {
+  .brand-text,
+  .user-name {
+    display: none !important;
+  }
+}
+
+@media (min-width: 641px) {
+  .brand-text,
+  .user-name {
+    display: inline !important;
+  }
+}

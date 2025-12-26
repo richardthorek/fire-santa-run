@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
-import { RoleBadge } from '../components';
+import { RoleBadge, AppLayout } from '../components';
 import { COLORS } from '../utils/constants';
 import type { BrigadeMembership } from '../types/membership';
 
@@ -103,6 +103,7 @@ export function ProfilePage() {
   }
 
   return (
+    <AppLayout>
     <div style={{
       minHeight: '100vh',
       backgroundColor: COLORS.neutral50,
@@ -382,6 +383,7 @@ export function ProfilePage() {
         </div>
       </div>
     </div>
+    </AppLayout>
   );
 }
 

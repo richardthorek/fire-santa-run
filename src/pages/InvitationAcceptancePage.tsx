@@ -9,7 +9,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
-import { RoleBadge, SEO } from '../components';
+import { RoleBadge, SEO, AppLayout } from '../components';
 import type { MemberInvitation } from '../types/invitation';
 import type { User } from '../types/user';
 import { COLORS } from '../utils/constants';
@@ -221,6 +221,7 @@ export function InvitationAcceptancePage() {
   return (
     <>
       <SEO title={`Invitation to ${brigade.name}`} description="Brigade membership invitation" />
+      <AppLayout>
       <div style={{
         display: 'flex',
         justifyContent: 'center',
@@ -397,6 +398,7 @@ export function InvitationAcceptancePage() {
           </div>
         </div>
       </div>
+      </AppLayout>
     </>
   );
 }
