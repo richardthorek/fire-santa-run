@@ -58,20 +58,27 @@ export const COLORS = {
   fireRed: '#D32F2F',
   fireRedDark: '#B71C1C',
   fireRedLight: '#EF5350',
+  primary: '#D32F2F', // Alias for fireRed
+  primaryDark: '#B71C1C', // Alias for fireRedDark
   
   // Summer Gold
   summerGold: '#FFA726',
   summerGoldLight: '#FFB74D',
+  secondary: '#FFA726', // Alias for summerGold
   
   // Christmas Green
   christmasGreen: '#43A047',
   eucalyptusGreen: '#66BB6A',
+  success: '#43A047', // Alias for christmasGreen
   
   // Supporting Colors
   skyBlue: '#29B6F6',
   oceanBlue: '#0288D1',
   sandBeige: '#FFECB3',
   sandLight: '#FFF9E6',
+  
+  // Error
+  error: '#D32F2F', // Use fire red for errors
   
   // Neutrals
   neutral50: '#FAFAFA',
