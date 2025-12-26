@@ -22,7 +22,7 @@ export class HttpStorageAdapter implements IStorageAdapter {
     return await response.json();
   }
 
-  async getRoute(routeId: string, brigadeId: string): Promise<Route | null> {
+  async getRoute(brigadeId: string, routeId: string): Promise<Route | null> {
     const response = await fetch(`${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}?brigadeId=${encodeURIComponent(brigadeId)}`);
     if (response.status === 404) {
       return null;
@@ -33,9 +33,9 @@ export class HttpStorageAdapter implements IStorageAdapter {
     return await response.json();
   }
 
-  async saveRoute(route: Route): Promise<void> {
+  async saveRoute(brigadeId: string, route: Route): Promise<void> {
     // Determine if this is a create or update
-    const existingRoute = await this.getRoute(route.id, route.brigadeId);
+    const existingRoute = await this.getRoute(brigadeId, route.id);
     
     if (existingRoute) {
       // Update
@@ -60,7 +60,7 @@ export class HttpStorageAdapter implements IStorageAdapter {
     }
   }
 
-  async deleteRoute(routeId: string, brigadeId: string): Promise<void> {
+  async deleteRoute(brigadeId: string, routeId: string): Promise<void> {
     const response = await fetch(`${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}?brigadeId=${encodeURIComponent(brigadeId)}`, {
       method: 'DELETE',
     });
