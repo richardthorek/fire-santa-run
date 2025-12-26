@@ -159,7 +159,7 @@ export function Dashboard() {
               padding: '0.625rem 1.25rem',
               border: 'none',
               borderRadius: 'var(--border-radius-xs)',
-              backgroundColor: filterStatus === status ? 'white' : 'transparent',
+              background: filterStatus === status ? 'white' : 'transparent',
               color: filterStatus === status ? 'var(--fire-red)' : 'var(--neutral-700)',
               fontWeight: filterStatus === status ? 700 : 500,
               fontFamily: 'var(--font-body)',
@@ -171,12 +171,12 @@ export function Dashboard() {
             }}
             onMouseEnter={(e) => {
               if (filterStatus !== status) {
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.5)';
               }
             }}
             onMouseLeave={(e) => {
               if (filterStatus !== status) {
-                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.background = 'transparent';
               }
             }}
           >
@@ -390,7 +390,7 @@ export function Dashboard() {
                         padding: '0.5rem',
                         border: '2px solid var(--fire-red)',
                         borderRadius: '8px',
-                        backgroundColor: 'white',
+                        background: 'white',
                         color: 'var(--fire-red)',
                         cursor: 'pointer',
                         fontSize: '0.875rem',
@@ -411,7 +411,7 @@ export function Dashboard() {
                       padding: '0.5rem',
                       border: '2px solid var(--fire-red)',
                       borderRadius: '8px',
-                      backgroundColor: 'white',
+                      background: 'white',
                       color: 'var(--fire-red)',
                       cursor: 'pointer',
                       fontSize: '0.875rem',
@@ -436,7 +436,7 @@ export function Dashboard() {
                     padding: '0.5rem',
                     border: '2px solid var(--summer-gold)',
                     borderRadius: '8px',
-                    backgroundColor: 'white',
+                    background: 'white',
                     color: 'var(--summer-gold)',
                     cursor: 'pointer',
                     fontSize: '0.875rem',
