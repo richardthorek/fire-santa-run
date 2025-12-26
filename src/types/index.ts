@@ -65,6 +65,16 @@ export interface RouteProgress {
   distanceToNextManeuver?: number;
 }
 
+export interface LocationBroadcast {
+  routeId: string;
+  location: [number, number];
+  timestamp: number;
+  heading?: number;
+  speed?: number;
+  currentWaypointIndex?: number;
+  nextWaypointEta?: string;
+}
+
 // GeoJSON types for TypeScript
 // Using namespace for better type organization and avoiding conflicts
 // eslint-disable-next-line @typescript-eslint/no-namespace

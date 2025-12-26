@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigation, useRoutes } from '../hooks';
+import { useNavigation, useRoutes, useLocationBroadcast } from '../hooks';
 import { useWakeLock } from '../utils/wakeLock';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { NavigationMap } from '../components/NavigationMap';
@@ -57,6 +57,19 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
 
   // Keep screen awake during navigation
   const { isSupported: wakeLockSupported } = useWakeLock(navigationState.isNavigating);
+
+  // Broadcast location updates for real-time tracking
+  useLocationBroadcast({
+    routeId: route.id,
+    position,
+    routeProgress: {
+      currentWaypointIndex: navigationState.nextWaypoint?.order || 0,
+      completedWaypoints: navigationState.completedWaypointIds,
+      estimatedArrival: navigationState.etaToNextWaypoint || undefined,
+    },
+    isNavigating: navigationState.isNavigating,
+    nextWaypointEta: navigationState.etaToNextWaypoint || undefined,
+  });
 
   // Auto-start navigation on mount and mark route as active
   useEffect(() => {
