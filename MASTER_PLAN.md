@@ -912,7 +912,9 @@ interface NavigationState {
 - Attractive preview image with Santa theme
 
 **Technical Approach:**
-- Dynamic meta tag injection using React Helmet or similar
+- Dynamic meta tag injection using React 19 Native Metadata
+  - React 19 automatically hoists `<title>`, `<meta>`, and `<link>` tags to document `<head>`
+  - No external dependencies required (previously used React Helmet Async, removed Dec 2024)
 - Meta tags per route:
   - og:title - Route name + Brigade name
   - og:description - Date, time, location details
@@ -1566,7 +1568,8 @@ Admin Routes:
 - **@azure/data-tables** for Azure Table Storage
 - **@azure/msal-browser** for Entra ID authentication
 - qrcode.react for QR code generation
-- React Helmet Async for meta tags
+- **React 19 Native Metadata** for SEO meta tags (title, Open Graph, Twitter Cards)
+  - ⚠️ Previously used react-helmet-async (removed Dec 2024 due to React 19 incompatibility)
 - Tailwind CSS for styling
 - date-fns for date handling
 - Framer Motion for animations (optional)
@@ -1931,7 +1934,10 @@ const ProtectedRoute = ({ children }) => {
 - **Visual Design**: Festive Australian summer Christmas theme with Fire Red, Summer Gold colors
 
 #### Phase 6: Social Media Previews & UX Polish (Week 5-6)
-- [x] **Dynamic meta tags with React Helmet Async** - ✅ COMPLETE (Dec 2024)
+- [x] **Dynamic meta tags with React 19 Native Metadata** - ✅ COMPLETE (Dec 2024)
+  - ⚠️ **MIGRATED**: Initially implemented with react-helmet-async, migrated to React 19 native metadata support (Dec 2024)
+  - React 19 provides built-in document metadata hoisting without external dependencies
+  - SEO component refactored to use native `<title>`, `<meta>`, and `<link>` tags
 - [x] **Open Graph tags for Facebook/LinkedIn previews** - ✅ COMPLETE (Dec 2024)
 - [x] **Twitter Card implementation** - ✅ COMPLETE (Dec 2024)
 - [x] **Custom preview images for each route** - ✅ COMPLETE (Dec 2024)
