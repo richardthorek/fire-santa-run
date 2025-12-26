@@ -384,13 +384,15 @@ az storage account show-connection-string \
 
 Then update in all environments.
 
-#### Pusher Credentials
+#### Azure Web PubSub Credentials
 
-1. Go to Pusher Dashboard
-2. App Settings > App Credentials
-3. Click "Reset" for App Secret
-4. Update secret in all environments
-5. Deploy
+1. Go to [Azure Portal](https://portal.azure.com/)
+2. Navigate to your Web PubSub resource
+3. Go to "Keys" under Settings
+4. Click "Regenerate" for Primary or Secondary key
+5. Copy new connection string
+6. Update `AZURE_WEBPUBSUB_CONNECTION_STRING` in all environments
+7. Deploy and test connection
 
 ---
 
