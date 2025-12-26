@@ -88,6 +88,16 @@ function entityToMembership(entity: any) {
   };
 }
 
+/**
+ * Escapes single quotes in OData filter values to prevent injection attacks.
+ * Azure Table Storage uses single quotes for string literals in queries.
+ * @param value The string value to escape
+ * @returns Escaped string safe for use in OData filters
+ */
+function escapeODataValue(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
 // POST /api/users/register
 async function registerUser(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
@@ -193,9 +203,11 @@ async function getUserByEmail(request: HttpRequest, context: InvocationContext):
 
     const client = getUsersTableClient();
     
-    // Query users table for matching email (case-insensitive)
+    // Query users table for matching email (case-insensitive using tolower)
+    // Escape email to prevent OData injection attacks
+    const escapedEmail = escapeODataValue(email.toLowerCase());
     const entities = client.listEntities({
-      queryOptions: { filter: `email eq '${email}'` }
+      queryOptions: { filter: `tolower(email) eq '${escapedEmail}'` }
     });
 
     for await (const entity of entities) {
@@ -354,8 +366,10 @@ async function getUserMemberships(request: HttpRequest, context: InvocationConte
     const client = getMembershipsTableClient();
     
     // Query all memberships for this user across all brigades
+    // Escape userId to prevent OData injection attacks
+    const escapedUserId = escapeODataValue(userId);
     const entities = client.listEntities({
-      queryOptions: { filter: `userId eq '${userId}'` }
+      queryOptions: { filter: `userId eq '${escapedUserId}'` }
     });
 
     const memberships = [];
