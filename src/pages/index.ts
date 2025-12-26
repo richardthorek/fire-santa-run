@@ -3,6 +3,7 @@ export { RouteEditor } from './RouteEditor';
 export { NavigationView } from './NavigationView';
 export { TrackingView } from './TrackingView';
 export { RouteDetail } from './RouteDetail';
+export { LoginPage, LogoutPage, CallbackPage } from './auth';
 
 export type { RouteEditorProps } from './RouteEditor';
 export type { NavigationViewProps } from './NavigationView';

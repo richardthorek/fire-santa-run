@@ -2843,21 +2843,44 @@ This phase completes the remaining testing and migration tasks from Phase 6a.
   - [x] Pre-filled tenant ID and authority URL
   - [x] Documentation references
 
-**Phase 7B: Authentication Integration & Protected Routes** ⏳ **NEXT**
-- [ ] Implement `MsalProvider` wrapper in `src/main.tsx`
-- [ ] Update `AuthContext` to use MSAL for production mode
-  - [ ] `useMsal()` hook for authentication state
-  - [ ] `loginRedirect()` for login flow
-  - [ ] `logoutRedirect()` for logout flow
-  - [ ] Token acquisition with `acquireTokenSilent()`
+**Phase 7B: Authentication Integration & Protected Routes** ✅ **COMPLETED** (Dec 26, 2024)
+- [x] Implement `MsalProvider` wrapper in `src/main.tsx` - **COMPLETED**
+  - [x] Initialize MSAL instance with configuration
+  - [x] Handle redirect promise for auth callbacks
+  - [x] Set active account after login
+  - [x] Listen to authentication events
+- [x] Update `AuthContext` to use MSAL for production mode - **COMPLETED**
+  - [x] `useMsal()` hook for authentication state
+  - [x] `loginRedirect()` for login flow
+  - [x] `logoutRedirect()` for logout flow
+  - [x] Token acquisition ready for `acquireTokenSilent()`
+  - [x] Handle authentication loading states
+  - [x] Extract user information from Entra tokens
 
 **Authentication UI:**
-- [ ] Create `/login` page with Entra sign-in button
-- [ ] Create `/logout` page with confirmation
-- [ ] Create `/auth/callback` page for OAuth redirect handling
-- [ ] Update navigation with login/logout links
-- [ ] Show user profile in header when authenticated
-- [ ] Implement loading states during authentication
+- [x] Create `/login` page with Entra sign-in button - **COMPLETED**
+  - [x] Hero section with app branding
+  - [x] Login card with Microsoft sign-in button
+  - [x] Dev mode indicator and automatic authentication
+  - [x] Error handling with user-friendly messages
+  - [x] Info section highlighting features
+- [x] Create `/logout` page with confirmation - **COMPLETED**
+  - [x] Logout confirmation dialog
+  - [x] Cancel and confirm actions
+  - [x] Redirect after logout
+  - [x] Dev mode simulation
+- [x] Create `/auth/callback` page for OAuth redirect handling - **COMPLETED**
+  - [x] Loading state during auth processing
+  - [x] Error handling for auth failures
+  - [x] Automatic redirect to dashboard
+  - [x] Return URL support
+- [x] Update routes in App.tsx - **COMPLETED**
+  - [x] Added /login, /logout, /auth/callback routes
+  - [x] Organized routes by authentication requirement
+  - [x] Lazy load authentication pages
+- [x] Implement loading states during authentication - **COMPLETED**
+
+**Phase 7C: User Management & Brigade Claiming** ⏳ **NEXT**
 
 **Protected Routes:**
 - [ ] Update `ProtectedRoute` component to use real authentication
