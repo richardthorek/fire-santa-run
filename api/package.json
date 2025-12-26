@@ -4,7 +4,7 @@
   "description": "Azure Functions API for Fire Santa Run",
   "main": "dist/index.js",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "build": "tsc",
