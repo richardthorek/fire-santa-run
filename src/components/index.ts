@@ -12,6 +12,7 @@ export { ShareModal } from './ShareModal';
 export { SEO } from './SEO';
 export { SkeletonBox, RouteCardSkeleton, DashboardSkeleton, MapSkeleton } from './LoadingSkeleton';
 export { ProtectedRoute } from './ProtectedRoute';
+export { RoleBadge } from './RoleBadge';
 
 // Convenience export for LoadingSkeleton (for consistency)
 export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';
@@ -28,3 +29,4 @@ export type { ProgressBarProps } from './ProgressBar';
 export type { SharePanelProps } from './SharePanel';
 export type { ShareModalProps } from './ShareModal';
 export type { SEOProps } from './SEO';
+export type { RoleBadgeProps } from './RoleBadge';

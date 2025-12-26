@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { storageAdapter } from '../storage';
+import { RoleBadge } from '../components';
 import { COLORS } from '../utils/constants';
 import type { BrigadeMembership } from '../types/membership';
 
@@ -414,25 +415,8 @@ function MembershipCard({ membership }: { membership: BrigadeMembership }) {
   }
 
   const getRoleBadge = (role: string) => {
-    const badges = {
-      admin: { color: COLORS.fireRed, label: 'Admin' },
-      operator: { color: COLORS.summerGold, label: 'Operator' },
-      viewer: { color: COLORS.neutral700, label: 'Viewer' },
-    };
-    const badge = badges[role as keyof typeof badges] || badges.viewer;
-    
-    return (
-      <span style={{
-        padding: '0.25rem 0.75rem',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        color: 'white',
-        backgroundColor: badge.color,
-        borderRadius: '12px',
-      }}>
-        {badge.label}
-      </span>
-    );
+    // Use the RoleBadge component
+    return <RoleBadge role={role as any} size="small" />;
   };
 
   const getStatusBadge = (status: string) => {
