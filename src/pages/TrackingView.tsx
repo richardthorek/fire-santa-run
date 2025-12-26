@@ -6,6 +6,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useWebPubSub, useRoutes } from '../hooks';
+import { ShareModal } from '../components';
 import mapboxgl from 'mapbox-gl';
 import type { Route, LocationBroadcast } from '../types';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -19,6 +20,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
   const [loading, setLoading] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<LocationBroadcast | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -271,6 +273,25 @@ export function TrackingView({ routeId }: TrackingViewProps) {
               {route.date} • {route.startTime}
             </p>
           </div>
+          <button
+            onClick={() => setShowShareModal(true)}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#29B6F6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0288D1'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#29B6F6'}
+          >
+            🔗 Share
+          </button>
           <div
             style={{
               width: '12px',
@@ -361,6 +382,15 @@ export function TrackingView({ routeId }: TrackingViewProps) {
           </p>
         )}
       </div>
+
+      {/* Share Modal */}
+      {showShareModal && route && (
+        <ShareModal
+          route={route}
+          isOpen={true}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
 
       {/* CSS Animation */}
       <style>{`

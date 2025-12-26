@@ -7,6 +7,8 @@ export { NavigationMap } from './NavigationMap';
 export { NavigationPanel } from './NavigationPanel';
 export { ManeuverIcon } from './ManeuverIcon';
 export { ProgressBar } from './ProgressBar';
+export { SharePanel } from './SharePanel';
+export { ShareModal } from './ShareModal';
 
 export type { MapViewProps } from './MapView';
 export type { RouteStatusBadgeProps } from './RouteStatusBadge';
@@ -17,3 +19,5 @@ export type { NavigationMapProps } from './NavigationMap';
 export type { NavigationPanelProps } from './NavigationPanel';
 export type { ManeuverIconProps } from './ManeuverIcon';
 export type { ProgressBarProps } from './ProgressBar';
+export type { SharePanelProps } from './SharePanel';
+export type { ShareModalProps } from './ShareModal';
