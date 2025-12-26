@@ -42,11 +42,12 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: Use
    * Connect to Web PubSub or BroadcastChannel
    */
   const connect = useCallback(async () => {
-    if (state.isConnecting || state.isConnected) {
-      return;
-    }
-
-    setState(prev => ({ ...prev, isConnecting: true, error: null }));
+    setState(prev => {
+      if (prev.isConnecting || prev.isConnected) {
+        return prev;
+      }
+      return { ...prev, isConnecting: true, error: null };
+    });
 
     try {
       if (isDevMode) {
@@ -120,7 +121,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: Use
         error: error instanceof Error ? error.message : 'Failed to connect',
       });
     }
-  }, [routeId, role, onLocationUpdate, state.isConnecting, state.isConnected]);
+  }, [routeId, role, onLocationUpdate]);
 
   /**
    * Disconnect from Web PubSub or BroadcastChannel
@@ -193,7 +194,8 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: Use
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeId, role]);
 
   return {
     ...state,
