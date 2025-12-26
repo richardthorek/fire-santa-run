@@ -143,23 +143,23 @@ export function MapView({
     }
   }, [waypoints, mapLoaded]);
 
-  // Update route polyline
+  // Update route polyline with candy cane styling
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
     const sourceId = 'route';
-    const layerId = 'route-line';
+    const glowLayerId = 'route-glow';
+    const baseLayerId = 'route-base';
+    const stripesLayerId = 'route-stripes';
 
-    // Remove existing route
-    if (map.current.getLayer(layerId)) {
-      map.current.removeLayer(layerId);
-    }
-    if (map.current.getSource(sourceId)) {
-      map.current.removeSource(sourceId);
-    }
+    // Remove existing layers
+    if (map.current.getLayer(stripesLayerId)) map.current.removeLayer(stripesLayerId);
+    if (map.current.getLayer(baseLayerId)) map.current.removeLayer(baseLayerId);
+    if (map.current.getLayer(glowLayerId)) map.current.removeLayer(glowLayerId);
+    if (map.current.getSource(sourceId)) map.current.removeSource(sourceId);
 
-    // Add new route
-    if (routeGeometry && routeGeometry.coordinates.length > 0) {
+    if (routeGeometry) {
+      // Add route source
       map.current.addSource(sourceId, {
         type: 'geojson',
         data: {
@@ -169,8 +169,9 @@ export function MapView({
         },
       });
 
+      // 1. Add Glow Layer (bottom layer for magic effect)
       map.current.addLayer({
-        id: layerId,
+        id: glowLayerId,
         type: 'line',
         source: sourceId,
         layout: {
@@ -178,16 +179,53 @@ export function MapView({
           'line-cap': 'round',
         },
         paint: {
-          'line-color': '#D32F2F',
-          'line-width': 4,
-          'line-opacity': 0.8,
+          'line-color': '#F77F00', // Gold accent
+          'line-width': 20,
+          'line-blur': 15,
+          'line-opacity': 0.5,
         },
       });
 
-      // Fit bounds to route
-      const bounds = new mapboxgl.LngLatBounds();
-      routeGeometry.coordinates.forEach(coord => bounds.extend(coord as [number, number]));
-      map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+      // 2. Add White Base Layer (candy cane base)
+      map.current.addLayer({
+        id: baseLayerId,
+        type: 'line',
+        source: sourceId,
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round',
+        },
+        paint: {
+          'line-color': '#FFFFFF',
+          'line-width': 12,
+          'line-opacity': 1,
+        },
+      });
+
+      // 3. Add Red Stripes Layer (candy cane effect)
+      map.current.addLayer({
+        id: stripesLayerId,
+        type: 'line',
+        source: sourceId,
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round',
+        },
+        paint: {
+          'line-color': '#D62828', // Santa red
+          'line-width': 12,
+          'line-dasharray': [2, 2], // Creates the candy cane dashes
+          'line-opacity': 1,
+        },
+      });
+
+      // Fit bounds to show the route
+      const coordinates = routeGeometry.coordinates as [number, number][];
+      if (coordinates.length > 0) {
+        const bounds = new mapboxgl.LngLatBounds();
+        coordinates.forEach((coord) => bounds.extend(coord));
+        map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+      }
     }
   }, [routeGeometry, mapLoaded]);
 

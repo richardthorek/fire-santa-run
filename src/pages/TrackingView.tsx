@@ -79,7 +79,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
     });
 
     map.on('load', () => {
-      // Add route polyline
+      // Add route polyline with candy cane styling (white base + red dashes + glow)
       if (route.geometry) {
         map.addSource('route', {
           type: 'geojson',
@@ -90,8 +90,9 @@ export function TrackingView({ routeId }: TrackingViewProps) {
           },
         });
 
+        // 1. Add Glow Layer (bottom layer for magic effect)
         map.addLayer({
-          id: 'route-line',
+          id: 'route-glow',
           type: 'line',
           source: 'route',
           layout: {
@@ -99,38 +100,76 @@ export function TrackingView({ routeId }: TrackingViewProps) {
             'line-cap': 'round',
           },
           paint: {
-            'line-color': '#D32F2F',
-            'line-width': 4,
+            'line-color': '#F77F00', // Gold accent
+            'line-width': 20,
+            'line-blur': 15,
+            'line-opacity': 0.5,
+          },
+        });
+
+        // 2. Add White Base Layer (candy cane base)
+        map.addLayer({
+          id: 'route-base',
+          type: 'line',
+          source: 'route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#FFFFFF',
+            'line-width': 12,
+            'line-opacity': 1,
+          },
+        });
+
+        // 3. Add Red Stripes Layer (candy cane effect)
+        map.addLayer({
+          id: 'route-stripes',
+          type: 'line',
+          source: 'route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#D62828', // Santa red
+            'line-width': 12,
+            'line-dasharray': [2, 2], // Creates the candy cane dashes
+            'line-opacity': 1,
           },
         });
       }
 
-      // Add waypoint markers
+      // Add waypoint markers with improved styling
       route.waypoints.forEach((waypoint, index) => {
         const el = document.createElement('div');
         el.className = 'waypoint-marker';
-        el.style.width = '32px';
-        el.style.height = '32px';
+        el.style.width = '36px';
+        el.style.height = '36px';
         el.style.borderRadius = '50%';
-        el.style.backgroundColor = waypoint.isCompleted ? '#43A047' : '#FFA726';
+        el.style.backgroundColor = waypoint.isCompleted ? 'var(--christmas-green)' : 'var(--summer-gold)';
         el.style.color = 'white';
         el.style.display = 'flex';
         el.style.alignItems = 'center';
         el.style.justifyContent = 'center';
         el.style.fontWeight = 'bold';
-        el.style.fontSize = '14px';
+        el.style.fontSize = '16px';
         el.style.border = '3px solid white';
-        el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+        el.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
         el.textContent = (index + 1).toString();
 
         new mapboxgl.Marker(el)
           .setLngLat(waypoint.coordinates)
           .setPopup(
-            new mapboxgl.Popup({ offset: 25 }).setHTML(
-              `<div style="padding: 0.5rem;">
-                <strong>${waypoint.name || `Stop ${index + 1}`}</strong>
-                ${waypoint.address ? `<br/><small>${waypoint.address}</small>` : ''}
-                ${waypoint.isCompleted ? '<br/><span style="color: #43A047;">✓ Completed</span>' : ''}
+            new mapboxgl.Popup({ 
+              offset: 25,
+              className: 'festive-popup',
+            }).setHTML(
+              `<div style="padding: 0.75rem; font-family: var(--font-body);">
+                <strong style="color: var(--fire-red); font-size: 1rem;">${waypoint.name || `Stop ${index + 1}`}</strong>
+                ${waypoint.address ? `<br/><small style="color: var(--neutral-700);">${waypoint.address}</small>` : ''}
+                ${waypoint.isCompleted ? '<br/><span style="color: var(--christmas-green); font-weight: 600;">✓ Completed</span>' : ''}
               </div>`
             )
           )
@@ -156,12 +195,14 @@ export function TrackingView({ routeId }: TrackingViewProps) {
 
     if (!mapRef.current) return;
 
-    // Update or create Santa marker
+    // Update or create Santa marker with bouncing animation
     if (santaMarkerRef.current) {
       santaMarkerRef.current.setLngLat(location.location);
     } else {
       const el = document.createElement('div');
-      el.style.fontSize = '48px';
+      el.className = 'santa-marker-icon'; // Uses CSS animation for bouncing
+      el.style.fontSize = '56px';
+      el.style.cursor = 'pointer';
       el.textContent = '🎅';
 
       const marker = new mapboxgl.Marker(el)
@@ -171,11 +212,11 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       santaMarkerRef.current = marker;
     }
 
-    // Center map on Santa's location
+    // Center map on Santa's location with smooth animation
     mapRef.current.easeTo({
       center: location.location,
-      zoom: 14,
-      duration: 1000,
+      zoom: 15,
+      duration: 1500,
     });
   };
 
@@ -256,145 +297,217 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       {/* Map Container */}
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
-      {/* Header Panel */}
+      {/* Santa Tracker Header - Festive Badge Style */}
       <div
+        className="santa-header"
         style={{
           position: 'absolute',
-          top: '1rem',
-          left: '1rem',
-          right: '1rem',
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: '16px',
-          padding: '1rem 1.5rem',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          top: 0,
+          left: 0,
+          right: 0,
+          background: 'linear-gradient(135deg, var(--santa-red), #B21E1E)',
+          color: 'var(--candy-white)',
+          fontFamily: 'var(--font-fun)',
+          padding: '1.25rem 1.5rem',
+          borderRadius: '0 0 25px 25px',
+          boxShadow: 'var(--ui-shadow)',
+          borderBottom: '4px solid var(--rfs-yellow)', // RFS accent
           zIndex: 1000,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ fontSize: '32px' }}>🎅</div>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '1rem',
+          maxWidth: '1200px',
+          margin: '0 auto',
+        }}>
+          <div style={{ fontSize: '48px', lineHeight: 1 }}>🎅</div>
           <div style={{ flex: 1 }}>
             <h1
               style={{
                 margin: 0,
-                fontSize: '1.25rem',
-                fontWeight: 'bold',
-                color: '#D32F2F',
+                fontSize: 'clamp(1.25rem, 4vw, 1.75rem)',
+                fontWeight: 'normal',
+                textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
               }}
             >
               {route.name}
             </h1>
-            <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#616161' }}>
-              {route.date} • {route.startTime}
+            <p style={{ 
+              margin: '0.25rem 0 0', 
+              fontSize: 'clamp(0.875rem, 2vw, 1rem)', 
+              opacity: 0.95,
+              fontFamily: 'var(--font-body)',
+            }}>
+              📅 {route.date} • ⏰ {route.startTime}
             </p>
           </div>
           <button
             onClick={() => setShowShareModal(true)}
             style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#29B6F6',
-              color: 'white',
+              padding: '0.625rem 1.25rem',
+              backgroundColor: 'white',
+              color: 'var(--santa-red)',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: 'var(--border-radius-sm)',
               fontSize: '0.875rem',
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
-              transition: 'background-color 0.2s',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+              fontFamily: 'var(--font-body)',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0288D1'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#29B6F6'}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)';
+            }}
           >
             🔗 Share
           </button>
-          <div
+          <div 
+            className="live-pulse" 
             style={{
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              backgroundColor: isConnected ? '#43A047' : isConnecting ? '#FFA726' : '#D32F2F',
-              animation: isConnecting ? 'pulse 2s infinite' : 'none',
+              backgroundColor: isConnected ? 'var(--rfs-yellow)' : 
+                               isConnecting ? 'var(--summer-gold)' : 
+                               'var(--fire-red)',
             }}
             title={
-              isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Disconnected'
-            }
+              isConnected ? 'Connected - Live Tracking Active' : 
+              isConnecting ? 'Connecting...' : 
+              'Disconnected'
+            } 
           />
         </div>
       </div>
 
-      {/* Progress Panel */}
+      {/* Progress Panel - Frosted Glass with Festive Style */}
       <div
+        className="status-card"
         style={{
           position: 'absolute',
-          bottom: '1rem',
+          bottom: '1.5rem',
           left: '1rem',
           right: '1rem',
-          background: 'rgba(255, 255, 255, 0.95)',
+          maxWidth: '600px',
+          margin: '0 auto',
+          background: 'rgba(255, 255, 255, 0.9)',
           backdropFilter: 'blur(10px)',
-          borderRadius: '16px',
-          padding: '1rem 1.5rem',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          borderRadius: 'var(--border-radius)',
+          border: '2px solid var(--rfs-yellow)',
+          padding: '1.5rem',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
           zIndex: 1000,
+          fontFamily: 'var(--font-body)',
         }}
       >
-        <div style={{ marginBottom: '0.75rem' }}>
+        <div style={{ marginBottom: '1rem' }}>
           <div
             style={{
               display: 'flex',
               justifyContent: 'space-between',
-              marginBottom: '0.5rem',
+              marginBottom: '0.75rem',
+              alignItems: 'center',
             }}
           >
-            <span style={{ fontWeight: 'bold', color: '#212121' }}>Progress</span>
-            <span style={{ color: '#616161' }}>
+            <h2 style={{ 
+              fontFamily: 'var(--font-heading)',
+              fontWeight: 'bold', 
+              color: 'var(--santa-red)',
+              margin: 0,
+              fontSize: '1.125rem',
+            }}>
+              🎁 Progress
+            </h2>
+            <span style={{ 
+              color: 'var(--neutral-700)',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+            }}>
               {completedWaypoints} / {totalWaypoints} stops
             </span>
           </div>
           <div
             style={{
               width: '100%',
-              height: '8px',
-              backgroundColor: '#E0E0E0',
-              borderRadius: '4px',
+              height: '10px',
+              backgroundColor: 'var(--neutral-200)',
+              borderRadius: 'var(--border-radius-xs)',
               overflow: 'hidden',
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
             }}
           >
             <div
               style={{
                 width: `${progressPercent}%`,
                 height: '100%',
-                background: 'linear-gradient(90deg, #43A047 0%, #66BB6A 100%)',
-                transition: 'width 0.3s ease',
+                background: 'linear-gradient(90deg, var(--christmas-green) 0%, var(--eucalyptus-green) 100%)',
+                transition: 'width 0.5s ease',
+                borderRadius: 'var(--border-radius-xs)',
+                boxShadow: '0 0 10px rgba(67, 160, 71, 0.4)',
               }}
             />
           </div>
         </div>
 
         {currentLocation ? (
-          <div>
-            <p style={{ margin: 0, fontSize: '0.875rem', color: '#616161' }}>
+          <div style={{
+            padding: '1rem',
+            backgroundColor: 'rgba(255, 230, 0, 0.1)',
+            borderRadius: 'var(--border-radius-xs)',
+            borderLeft: '4px solid var(--rfs-yellow)',
+          }}>
+            <p style={{ 
+              margin: 0, 
+              fontSize: '1rem', 
+              color: 'var(--neutral-900)',
+              fontWeight: 600,
+            }}>
               🎅 Santa is on the way!
             </p>
             {currentLocation.nextWaypointEta && (
-              <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#616161' }}>
-                ETA to next stop: {currentLocation.nextWaypointEta}
+              <p style={{ 
+                margin: '0.5rem 0 0', 
+                fontSize: '0.875rem', 
+                color: 'var(--neutral-700)',
+              }}>
+                ⏱️ ETA to next stop: <strong>{currentLocation.nextWaypointEta}</strong>
               </p>
             )}
           </div>
         ) : (
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#616161' }}>
-            {route.status === 'active'
-              ? 'Waiting for Santa to start broadcasting...'
-              : route.status === 'completed'
-              ? '🎉 Santa has completed this route!'
-              : 'Santa has not started this route yet.'}
-          </p>
+          <div style={{
+            padding: '1rem',
+            backgroundColor: 'var(--neutral-100)',
+            borderRadius: 'var(--border-radius-xs)',
+          }}>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-700)' }}>
+              {route.status === 'active'
+                ? '⏳ Waiting for Santa to start broadcasting...'
+                : route.status === 'completed'
+                ? '🎉 Santa has completed this route!'
+                : '📅 Santa has not started this route yet.'}
+            </p>
+          </div>
         )}
 
         {connectionError && (
-          <p style={{ margin: '0.5rem 0 0', fontSize: '0.875rem', color: '#D32F2F' }}>
-            ⚠️ {connectionError}
-          </p>
+          <div style={{
+            marginTop: '1rem',
+            padding: '0.75rem',
+            backgroundColor: 'rgba(211, 47, 47, 0.1)',
+            borderRadius: 'var(--border-radius-xs)',
+            borderLeft: '4px solid var(--fire-red)',
+          }}>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--fire-red)', fontWeight: 600 }}>
+              ⚠️ {connectionError}
+            </p>
+          </div>
         )}
       </div>
 
@@ -406,14 +519,6 @@ export function TrackingView({ routeId }: TrackingViewProps) {
           onClose={() => setShowShareModal(false)}
         />
       )}
-
-      {/* CSS Animation */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}</style>
     </div>
     </>
   );
