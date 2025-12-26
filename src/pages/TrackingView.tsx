@@ -74,6 +74,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       fitBoundsOptions: {
         padding: 50,
       },
+      collectResourceTiming: false, // Disable telemetry to prevent ERR_BLOCKED_BY_CLIENT errors
     });
 
     map.on('load', () => {

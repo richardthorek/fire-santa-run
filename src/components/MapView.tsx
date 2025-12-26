@@ -57,6 +57,7 @@ export function MapView({
         center,
         zoom,
         interactive,
+        collectResourceTiming: false, // Disable telemetry to prevent ERR_BLOCKED_BY_CLIENT errors
       });
 
       if (showControls) {
