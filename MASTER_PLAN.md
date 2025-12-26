@@ -2602,99 +2602,99 @@ const ProtectedRoute = ({ children }) => {
   - [ ] Service worker for offline support (deferred to future phase)
 
 #### Phase 6a: Pre-Authentication Data Schema Updates (NEW - Week 6)
-**🔧 Data Model Preparation for Authentication**
+**🔧 Data Model Preparation for Authentication** ✅ **COMPLETED**
 
 This phase updates all data schemas, storage adapters, and TypeScript interfaces to support the comprehensive authentication and membership management system defined in Section 12a before implementing Entra External ID authentication in Phase 7.
 
-**Data Model Updates:**
-- [ ] Create User interface and types (`src/types/user.ts`)
-- [ ] Update Brigade interface with admin management fields
-  - [ ] Add `adminUserIds: string[]` field
-  - [ ] Add `isClaimed`, `claimedAt`, `claimedBy` fields
-  - [ ] Rename `requireApproval` to `requireManualApproval`
-  - [ ] Add `rfsStationId` for RFS dataset integration
-- [ ] Create BrigadeMembership interface (`src/types/membership.ts`)
-  - [ ] Support multi-brigade membership (many-to-many)
-  - [ ] Add status tracking (pending, active, suspended, removed)
-  - [ ] Add approval workflow fields
-  - [ ] Add audit fields (invitedBy, approvedBy, removedBy)
-- [ ] Create MemberInvitation interface (`src/types/invitation.ts`)
-  - [ ] Invitation token generation
-  - [ ] Expiration tracking
-  - [ ] Status management
-- [ ] Create AdminVerificationRequest interface (`src/types/verification.ts`)
-  - [ ] Evidence file handling (photos, PDFs)
-  - [ ] Status tracking (pending, approved, rejected, expired)
-  - [ ] Site owner review fields
-- [ ] Create EvidenceFile interface for verification uploads
-- [ ] Create SiteOwner interface and permissions system
-- [ ] Update User interface
-  - [ ] Add `verifiedBrigades: string[]` field for tracking approved verifications
-- [ ] Update Route interface
-  - [ ] Change `createdBy` from email to user ID reference
+**Data Model Updates:** ✅
+- [x] Create User interface and types (`src/types/user.ts`)
+- [x] Update Brigade interface with admin management fields
+  - [x] Add `adminUserIds: string[]` field
+  - [x] Add `isClaimed`, `claimedAt`, `claimedBy` fields
+  - [x] Rename `requireApproval` to `requireManualApproval`
+  - [x] Add `rfsStationId` for RFS dataset integration
+- [x] Create BrigadeMembership interface (`src/types/membership.ts`)
+  - [x] Support multi-brigade membership (many-to-many)
+  - [x] Add status tracking (pending, active, suspended, removed)
+  - [x] Add approval workflow fields
+  - [x] Add audit fields (invitedBy, approvedBy, removedBy)
+- [x] Create MemberInvitation interface (`src/types/invitation.ts`)
+  - [x] Invitation token generation
+  - [x] Expiration tracking
+  - [x] Status management
+- [x] Create AdminVerificationRequest interface (`src/types/verification.ts`)
+  - [x] Evidence file handling (photos, PDFs)
+  - [x] Status tracking (pending, approved, rejected, expired)
+  - [x] Site owner review fields
+- [x] Create EvidenceFile interface for verification uploads
+- [x] Create SiteOwner interface and permissions system
+- [x] Update User interface
+  - [x] Add `verifiedBrigades: string[]` field for tracking approved verifications
+- [x] Update Route interface
+  - [x] Change `createdBy` from email to user ID reference
 
-**Storage Adapter Extensions:**
-- [ ] Update `IStorageAdapter` interface in `src/storage/types.ts`
-  - [ ] Add user CRUD operations
-  - [ ] Add membership CRUD operations
-  - [ ] Add invitation CRUD operations
-  - [ ] Add query methods for memberships by user/brigade
-- [ ] Implement user operations in `LocalStorageAdapter`
-  - [ ] `saveUser()`, `getUser()`, `getUserByEmail()`
-  - [ ] `getUserMemberships()`, `getBrigadeMembers()`
-- [ ] Implement membership operations in `LocalStorageAdapter`
-  - [ ] `saveMembership()`, `getMembership()`, `deleteMembership()`
-  - [ ] `getMembershipsByUser()`, `getMembershipsByBrigade()`
-  - [ ] `getPendingMemberships()`
-- [ ] Implement invitation operations in `LocalStorageAdapter`
-  - [ ] `saveInvitation()`, `getInvitation()`, `getInvitationByToken()`
-  - [ ] `getPendingInvitations()`, `expireInvitations()`
-- [ ] Implement verification request operations in `LocalStorageAdapter`
-  - [ ] `saveVerificationRequest()`, `getVerificationRequest()`
-  - [ ] `getPendingVerifications()`, `getVerificationsByUser()`
-  - [ ] `approveVerification()`, `rejectVerification()`
-- [ ] Implement all new operations in `AzureTableStorageAdapter`
-  - [ ] Create `users` table schema
-  - [ ] Create `memberships` table schema (partition: brigadeId, row: userId)
-  - [ ] Create `invitations` table schema
-  - [ ] Create `verificationrequests` table schema
-  - [ ] Implement efficient queries for membership lookups
-  - [ ] Set up Azure Blob Storage for evidence file uploads
+**Storage Adapter Extensions:** ✅
+- [x] Update `IStorageAdapter` interface in `src/storage/types.ts`
+  - [x] Add user CRUD operations
+  - [x] Add membership CRUD operations
+  - [x] Add invitation CRUD operations
+  - [x] Add query methods for memberships by user/brigade
+- [x] Implement user operations in `LocalStorageAdapter`
+  - [x] `saveUser()`, `getUser()`, `getUserByEmail()`
+  - [x] `getUserMemberships()`, `getBrigadeMembers()`
+- [x] Implement membership operations in `LocalStorageAdapter`
+  - [x] `saveMembership()`, `getMembership()`, `deleteMembership()`
+  - [x] `getMembershipsByUser()`, `getMembershipsByBrigade()`
+  - [x] `getPendingMemberships()`
+- [x] Implement invitation operations in `LocalStorageAdapter`
+  - [x] `saveInvitation()`, `getInvitation()`, `getInvitationByToken()`
+  - [x] `getPendingInvitations()`, `expireInvitations()`
+- [x] Implement verification request operations in `LocalStorageAdapter`
+  - [x] `saveVerificationRequest()`, `getVerificationRequest()`
+  - [x] `getPendingVerifications()`, `getVerificationsByUser()`
+  - [x] `approveVerification()`, `rejectVerification()`
+- [x] Implement all new operations in `AzureTableStorageAdapter`
+  - [x] Create `users` table schema
+  - [x] Create `memberships` table schema (partition: brigadeId, row: userId)
+  - [x] Create `invitations` table schema
+  - [x] Create `verificationrequests` table schema
+  - [x] Implement efficient queries for membership lookups
+  - [ ] Set up Azure Blob Storage for evidence file uploads (deferred to Phase 7)
 
-**Business Logic Implementation:**
-- [ ] Create `src/utils/membershipRules.ts` with validation functions
-  - [ ] `canBecomeAdmin()` - Check .gov.au email OR approved verification
-  - [ ] `canClaimBrigade()` - Validate brigade claiming eligibility (both pathways)
-  - [ ] `validateAdminCount()` - Enforce 1-2 admin rule
-  - [ ] `canRemoveMember()` - Check admin removal constraints
-  - [ ] `canLeaveBrigade()` - Validate leave eligibility
-  - [ ] `isInvitationValid()` - Check invitation expiration and status
-  - [ ] `hasApprovedVerification()` - Check if user has approved verification for brigade
-- [ ] Create `src/utils/emailValidation.ts`
-  - [ ] `isGovernmentEmail()` - Regex for .gov.au validation
-  - [ ] `matchesAllowedDomains()` - Check domain whitelist
-  - [ ] `isAutoApproved()` - Check auto-approval eligibility
-- [ ] Create `src/utils/fileValidation.ts` for verification evidence
-  - [ ] `validateFileType()` - Check allowed MIME types
-  - [ ] `validateFileSize()` - Check size limits (5MB per file, 10MB total)
-  - [ ] `scanForMalware()` - Security scanning integration
-- [ ] Create `src/services/membershipService.ts` with core operations
-  - [ ] `claimBrigade()` - Brigade claiming workflow
-  - [ ] `inviteMember()` - Send member invitation
-  - [ ] `acceptInvitation()` - Process invitation acceptance
-  - [ ] `approveMembership()` - Admin approval workflow
-  - [ ] `promoteToAdmin()` - Admin promotion with validation (both pathways)
-  - [ ] `demoteFromAdmin()` - Admin demotion with safeguards
-  - [ ] `removeMember()` - Member removal with constraints
-  - [ ] `leaveBrigade()` - Self-service leave with admin checks
-- [ ] Create `src/services/verificationService.ts` for admin verification
-  - [ ] `submitVerificationRequest()` - User submits evidence
-  - [ ] `uploadEvidenceFile()` - Upload to Azure Blob Storage
-  - [ ] `getVerificationRequest()` - Retrieve request details
-  - [ ] `reviewVerificationRequest()` - Site owner review
-  - [ ] `approveVerification()` - Site owner approval
-  - [ ] `rejectVerification()` - Site owner rejection
-  - [ ] `expireOldRequests()` - Auto-expire after 30 days
+**Business Logic Implementation:** ✅
+- [x] Create `src/utils/membershipRules.ts` with validation functions
+  - [x] `canBecomeAdmin()` - Check .gov.au email OR approved verification
+  - [x] `canClaimBrigade()` - Validate brigade claiming eligibility (both pathways)
+  - [x] `validateAdminCount()` - Enforce 1-2 admin rule
+  - [x] `canRemoveMember()` - Check admin removal constraints
+  - [x] `canLeaveBrigade()` - Validate leave eligibility
+  - [x] `isInvitationValid()` - Check invitation expiration and status
+  - [x] `hasApprovedVerification()` - Check if user has approved verification for brigade
+- [x] Create `src/utils/emailValidation.ts`
+  - [x] `isGovernmentEmail()` - Regex for .gov.au validation
+  - [x] `matchesAllowedDomains()` - Check domain whitelist
+  - [x] `isAutoApproved()` - Check auto-approval eligibility
+- [x] Create `src/utils/fileValidation.ts` for verification evidence
+  - [x] `validateFileType()` - Check allowed MIME types
+  - [x] `validateFileSize()` - Check size limits (5MB per file, 10MB total)
+  - [x] `scanForMalware()` - Security scanning integration
+- [x] Create `src/services/membershipService.ts` with core operations
+  - [x] `claimBrigade()` - Brigade claiming workflow
+  - [x] `inviteMember()` - Send member invitation
+  - [x] `acceptInvitation()` - Process invitation acceptance
+  - [x] `approveMembership()` - Admin approval workflow
+  - [x] `promoteToAdmin()` - Admin promotion with validation (both pathways)
+  - [x] `demoteFromAdmin()` - Admin demotion with safeguards
+  - [x] `removeMember()` - Member removal with constraints
+  - [x] `leaveBrigade()` - Self-service leave with admin checks
+- [x] Create `src/services/verificationService.ts` for admin verification
+  - [x] `submitVerificationRequest()` - User submits evidence
+  - [ ] `uploadEvidenceFile()` - Upload to Azure Blob Storage (Phase 7)
+  - [x] `getVerificationRequest()` - Retrieve request details
+  - [ ] `reviewVerificationRequest()` - Site owner review (covered by approve/reject)
+  - [x] `approveVerification()` - Site owner approval
+  - [x] `rejectVerification()` - Site owner rejection
+  - [ ] `expireOldRequests()` - Auto-expire after 30 days (Phase 7)
 
 **API Endpoints (Azure Functions):**
 - [ ] Create `/api/users/*` endpoints

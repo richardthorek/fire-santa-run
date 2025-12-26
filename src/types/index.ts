@@ -40,7 +40,7 @@ export interface Route {
   estimatedDuration?: number;     // Estimated duration in seconds
   actualDuration?: number;        // Actual duration in seconds
   createdAt: string;
-  createdBy?: string;
+  createdBy?: string;             // User ID reference (not email)
   publishedAt?: string;
   startedAt?: string;
   completedAt?: string;

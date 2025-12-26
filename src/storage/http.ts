@@ -1,5 +1,9 @@
 import type { Route } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
+import type { User } from '../types/user';
+import type { BrigadeMembership } from '../types/membership';
+import type { MemberInvitation } from '../types/invitation';
+import type { AdminVerificationRequest } from '../types/verification';
 
 /**
  * HTTP API storage adapter for production mode.
@@ -122,5 +126,93 @@ export class HttpStorageAdapter implements IStorageAdapter {
     if (!response.ok && response.status !== 404) {
       throw new Error(`Failed to delete brigade: ${response.statusText}`);
     }
+  }
+
+  // User operations (Phase 6a - API endpoints to be implemented in Phase 7)
+  async saveUser(_user: User): Promise<void> {
+    throw new Error('User operations not yet implemented in HTTP adapter');
+  }
+
+  async getUser(_userId: string): Promise<User | null> {
+    throw new Error('User operations not yet implemented in HTTP adapter');
+  }
+
+  async getUserByEmail(_email: string): Promise<User | null> {
+    throw new Error('User operations not yet implemented in HTTP adapter');
+  }
+
+  // Membership operations (Phase 6a - API endpoints to be implemented in Phase 7)
+  async saveMembership(_membership: BrigadeMembership): Promise<void> {
+    throw new Error('Membership operations not yet implemented in HTTP adapter');
+  }
+
+  async getMembership(_brigadeId: string, _userId: string): Promise<BrigadeMembership | null> {
+    throw new Error('Membership operations not yet implemented in HTTP adapter');
+  }
+
+  async getMembershipById(_membershipId: string): Promise<BrigadeMembership | null> {
+    throw new Error('Membership operations not yet implemented in HTTP adapter');
+  }
+
+  async deleteMembership(_brigadeId: string, _userId: string): Promise<void> {
+    throw new Error('Membership operations not yet implemented in HTTP adapter');
+  }
+
+  async getMembershipsByUser(_userId: string): Promise<BrigadeMembership[]> {
+    throw new Error('Membership operations not yet implemented in HTTP adapter');
+  }
+
+  async getMembershipsByBrigade(_brigadeId: string): Promise<BrigadeMembership[]> {
+    throw new Error('Membership operations not yet implemented in HTTP adapter');
+  }
+
+  async getPendingMembershipsByBrigade(_brigadeId: string): Promise<BrigadeMembership[]> {
+    throw new Error('Membership operations not yet implemented in HTTP adapter');
+  }
+
+  // Invitation operations (Phase 6a - API endpoints to be implemented in Phase 7)
+  async saveInvitation(_invitation: MemberInvitation): Promise<void> {
+    throw new Error('Invitation operations not yet implemented in HTTP adapter');
+  }
+
+  async getInvitation(_invitationId: string): Promise<MemberInvitation | null> {
+    throw new Error('Invitation operations not yet implemented in HTTP adapter');
+  }
+
+  async getInvitationByToken(_token: string): Promise<MemberInvitation | null> {
+    throw new Error('Invitation operations not yet implemented in HTTP adapter');
+  }
+
+  async getPendingInvitationsByBrigade(_brigadeId: string): Promise<MemberInvitation[]> {
+    throw new Error('Invitation operations not yet implemented in HTTP adapter');
+  }
+
+  async expireInvitations(): Promise<void> {
+    throw new Error('Invitation operations not yet implemented in HTTP adapter');
+  }
+
+  // Verification operations (Phase 6a - API endpoints to be implemented in Phase 7)
+  async saveVerificationRequest(_request: AdminVerificationRequest): Promise<void> {
+    throw new Error('Verification operations not yet implemented in HTTP adapter');
+  }
+
+  async getVerificationRequest(_requestId: string): Promise<AdminVerificationRequest | null> {
+    throw new Error('Verification operations not yet implemented in HTTP adapter');
+  }
+
+  async getVerificationsByUser(_userId: string): Promise<AdminVerificationRequest[]> {
+    throw new Error('Verification operations not yet implemented in HTTP adapter');
+  }
+
+  async getPendingVerifications(): Promise<AdminVerificationRequest[]> {
+    throw new Error('Verification operations not yet implemented in HTTP adapter');
+  }
+
+  async approveVerification(_requestId: string, _reviewedBy: string, _reviewNotes?: string): Promise<void> {
+    throw new Error('Verification operations not yet implemented in HTTP adapter');
+  }
+
+  async rejectVerification(_requestId: string, _reviewedBy: string, _reviewNotes: string): Promise<void> {
+    throw new Error('Verification operations not yet implemented in HTTP adapter');
   }
 }
