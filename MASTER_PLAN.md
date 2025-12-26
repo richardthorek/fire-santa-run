@@ -1545,23 +1545,106 @@ Admin Routes:
 ### 15b. Development Mode vs Production Mode Strategy
 
 #### Overview
-To accelerate development and enable iterative testing of features, the application supports two distinct modes:
+To accelerate development and enable iterative testing of features, the application supports two distinct modes with flexible storage options:
 
 **🛠️ Development Mode (Default during development):**
 - No authentication required
 - All features accessible without login
 - Mock brigade context automatically provided
-- LocalStorage for data persistence
-- No cloud resources required
+- **Flexible storage**: localStorage OR Azure Table Storage with 'dev' prefix
+- No cloud resources required (unless using Azure option)
 - Fast iteration and testing
 
 **🔒 Production Mode (Enabled for deployment):**
 - Microsoft Entra External ID authentication required
 - Brigade isolation enforced
 - Domain whitelist validation
-- Azure Table Storage for persistence
+- Azure Table Storage for persistence (no prefix)
 - Azure Web PubSub for real-time features
 - Full security controls
+
+#### Storage Configuration Strategy (NEW!)
+
+Development mode now supports **three storage configurations**:
+
+##### 1. Local-Only Development (Default)
+```bash
+# .env.local
+VITE_DEV_MODE=true
+VITE_MAPBOX_TOKEN=pk.your_token_here
+# No Azure credentials
+```
+
+**Behavior:**
+- Uses browser localStorage
+- No Azure account required
+- Data doesn't sync across devices
+- Perfect for getting started quickly
+
+##### 2. Shared Dev Environment with Azure
+```bash
+# .env.local
+VITE_DEV_MODE=true
+VITE_MAPBOX_TOKEN=pk.your_token_here
+VITE_AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devaccount;...
+```
+
+**Behavior:**
+- Uses Azure Table Storage with 'dev' prefix
+- Tables: `devroutes`, `devbrigades` (isolated from production)
+- Data syncs across team members and devices
+- Test real Azure integration during development
+- No authentication required (still in dev mode)
+
+**Table Naming:**
+- Dev mode: `devroutes`, `devbrigades`
+- Production: `routes`, `brigades`
+
+##### 3. Production Environment
+```bash
+# .env.production
+VITE_DEV_MODE=false
+VITE_MAPBOX_TOKEN=pk.production_token
+VITE_AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=prodaccount;...
+VITE_ENTRA_CLIENT_ID=...
+```
+
+**Behavior:**
+- Uses Azure Table Storage without prefix
+- Full authentication enforced
+- Production-grade security
+- Tables: `routes`, `brigades`
+
+#### Storage Adapter Logic
+
+The storage adapter automatically detects which mode to use:
+
+```typescript
+// src/storage/index.ts
+function createStorageAdapter(): IStorageAdapter {
+  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+  const hasAzureCredentials = !!import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
+  
+  // Dev mode WITH Azure credentials: Use Azure with 'dev' prefix
+  if (isDevMode && hasAzureCredentials) {
+    const connectionString = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
+    return new AzureTableStorageAdapter(connectionString, 'dev');
+  }
+  
+  // Dev mode WITHOUT Azure credentials: Use localStorage
+  if (isDevMode) {
+    return new LocalStorageAdapter();
+  }
+  
+  // Production mode: Use Azure without prefix (requires credentials)
+  const connectionString = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
+  if (!connectionString) {
+    throw new Error('Azure Storage connection string required for production');
+  }
+  
+  return new AzureTableStorageAdapter(connectionString);
+}
+```
 
 #### Implementation Approach
 

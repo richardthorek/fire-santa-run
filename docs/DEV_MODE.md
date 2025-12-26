@@ -50,6 +50,8 @@ VITE_DEV_MODE=false
 
 ### Local Development Setup
 
+#### Option A: Local-Only (Default - No Azure Required)
+
 Create `.env.local` file:
 
 ```bash
@@ -64,7 +66,35 @@ VITE_MOCK_BRIGADE_NAME="Development Fire Brigade"
 VITE_MAPBOX_TOKEN=pk.your_mapbox_token_here
 ```
 
-That's it! No Azure, no authentication setup, no additional services required.
+Data will be stored in browser localStorage only.
+
+#### Option B: Shared Dev Environment with Azure (NEW!)
+
+If you want to test with real Azure Table Storage or collaborate with team members, add your Azure credentials:
+
+```bash
+# Enable development mode
+VITE_DEV_MODE=true
+
+# Mock brigade for testing
+VITE_MOCK_BRIGADE_ID=dev-brigade-1
+VITE_MOCK_BRIGADE_NAME="Development Fire Brigade"
+
+# Mapbox token
+VITE_MAPBOX_TOKEN=pk.your_mapbox_token_here
+
+# Azure Storage for shared dev environment
+VITE_AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=yourdevaccount;AccountKey=yourdevkey;EndpointSuffix=core.windows.net
+```
+
+With this configuration:
+- ✅ Data stored in Azure Table Storage (syncs across team)
+- ✅ Tables automatically prefixed with 'dev' (e.g., `devroutes`, `devbrigades`)
+- ✅ Dev data kept separate from production
+- ✅ Test real Azure integration early
+- ✅ No authentication still required in dev mode
+
+That's it! No Azure, no authentication setup, no additional services required for Option A. For Option B, just add the Azure connection string.
 
 ### Production Deployment Setup
 
@@ -181,16 +211,25 @@ import { AzureTableStorageAdapter } from './AzureTableStorageAdapter';
 
 export const createStorageAdapter = () => {
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+  const hasAzureCredentials = !!import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
   
-  // Use localStorage in dev mode
+  // Dev mode WITH Azure credentials: Use Azure with 'dev' prefix
+  if (isDevMode && hasAzureCredentials) {
+    const connectionString = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
+    console.info('[Storage] Dev mode with Azure. Using dev-prefixed tables.');
+    return new AzureTableStorageAdapter(connectionString, 'dev');
+  }
+  
+  // Dev mode WITHOUT Azure credentials: Use localStorage
   if (isDevMode) {
+    console.info('[Storage] Dev mode with localStorage.');
     return new LocalStorageAdapter();
   }
   
-  // Use Azure Table Storage in production
+  // Production mode: Use Azure without prefix
   const connectionString = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
   if (!connectionString) {
-    throw new Error('Azure Storage connection string not configured');
+    throw new Error('Azure Storage connection string required for production');
   }
   
   return new AzureTableStorageAdapter(connectionString);
@@ -198,6 +237,92 @@ export const createStorageAdapter = () => {
 
 export const storageAdapter = createStorageAdapter();
 ```
+
+### 3a. Storage Modes Explained
+
+Fire Santa Run now supports **three storage modes** to provide flexibility during development:
+
+#### Mode 1: Local-Only Development (Default)
+**When to use:** Starting out, no Azure account yet, or offline development
+
+```bash
+# .env.local
+VITE_DEV_MODE=true
+VITE_MAPBOX_TOKEN=pk.your_token_here
+# No Azure credentials
+```
+
+**Behavior:**
+- ✅ Data stored in browser localStorage
+- ✅ Works completely offline (except maps)
+- ✅ No Azure account required
+- ✅ Fast and simple
+- ⚠️ Data doesn't sync across devices/browsers
+- ⚠️ Data lost if browser storage cleared
+
+#### Mode 2: Shared Dev Environment (NEW!)
+**When to use:** Team collaboration, testing Azure integration, or multi-device dev
+
+```bash
+# .env.local
+VITE_DEV_MODE=true
+VITE_MAPBOX_TOKEN=pk.your_token_here
+VITE_AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devaccount;...
+```
+
+**Behavior:**
+- ✅ Data stored in Azure Table Storage
+- ✅ Tables prefixed with 'dev' (e.g., `devroutes`, `devbrigades`)
+- ✅ Data syncs across team members and devices
+- ✅ Dev data isolated from production data
+- ✅ Test real Azure integration
+- ⚠️ Requires Azure Storage account
+- ⚠️ Shared dev data (team can see each other's changes)
+
+**Table names in this mode:**
+- `devroutes` - Route data
+- `devbrigades` - Brigade configuration
+
+#### Mode 3: Production Environment
+**When to use:** Live deployment serving real users
+
+```bash
+# .env.production
+VITE_DEV_MODE=false
+VITE_MAPBOX_TOKEN=pk.production_token
+VITE_AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=prodaccount;...
+VITE_ENTRA_CLIENT_ID=...
+VITE_ENTRA_TENANT_ID=...
+```
+
+**Behavior:**
+- ✅ Data stored in Azure Table Storage
+- ✅ Tables use production names (e.g., `routes`, `brigades`)
+- ✅ Full authentication enforced
+- ✅ Production-grade security
+- ✅ Domain whitelist validation
+- ⚠️ Requires all Azure services configured
+
+**Table names in this mode:**
+- `routes` - Production route data
+- `brigades` - Production brigade configuration
+
+### 3b. Switching Between Storage Modes
+
+The storage adapter **automatically detects** which mode to use based on environment variables:
+
+```typescript
+// Decision tree (automatic)
+if (VITE_DEV_MODE === 'true' && VITE_AZURE_STORAGE_CONNECTION_STRING exists) {
+  → Mode 2: Azure with 'dev' prefix
+} else if (VITE_DEV_MODE === 'true') {
+  → Mode 1: localStorage
+} else {
+  → Mode 3: Azure production (requires connection string)
+}
+```
+
+**No code changes needed!** Just update your `.env.local` file.
 
 ### 4. API Endpoints
 

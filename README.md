@@ -65,8 +65,28 @@ Fire Santa Run supports **Development Mode** for rapid prototyping:
 
 ✅ **Enabled by default** for local development  
 ✅ **No authentication required** - instant access to all features  
-✅ **No Azure setup needed** - uses localStorage only  
+✅ **Flexible storage options:**
+  - **localStorage** (default) - No setup required, local-only
+  - **Azure Table Storage** (optional) - Team collaboration, uses 'dev' prefix for isolation
 ✅ **Fast iteration** - test features immediately  
+
+### Storage Options in Dev Mode
+
+**Option 1: Local-Only (Default)**
+```bash
+VITE_DEV_MODE=true
+VITE_MAPBOX_TOKEN=pk.your_token
+# No other config needed - uses localStorage
+```
+
+**Option 2: Shared Dev with Azure (NEW!)**
+```bash
+VITE_DEV_MODE=true
+VITE_MAPBOX_TOKEN=pk.your_token
+VITE_AZURE_STORAGE_CONNECTION_STRING=your_connection_string
+# Automatically uses Azure with 'dev' prefix (devroutes, devbrigades)
+# Data syncs across team, isolated from production
+```
 
 See [Development Mode Guide](./docs/DEV_MODE.md) for details on the dev mode strategy.
 
