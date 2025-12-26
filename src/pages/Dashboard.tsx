@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useRoutes } from '../hooks';
-import { RouteStatusBadge } from '../components';
-import type { RouteStatus } from '../types';
+import { RouteStatusBadge, ShareModal } from '../components';
+import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { format } from 'date-fns';
 
 export function Dashboard() {
   const { routes, isLoading, error } = useRoutes();
   const [filterStatus, setFilterStatus] = useState<RouteStatus | 'all'>('all');
+  const [shareModalRoute, setShareModalRoute] = useState<Route | null>(null);
 
   const filteredRoutes = filterStatus === 'all' 
     ? routes 
@@ -288,7 +289,12 @@ export function Dashboard() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    alert('Share feature coming soon!');
+                    // Only allow sharing for published, active, or completed routes
+                    if (route.status === 'published' || route.status === 'active' || route.status === 'completed') {
+                      setShareModalRoute(route);
+                    } else {
+                      alert('Route must be published before sharing');
+                    }
                   }}
                   style={{
                     flex: 1,
@@ -298,7 +304,9 @@ export function Dashboard() {
                     backgroundColor: 'white',
                     cursor: 'pointer',
                     fontSize: '0.875rem',
+                    opacity: (route.status === 'published' || route.status === 'active' || route.status === 'completed') ? 1 : 0.5,
                   }}
+                  disabled={route.status === 'draft'}
                 >
                   🔗 Share
                 </button>
@@ -306,6 +314,15 @@ export function Dashboard() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Share Modal */}
+      {shareModalRoute && (
+        <ShareModal
+          route={shareModalRoute}
+          isOpen={true}
+          onClose={() => setShareModalRoute(null)}
+        />
       )}
     </div>
     </div>

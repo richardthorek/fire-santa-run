@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Share Panel Test</title>
+    <script src="https://unpkg.com/react@19/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@19/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/qrcode.react@4.2.0/dist/umd/qrcode.react.development.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 2rem;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #D32F2F;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎅 SharePanel Component Test</h1>
+        <div id="root"></div>
+    </div>
+
+    <script>
+        const { useState, useEffect, useRef } = React;
+        const { QRCodeCanvas } = window.QRCode;
+
+        // Mock route data
+        const mockRoute = {
+            id: 'route_test_123',
+            brigadeId: 'dev-brigade-1',
+            name: 'Christmas Eve 2024 - North Route',
+            description: 'Visiting the northern suburbs of Sydney',
+            date: '2024-12-24',
+            startTime: '18:00',
+            status: 'published',
+            waypoints: [],
+            shareableLink: 'http://localhost:5173/track/route_test_123',
+            createdAt: new Date().toISOString()
+        };
+
+        // Simplified SharePanel component for testing
+        function SharePanel({ route }) {
+            const [copySuccess, setCopySuccess] = useState(false);
+            const qrRef = useRef(null);
+
+            const shareableLink = route.shareableLink || `http://localhost:5173/track/${route.id}`;
+
+            useEffect(() => {
+                if (copySuccess) {
+                    const timer = setTimeout(() => setCopySuccess(false), 2000);
+                    return () => clearTimeout(timer);
+                }
+            }, [copySuccess]);
+
+            const handleCopyLink = async () => {
+                try {
+                    await navigator.clipboard.writeText(shareableLink);
+                    setCopySuccess(true);
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                    alert('Copy to clipboard failed. Link: ' + shareableLink);
+                }
+            };
+
+            const handleDownloadQR = () => {
+                const canvas = qrRef.current?.querySelector('canvas');
+                if (!canvas) return;
+
+                canvas.toBlob((blob) => {
+                    if (!blob) return;
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.download = `santa-run-${route.id}-qr.png`;
+                    link.href = url;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                });
+            };
+
+            const shareToTwitter = () => {
+                const text = `🎅 Track Santa in real-time for ${route.name}! Join us on ${route.date}`;
+                const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareableLink)}`;
+                window.open(url, '_blank', 'width=550,height=420');
+            };
+
+            const shareToFacebook = () => {
+                const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareableLink)}`;
+                window.open(url, '_blank', 'width=550,height=420');
+            };
+
+            const shareToWhatsApp = () => {
+                const text = `🎅 Track Santa in real-time for ${route.name}! ${shareableLink}`;
+                const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+                window.open(url, '_blank');
+            };
+
+            return React.createElement('div', {
+                style: {
+                    backgroundColor: 'white',
+                    borderRadius: '16px',
+                    padding: '1.5rem',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                }
+            },
+                React.createElement('h3', {
+                    style: {
+                        margin: 0,
+                        marginBottom: '1rem',
+                        color: '#212121',
+                        fontSize: '1.25rem'
+                    }
+                }, '🎁 Share Your Route'),
+                
+                // QR Code
+                React.createElement('div', {
+                    ref: qrRef,
+                    style: {
+                        textAlign: 'center',
+                        marginBottom: '1.5rem'
+                    }
+                },
+                    React.createElement('div', {
+                        style: {
+                            display: 'inline-block',
+                            padding: '1rem',
+                            backgroundColor: 'white',
+                            borderRadius: '12px',
+                            border: '2px solid #E0E0E0'
+                        }
+                    },
+                        React.createElement(QRCodeCanvas, {
+                            value: shareableLink,
+                            size: 200,
+                            level: 'H',
+                            includeMargin: true
+                        })
+                    )
+                ),
+
+                // Link Display
+                React.createElement('div', {
+                    style: {
+                        backgroundColor: '#F5F5F5',
+                        padding: '0.75rem',
+                        borderRadius: '8px',
+                        marginBottom: '1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                    }
+                },
+                    React.createElement('input', {
+                        type: 'text',
+                        value: shareableLink,
+                        readOnly: true,
+                        style: {
+                            flex: 1,
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            color: '#212121',
+                            fontSize: '0.875rem',
+                            fontFamily: 'monospace',
+                            outline: 'none'
+                        }
+                    }),
+                    React.createElement('button', {
+                        onClick: handleCopyLink,
+                        style: {
+                            padding: '0.5rem 1rem',
+                            backgroundColor: copySuccess ? '#43A047' : '#29B6F6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                        }
+                    }, copySuccess ? '✓ Copied!' : '📋 Copy')
+                ),
+
+                // Action Buttons
+                React.createElement('div', {
+                    style: {
+                        display: 'flex',
+                        gap: '0.5rem',
+                        marginBottom: '1rem',
+                        flexWrap: 'wrap'
+                    }
+                },
+                    React.createElement('button', {
+                        onClick: handleDownloadQR,
+                        style: {
+                            flex: 1,
+                            minWidth: '140px',
+                            padding: '0.75rem 1rem',
+                            backgroundColor: '#D32F2F',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '12px',
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                        }
+                    }, '⬇️ Download QR'),
+                    React.createElement('button', {
+                        onClick: () => window.print(),
+                        style: {
+                            flex: 1,
+                            minWidth: '140px',
+                            padding: '0.75rem 1rem',
+                            backgroundColor: '#FFA726',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '12px',
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                        }
+                    }, '🖨️ Print Flyer')
+                ),
+
+                // Social Media Share Buttons
+                React.createElement('div', {
+                    style: {
+                        borderTop: '1px solid #E0E0E0',
+                        paddingTop: '1rem'
+                    }
+                },
+                    React.createElement('p', {
+                        style: {
+                            margin: 0,
+                            marginBottom: '0.75rem',
+                            color: '#616161',
+                            fontSize: '0.875rem',
+                            fontWeight: 600
+                        }
+                    }, 'Share on social media:'),
+                    React.createElement('div', {
+                        style: {
+                            display: 'flex',
+                            gap: '0.5rem',
+                            flexWrap: 'wrap'
+                        }
+                    },
+                        React.createElement('button', {
+                            onClick: shareToTwitter,
+                            style: {
+                                flex: 1,
+                                minWidth: '90px',
+                                padding: '0.65rem 1rem',
+                                backgroundColor: '#1DA1F2',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: '0.875rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                            }
+                        }, '🐦 Twitter'),
+                        React.createElement('button', {
+                            onClick: shareToFacebook,
+                            style: {
+                                flex: 1,
+                                minWidth: '90px',
+                                padding: '0.65rem 1rem',
+                                backgroundColor: '#1877F2',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: '0.875rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                            }
+                        }, '📘 Facebook'),
+                        React.createElement('button', {
+                            onClick: shareToWhatsApp,
+                            style: {
+                                flex: 1,
+                                minWidth: '90px',
+                                padding: '0.65rem 1rem',
+                                backgroundColor: '#25D366',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: '0.875rem',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                            }
+                        }, '💬 WhatsApp')
+                    )
+                )
+            );
+        }
+
+        // Render
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(SharePanel, { route: mockRoute }));
+    </script>
+</body>
+</html>
