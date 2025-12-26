@@ -26,13 +26,20 @@ export function NavigationHeader({
   return (
     <div
       style={{
-        backgroundColor: isOffRoute ? '#FF7043' : '#D32F2F',
+        position: 'absolute',
+        top: '1rem',
+        left: '1rem',
+        right: '1rem',
+        zIndex: 1000,
+        backgroundColor: isOffRoute ? 'rgba(255, 112, 67, 0.95)' : 'rgba(211, 47, 47, 0.95)',
+        backdropFilter: 'blur(10px)',
         color: 'white',
         padding: '1rem',
         display: 'flex',
         alignItems: 'center',
         gap: '1rem',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+        borderRadius: '16px',
         minHeight: '80px',
       }}
     >

@@ -33,9 +33,16 @@ export function NavigationPanel({
   return (
     <div
       style={{
-        backgroundColor: 'white',
+        position: 'absolute',
+        bottom: '1rem',
+        left: '1rem',
+        right: '1rem',
+        zIndex: 1000,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
         padding: '1rem',
-        boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
+        boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
+        borderRadius: '16px',
       }}
     >
       {/* Progress Bar */}
@@ -105,6 +112,7 @@ export function NavigationPanel({
               color: canCompleteWaypoint ? 'white' : '#9E9E9E',
               boxShadow: canCompleteWaypoint ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.2s',
+              minHeight: '44px', /* Touch target size */
             }}
           >
             ✓ Mark Complete
@@ -123,6 +131,7 @@ export function NavigationPanel({
             backgroundColor: 'white',
             color: '#D32F2F',
             minWidth: nextWaypoint ? '120px' : 'auto',
+            minHeight: '44px', /* Touch target size */
             transition: 'all 0.2s',
           }}
         >
