@@ -7,6 +7,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useWebPubSub, useRoutes } from '../hooks';
 import { ShareModal, SEO } from '../components';
+import { MAPBOX_CONFIG } from '../config/mapbox';
 import mapboxgl from 'mapbox-gl';
 import type { Route, LocationBroadcast } from '../types';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -74,6 +75,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       fitBoundsOptions: {
         padding: 50,
       },
+      ...MAPBOX_CONFIG,
     });
 
     map.on('load', () => {

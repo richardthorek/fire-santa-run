@@ -4,6 +4,14 @@ export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiZXh
 export const DEFAULT_CENTER: [number, number] = [146.9161, -33.8688]; // Griffith, NSW
 export const DEFAULT_ZOOM = 10;
 
+// Mapbox configuration options
+// Note: collectResourceTiming is set to false in all map initializations
+// to prevent ERR_BLOCKED_BY_CLIENT errors when browser extensions block
+// requests to events.mapbox.com (Mapbox's telemetry endpoint)
+export const MAPBOX_CONFIG = {
+  collectResourceTiming: false, // Disable telemetry/analytics
+};
+
 // Australian bounds for map restrictions
 export const AUSTRALIA_BOUNDS: [[number, number], [number, number]] = [
   [112.9, -44.0], // Southwest coordinates
