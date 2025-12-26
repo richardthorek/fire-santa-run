@@ -18,7 +18,7 @@ export interface Brigade {
   location: string;
   
   /** Reference to RFS dataset station (for verification) */
-  rfsStationId?: number;
+  rfsStationId?: string;
   
   /** URL or base64 encoded logo */
   logo?: string;
@@ -70,6 +70,7 @@ export interface IStorageAdapter {
   
   // Brigade operations
   getBrigade(brigadeId: string): Promise<Brigade | null>;
+  getBrigadeByRFSId(rfsStationId: string): Promise<Brigade | null>;
   saveBrigade(brigade: Brigade): Promise<void>;
   
   // User operations

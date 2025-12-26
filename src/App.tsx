@@ -15,6 +15,7 @@ const NavigationView = lazy(() => import('./pages').then(m => ({ default: m.Navi
 const TrackingView = lazy(() => import('./pages').then(m => ({ default: m.TrackingView })));
 const RouteDetail = lazy(() => import('./pages').then(m => ({ default: m.RouteDetail })));
 const ProfilePage = lazy(() => import('./pages').then(m => ({ default: m.ProfilePage })));
+const BrigadeClaimingPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeClaimingPage })));
 const LoginPage = lazy(() => import('./pages').then(m => ({ default: m.LoginPage })));
 const LogoutPage = lazy(() => import('./pages').then(m => ({ default: m.LogoutPage })));
 const CallbackPage = lazy(() => import('./pages').then(m => ({ default: m.CallbackPage })));
@@ -97,6 +98,11 @@ function App() {
             <Route path="/profile" element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/brigades/claim" element={
+              <ProtectedRoute>
+                <BrigadeClaimingPage />
               </ProtectedRoute>
             } />
             <Route path="/dashboard" element={
