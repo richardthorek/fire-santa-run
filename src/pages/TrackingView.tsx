@@ -52,7 +52,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
 
     const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
     if (!mapboxToken) {
-      setError('Mapbox token not configured');
+      console.error('Mapbox token not configured');
       return;
     }
 
