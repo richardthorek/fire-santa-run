@@ -38,8 +38,14 @@ export function Dashboard() {
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header */}
+    <div style={{ 
+      width: '100%', 
+      height: '100%', 
+      overflow: 'auto',
+      backgroundColor: '#fafafa',
+    }}>
+      <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        {/* Header */}
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -301,6 +307,7 @@ export function Dashboard() {
           ))}
         </div>
       )}
+    </div>
     </div>
   );
 }

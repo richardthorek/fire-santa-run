@@ -5,6 +5,7 @@
 
 import { ManeuverIcon } from './ManeuverIcon';
 import { formatDistance } from '../utils/mapbox';
+import { FLOATING_PANEL, Z_INDEX } from '../utils/constants';
 
 export interface NavigationHeaderProps {
   instruction: string;
@@ -26,14 +27,21 @@ export function NavigationHeader({
   return (
     <div
       style={{
-        backgroundColor: isOffRoute ? '#FF7043' : '#D32F2F',
+        position: 'absolute',
+        top: FLOATING_PANEL.spacing.edge,
+        left: FLOATING_PANEL.spacing.edge,
+        right: FLOATING_PANEL.spacing.edge,
+        zIndex: Z_INDEX.floatingPanel,
+        backgroundColor: isOffRoute ? 'rgba(255, 112, 67, 0.95)' : 'rgba(211, 47, 47, 0.95)',
+        backdropFilter: FLOATING_PANEL.backdrop.blur,
         color: 'white',
-        padding: '1rem',
+        padding: FLOATING_PANEL.spacing.edge,
         display: 'flex',
         alignItems: 'center',
-        gap: '1rem',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-        minHeight: '80px',
+        gap: FLOATING_PANEL.spacing.edge,
+        boxShadow: FLOATING_PANEL.shadow.standard,
+        borderRadius: FLOATING_PANEL.borderRadius.standard,
+        minHeight: FLOATING_PANEL.dimensions.navigationHeaderHeight,
       }}
     >
       {/* Maneuver Icon */}

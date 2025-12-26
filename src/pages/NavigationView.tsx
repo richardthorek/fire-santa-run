@@ -213,13 +213,20 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
+        position: 'relative',
+        width: '100vw',
         height: '100vh',
         overflow: 'hidden',
       }}
     >
-      {/* Navigation Header */}
+      {/* Full-screen Map */}
+      <NavigationMap
+        route={updatedRoute}
+        userPosition={position}
+        completedWaypointIds={navigationState.completedWaypointIds}
+      />
+
+      {/* Floating Navigation Header */}
       <NavigationHeader
         instruction={currentStep?.instruction || navigationState.currentInstruction}
         distance={navigationState.distanceToNextManeuver}
@@ -229,60 +236,54 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
         isRerouting={navigationState.isRerouting}
       />
 
-      {/* Map */}
-      <div style={{ flex: 1, position: 'relative' }}>
-        <NavigationMap
-          route={updatedRoute}
-          userPosition={position}
-          completedWaypointIds={navigationState.completedWaypointIds}
-        />
+      {/* Voice Toggle Button */}
+      <button
+        onClick={() => setVoiceEnabled(!voiceEnabled)}
+        style={{
+          position: 'absolute',
+          top: '7rem',
+          left: '1rem',
+          width: '48px',
+          height: '48px',
+          borderRadius: '50%',
+          border: 'none',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          cursor: 'pointer',
+          fontSize: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 999,
+        }}
+        aria-label={voiceEnabled ? 'Disable voice' : 'Enable voice'}
+      >
+        {voiceEnabled ? '🔊' : '🔇'}
+      </button>
 
-        {/* Voice Toggle Button */}
-        <button
-          onClick={() => setVoiceEnabled(!voiceEnabled)}
+      {/* Wake Lock Indicator */}
+      {!wakeLockSupported && (
+        <div
           style={{
             position: 'absolute',
-            top: '1rem',
-            left: '1rem',
-            width: '48px',
-            height: '48px',
-            borderRadius: '50%',
-            border: 'none',
-            backgroundColor: 'white',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-            cursor: 'pointer',
-            fontSize: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1,
+            top: '7rem',
+            right: '1rem',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(10px)',
+            color: 'white',
+            padding: '0.5rem 0.75rem',
+            borderRadius: '8px',
+            fontSize: '0.75rem',
+            zIndex: 999,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           }}
-          aria-label={voiceEnabled ? 'Disable voice' : 'Enable voice'}
         >
-          {voiceEnabled ? '🔊' : '🔇'}
-        </button>
+          ⚠️ Keep screen on manually
+        </div>
+      )}
 
-        {/* Wake Lock Indicator */}
-        {!wakeLockSupported && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '1rem',
-              right: '1rem',
-              backgroundColor: 'rgba(0,0,0,0.7)',
-              color: 'white',
-              padding: '0.5rem 0.75rem',
-              borderRadius: '8px',
-              fontSize: '0.75rem',
-              zIndex: 1,
-            }}
-          >
-            ⚠️ Keep screen on manually
-          </div>
-        )}
-      </div>
-
-      {/* Bottom Panel */}
+      {/* Floating Bottom Panel */}
       <NavigationPanel
         nextWaypoint={navigationState.nextWaypoint}
         distanceToWaypoint={navigationState.distanceToNextWaypoint}

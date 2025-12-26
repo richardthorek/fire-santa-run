@@ -41,38 +41,36 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="app">
-        {/* Dev Mode Indicator */}
-        {isDevMode && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: '#FFA726',
-            color: '#212121',
-            padding: '0.5rem',
-            textAlign: 'center',
-            fontWeight: 'bold',
-            fontSize: '0.875rem',
-            zIndex: 9999,
-          }}>
-            🛠️ Development Mode • {user?.email} • {brigade?.name}
-          </div>
-        )}
-        
-        {/* Main Routes */}
-        <div style={{ paddingTop: isDevMode ? '2.5rem' : 0 }}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/routes/new" element={<RouteEditor mode="new" />} />
-            <Route path="/routes/:id/edit" element={<RouteEditorWrapper />} />
-            <Route path="/routes/:id/navigate" element={<NavigationViewWrapper />} />
-            <Route path="/routes/:id" element={<RouteDetailPlaceholder />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+      {/* Dev Mode Indicator */}
+      {isDevMode && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: '#FFA726',
+          color: '#212121',
+          padding: '0.5rem',
+          textAlign: 'center',
+          fontWeight: 'bold',
+          fontSize: '0.875rem',
+          zIndex: 9999,
+        }}>
+          🛠️ Development Mode • {user?.email} • {brigade?.name}
         </div>
+      )}
+      
+      {/* Main Routes */}
+      <div style={{ paddingTop: isDevMode ? '2.5rem' : 0, height: '100%', width: '100%' }}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/routes/new" element={<RouteEditor mode="new" />} />
+          <Route path="/routes/:id/edit" element={<RouteEditorWrapper />} />
+          <Route path="/routes/:id/navigate" element={<NavigationViewWrapper />} />
+          <Route path="/routes/:id" element={<RouteDetailPlaceholder />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </div>
     </BrowserRouter>
   );

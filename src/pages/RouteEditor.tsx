@@ -5,6 +5,7 @@ import { MapView, WaypointList, AddressSearch } from '../components';
 import { createNewRoute, generateShareableLink, canPublishRoute } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
+import { BREAKPOINTS, COLORS } from '../utils/constants';
 import type { Route, Waypoint } from '../types';
 
 export interface RouteEditorProps {
@@ -130,22 +131,55 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   }
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
+    <div style={{ 
+      position: 'relative',
+      width: '100vw', 
+      height: '100vh',
+      overflow: 'hidden',
+    }}>
+      {/* Full-screen Map */}
+      <div style={{ position: 'absolute', inset: 0 }}>
+        <MapView
+          waypoints={route.waypoints}
+          routeGeometry={route.geometry}
+          onMapClick={handleMapClick}
+          height="100%"
+        />
+      </div>
+
+      {/* Floating Header Panel */}
       <div style={{
-        padding: '1rem 2rem',
-        backgroundColor: 'white',
-        borderBottom: '1px solid #e0e0e0',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        position: 'absolute',
+        top: '1rem',
+        left: '1rem',
+        right: '1rem',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
+        borderRadius: '16px',
+        padding: '1rem 1.5rem',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        zIndex: 1000,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1400px', margin: '0 auto' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#D32F2F' }}>
-              {mode === 'new' ? '➕ Create New Route' : '✏️ Edit Route'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 auto', minWidth: '200px' }}>
+            <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#D32F2F', whiteSpace: 'nowrap' }}>
+              {mode === 'new' ? '➕ Create Route' : '✏️ Edit Route'}
             </h1>
+            {route.geometry && (
+              <div style={{ 
+                display: 'flex', 
+                gap: '1rem', 
+                fontSize: '0.875rem',
+                color: '#616161',
+                marginLeft: '1rem',
+              }}>
+                <span><span aria-hidden="true">📍</span> {route.waypoints.length} stops</span>
+                {route.distance && <span><span aria-hidden="true">🛣️</span> {formatDistance(route.distance)}</span>}
+                {route.estimatedDuration && <span><span aria-hidden="true">⏱️</span> {formatDuration(route.estimatedDuration)}</span>}
+              </div>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {/* Start Navigation button (only show if route has navigation data) */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {route.geometry && route.navigationSteps && route.navigationSteps.length > 0 && (
               <button
                 onClick={() => window.location.href = `/routes/${route.id}/navigate`}
@@ -157,12 +191,11 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                   color: 'white',
                   cursor: 'pointer',
                   fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
+                  fontSize: '0.875rem',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                🧭 Start Navigation
+                🧭 Navigate
               </button>
             )}
             <button
@@ -174,6 +207,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                 backgroundColor: 'white',
                 cursor: 'pointer',
                 fontWeight: 500,
+                fontSize: '0.875rem',
               }}
             >
               Cancel
@@ -185,13 +219,14 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                 padding: '0.5rem 1rem',
                 border: 'none',
                 borderRadius: '8px',
-                backgroundColor: '#FFA726',
-                color: '#212121',
+                backgroundColor: COLORS.summerGold,
+                color: COLORS.neutral900,
                 cursor: isSaving ? 'not-allowed' : 'pointer',
                 fontWeight: 600,
+                fontSize: '0.875rem',
               }}
             >
-              {isSaving ? 'Saving...' : 'Save Draft'}
+              {isSaving ? 'Saving...' : 'Save'}
             </button>
             <button
               onClick={() => handleSave(true)}
@@ -200,10 +235,11 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                 padding: '0.5rem 1rem',
                 border: 'none',
                 borderRadius: '8px',
-                backgroundColor: canPublishRoute(route) ? '#43A047' : '#e0e0e0',
+                backgroundColor: canPublishRoute(route) ? COLORS.christmasGreen : COLORS.neutral300,
                 color: 'white',
                 cursor: isSaving || !canPublishRoute(route) ? 'not-allowed' : 'pointer',
                 fontWeight: 600,
+                fontSize: '0.875rem',
               }}
               title={canPublishRoute(route) ? 'Publish route' : 'Complete all fields and add at least 2 waypoints'}
             >
@@ -215,227 +251,225 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
 
       {saveError && (
         <div style={{
-          padding: '1rem 2rem',
+          position: 'absolute',
+          top: '6rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '1rem 1.5rem',
           backgroundColor: '#ffebee',
           color: '#d32f2f',
-          textAlign: 'center',
+          borderRadius: '12px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          zIndex: 1001,
+          maxWidth: '90%',
         }}>
           {saveError}
         </div>
       )}
 
-      {/* Main Content */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Map Section */}
-        <div style={{ flex: 1, position: 'relative' }}>
-          <MapView
-            waypoints={route.waypoints}
-            routeGeometry={route.geometry}
-            onMapClick={handleMapClick}
-            height="100%"
-          />
-          
-          {/* Optimize Button Overlay */}
-          {route.waypoints.length >= 2 && !route.geometry && (
-            <div style={{
-              position: 'absolute',
-              top: '1rem',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 1000,
-            }}>
-              <button
-                onClick={optimizeRoute}
-                disabled={isOptimizing}
-                style={{
-                  padding: '1rem 2rem',
-                  background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontWeight: 600,
-                  fontSize: '1rem',
-                  cursor: isOptimizing ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 12px rgba(211, 47, 47, 0.4)',
-                }}
-              >
-                {isOptimizing ? '🔄 Optimizing...' : '🗺️ Optimize Route'}
-              </button>
-            </div>
-          )}
-
-          {optimizationError && (
-            <div style={{
-              position: 'absolute',
-              top: '5rem',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              padding: '1rem',
-              backgroundColor: '#ffebee',
-              color: '#d32f2f',
-              borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-              zIndex: 1000,
-            }}>
-              {optimizationError}
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar */}
+      {/* Optimize Button Overlay */}
+      {route.waypoints.length >= 2 && !route.geometry && (
         <div style={{
-          width: '400px',
-          backgroundColor: '#f5f5f5',
-          overflowY: 'auto',
-          padding: '1.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.5rem',
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 999,
         }}>
-          {/* Route Metadata Form */}
-          <div style={{
-            backgroundColor: 'white',
-            padding: '1.5rem',
-            borderRadius: '12px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          }}>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem' }}>Route Details</h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <button
+            onClick={optimizeRoute}
+            disabled={isOptimizing}
+            style={{
+              padding: '1rem 2rem',
+              background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '16px',
+              fontWeight: 600,
+              fontSize: '1rem',
+              cursor: isOptimizing ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 12px rgba(211, 47, 47, 0.4)',
+            }}
+          >
+            {isOptimizing ? '🔄 Optimizing...' : '🗺️ Optimize Route'}
+          </button>
+        </div>
+      )}
+
+      {optimizationError && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, calc(-50% + 5rem))',
+          padding: '1rem 1.5rem',
+          backgroundColor: '#ffebee',
+          color: '#d32f2f',
+          borderRadius: '12px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+          zIndex: 1000,
+          maxWidth: '90%',
+        }}>
+          {optimizationError}
+        </div>
+      )}
+
+      {/* Floating Right Sidebar Panel */}
+      <div 
+        className="route-editor-sidebar"
+        style={{
+        position: 'absolute',
+        top: '6rem',
+        right: '1rem',
+        bottom: '1rem',
+        width: 'min(400px, calc(100vw - 2rem))',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
+        borderRadius: '16px',
+        padding: '1.5rem',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.5rem',
+        zIndex: 1000,
+      }}>
+        {/* Route Metadata Form */}
+        <div>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', color: '#212121' }}>Route Details</h3>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>
+                Route Name *
+              </label>
+              <input
+                type="text"
+                value={route.name}
+                onChange={(e) => updateMetadata({ name: e.target.value })}
+                placeholder="e.g., Christmas Eve 2024 - North Route"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>
+                Description
+              </label>
+              <textarea
+                value={route.description || ''}
+                onChange={(e) => updateMetadata({ description: e.target.value })}
+                placeholder="Brief description of the route..."
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>
-                  Route Name *
+                  Date *
                 </label>
                 <input
-                  type="text"
-                  value={route.name}
-                  onChange={(e) => updateMetadata({ name: e.target.value })}
-                  placeholder="e.g., Christmas Eve 2024 - North Route"
+                  type="date"
+                  value={route.date}
+                  onChange={(e) => updateMetadata({ date: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '0.75rem',
                     border: '1px solid #e0e0e0',
                     borderRadius: '8px',
                     fontSize: '1rem',
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
 
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>
-                  Description
+                  Start Time *
                 </label>
-                <textarea
-                  value={route.description || ''}
-                  onChange={(e) => updateMetadata({ description: e.target.value })}
-                  placeholder="Brief description of the route..."
-                  rows={3}
+                <input
+                  type="time"
+                  value={route.startTime}
+                  onChange={(e) => updateMetadata({ startTime: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '0.75rem',
                     border: '1px solid #e0e0e0',
                     borderRadius: '8px',
                     fontSize: '1rem',
-                    fontFamily: 'inherit',
-                    resize: 'vertical',
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>
-                    Date *
-                  </label>
-                  <input
-                    type="date"
-                    value={route.date}
-                    onChange={(e) => updateMetadata({ date: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      fontSize: '1rem',
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>
-                    Start Time *
-                  </label>
-                  <input
-                    type="time"
-                    value={route.startTime}
-                    onChange={(e) => updateMetadata({ startTime: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #e0e0e0',
-                      borderRadius: '8px',
-                      fontSize: '1rem',
-                    }}
-                  />
-                </div>
-              </div>
             </div>
-          </div>
-
-          {/* Route Stats */}
-          {route.geometry && (
-            <div style={{
-              backgroundColor: 'white',
-              padding: '1.5rem',
-              borderRadius: '12px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            }}>
-              <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem' }}>Route Statistics</h3>
-              <div style={{ display: 'grid', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#616161' }}>Distance:</span>
-                  <strong>{route.distance ? formatDistance(route.distance) : '—'}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#616161' }}>Duration:</span>
-                  <strong>{route.estimatedDuration ? formatDuration(route.estimatedDuration) : '—'}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#616161' }}>Waypoints:</span>
-                  <strong>{route.waypoints.length}</strong>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Address Search */}
-          <div>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem' }}>Add Waypoint</h3>
-            <AddressSearch
-              onSelect={handleAddressSelect}
-              proximity={route.waypoints.length > 0 ? route.waypoints[route.waypoints.length - 1].coordinates : undefined}
-              placeholder="Search for an address..."
-            />
-            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#9e9e9e' }}>
-              Or click on the map to add a waypoint
-            </p>
-          </div>
-
-          {/* Waypoints List */}
-          <div>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem' }}>
-              Waypoints ({route.waypoints.length})
-            </h3>
-            <WaypointList
-              waypoints={route.waypoints}
-              onReorder={moveWaypoint}
-              onEdit={handleEditWaypoint}
-              onDelete={deleteWaypoint}
-              editable={true}
-            />
           </div>
         </div>
+
+        {/* Address Search */}
+        <div>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', color: '#212121' }}>Add Waypoint</h3>
+          <AddressSearch
+            onSelect={handleAddressSelect}
+            proximity={route.waypoints.length > 0 ? route.waypoints[route.waypoints.length - 1].coordinates : undefined}
+            placeholder="Search for an address..."
+          />
+          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#9e9e9e' }}>
+            Or click on the map to add a waypoint
+          </p>
+        </div>
+
+        {/* Waypoints List */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', color: '#212121' }}>
+            Waypoints ({route.waypoints.length})
+          </h3>
+          <WaypointList
+            waypoints={route.waypoints}
+            onReorder={moveWaypoint}
+            onEdit={handleEditWaypoint}
+            onDelete={deleteWaypoint}
+            editable={true}
+          />
+        </div>
       </div>
+
+      {/* Mobile: Bottom Sheet for Sidebar on Small Screens */}
+      <style>
+        {`
+          @media (max-width: ${BREAKPOINTS.mobile}px) {
+            .route-editor-sidebar {
+              top: auto;
+              bottom: 0;
+              right: 0;
+              left: 0;
+              width: 100%;
+              max-height: 60vh;
+              border-bottom-left-radius: 0;
+              border-bottom-right-radius: 0;
+              border-top-left-radius: 20px;
+              border-top-right-radius: 20px;
+            }
+          }
+        `}
+      </style>
 
       {/* Waypoint Edit Modal */}
       {showWaypointModal && editingWaypoint && (
@@ -454,7 +488,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           <div style={{
             backgroundColor: 'white',
             padding: '2rem',
-            borderRadius: '12px',
+            borderRadius: '16px',
             maxWidth: '500px',
             width: '90%',
             boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
@@ -477,6 +511,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                     border: '1px solid #e0e0e0',
                     borderRadius: '8px',
                     fontSize: '1rem',
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
@@ -498,6 +533,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                     fontSize: '1rem',
                     fontFamily: 'inherit',
                     resize: 'vertical',
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
@@ -527,7 +563,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                   padding: '0.75rem 1.5rem',
                   border: 'none',
                   borderRadius: '8px',
-                  backgroundColor: '#D32F2F',
+                  backgroundColor: COLORS.fireRed,
                   color: 'white',
                   cursor: 'pointer',
                   fontWeight: 600,
