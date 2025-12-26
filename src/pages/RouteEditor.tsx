@@ -131,14 +131,16 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   }
 
   return (
-    <div style={{ 
+    <div 
+      className="route-editor-container"
+      style={{ 
       position: 'relative',
       width: '100vw', 
       height: '100vh',
       overflow: 'hidden',
     }}>
       {/* Full-screen Map */}
-      <div style={{ position: 'absolute', inset: 0 }}>
+      <div className="route-editor-map" style={{ position: 'absolute', inset: 0 }}>
         <MapView
           waypoints={route.waypoints}
           routeGeometry={route.geometry}
@@ -148,7 +150,9 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
       </div>
 
       {/* Floating Header Panel */}
-      <div style={{
+      <div 
+        className="route-editor-header"
+        style={{
         position: 'absolute',
         top: '1rem',
         left: '1rem',
@@ -451,21 +455,47 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         </div>
       </div>
 
-      {/* Mobile: Bottom Sheet for Sidebar on Small Screens */}
+      {/* Mobile: Vertical Layout on Small Screens, Floating Panels on Larger Screens */}
       <style>
         {`
-          @media (max-width: ${BREAKPOINTS.mobile}px) {
+          @media (max-width: ${BREAKPOINTS.mobile - 1}px) {
+            .route-editor-container {
+              display: flex;
+              flex-direction: column;
+              overflow-y: auto;
+              overflow-x: hidden;
+            }
+            
+            .route-editor-map {
+              position: relative !important;
+              inset: auto !important;
+              height: 400px;
+              flex-shrink: 0;
+              order: 2;
+            }
+            
+            .route-editor-header {
+              position: relative !important;
+              top: auto !important;
+              left: auto !important;
+              right: auto !important;
+              margin: 0;
+              border-radius: 0;
+              order: 1;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+            
             .route-editor-sidebar {
-              top: auto;
-              bottom: 0;
-              right: 0;
-              left: 0;
-              width: 100%;
-              max-height: 60vh;
-              border-bottom-left-radius: 0;
-              border-bottom-right-radius: 0;
-              border-top-left-radius: 20px;
-              border-top-right-radius: 20px;
+              position: relative !important;
+              top: auto !important;
+              right: auto !important;
+              bottom: auto !important;
+              width: 100% !important;
+              max-height: none !important;
+              border-radius: 0;
+              order: 3;
+              box-shadow: none;
+              border-top: 1px solid #e0e0e0;
             }
           }
         `}
