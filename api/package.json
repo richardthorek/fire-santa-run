@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Azure Functions API for Fire Santa Run",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
