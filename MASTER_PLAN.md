@@ -1417,6 +1417,106 @@ interface TrackingSession {
 
 ---
 
+### 12a. RFS Station Locations Dataset
+
+**Integration**: The application integrates the national Rural & Country Fire Service Facilities dataset from Digital Atlas of Australia to provide comprehensive spatial reference data for brigade names, locations, and onboarding.
+
+**Dataset Source:**
+- **API**: [Digital Atlas - Rural & Country Fire Service Facilities](https://digital.atlas.gov.au/datasets/digitalatlas::rural-country-fire-service-facilities/api)
+- **Type**: ArcGIS Feature Service (REST API)
+- **Coverage**: All Australian states and territories (2000+ facilities)
+- **License**: Open government data
+
+**Data Model:**
+
+```typescript
+interface RFSStation {
+  id: number;                      // Unique facility ID
+  name: string;                    // Official facility name
+  address?: string;                // Street address
+  state: string;                   // AU state (NSW, VIC, QLD, etc.)
+  suburb?: string;                 // Suburb/locality
+  postcode?: string;               // Postcode
+  coordinates: [number, number];   // [lng, lat] in WGS84
+  operationalStatus?: string;      // Current status
+  lastUpdated?: Date;              // Last data update
+}
+```
+
+**Access Patterns:**
+
+```typescript
+// Frontend utilities (src/utils/rfsData.ts)
+import { 
+  getAllStations,          // Get all stations (cached)
+  searchStations,          // Advanced search with filters
+  findNearestStation,      // Find closest station to coordinates
+  searchStationsByName,    // Search by station name
+  getStationsByState,      // Filter by state
+} from '@/utils/rfsData';
+
+// Example: Find nearest station to user location
+const nearest = await findNearestStation([143.5, -37.5], 50); // 50km radius
+
+// Example: Search by name
+const stations = await searchStationsByName('Griffith', 10);
+```
+
+**API Endpoint** (Production mode):
+
+```
+GET /api/rfs-stations
+
+Query Parameters:
+- state: Filter by state (NSW, VIC, etc.)
+- name: Search by name (partial match)
+- suburb: Filter by suburb
+- postcode: Filter by postcode
+- lat, lng, radius: Proximity search (radius in km)
+- limit: Max results (default: 100)
+```
+
+**Caching Strategy:**
+
+- **Development Mode**: localStorage cache (7 days)
+- **Production Mode**: HTTP cache headers (24 hours)
+- **Cache Size**: ~500KB-1MB for full dataset
+- **Performance**: < 50ms for cached lookups, 2-5s for initial fetch
+
+**Use Cases:**
+
+1. **Brigade Onboarding:**
+   - Suggest brigade names based on user's location
+   - Pre-fill location data from official records
+   - Validate brigade claims against known facilities
+
+2. **Route Planning:**
+   - Set default map center to brigade's station location
+   - Show nearby stations for reference
+   - Calculate distances from station to route start
+
+3. **Brigade Discovery:**
+   - Allow public to find nearby brigades
+   - Display all brigades on map for region selection
+   - Link to brigade's official details
+
+4. **Data Quality:**
+   - Cross-reference user input with authoritative data
+   - Detect typos or incorrect brigade information
+   - Maintain consistency with official records
+
+**Implementation Status:**
+- ✅ TypeScript types (`src/types/rfs.ts`)
+- ✅ Frontend data utilities (`src/utils/rfsData.ts`)
+- ✅ API endpoint (`api/src/rfs-stations.ts`)
+- ✅ Developer documentation (`docs/RFS_DATASET.md`)
+- ⏳ Integration with brigade onboarding flow (Phase 7)
+- ⏳ Brigade verification workflow (Phase 7)
+
+**Documentation:** See `docs/RFS_DATASET.md` for complete integration guide, API reference, and usage examples.
+
+---
+
 ### 13. Application Routes (URL Structure)
 
 ```
@@ -1766,7 +1866,8 @@ const ProtectedRoute = ({ children }) => {
 - [ ] Create login/logout pages
 - [ ] **Implement authentication toggle (dev mode bypass vs production)**
 - [ ] Protected route guards for brigade dashboard
-- [ ] Brigade domain whitelist validation
+- [ ] **Brigade domain whitelist validation with RFS dataset cross-reference**
+- [ ] **Brigade onboarding flow with RFS station lookup and suggestions**
 - [ ] Member approval workflow for new users
 - [ ] Role-based access control (admin, operator, viewer)
 - [ ] Session management with token refresh
@@ -1774,6 +1875,7 @@ const ProtectedRoute = ({ children }) => {
 - [ ] Audit logging for authentication events
 - [ ] **Update deployment configuration to enable auth in production**
 - [ ] **Keep dev mode bypass for local development and testing**
+- [ ] **Integrate RFS dataset for brigade verification and location defaults**
 
 #### Phase 8: Testing & Production Deployment (Week 7-8)
 - [ ] Unit tests with Vitest
