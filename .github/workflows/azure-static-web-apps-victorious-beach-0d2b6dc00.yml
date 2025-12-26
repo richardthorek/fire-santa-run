@@ -48,3 +48,104 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_BEACH_0D2B6DC00 }}
           action: "close"
+
+  create_bug_issue_on_failure:
+    if: ${{ failure() && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    needs: [build_and_deploy_job]
+    name: Create Bug Issue on Failure
+    permissions:
+      issues: write
+      actions: read
+    steps:
+      - name: Create Bug Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = context.runId;
+            const repo = context.repo;
+            const sha = context.sha;
+            const workflow = context.workflow;
+            const runUrl = `https://github.com/${repo.owner}/${repo.repo}/actions/runs/${runId}`;
+            
+            // Fetch workflow run details
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: repo.owner,
+              repo: repo.repo,
+              run_id: runId
+            });
+            
+            // Fetch jobs for this workflow run
+            const jobs = await github.rest.actions.listJobsForWorkflowRun({
+              owner: repo.owner,
+              repo: repo.repo,
+              run_id: runId
+            });
+            
+            // Find failed jobs
+            const failedJobs = jobs.data.jobs.filter(job => job.conclusion === 'failure');
+            
+            // Build issue body
+            let issueBody = `## 🔥 Workflow Failure Report\n\n`;
+            issueBody += `**Workflow:** ${workflow}\n`;
+            issueBody += `**Run:** [#${workflowRun.data.run_number}](${runUrl})\n`;
+            issueBody += `**Commit:** [\`${sha.substring(0, 7)}\`](https://github.com/${repo.owner}/${repo.repo}/commit/${sha})\n`;
+            issueBody += `**Branch:** ${workflowRun.data.head_branch}\n`;
+            issueBody += `**Triggered by:** @${workflowRun.data.triggering_actor.login}\n`;
+            issueBody += `**Runner:** ${workflowRun.data.run_attempt > 1 ? `ubuntu-latest (attempt ${workflowRun.data.run_attempt})` : 'ubuntu-latest'}\n`;
+            issueBody += `**Event:** ${context.eventName}\n\n`;
+            
+            // Add failed jobs information
+            issueBody += `### Failed Jobs\n\n`;
+            for (const job of failedJobs) {
+              issueBody += `#### ${job.name}\n`;
+              issueBody += `- **Status:** ${job.conclusion}\n`;
+              issueBody += `- **Started:** ${job.started_at}\n`;
+              issueBody += `- **Completed:** ${job.completed_at}\n`;
+              issueBody += `- **Job URL:** ${job.html_url}\n`;
+              
+              // Find failed steps
+              const failedSteps = job.steps.filter(step => step.conclusion === 'failure');
+              if (failedSteps.length > 0) {
+                issueBody += `- **Failed Steps:**\n`;
+                for (const step of failedSteps) {
+                  issueBody += `  - ${step.name} (step ${step.number})\n`;
+                }
+              }
+              issueBody += `\n`;
+            }
+            
+            // Add logs information
+            issueBody += `### 📋 Logs\n\n`;
+            issueBody += `[View full workflow logs](${runUrl})\n\n`;
+            
+            for (const job of failedJobs) {
+              issueBody += `**${job.name} logs:** [View logs](${job.html_url})\n\n`;
+            }
+            
+            // Add commit information
+            issueBody += `### 📝 Commit Details\n\n`;
+            issueBody += `**Message:** ${workflowRun.data.head_commit.message.split('\n')[0]}\n`;
+            issueBody += `**Author:** ${workflowRun.data.head_commit.author.name}\n`;
+            issueBody += `**Timestamp:** ${workflowRun.data.head_commit.timestamp}\n\n`;
+            
+            // Add troubleshooting section
+            issueBody += `### 🔍 Next Steps\n\n`;
+            issueBody += `1. Review the [workflow logs](${runUrl}) for detailed error messages\n`;
+            issueBody += `2. Check the failed steps listed above\n`;
+            issueBody += `3. Verify the commit changes didn't introduce breaking changes\n`;
+            issueBody += `4. Re-run the workflow after fixing the issue\n\n`;
+            
+            issueBody += `---\n`;
+            issueBody += `*This issue was automatically created by the workflow failure detection system.*`;
+            
+            // Create the issue
+            const issue = await github.rest.issues.create({
+              owner: repo.owner,
+              repo: repo.repo,
+              title: `🔥 Workflow Failed: ${workflow} - Run #${workflowRun.data.run_number}`,
+              body: issueBody,
+              labels: ['bug']
+            });
+            
+            console.log(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
