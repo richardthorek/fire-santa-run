@@ -370,11 +370,19 @@ export function TrackingView({ routeId }: TrackingViewProps) {
           >
             🔗 Share
           </button>
-          <div className="live-pulse" title={
-            isConnected ? 'Connected - Live Tracking Active' : 
-            isConnecting ? 'Connecting...' : 
-            'Disconnected'
-          } />
+          <div 
+            className="live-pulse" 
+            style={{
+              backgroundColor: isConnected ? 'var(--rfs-yellow)' : 
+                               isConnecting ? 'var(--summer-gold)' : 
+                               'var(--fire-red)',
+            }}
+            title={
+              isConnected ? 'Connected - Live Tracking Active' : 
+              isConnecting ? 'Connecting...' : 
+              'Disconnected'
+            } 
+          />
         </div>
       </div>
 

@@ -115,6 +115,7 @@ export function LandingPage() {
             }}>
               <a
                 href="/login"
+                className="btn-hover-lift"
                 style={{
                   padding: '1.25rem 2.5rem',
                   fontSize: '1.125rem',
@@ -126,22 +127,14 @@ export function LandingPage() {
                   textDecoration: 'none',
                   display: 'inline-block',
                   boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)',
-                  transition: 'all 0.3s ease',
                   cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow = '0 12px 28px rgba(0, 0, 0, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.2)';
                 }}
               >
                 🎄 Sign In
               </a>
               <a
-                href="/login"
+                href="/login?action=signup"
+                className="btn-hover-lift"
                 style={{
                   padding: '1.25rem 2.5rem',
                   fontSize: '1.125rem',
@@ -153,16 +146,7 @@ export function LandingPage() {
                   textDecoration: 'none',
                   display: 'inline-block',
                   boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-                  transition: 'all 0.3s ease',
                   cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
                 🚀 Sign Up Free
@@ -378,6 +362,7 @@ export function LandingPage() {
           </p>
           <a
             href="/login"
+            className="btn-hover-scale"
             style={{
               padding: '1.25rem 3rem',
               fontSize: '1.25rem',
@@ -389,16 +374,7 @@ export function LandingPage() {
               textDecoration: 'none',
               display: 'inline-block',
               boxShadow: '0 8px 20px rgba(0, 0, 0, 0.2)',
-              transition: 'all 0.3s ease',
               cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)';
-              e.currentTarget.style.boxShadow = '0 12px 28px rgba(0, 0, 0, 0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0) scale(1)';
-              e.currentTarget.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.2)';
             }}
           >
             🎅 Get Started Now

@@ -219,7 +219,7 @@ input:focus, select:focus, textarea:focus {
   background-color: var(--rfs-yellow);
   border: 3px solid var(--candy-white);
   border-radius: 50%;
-  box-shadow: 0 0 0 rgba(247, 208, 2, 0.7);
+  box-shadow: 0 0 0 rgba(255, 230, 0, 0.7);
   animation: pulse 2s infinite;
 }
 
@@ -300,4 +300,31 @@ input:focus, select:focus, textarea:focus {
 @keyframes lights-move {
   0% { background-position: 0 0; }
   100% { background-position: 40px 0; }
+}
+
+/* Button Hover Effects */
+.btn-hover-lift {
+  transition: all 0.3s ease;
+}
+
+.btn-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.btn-hover-lift:active {
+  transform: translateY(0);
+}
+
+.btn-hover-scale {
+  transition: all 0.3s ease;
+}
+
+.btn-hover-scale:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+}
+
+.btn-hover-scale:active {
+  transform: translateY(0) scale(1);
 }
