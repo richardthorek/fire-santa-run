@@ -47,7 +47,7 @@ export const TOUCH_TARGET = {
 
 // Responsive Breakpoints
 export const BREAKPOINTS = {
-  mobile: 768, // px - below this is mobile
+  mobile: 768, // px - mobile styles apply below this breakpoint
   tablet: 1024, // px
   desktop: 1280, // px
 } as const;

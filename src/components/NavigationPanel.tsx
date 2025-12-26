@@ -6,6 +6,7 @@
 import type { Waypoint } from '../types';
 import { formatDistance } from '../utils/mapbox';
 import { ProgressBar } from './ProgressBar';
+import { TOUCH_TARGET } from '../utils/constants';
 
 export interface NavigationPanelProps {
   nextWaypoint: Waypoint | null;
@@ -112,7 +113,7 @@ export function NavigationPanel({
               color: canCompleteWaypoint ? 'white' : '#9E9E9E',
               boxShadow: canCompleteWaypoint ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.2s',
-              minHeight: '44px', /* Touch target size */
+              minHeight: TOUCH_TARGET.minimum,
             }}
           >
             ✓ Mark Complete
@@ -131,7 +132,7 @@ export function NavigationPanel({
             backgroundColor: 'white',
             color: '#D32F2F',
             minWidth: nextWaypoint ? '120px' : 'auto',
-            minHeight: '44px', /* Touch target size */
+            minHeight: TOUCH_TARGET.minimum,
             transition: 'all 0.2s',
           }}
         >

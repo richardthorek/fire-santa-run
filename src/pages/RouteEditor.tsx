@@ -5,6 +5,7 @@ import { MapView, WaypointList, AddressSearch } from '../components';
 import { createNewRoute, generateShareableLink, canPublishRoute } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
+import { BREAKPOINTS, COLORS } from '../utils/constants';
 import type { Route, Waypoint } from '../types';
 
 export interface RouteEditorProps {
@@ -218,8 +219,8 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                 padding: '0.5rem 1rem',
                 border: 'none',
                 borderRadius: '8px',
-                backgroundColor: '#FFA726',
-                color: '#212121',
+                backgroundColor: COLORS.summerGold,
+                color: COLORS.neutral900,
                 cursor: isSaving ? 'not-allowed' : 'pointer',
                 fontWeight: 600,
                 fontSize: '0.875rem',
@@ -234,7 +235,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                 padding: '0.5rem 1rem',
                 border: 'none',
                 borderRadius: '8px',
-                backgroundColor: canPublishRoute(route) ? '#43A047' : '#e0e0e0',
+                backgroundColor: canPublishRoute(route) ? COLORS.christmasGreen : COLORS.neutral300,
                 color: 'white',
                 cursor: isSaving || !canPublishRoute(route) ? 'not-allowed' : 'pointer',
                 fontWeight: 600,
@@ -453,7 +454,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
       {/* Mobile: Bottom Sheet for Sidebar on Small Screens */}
       <style>
         {`
-          @media (max-width: 768px) {
+          @media (max-width: ${BREAKPOINTS.mobile}px) {
             .route-editor-sidebar {
               top: auto;
               bottom: 0;
@@ -562,7 +563,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                   padding: '0.75rem 1.5rem',
                   border: 'none',
                   borderRadius: '8px',
-                  backgroundColor: '#D32F2F',
+                  backgroundColor: COLORS.fireRed,
                   color: 'white',
                   cursor: 'pointer',
                   fontWeight: 600,
