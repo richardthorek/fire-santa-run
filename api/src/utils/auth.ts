@@ -13,11 +13,15 @@ import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
 
 // JWT validation configuration
+// Note: Tenant ID is public information for the Brigade Santa Run Entra External ID tenant
+// It's used to construct the JWKS endpoint URL for fetching public keys
 const ENTRA_TENANT_ID = process.env.VITE_ENTRA_TENANT_ID || '50fcb752-2a4e-4efd-bdc2-e18a5042c5a8';
 const ENTRA_CLIENT_ID = process.env.VITE_ENTRA_CLIENT_ID || '';
 const JWKS_URI = `https://login.microsoftonline.com/${ENTRA_TENANT_ID}/discovery/v2.0/keys`;
 
 // Dev mode bypass flag
+// Note: Uses VITE_ prefix for consistency with frontend environment variables in Azure Static Web Apps
+// All environment variables are shared between frontend and API in Azure Static Web Apps
 const isDevMode = process.env.VITE_DEV_MODE === 'true';
 
 // JWKS client for fetching public keys

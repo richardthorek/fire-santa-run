@@ -25,6 +25,19 @@ export function isGovAuEmail(email: string): boolean {
 
 /**
  * Check if email matches brigade's allowed domains
+ * 
+ * Performs strict domain matching:
+ * - Exact match: email domain must exactly match allowed domain
+ * - Subdomain match: email domain can be subdomain of allowed domain
+ * 
+ * Example with allowedDomain 'example.com':
+ * - 'user@example.com' → Match ✅ (exact match)
+ * - 'user@sub.example.com' → Match ✅ (subdomain)
+ * - 'user@malicious-example.com' → No match ❌ (not a subdomain)
+ * - 'user@example.com.malicious.com' → No match ❌ (not a subdomain)
+ * 
+ * Security: Subdomain matching is intentional to support organizational
+ * structures like 'fire.nsw.gov.au', 'rfs.nsw.gov.au', etc.
  */
 export function isAllowedDomain(email: string, allowedDomains: string[]): boolean {
   if (!allowedDomains || allowedDomains.length === 0) {
@@ -46,6 +59,7 @@ export function isAllowedDomain(email: string, allowedDomains: string[]): boolea
     }
     
     // Subdomain match (e.g., email: test@sub.example.com, allowed: example.com)
+    // Uses endsWith with '.' prefix to ensure it's a proper subdomain
     if (domain.endsWith('.' + normalizedAllowed)) {
       return true;
     }
@@ -95,9 +109,23 @@ export function shouldAutoApprove(
 
 /**
  * Validate email format (basic check)
+ * 
+ * Uses a simple regex pattern that covers most common email formats.
+ * For production use with stricter requirements, consider using a
+ * dedicated email validation library like 'validator' or 'email-validator'.
+ * 
+ * This pattern checks for:
+ * - At least one character before @
+ * - @ symbol
+ * - At least one character after @
+ * - . followed by at least one character for TLD
+ * 
+ * Note: Does not validate against RFC 5322 fully, but sufficient for
+ * basic validation combined with Entra External ID's own validation.
  */
 export function isValidEmailFormat(email: string): boolean {
-  // Basic email regex - not comprehensive but sufficient for our needs
+  // Basic email regex - sufficient for basic validation
+  // More comprehensive validation is handled by Entra External ID
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
