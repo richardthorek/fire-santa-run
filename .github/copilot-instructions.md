@@ -47,7 +47,7 @@ fire-santa-run/
 │   └── styles/          # Global styles and CSS
 ├── api/                 # Azure Functions (serverless API)
 ├── public/              # Static assets
-├── docs/                # Additional documentation
+├── docs/                # ALL Additional documentation
 ├── MASTER_PLAN.md      # 📋 SINGLE SOURCE OF TRUTH
 └── .github/
     └── copilot-instructions.md  # This file
