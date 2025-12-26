@@ -2880,42 +2880,48 @@ This phase completes the remaining testing and migration tasks from Phase 6a.
   - [x] Lazy load authentication pages
 - [x] Implement loading states during authentication - **COMPLETED**
 
-**Phase 7C: User Management & Brigade Claiming** ⏳ **NEXT**
+**Phase 7C: User Management & Brigade Claiming** 🔄 **IN PROGRESS**
 
-**Protected Routes:**
-- [ ] Update `ProtectedRoute` component to use real authentication
-  - [ ] Keep dev mode bypass (`VITE_DEV_MODE=true`)
-  - [ ] Redirect to `/login` in production if not authenticated
-  - [ ] Pass authentication state to child components
-- [ ] Protect brigade dashboard routes (`/dashboard/*`)
-- [ ] Protect route creation/editing routes
-- [ ] Protect navigation view (only for brigade members)
-- [ ] Keep tracking view public (no auth required: `/track/:routeId`)
+**Protected Routes:** ✅ **COMPLETED** (Dec 26, 2024)
+- [x] Create `ProtectedRoute` component with real authentication
+  - [x] Keep dev mode bypass (`VITE_DEV_MODE=true`)
+  - [x] Redirect to `/login` in production if not authenticated
+  - [x] Support return URL from location state
+- [x] Protect brigade dashboard routes (`/dashboard/*`)
+- [x] Protect route creation/editing routes
+- [x] Protect navigation view (only for brigade members)
+- [x] Keep tracking view public (no auth required: `/track/:routeId`)
 
-**User Registration & Profile:**
-- [ ] Implement post-authentication profile creation
-  - [ ] Extract user info from Entra ID token (email, name)
-  - [ ] Create User record in database if first login
-  - [ ] Update `lastLoginAt` on each login
-- [ ] Create user profile page (`/profile`)
-  - [ ] Display user information
-  - [ ] List brigade memberships
-  - [ ] Link to brigade dashboards
-  - [ ] Allow profile updates (name, profile picture)
+**User Registration & Profile:** ✅ **COMPLETED** (Dec 26, 2024)
+- [x] Implement post-authentication profile creation
+  - [x] Extract user info from Entra ID token (email, name)
+  - [x] Create User record in database if first login
+  - [x] Update `lastLoginAt` on each login
+- [x] Create user profile page (`/profile`)
+  - [x] Display user information
+  - [x] List brigade memberships
+  - [x] Link to brigade dashboards
+  - [x] Allow profile updates (name)
+- [x] Create `useUserProfile()` hook for profile management
+  - [x] Automatic profile creation on first login
+  - [x] Membership loading
+  - [x] Profile updates
 
-**Brigade Claiming Workflow (Using Phase 6a foundation):**
-- [ ] Create brigade claiming page (`/brigades/claim`)
-  - [ ] Search for unclaimed brigades from RFS dataset
-  - [ ] Show brigade details (name, location, station)
-  - [ ] "Claim Brigade" button (requires .gov.au email)
-  - [ ] Validation and error handling
-- [ ] Implement `claimBrigade()` API call
-  - [ ] Validate user has .gov.au email
-  - [ ] Check brigade is unclaimed
-  - [ ] Create first admin membership
-  - [ ] Update brigade status to claimed
-- [ ] Redirect to brigade dashboard after successful claim
-- [ ] Show confirmation message and next steps
+**Brigade Claiming Workflow (Using Phase 6a foundation):** ✅ **COMPLETED** (Dec 26, 2024)
+- [x] Create brigade claiming page (`/brigades/claim`)
+  - [x] Search for unclaimed brigades from RFS dataset
+  - [x] Filter brigades by state (NSW, VIC, QLD, SA, WA, TAS, NT, ACT)
+  - [x] Show brigade details (name, location, station)
+  - [x] "Claim Brigade" button with .gov.au email validation
+  - [x] Validation and error handling
+- [x] Implement `claimBrigade()` service call
+  - [x] Validate user has .gov.au email OR verification approved
+  - [x] Check brigade is unclaimed
+  - [x] Create first admin membership
+  - [x] Update brigade status to claimed
+- [x] Redirect to brigade dashboard after successful claim
+- [x] Show confirmation message with email validation status
+- [x] Add `getBrigadeByRFSId()` to storage adapters (local and Azure)
 
 **Member Invitation UI (Using Phase 6a APIs):**
 - [ ] Create member management page (`/dashboard/:brigadeId/members`)
