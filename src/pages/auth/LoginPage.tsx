@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { COLORS } from '../../utils/constants';
 
 /**
@@ -13,12 +13,14 @@ import { COLORS } from '../../utils/constants';
 export function LoginPage() {
   const { isAuthenticated, login, isLoading } = useAuth();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
+  // Support both URL parameter and location state for return URL
+  const returnUrl = searchParams.get('returnUrl') || (location.state as any)?.from?.pathname || '/dashboard';
 
   // Redirect if already authenticated
   useEffect(() => {

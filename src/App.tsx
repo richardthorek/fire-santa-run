@@ -5,6 +5,7 @@ import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
 import { initializeMockData } from './utils/mockData';
 import { useRoutes } from './hooks';
+import { ProtectedRoute } from './components';
 import type { Route as RouteType } from './types';
 
 // Lazy load pages for code splitting
@@ -13,6 +14,7 @@ const RouteEditor = lazy(() => import('./pages').then(m => ({ default: m.RouteEd
 const NavigationView = lazy(() => import('./pages').then(m => ({ default: m.NavigationView })));
 const TrackingView = lazy(() => import('./pages').then(m => ({ default: m.TrackingView })));
 const RouteDetail = lazy(() => import('./pages').then(m => ({ default: m.RouteDetail })));
+const ProfilePage = lazy(() => import('./pages').then(m => ({ default: m.ProfilePage })));
 const LoginPage = lazy(() => import('./pages').then(m => ({ default: m.LoginPage })));
 const LogoutPage = lazy(() => import('./pages').then(m => ({ default: m.LogoutPage })));
 const CallbackPage = lazy(() => import('./pages').then(m => ({ default: m.CallbackPage })));
@@ -90,15 +92,40 @@ function App() {
             <Route path="/logout" element={<LogoutPage />} />
             <Route path="/auth/callback" element={<CallbackPage />} />
             
-            {/* Protected Routes */}
+            {/* Protected Routes - Require authentication (except in dev mode) */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/routes/new" element={<RouteEditor mode="new" />} />
-            <Route path="/routes/:id/edit" element={<RouteEditorWrapper />} />
-            <Route path="/routes/:id/navigate" element={<NavigationViewWrapper />} />
-            <Route path="/routes/:id" element={<RouteDetailWrapper />} />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/routes/new" element={
+              <ProtectedRoute>
+                <RouteEditor mode="new" />
+              </ProtectedRoute>
+            } />
+            <Route path="/routes/:id/edit" element={
+              <ProtectedRoute>
+                <RouteEditorWrapper />
+              </ProtectedRoute>
+            } />
+            <Route path="/routes/:id/navigate" element={
+              <ProtectedRoute>
+                <NavigationViewWrapper />
+              </ProtectedRoute>
+            } />
+            <Route path="/routes/:id" element={
+              <ProtectedRoute>
+                <RouteDetailWrapper />
+              </ProtectedRoute>
+            } />
             
-            {/* Public Routes */}
+            {/* Public Routes - No authentication required */}
             <Route path="/track/:id" element={<TrackingViewWrapper />} />
             
             {/* 404 */}

@@ -11,6 +11,7 @@ export { SharePanel } from './SharePanel';
 export { ShareModal } from './ShareModal';
 export { SEO } from './SEO';
 export { SkeletonBox, RouteCardSkeleton, DashboardSkeleton, MapSkeleton } from './LoadingSkeleton';
+export { ProtectedRoute } from './ProtectedRoute';
 
 // Convenience export for LoadingSkeleton (for consistency)
 export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';

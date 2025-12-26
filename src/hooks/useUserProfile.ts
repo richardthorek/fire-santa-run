@@ -1,0 +1,109 @@
+/**
+ * Custom hook for user profile management.
+ * Handles post-authentication user profile creation and updates.
+ */
+
+import { useEffect, useState } from 'react';
+import { useAuth } from '../context';
+import { storageAdapter } from '../storage';
+import type { User } from '../types/user';
+import type { BrigadeMembership } from '../types/membership';
+
+interface UseUserProfileResult {
+  user: User | null;
+  memberships: BrigadeMembership[];
+  isLoading: boolean;
+  error: string | null;
+  refreshProfile: () => Promise<void>;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
+}
+
+/**
+ * Hook for managing user profile data.
+ * Automatically creates user record on first login and fetches memberships.
+ */
+export function useUserProfile(): UseUserProfileResult {
+  const { user: authUser, isAuthenticated } = useAuth();
+  const [user, setUser] = useState<User | null>(null);
+  const [memberships, setMemberships] = useState<BrigadeMembership[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshProfile = async () => {
+    if (!authUser || !isAuthenticated) {
+      setUser(null);
+      setMemberships([]);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Try to get existing user from database
+      let dbUser = await storageAdapter.getUserByEmail(authUser.email);
+
+      if (!dbUser) {
+        // First login - create user profile
+        dbUser = {
+          id: authUser.id,
+          email: authUser.email,
+          name: authUser.name || authUser.email.split('@')[0],
+          entraUserId: authUser.id,
+          emailVerified: true, // Entra-authenticated users are verified
+          createdAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString(),
+        };
+        await storageAdapter.saveUser(dbUser);
+      } else {
+        // Update last login time
+        dbUser.lastLoginAt = new Date().toISOString();
+        await storageAdapter.saveUser(dbUser);
+      }
+
+      setUser(dbUser);
+
+      // Fetch user's brigade memberships
+      const userMemberships = await storageAdapter.getMembershipsByUser(dbUser.id);
+      setMemberships(userMemberships);
+    } catch (err) {
+      console.error('Failed to load user profile:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateProfile = async (updates: Partial<User>) => {
+    if (!user) {
+      throw new Error('No user to update');
+    }
+
+    try {
+      const updatedUser = {
+        ...user,
+        ...updates,
+      };
+      await storageAdapter.saveUser(updatedUser);
+      setUser(updatedUser);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      throw err;
+    }
+  };
+
+  // Load profile on mount and when auth state changes
+  useEffect(() => {
+    refreshProfile();
+  }, [authUser?.id, isAuthenticated]);
+
+  return {
+    user,
+    memberships,
+    isLoading,
+    error,
+    refreshProfile,
+    updateProfile,
+  };
+}
