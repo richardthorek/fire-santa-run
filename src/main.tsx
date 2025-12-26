@@ -44,10 +44,17 @@ if (isMsalConfigured()) {
       }
     });
 
-    // Handle redirect promise after login/logout
-    msalInstance.handleRedirectPromise().catch((error) => {
-      console.error('[MSAL] Error handling redirect promise:', error);
-    });
+    // Handle redirect promise after login/logout and set active account from the result
+    msalInstance
+      .handleRedirectPromise()
+      .then((result) => {
+        if (result?.account) {
+          msalInstance.setActiveAccount(result.account);
+        }
+      })
+      .catch((error) => {
+        console.error('[MSAL] Error handling redirect promise:', error);
+      });
   });
 }
 
