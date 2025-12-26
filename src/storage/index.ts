@@ -8,7 +8,19 @@ import { AzureTableStorageAdapter } from './azure';
  */
 function hasAzureStorageCredentials(): boolean {
   const connectionString = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
-  return typeof connectionString === 'string' && connectionString.length > 0;
+  const hasCredentials = typeof connectionString === 'string' && 
+         connectionString.length > 0 && 
+         connectionString.startsWith('DefaultEndpointsProtocol');
+  
+  // Debug logging
+  console.debug('[Storage] Connection string check:', {
+    type: typeof connectionString,
+    length: connectionString?.length ?? 0,
+    startsWithDefault: connectionString?.startsWith('DefaultEndpointsProtocol'),
+    hasCredentials
+  });
+  
+  return hasCredentials;
 }
 
 /**
