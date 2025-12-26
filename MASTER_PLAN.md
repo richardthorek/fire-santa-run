@@ -1697,10 +1697,10 @@ const ProtectedRoute = ({ children }) => {
 - [x] **Progress indicators and route completion percentage**
 
 #### Phase 4: Real-Time Tracking with Azure Web PubSub (Week 3-4)
-- [ ] Create Azure Web PubSub hub resource
+- [x] Create Azure Web PubSub hub resource
 - [ ] Implement `/api/negotiate` function for connection token generation
 - [ ] Implement `/api/broadcast` function for location updates
-- [ ] Configure Web PubSub connection string in environment
+- [x] Configure Web PubSub connection string in environment
 - [ ] Integrate @azure/web-pubsub-client in frontend
 - [ ] Implement route-specific group messaging (route_{routeId} groups)
 - [ ] Broadcast location updates from navigator device (5s throttle)
