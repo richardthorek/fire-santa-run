@@ -2696,72 +2696,73 @@ This phase updates all data schemas, storage adapters, and TypeScript interfaces
   - [x] `rejectVerification()` - Site owner rejection
   - [ ] `expireOldRequests()` - Auto-expire after 30 days (Phase 7)
 
-**API Endpoints (Azure Functions):**
-- [ ] Create `/api/users/*` endpoints
-  - [ ] `POST /api/users/register` - User registration
-  - [ ] `GET /api/users/:userId` - Get user profile
-  - [ ] `PATCH /api/users/:userId` - Update user profile
-  - [ ] `GET /api/users/:userId/memberships` - Get user's brigade memberships
-- [ ] Create `/api/brigades/:brigadeId/members/*` endpoints
-  - [ ] `GET /api/brigades/:brigadeId/members` - List brigade members
-  - [ ] `POST /api/brigades/:brigadeId/members/invite` - Invite member
-  - [ ] `DELETE /api/brigades/:brigadeId/members/:userId` - Remove member
-  - [ ] `PATCH /api/brigades/:brigadeId/members/:userId/role` - Change role
-  - [ ] `GET /api/brigades/:brigadeId/members/pending` - Pending approvals
-  - [ ] `POST /api/brigades/:brigadeId/members/:userId/approve` - Approve member
-- [ ] Create `/api/brigades/:brigadeId/claim` endpoint
-  - [ ] `POST /api/brigades/:brigadeId/claim` - Claim unclaimed brigade
-- [ ] Create `/api/invitations/*` endpoints
-  - [ ] `GET /api/invitations/:token` - Get invitation details
-  - [ ] `POST /api/invitations/:token/accept` - Accept invitation
-  - [ ] `POST /api/invitations/:token/decline` - Decline invitation
-  - [ ] `DELETE /api/invitations/:invitationId` - Cancel invitation
-- [ ] Create `/api/verification/*` endpoints for admin verification
-  - [ ] `POST /api/verification/request` - Submit verification request with evidence
-  - [ ] `POST /api/verification/upload` - Upload evidence file to Azure Blob Storage
-  - [ ] `GET /api/verification/requests/:requestId` - Get request details
-  - [ ] `GET /api/verification/user/:userId` - Get user's verification requests
-- [ ] Create `/api/admin/verification/*` endpoints (site owner only)
-  - [ ] `GET /api/admin/verification/pending` - List pending verification requests
-  - [ ] `GET /api/admin/verification/requests/:requestId` - Get request with evidence
-  - [ ] `POST /api/admin/verification/requests/:requestId/approve` - Approve request
-  - [ ] `POST /api/admin/verification/requests/:requestId/reject` - Reject request
-  - [ ] `GET /api/admin/verification/evidence/:fileId` - Get evidence file (SAS token)
+**API Endpoints (Azure Functions):** ✅
+- [x] Create `/api/users/*` endpoints (`api/src/users.ts`)
+  - [x] `POST /api/users/register` - User registration
+  - [x] `GET /api/users/:userId` - Get user profile
+  - [x] `PATCH /api/users/:userId` - Update user profile
+  - [x] `GET /api/users/:userId/memberships` - Get user's brigade memberships
+- [x] Create `/api/brigades/:brigadeId/members/*` endpoints (`api/src/members.ts`)
+  - [x] `GET /api/brigades/:brigadeId/members` - List brigade members
+  - [x] `POST /api/brigades/:brigadeId/members/invite` - Invite member
+  - [x] `DELETE /api/brigades/:brigadeId/members/:userId` - Remove member
+  - [x] `PATCH /api/brigades/:brigadeId/members/:userId/role` - Change role
+  - [x] `GET /api/brigades/:brigadeId/members/pending` - Pending approvals
+  - [x] `POST /api/brigades/:brigadeId/members/:userId/approve` - Approve member
+- [x] Create `/api/brigades/:brigadeId/claim` endpoint (`api/src/claim.ts`)
+  - [x] `POST /api/brigades/:brigadeId/claim` - Claim unclaimed brigade
+- [x] Create `/api/invitations/*` endpoints (`api/src/invitations.ts`)
+  - [x] `GET /api/invitations/:token` - Get invitation details
+  - [x] `POST /api/invitations/:token/accept` - Accept invitation
+  - [x] `POST /api/invitations/:token/decline` - Decline invitation
+  - [x] `DELETE /api/invitations/:invitationId` - Cancel invitation
+- [x] Create `/api/verification/*` endpoints for admin verification (`api/src/verification.ts`)
+  - [x] `POST /api/verification/request` - Submit verification request with evidence
+  - [ ] `POST /api/verification/upload` - Upload evidence file to Azure Blob Storage (Phase 7)
+  - [x] `GET /api/verification/requests/:requestId` - Get request details
+  - [x] `GET /api/verification/user/:userId` - Get user's verification requests
+- [x] Create `/api/admin/verification/*` endpoints (site owner only) (`api/src/admin-verification.ts`)
+  - [x] `GET /api/admin/verification/pending` - List pending verification requests
+  - [x] `GET /api/admin/verification/requests/:requestId` - Get request with evidence
+  - [x] `POST /api/admin/verification/requests/:requestId/approve` - Approve request
+  - [x] `POST /api/admin/verification/requests/:requestId/reject` - Reject request
+  - [ ] `GET /api/admin/verification/evidence/:fileId` - Get evidence file (SAS token) (Phase 7)
 
 **Testing:**
-- [ ] Unit tests for membership validation rules (with verification pathway)
-- [ ] Unit tests for email validation functions
-- [ ] Unit tests for file validation (types, sizes, security)
-- [ ] Integration tests for membership service operations
-- [ ] Integration tests for verification request workflow
-- [ ] Test brigade claiming workflow end-to-end (both pathways)
-- [ ] Test admin promotion/demotion with constraints (both pathways)
-- [ ] Test member removal edge cases
-- [ ] Test multi-brigade membership scenarios
-- [ ] Test invitation expiration and cancellation
-- [ ] Test verification request submission and file upload
-- [ ] Test site owner review and approval/rejection workflow
-- [ ] Test verification expiration after 30 days
+- [x] Set up Vitest testing infrastructure (vitest.config.ts, test setup)
+- [x] Unit tests for email validation functions (21 tests passing)
+- [ ] Unit tests for file validation (types, sizes, security) (Phase 6b)
+- [ ] Unit tests for membership validation rules (with verification pathway) (Phase 6b)
+- [ ] Integration tests for membership service operations (Phase 6b)
+- [ ] Integration tests for verification request workflow (Phase 6b)
+- [ ] Test brigade claiming workflow end-to-end (both pathways) (Phase 6b)
+- [ ] Test admin promotion/demotion with constraints (both pathways) (Phase 6b)
+- [ ] Test member removal edge cases (Phase 6b)
+- [ ] Test multi-brigade membership scenarios (Phase 6b)
+- [ ] Test invitation expiration and cancellation (Phase 6b)
+- [ ] Test verification request submission and file upload (Phase 7)
+- [ ] Test site owner review and approval/rejection workflow (Phase 6b)
+- [ ] Test verification expiration after 30 days (Phase 7)
 
-**Documentation:**
-- [ ] Update API documentation with new endpoints
-- [ ] Document migration path from current Brigade/Route model
-- [ ] Create developer guide for membership system
-- [ ] Add examples for common membership operations
-- [ ] Document Azure Table Storage schema design
+**Documentation:** ✅
+- [x] Update API documentation with new endpoints (`docs/API_PHASE_6A.md`)
+- [x] Document migration path from current Brigade/Route model (`docs/MIGRATION_GUIDE.md`)
+- [x] Create developer guide for membership system (`docs/MEMBERSHIP_SYSTEM.md`)
+- [x] Add examples for common membership operations (included in developer guide)
+- [x] Document Azure Table Storage schema design (included in API docs and migration guide)
 
 **Dev Mode Updates:**
-- [ ] Create mock user data generator for development
-- [ ] Update AuthContext to provide mock user with memberships
-- [ ] Add dev mode UI for testing membership scenarios
-- [ ] Mock invitation flows for local testing
+- [ ] Create mock user data generator for development (Phase 6b)
+- [ ] Update AuthContext to provide mock user with memberships (Phase 7)
+- [ ] Add dev mode UI for testing membership scenarios (Phase 7)
+- [ ] Mock invitation flows for local testing (Phase 6b)
 
 **Migration Scripts:**
-- [ ] Create migration script for existing brigade data
+- [ ] Create migration script for existing brigade data (Phase 6b)
   - [ ] Add `isClaimed: true` to existing brigades
   - [ ] Generate `adminUserIds` from current admin emails
   - [ ] Update `createdBy` references in routes
-- [ ] Create seed script for RFS dataset integration
+- [ ] Create seed script for RFS dataset integration (Phase 6b)
   - [ ] Import unclaimed brigades from RFS dataset
   - [ ] Set `isClaimed: false` for new brigades
 
@@ -2769,11 +2770,40 @@ This phase updates all data schemas, storage adapters, and TypeScript interfaces
 - ✅ All TypeScript interfaces updated without breaking existing code
 - ✅ Storage adapters support all new entities (users, memberships, invitations)
 - ✅ All business rules documented and implemented with validation
-- ✅ API endpoints created and tested
+- ✅ API endpoints created and building successfully
 - ✅ Dev mode continues to work with mock data
 - ✅ Migration path clearly documented
-- ✅ All tests passing
-- ✅ Ready for Phase 7 (Entra External ID integration)
+- ✅ Testing infrastructure set up with initial test suite
+- 🔄 Ready for Phase 6b (additional testing, dev mode enhancements, migration scripts)
+- 🔄 Ready for Phase 7 (Entra External ID integration)
+
+#### Phase 6b: Testing & Migration Scripts (NEW - Week 6 continued)
+**🧪 Complete Testing Suite & Data Migration**
+
+This phase completes the remaining testing and migration tasks from Phase 6a.
+
+**Testing (Deferred from 6a):**
+- [ ] Unit tests for file validation
+- [ ] Unit tests for membership validation rules
+- [ ] Integration tests for membership service operations
+- [ ] Integration tests for verification workflow
+- [ ] End-to-end workflow tests
+
+**Dev Mode Enhancements:**
+- [ ] Mock user data generator
+- [ ] Mock invitation flows for local testing
+- [ ] Dev mode UI for membership scenarios
+
+**Migration Scripts:**
+- [ ] Brigade data migration script
+- [ ] RFS dataset seeding script
+- [ ] Data validation and rollback scripts
+
+**Success Criteria:**
+- All unit and integration tests passing
+- Migration scripts tested and documented
+- Dev mode fully functional for testing
+- Ready for Phase 7 authentication integration
 
 #### Phase 7: Authentication with Microsoft Entra External ID (Week 7-8)
 **🔒 Production Security Implementation**
