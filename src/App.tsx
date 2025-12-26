@@ -4,7 +4,7 @@ import './App.css';
 import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
 import { initializeMockData } from './utils/mockData';
-import { Dashboard, RouteEditor, NavigationView } from './pages';
+import { Dashboard, RouteEditor, NavigationView, TrackingView } from './pages';
 import { useRoutes } from './hooks';
 import type { Route as RouteType } from './types';
 
@@ -69,6 +69,7 @@ function App() {
           <Route path="/routes/:id/edit" element={<RouteEditorWrapper />} />
           <Route path="/routes/:id/navigate" element={<NavigationViewWrapper />} />
           <Route path="/routes/:id" element={<RouteDetailPlaceholder />} />
+          <Route path="/track/:id" element={<TrackingViewWrapper />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
@@ -145,6 +146,14 @@ function RouteDetailPlaceholder() {
       <a href="/dashboard" style={{ color: '#D32F2F' }}>← Back to Dashboard</a>
     </div>
   );
+}
+
+// Wrapper for Tracking View (public page - no auth required)
+function TrackingViewWrapper() {
+  const pathSegments = window.location.pathname.split('/');
+  const routeId = pathSegments[pathSegments.length - 1]; // /track/:id
+  
+  return <TrackingView routeId={routeId} />;
 }
 
 // 404 Page
