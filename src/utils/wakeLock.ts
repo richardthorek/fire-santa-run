@@ -22,7 +22,6 @@ class WakeLockService {
    */
   async request(): Promise<boolean> {
     if (!this.isSupported) {
-      console.warn('Wake Lock API is not supported');
       return false;
     }
 
@@ -31,10 +30,14 @@ class WakeLockService {
       
       // Re-request wake lock when page becomes visible again
       this.wakeLock.addEventListener('release', () => {
-        console.log('Wake lock released');
+        if (import.meta.env.DEV) {
+          console.log('Wake lock released');
+        }
       });
 
-      console.log('Wake lock acquired');
+      if (import.meta.env.DEV) {
+        console.log('Wake lock acquired');
+      }
       return true;
     } catch (error) {
       console.error('Failed to acquire wake lock:', error);
@@ -50,7 +53,9 @@ class WakeLockService {
       try {
         await this.wakeLock.release();
         this.wakeLock = null;
-        console.log('Wake lock released manually');
+        if (import.meta.env.DEV) {
+          console.log('Wake lock released manually');
+        }
       } catch (error) {
         console.error('Failed to release wake lock:', error);
       }

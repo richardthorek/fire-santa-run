@@ -3,7 +3,7 @@
  * Handles location tracking, instruction updates, rerouting, and waypoint completion
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useGeolocation } from './useGeolocation';
 import type { Route, Waypoint } from '../types';
 import {
@@ -52,24 +52,19 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     enableHighAccuracy: true 
   });
 
-  const [navigationState, setNavigationState] = useState<NavigationState>({
-    isNavigating: false,
-    currentStepIndex: 0,
-    currentInstruction: '',
-    distanceToNextManeuver: 0,
-    nextWaypoint: null,
-    distanceToNextWaypoint: 0,
-    etaToNextWaypoint: null,
-    routeProgress: 0,
-    isOffRoute: false,
-    isRerouting: false,
-    completedWaypointIds: [],
-  });
-
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [isRerouting, setIsRerouting] = useState(false);
+  const [completedWaypointIds, setCompletedWaypointIds] = useState<string[]>([]);
   const [updatedRoute, setUpdatedRoute] = useState<Route>(route);
+  
   const lastAnnouncedStepRef = useRef<number>(-1);
   const lastAnnouncedWaypointRef = useRef<string | null>(null);
   const hasAnnouncedOffRouteRef = useRef(false);
+  const rerouteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const waypointCompletionQueueRef = useRef<Set<string>>(new Set());
+
+  // Constants
+  const REROUTE_DEBOUNCE_MS = 2000;
 
   // Configure voice settings
   useEffect(() => {
@@ -79,111 +74,22 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     });
   }, [voiceEnabled]);
 
-  // Start navigation
-  const startNavigation = useCallback(() => {
-    setNavigationState(prev => ({ ...prev, isNavigating: true }));
-    lastAnnouncedStepRef.current = -1;
-    lastAnnouncedWaypointRef.current = null;
-    hasAnnouncedOffRouteRef.current = false;
-
-    // Initial announcement
-    if (voiceEnabled && updatedRoute.navigationSteps && updatedRoute.navigationSteps.length > 0) {
-      voiceService.speak('Navigation started', 'high');
-    }
-  }, [voiceEnabled, updatedRoute]);
-
-  // Stop navigation
-  const stopNavigation = useCallback(() => {
-    setNavigationState(prev => ({ ...prev, isNavigating: false }));
-    voiceService.cancel();
-  }, []);
-
-  // Mark waypoint as completed
-  const completeWaypoint = useCallback((waypointId: string) => {
-    setNavigationState(prev => ({
-      ...prev,
-      completedWaypointIds: [...prev.completedWaypointIds, waypointId],
-    }));
-
-    const waypoint = updatedRoute.waypoints.find(wp => wp.id === waypointId);
-    if (waypoint) {
-      waypoint.isCompleted = true;
-      waypoint.actualArrival = new Date().toISOString();
-      
-      if (onWaypointComplete) {
-        onWaypointComplete(waypoint);
-      }
-
-      // Announce completion
-      if (voiceEnabled && lastAnnouncedWaypointRef.current !== waypointId) {
-        voiceService.speak(announceWaypointArrival(waypoint.name), 'high');
-        lastAnnouncedWaypointRef.current = waypointId;
-      }
-    }
-
-    // Check if all waypoints are completed
-    const allCompleted = updatedRoute.waypoints.every(wp => wp.isCompleted);
-    if (allCompleted) {
-      setNavigationState(prev => ({ ...prev, isNavigating: false }));
-      if (voiceEnabled) {
-        voiceService.speak(announceRouteComplete(), 'high');
-      }
-      if (onRouteComplete) {
-        onRouteComplete();
-      }
-    }
-  }, [updatedRoute, onWaypointComplete, onRouteComplete, voiceEnabled]);
-
-  // Reroute when off course
-  const reroute = useCallback(async () => {
-    if (!position || !navigationState.nextWaypoint) return;
-
-    setNavigationState(prev => ({ ...prev, isRerouting: true }));
-    
-    try {
-      // Announce rerouting
-      if (voiceEnabled && !hasAnnouncedOffRouteRef.current) {
-        voiceService.speak(announceOffRoute(), 'high');
-        hasAnnouncedOffRouteRef.current = true;
-      }
-
-      // Get remaining waypoints (not completed)
-      const remainingWaypoints = updatedRoute.waypoints.filter(wp => !wp.isCompleted);
-      const coordinates = [
-        position.coordinates,
-        ...remainingWaypoints.map(wp => wp.coordinates),
-      ];
-
-      // Get new route from current position to remaining waypoints
-      const newDirections = await getDirections(coordinates);
-      
-      // Update route with new geometry and steps
-      setUpdatedRoute(prev => ({
-        ...prev,
-        geometry: newDirections.geometry,
-        navigationSteps: newDirections.steps,
-        distance: newDirections.distance,
-        estimatedDuration: newDirections.duration,
-      }));
-
-      setNavigationState(prev => ({
-        ...prev,
-        isRerouting: false,
-        isOffRoute: false,
+  // Calculate navigation state from position (derived state, no setState in effect)
+  const navigationState = useMemo<NavigationState>(() => {
+    if (!isNavigating || !position || !updatedRoute.geometry || !updatedRoute.navigationSteps) {
+      return {
+        isNavigating,
         currentStepIndex: 0,
-      }));
-
-      hasAnnouncedOffRouteRef.current = false;
-    } catch (error) {
-      console.error('Rerouting failed:', error);
-      setNavigationState(prev => ({ ...prev, isRerouting: false }));
-    }
-  }, [position, navigationState.nextWaypoint, updatedRoute, voiceEnabled]);
-
-  // Update navigation state based on current position
-  useEffect(() => {
-    if (!navigationState.isNavigating || !position || !updatedRoute.geometry || !updatedRoute.navigationSteps) {
-      return;
+        currentInstruction: '',
+        distanceToNextManeuver: 0,
+        nextWaypoint: null,
+        distanceToNextWaypoint: 0,
+        etaToNextWaypoint: null,
+        routeProgress: 0,
+        isOffRoute: false,
+        isRerouting,
+        completedWaypointIds,
+      };
     }
 
     const steps = updatedRoute.navigationSteps;
@@ -214,10 +120,8 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     // Check if off route
     const offRoute = isOffRoute(userLocation, updatedRoute.geometry, 100);
 
-    // Update state
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setNavigationState(prev => ({
-      ...prev,
+    return {
+      isNavigating,
       currentStepIndex: stepIndex,
       currentInstruction: currentStep?.instruction || '',
       distanceToNextManeuver: distanceToManeuver,
@@ -226,47 +130,173 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       etaToNextWaypoint: eta ? formatETA(eta) : null,
       routeProgress: progress,
       isOffRoute: offRoute,
-    }));
+      isRerouting,
+      completedWaypointIds,
+    };
+  }, [isNavigating, position, updatedRoute, isRerouting, completedWaypointIds]);
+
+  // Start navigation
+  const startNavigation = useCallback(() => {
+    setIsNavigating(true);
+    lastAnnouncedStepRef.current = -1;
+    lastAnnouncedWaypointRef.current = null;
+    hasAnnouncedOffRouteRef.current = false;
+
+    // Initial announcement
+    if (voiceEnabled && updatedRoute.navigationSteps && updatedRoute.navigationSteps.length > 0) {
+      voiceService.speak('Navigation started', 'high').catch(() => {
+        // Ignore voice errors
+      });
+    }
+  }, [voiceEnabled, updatedRoute]);
+
+  // Stop navigation
+  const stopNavigation = useCallback(() => {
+    setIsNavigating(false);
+    voiceService.cancel();
+    if (rerouteTimeoutRef.current) {
+      clearTimeout(rerouteTimeoutRef.current);
+      rerouteTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Mark waypoint as completed
+  const completeWaypoint = useCallback((waypointId: string) => {
+    setCompletedWaypointIds(prev => [...prev, waypointId]);
+
+    const waypoint = updatedRoute.waypoints.find(wp => wp.id === waypointId);
+    if (waypoint) {
+      waypoint.isCompleted = true;
+      waypoint.actualArrival = new Date().toISOString();
+      
+      if (onWaypointComplete) {
+        onWaypointComplete(waypoint);
+      }
+
+      // Announce completion
+      if (voiceEnabled && lastAnnouncedWaypointRef.current !== waypointId) {
+        voiceService.speak(announceWaypointArrival(waypoint.name), 'high').catch(() => {
+          // Ignore voice errors
+        });
+        lastAnnouncedWaypointRef.current = waypointId;
+      }
+    }
+
+    // Check if all waypoints are completed
+    const allCompleted = updatedRoute.waypoints.every(wp => wp.isCompleted);
+    if (allCompleted) {
+      setIsNavigating(false);
+      if (voiceEnabled) {
+        voiceService.speak(announceRouteComplete(), 'high').catch(() => {
+          // Ignore voice errors
+        });
+      }
+      if (onRouteComplete) {
+        onRouteComplete();
+      }
+    }
+  }, [updatedRoute, onWaypointComplete, onRouteComplete, voiceEnabled]);
+
+  // Reroute when off course
+  const reroute = useCallback(async () => {
+    if (!position || !navigationState.nextWaypoint || isRerouting) return;
+
+    setIsRerouting(true);
+    
+    try {
+      // Announce rerouting
+      if (voiceEnabled && !hasAnnouncedOffRouteRef.current) {
+        voiceService.speak(announceOffRoute(), 'high').catch(() => {
+          // Ignore voice errors
+        });
+        hasAnnouncedOffRouteRef.current = true;
+      }
+
+      // Get remaining waypoints (not completed)
+      const remainingWaypoints = updatedRoute.waypoints.filter(wp => !wp.isCompleted);
+      const coordinates = [
+        position.coordinates,
+        ...remainingWaypoints.map(wp => wp.coordinates),
+      ];
+
+      // Get new route from current position to remaining waypoints
+      const newDirections = await getDirections(coordinates);
+      
+      // Update route with new geometry and steps
+      setUpdatedRoute(prev => ({
+        ...prev,
+        geometry: newDirections.geometry,
+        navigationSteps: newDirections.steps,
+        distance: newDirections.distance,
+        estimatedDuration: newDirections.duration,
+      }));
+
+      setIsRerouting(false);
+      hasAnnouncedOffRouteRef.current = false;
+    } catch (error) {
+      console.error('Rerouting failed:', error);
+      setIsRerouting(false);
+    }
+  }, [position, navigationState.nextWaypoint, updatedRoute, voiceEnabled, isRerouting]);
+
+  // Handle side effects (voice announcements, waypoint completion, rerouting)
+  useEffect(() => {
+    if (!isNavigating || !position || !updatedRoute.navigationSteps) {
+      return;
+    }
+
+    const { currentStepIndex, distanceToNextManeuver, currentInstruction, nextWaypoint, isOffRoute: offRoute } = navigationState;
+    const userLocation = position.coordinates;
 
     // Voice announcements based on distance to maneuver
-    if (voiceEnabled && currentStep && stepIndex !== lastAnnouncedStepRef.current) {
-      if (distanceToManeuver < 50) {
+    if (voiceEnabled && currentInstruction && currentStepIndex !== lastAnnouncedStepRef.current) {
+      if (distanceToNextManeuver < 50) {
         // Immediate instruction
         voiceService.speak(
-          formatInstructionForVoice(currentStep.instruction, distanceToManeuver),
+          formatInstructionForVoice(currentInstruction, distanceToNextManeuver),
           'high'
-        );
-        lastAnnouncedStepRef.current = stepIndex;
-      } else if (distanceToManeuver < 200 && distanceToManeuver > 150) {
+        ).catch(() => {
+          // Ignore voice errors (e.g., interrupted)
+        });
+        lastAnnouncedStepRef.current = currentStepIndex;
+      } else if (distanceToNextManeuver < 200 && distanceToNextManeuver > 150) {
         // Advanced warning
         voiceService.speak(
-          formatInstructionForVoice(currentStep.instruction, distanceToManeuver),
+          formatInstructionForVoice(currentInstruction, distanceToNextManeuver),
           'low'
-        );
+        ).catch(() => {
+          // Ignore voice errors (e.g., interrupted)
+        });
       }
     }
 
     // Auto-complete waypoint when near
+    // Queue waypoint for completion if not already completed or queued
     if (nextWaypoint && isNearWaypoint(userLocation, nextWaypoint, 50)) {
-      if (!navigationState.completedWaypointIds.includes(nextWaypoint.id)) {
-        completeWaypoint(nextWaypoint.id);
+      if (!completedWaypointIds.includes(nextWaypoint.id) && 
+          !waypointCompletionQueueRef.current.has(nextWaypoint.id)) {
+        waypointCompletionQueueRef.current.add(nextWaypoint.id);
+        // Use queueMicrotask to defer state update to next microtask queue
+        queueMicrotask(() => {
+          completeWaypoint(nextWaypoint.id);
+          waypointCompletionQueueRef.current.delete(nextWaypoint.id);
+        });
       }
     }
 
-    // Trigger rerouting if off route and not already rerouting
-    if (offRoute && !navigationState.isRerouting) {
-      reroute();
+    // Trigger rerouting if off route and not already rerouting (with debounce)
+    if (offRoute && !isRerouting) {
+      if (rerouteTimeoutRef.current) {
+        clearTimeout(rerouteTimeoutRef.current);
+      }
+      rerouteTimeoutRef.current = setTimeout(() => {
+        reroute();
+      }, REROUTE_DEBOUNCE_MS);
+    } else if (!offRoute && rerouteTimeoutRef.current) {
+      clearTimeout(rerouteTimeoutRef.current);
+      rerouteTimeoutRef.current = null;
     }
-  }, [
-    navigationState.isNavigating,
-    navigationState.isRerouting,
-    navigationState.completedWaypointIds,
-    position,
-    updatedRoute,
-    voiceEnabled,
-    completeWaypoint,
-    reroute,
-  ]);
+  }, [isNavigating, position, updatedRoute, voiceEnabled, navigationState, completedWaypointIds, isRerouting, completeWaypoint, reroute, REROUTE_DEBOUNCE_MS]);
 
   return {
     navigationState,
