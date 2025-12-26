@@ -7,6 +7,7 @@ import type { Waypoint } from '../types';
 import { formatDistance } from '../utils/mapbox';
 import { ProgressBar } from './ProgressBar';
 import { TOUCH_TARGET } from '../utils/constants';
+import { useMemo } from 'react';
 
 export interface NavigationPanelProps {
   nextWaypoint: Waypoint | null;
@@ -35,10 +36,13 @@ export function NavigationPanel({
   totalWaypoints,
   waypoints,
 }: NavigationPanelProps) {
-  // Find waypoint after next
-  const waypointAfterNext = nextWaypoint 
-    ? waypoints.find(wp => !wp.isCompleted && wp.order > nextWaypoint.order)
-    : null;
+  // Find waypoint after next - memoized to avoid recalculation on every render
+  const waypointAfterNext = useMemo(
+    () => nextWaypoint 
+      ? waypoints.find(wp => !wp.isCompleted && wp.order > nextWaypoint.order)
+      : null,
+    [nextWaypoint, waypoints]
+  );
 
   return (
     <div

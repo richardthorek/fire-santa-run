@@ -4,7 +4,7 @@
 This document describes the UI changes made to the turn-by-turn navigation interface to add manual waypoint advancement functionality.
 
 ## Problem Statement
-The previous implementation only allowed waypoint completion when the vehicle was within 50-100 meters of the waypoint. This caused issues where:
+The previous implementation only allowed waypoint completion when the vehicle was within 50 meters of the waypoint (with a 100m threshold for manual "Arrived" button). This caused issues where:
 1. The driver would arrive at a location but couldn't manually advance
 2. No visibility of the upcoming waypoint
 3. Required proximity-based completion which wasn't always practical
