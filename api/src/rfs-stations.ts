@@ -72,7 +72,7 @@ function convertFeatureToStation(feature: RFSStationFeature): RFSStation {
     coordinates: [geometry.x, geometry.y],
     operationalStatus: attributes.facility_operationalstatus || attributes.FACILITY_OPERATIONALSTATUS,
     lastUpdated: attributes.facility_date || attributes.FACILITY_DATE
-      ? new Date(attributes.facility_date || attributes.FACILITY_DATE).toISOString() 
+      ? new Date((attributes.facility_date || attributes.FACILITY_DATE) as number).toISOString() 
       : undefined,
   };
 }
