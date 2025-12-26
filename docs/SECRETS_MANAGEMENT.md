@@ -276,7 +276,7 @@ Additional environment variables can be added in the workflow file's `env` secti
 
 **Build fails with "VITE_MAPBOX_TOKEN is not defined":**
 - Ensure the secret is added to GitHub repository secrets (not organization secrets)
-- Secret name must be exactly `VITE_MAPBOX_TOKEN`
+- Secret name must be exactly `VITE_MAPBOX_TOKEN` (case-sensitive)
 - Re-run the workflow after adding the secret
 
 **Deployment succeeds but app doesn't work:**

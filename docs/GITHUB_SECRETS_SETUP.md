@@ -24,12 +24,12 @@ The Azure Static Web Apps CI/CD workflow **requires** the `VITE_MAPBOX_TOKEN` se
 
 ### Step 2: Add Secret to GitHub
 
-1. Go to your repository on GitHub: https://github.com/richardthorek/fire-santa-run
+1. Go to your repository on GitHub
 2. Click the **"Settings"** tab
 3. In the left sidebar, navigate to **"Secrets and variables"** → **"Actions"**
 4. Click **"New repository secret"**
 5. Add the secret:
-   - **Name:** `VITE_MAPBOX_TOKEN`
+   - **Name:** `VITE_MAPBOX_TOKEN` (case-sensitive, must be exact)
    - **Value:** Paste your Mapbox token (the one that starts with `pk.`)
 6. Click **"Add secret"**
 
@@ -113,6 +113,6 @@ These are not required for the initial deployment but enable advanced features.
 
 If you're still having issues:
 
-1. Check the [workflow logs](https://github.com/richardthorek/fire-santa-run/actions) for detailed error messages
+1. Check the workflow logs (Actions tab in your repository) for detailed error messages
 2. Review the [Secrets Management Guide](./SECRETS_MANAGEMENT.md)
 3. Open an issue in the repository with the error details
