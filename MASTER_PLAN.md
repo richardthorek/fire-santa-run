@@ -2805,30 +2805,45 @@ This phase completes the remaining testing and migration tasks from Phase 6a.
 - Dev mode fully functional for testing
 - Ready for Phase 7 authentication integration
 
-#### Phase 7: Authentication with Microsoft Entra External ID (Week 7-8)
+#### Phase 7: Authentication with Microsoft Entra External ID (Week 7-8) - 🔄 IN PROGRESS
 **🔒 Production Security Implementation**
 
 > **Prerequisites:** Phase 6a must be completed with all data models, storage adapters, and membership APIs implemented and tested.
 
+**Phase 7A: Entra External ID Configuration Guide & MSAL Setup** ✅ **COMPLETED** (Dec 26, 2024)
+
 **Entra External ID Setup:**
-- [ ] Create Azure Entra External ID tenant (Azure Portal)
-- [ ] Configure Entra External ID application registration
-  - [ ] Set redirect URIs for local dev and production
-  - [ ] Configure API permissions (User.Read, email, profile)
-  - [ ] Enable ID tokens and access tokens
-  - [ ] Configure token lifetimes (1 hour access, 24 hour refresh)
-- [ ] Set up user flows for sign-up and sign-in
-  - [ ] Email + password authentication
-  - [ ] Social providers (optional: Google, Microsoft)
-  - [ ] MFA configuration (optional but recommended)
+- [x] Create Azure Entra External ID tenant (Azure Portal) - **COMPLETED**
+  - ✅ Tenant Name: Brigade Santa Run
+  - ✅ Tenant ID: 50fcb752-2a4e-4efd-bdc2-e18a5042c5a8
+  - ✅ Domain: brigadesantarun.onmicrosoft.com
+- [x] Create comprehensive configuration guide (`docs/ENTRA_EXTERNAL_ID_SETUP.md`) - **COMPLETED**
+  - ✅ Step-by-step app registration instructions
+  - ✅ Redirect URI configuration for local dev and production
+  - ✅ API permissions setup (User.Read, email, profile, openid)
+  - ✅ Token configuration and optional claims
+  - ✅ User flows for email authentication with OTP
+  - ✅ Troubleshooting guide and security best practices
+  - ✅ Authentication flow diagrams
 
 **MSAL Integration:**
-- [ ] Install `@azure/msal-browser` and `@azure/msal-react`
-- [ ] Create MSAL configuration (`src/auth/msalConfig.ts`)
-  - [ ] Client ID from Entra app registration
-  - [ ] Authority URL (tenant-specific)
-  - [ ] Redirect URIs
-  - [ ] Scopes (User.Read, email, profile)
+- [x] Install `@azure/msal-browser` and `@azure/msal-react` - **COMPLETED**
+- [x] Create MSAL configuration (`src/auth/msalConfig.ts`) - **COMPLETED**
+  - [x] Client ID from Entra app registration
+  - [x] Authority URL (tenant-specific)
+  - [x] Redirect URIs with fallback
+  - [x] Scopes (User.Read, email, profile, openid)
+  - [x] Token request configuration
+  - [x] Protected resources definition
+  - [x] Logging configuration (dev/prod modes)
+  - [x] Configuration validation helpers
+  - [x] User-friendly error message handling
+- [x] Update environment variables template (`.env.example`) - **COMPLETED**
+  - [x] Added Entra External ID configuration section
+  - [x] Pre-filled tenant ID and authority URL
+  - [x] Documentation references
+
+**Phase 7B: Authentication Integration & Protected Routes** ⏳ **NEXT**
 - [ ] Implement `MsalProvider` wrapper in `src/main.tsx`
 - [ ] Update `AuthContext` to use MSAL for production mode
   - [ ] `useMsal()` hook for authentication state
