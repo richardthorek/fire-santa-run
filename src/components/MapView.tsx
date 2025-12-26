@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { MAPBOX_CONFIG } from '../config/mapbox';
 import type { Waypoint } from '../types';
 
 // Import Mapbox token from config
@@ -57,7 +58,7 @@ export function MapView({
         center,
         zoom,
         interactive,
-        collectResourceTiming: false, // Disable telemetry to prevent ERR_BLOCKED_BY_CLIENT errors
+        ...MAPBOX_CONFIG,
       });
 
       if (showControls) {

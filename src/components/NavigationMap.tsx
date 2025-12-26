@@ -6,6 +6,7 @@
 import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { MAPBOX_CONFIG } from '../config/mapbox';
 import type { Route } from '../types';
 import type { GeolocationCoordinates } from '../hooks/useGeolocation';
 
@@ -35,7 +36,7 @@ export function NavigationMap({ route, userPosition, completedWaypointIds }: Nav
       zoom: 14,
       pitch: 45, // 3D perspective for navigation
       bearing: 0,
-      collectResourceTiming: false, // Disable telemetry to prevent ERR_BLOCKED_BY_CLIENT errors
+      ...MAPBOX_CONFIG,
     });
 
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
