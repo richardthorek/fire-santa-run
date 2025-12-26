@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './App.css';
 import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
@@ -9,6 +9,7 @@ import { ProtectedRoute } from './components';
 import type { Route as RouteType } from './types';
 
 // Lazy load pages for code splitting
+const LandingPage = lazy(() => import('./pages').then(m => ({ default: m.LandingPage })));
 const Dashboard = lazy(() => import('./pages').then(m => ({ default: m.Dashboard })));
 const RouteEditor = lazy(() => import('./pages').then(m => ({ default: m.RouteEditor })));
 const NavigationView = lazy(() => import('./pages').then(m => ({ default: m.NavigationView })));
@@ -90,13 +91,16 @@ function App() {
       <div style={{ paddingTop: isDevMode ? '2.5rem' : 0, height: '100%', width: '100%' }}>
         <Suspense fallback={<PageLoader />}>
           <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/track/:id" element={<TrackingViewWrapper />} />
+            
             {/* Authentication Routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/logout" element={<LogoutPage />} />
             <Route path="/auth/callback" element={<CallbackPage />} />
             
             {/* Protected Routes - Require authentication (except in dev mode) */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/profile" element={
               <ProtectedRoute>
                 <ProfilePage />
@@ -144,7 +148,6 @@ function App() {
             } />
             
             {/* Public Routes - No authentication required */}
-            <Route path="/track/:id" element={<TrackingViewWrapper />} />
             
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
