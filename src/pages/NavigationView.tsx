@@ -32,6 +32,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     startNavigation,
     stopNavigation,
     completeWaypoint,
+    skipToNextWaypoint,
   } = useNavigation({
     route,
     onRouteComplete: async () => {
@@ -106,6 +107,10 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
       completeWaypoint(navigationState.nextWaypoint.id);
     }
   }, [navigationState.nextWaypoint, completeWaypoint]);
+
+  const handleSkipToNext = useCallback(() => {
+    skipToNextWaypoint();
+  }, [skipToNextWaypoint]);
 
   // Determine if waypoint can be completed (within 100m)
   const canCompleteWaypoint =
@@ -304,9 +309,11 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
         routeProgress={navigationState.routeProgress}
         canCompleteWaypoint={canCompleteWaypoint || false}
         onCompleteWaypoint={handleCompleteWaypoint}
+        onSkipToNext={handleSkipToNext}
         onStopNavigation={handleStopNavigation}
         completedWaypoints={navigationState.completedWaypointIds.length}
         totalWaypoints={route.waypoints.length}
+        waypoints={route.waypoints}
       />
     </div>
   );

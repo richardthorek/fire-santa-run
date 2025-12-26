@@ -197,6 +197,14 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     }
   }, [updatedRoute, onWaypointComplete, onRouteComplete, voiceEnabled]);
 
+  // Skip to next waypoint manually (complete current without proximity check)
+  const skipToNextWaypoint = useCallback(() => {
+    const nextWaypoint = findNextWaypoint(updatedRoute.waypoints);
+    if (nextWaypoint) {
+      completeWaypoint(nextWaypoint.id);
+    }
+  }, [updatedRoute.waypoints, completeWaypoint]);
+
   // Reroute when off course
   const reroute = useCallback(async () => {
     if (!position || !navigationState.nextWaypoint || isRerouting) return;
@@ -307,6 +315,7 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     startNavigation,
     stopNavigation,
     completeWaypoint,
+    skipToNextWaypoint,
     reroute,
   };
 }
