@@ -266,6 +266,43 @@ export class MembershipService {
   }
 
   /**
+   * Reject a pending membership (admin only).
+   * 
+   * @param adminId - Admin rejecting the membership
+   * @param brigadeId - Brigade ID
+   * @param userId - User to reject
+   * @param reason - Optional reason for rejection
+   * @returns Service result
+   */
+  async rejectMembership(
+    adminId: string,
+    brigadeId: string,
+    userId: string,
+    _reason?: string
+  ): Promise<ServiceResult> {
+    // Validate admin membership
+    const adminMembership = await this.storage.getMembership(brigadeId, adminId);
+    if (!adminMembership || adminMembership.role !== 'admin') {
+      return { success: false, error: 'Only admins can reject memberships' };
+    }
+
+    // Get pending membership
+    const membership = await this.storage.getMembership(brigadeId, userId);
+    if (!membership) {
+      return { success: false, error: 'Membership not found' };
+    }
+
+    if (membership.status !== 'pending') {
+      return { success: false, error: 'Membership is not pending approval' };
+    }
+
+    // Delete the membership (rejection means removal)
+    await this.storage.deleteMembership(brigadeId, userId);
+
+    return { success: true };
+  }
+
+  /**
    * Promote a member to admin (admin only).
    * Validates admin eligibility and brigade constraints.
    * 

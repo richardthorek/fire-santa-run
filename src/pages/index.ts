@@ -5,6 +5,8 @@ export { TrackingView } from './TrackingView';
 export { RouteDetail } from './RouteDetail';
 export { ProfilePage } from './ProfilePage';
 export { BrigadeClaimingPage } from './BrigadeClaimingPage';
+export { MemberManagementPage } from './MemberManagementPage';
+export { InvitationAcceptancePage } from './InvitationAcceptancePage';
 export { LoginPage, LogoutPage, CallbackPage } from './auth';
 
 export type { RouteEditorProps } from './RouteEditor';

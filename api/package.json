@@ -16,9 +16,13 @@
   "dependencies": {
     "@azure/data-tables": "^13.3.2",
     "@azure/functions": "^4.10.0",
-    "@azure/web-pubsub": "^1.2.0"
+    "@azure/identity": "^4.13.0",
+    "@azure/web-pubsub": "^1.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "jwks-rsa": "^3.2.0"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.10.1",
     "azure-functions-core-tools": "^4.0.5907",
     "rimraf": "^6.0.1",
