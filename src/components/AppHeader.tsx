@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, useBrigade } from '../context';
 import { COLORS } from '../utils/constants';
 
@@ -20,6 +20,7 @@ export interface AppHeaderProps {
 export function AppHeader({ show = true }: AppHeaderProps) {
   const { user, logout } = useAuth();
   const { brigade } = useBrigade();
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +45,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
-    window.location.href = '/login';
+    navigate('/login');
   };
 
   return (
@@ -58,20 +59,6 @@ export function AppHeader({ show = true }: AppHeaderProps) {
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       }}
     >
-      <style>
-        {`
-          @media (max-width: 640px) {
-            .brand-text, .user-name {
-              display: none;
-            }
-          }
-          @media (min-width: 641px) {
-            .brand-text, .user-name {
-              display: inline;
-            }
-          }
-        `}
-      </style>
       <div
         style={{
           display: 'flex',
