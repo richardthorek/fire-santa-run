@@ -2923,32 +2923,32 @@ This phase completes the remaining testing and migration tasks from Phase 6a.
 - [x] Show confirmation message with email validation status
 - [x] Add `getBrigadeByRFSId()` to storage adapters (local and Azure)
 
-**Member Invitation UI (Using Phase 6a APIs):**
-- [ ] Create member management page (`/dashboard/:brigadeId/members`)
-  - [ ] List current members with roles
-  - [ ] "Invite Member" button
-  - [ ] Pending invitations list
-  - [ ] Pending approval list (for admins)
-- [ ] Create invitation modal
-  - [ ] Email input with validation
-  - [ ] Role selection (operator/viewer for non-admins, admin for admins)
-  - [ ] Optional personal message
-  - [ ] Send invitation
-- [ ] Create invitation acceptance page (`/invitations/:token`)
-  - [ ] Show invitation details (brigade, inviter, role)
-  - [ ] Accept/Decline buttons
-  - [ ] Redirect to brigade dashboard on acceptance
-  - [ ] Handle expired invitations
+**Member Invitation UI (Using Phase 6a APIs):** ✅ **COMPLETED** (Dec 26, 2024)
+- [x] Create member management page (`/dashboard/:brigadeId/members`)
+  - [x] List current members with roles
+  - [x] "Invite Member" button
+  - [x] Pending invitations list
+  - [x] Pending approval list (for admins)
+- [x] Create invitation modal
+  - [x] Email input with validation
+  - [x] Role selection (operator/viewer for non-admins, admin for admins)
+  - [x] Optional personal message
+  - [x] Send invitation
+- [x] Create invitation acceptance page (`/invitations/:token`)
+  - [x] Show invitation details (brigade, inviter, role)
+  - [x] Accept/Decline buttons
+  - [x] Redirect to brigade dashboard on acceptance
+  - [x] Handle expired invitations
 
-**Member Approval Workflow (Using Phase 6a APIs):**
-- [ ] Add pending approvals section to admin dashboard
-  - [ ] List pending memberships with user details
-  - [ ] Approve/Reject buttons
-  - [ ] Batch approval option
-- [ ] Implement approval notifications
+**Member Approval Workflow (Using Phase 6a APIs):** ✅ **COMPLETED** (Dec 26, 2024)
+- [x] Add pending approvals section to admin dashboard
+  - [x] List pending memberships with user details
+  - [x] Approve/Reject buttons
+  - [ ] Batch approval option (future enhancement)
+- [ ] Implement approval notifications (future enhancement)
   - [ ] Email notification on approval
   - [ ] Email notification on rejection with reason
-- [ ] Auto-approval based on domain whitelist
+- [ ] Auto-approval based on domain whitelist (API implementation pending)
   - [ ] Check `allowedDomains` and `allowedEmails`
   - [ ] Skip manual approval if match found
 

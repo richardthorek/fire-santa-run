@@ -274,8 +274,18 @@ export function MemberManagementPage() {
                     key={invitation.id}
                     invitation={invitation}
                     onCancel={async () => {
-                      // TODO: Implement cancel invitation
-                      await loadData();
+                      if (!confirm('Cancel this invitation?')) return;
+                      
+                      try {
+                        // Update invitation status to cancelled
+                        invitation.status = 'cancelled';
+                        invitation.updatedAt = new Date().toISOString();
+                        await storageAdapter.saveInvitation(invitation);
+                        await loadData();
+                      } catch (err) {
+                        console.error('Failed to cancel invitation:', err);
+                        alert('Failed to cancel invitation');
+                      }
                     }}
                   />
                 ))}
@@ -301,16 +311,60 @@ export function MemberManagementPage() {
                   currentUserId={authUser?.id}
                   hasManagePermission={hasManagePermission}
                   onRemove={async () => {
-                    // TODO: Implement remove member
-                    await loadData();
+                    if (!authUser || !brigadeId) return;
+                    if (!confirm('Are you sure you want to remove this member?')) return;
+                    
+                    try {
+                      const targetUser = await storageAdapter.getUser(membership.userId);
+                      const result = await membershipService.removeMember(authUser.id, brigadeId, membership.userId);
+                      if (result.success) {
+                        logMemberRemoved(
+                          authUser.id,
+                          authUser.email,
+                          membership.userId,
+                          targetUser?.email || 'unknown',
+                          brigadeId
+                        );
+                        await loadData();
+                      } else {
+                        alert(result.error || 'Failed to remove member');
+                      }
+                    } catch (err) {
+                      console.error('Failed to remove member:', err);
+                      alert('Failed to remove member');
+                    }
                   }}
                   onPromote={async () => {
-                    // TODO: Implement promote to admin
-                    await loadData();
+                    if (!authUser || !brigadeId) return;
+                    if (!confirm('Promote this member to admin? They will have full brigade management permissions.')) return;
+                    
+                    try {
+                      const result = await membershipService.promoteToAdmin(authUser.id, brigadeId, membership.userId);
+                      if (result.success) {
+                        await loadData();
+                      } else {
+                        alert(result.error || 'Failed to promote member');
+                      }
+                    } catch (err) {
+                      console.error('Failed to promote member:', err);
+                      alert('Failed to promote member');
+                    }
                   }}
                   onDemote={async () => {
-                    // TODO: Implement demote from admin
-                    await loadData();
+                    if (!authUser || !brigadeId) return;
+                    if (!confirm('Demote this admin to operator? They will lose admin permissions.')) return;
+                    
+                    try {
+                      const result = await membershipService.demoteFromAdmin(authUser.id, brigadeId, membership.userId);
+                      if (result.success) {
+                        await loadData();
+                      } else {
+                        alert(result.error || 'Failed to demote admin');
+                      }
+                    } catch (err) {
+                      console.error('Failed to demote admin:', err);
+                      alert('Failed to demote admin');
+                    }
                   }}
                 />
               ))}

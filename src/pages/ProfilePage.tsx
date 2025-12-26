@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { storageAdapter } from '../storage';
+import { MembershipService } from '../services/membershipService';
 import { RoleBadge } from '../components';
 import { COLORS } from '../utils/constants';
 import type { BrigadeMembership } from '../types/membership';
+
+const membershipService = new MembershipService(storageAdapter);
 
 /**
  * User Profile Page
@@ -372,7 +375,7 @@ export function ProfilePage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {memberships.map((membership) => (
-                <MembershipCard key={membership.id} membership={membership} />
+                <MembershipCard key={membership.id} membership={membership} userId={user.id} />
               ))}
             </div>
           )}
@@ -383,9 +386,10 @@ export function ProfilePage() {
 }
 
 // Helper component for membership cards
-function MembershipCard({ membership }: { membership: BrigadeMembership }) {
+function MembershipCard({ membership, userId }: { membership: BrigadeMembership; userId: string }) {
   const [brigade, setBrigade] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [leaving, setLeaving] = useState(false);
 
   // Load brigade details
   useEffect(() => {
@@ -401,6 +405,33 @@ function MembershipCard({ membership }: { membership: BrigadeMembership }) {
     };
     loadBrigade();
   }, [membership.brigadeId]);
+
+  const handleLeaveBrigade = async () => {
+    if (membership.role === 'admin' && brigade && brigade.adminUserIds.length <= 1) {
+      alert('You cannot leave this brigade because you are the last admin. Please promote another member to admin first.');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to leave ${brigade?.name || 'this brigade'}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setLeaving(true);
+    try {
+      const result = await membershipService.leaveBrigade(userId, membership.brigadeId);
+      if (result.success) {
+        // Refresh the page to update memberships
+        window.location.reload();
+      } else {
+        alert(result.error || 'Failed to leave brigade');
+      }
+    } catch (err) {
+      console.error('Failed to leave brigade:', err);
+      alert('Failed to leave brigade');
+    } finally {
+      setLeaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -481,22 +512,40 @@ function MembershipCard({ membership }: { membership: BrigadeMembership }) {
       </div>
 
       {membership.status === 'active' && (
-        <Link
-          to={`/dashboard/${membership.brigadeId}`}
-          style={{
-            display: 'inline-block',
-            marginTop: '0.5rem',
-            padding: '0.5rem 1rem',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            color: COLORS.fireRed,
-            textDecoration: 'none',
-            border: `1px solid ${COLORS.fireRed}`,
-            borderRadius: '8px',
-          }}
-        >
-          Go to Dashboard →
-        </Link>
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+          <Link
+            to={`/dashboard/${membership.brigadeId}`}
+            style={{
+              display: 'inline-block',
+              padding: '0.5rem 1rem',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: COLORS.fireRed,
+              textDecoration: 'none',
+              border: `1px solid ${COLORS.fireRed}`,
+              borderRadius: '8px',
+            }}
+          >
+            Go to Dashboard →
+          </Link>
+          <button
+            onClick={handleLeaveBrigade}
+            disabled={leaving}
+            style={{
+              padding: '0.5rem 1rem',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: COLORS.neutral700,
+              background: 'transparent',
+              border: `1px solid ${COLORS.neutral300}`,
+              borderRadius: '8px',
+              cursor: leaving ? 'not-allowed' : 'pointer',
+              opacity: leaving ? 0.7 : 1,
+            }}
+          >
+            {leaving ? 'Leaving...' : 'Leave Brigade'}
+          </button>
+        </div>
       )}
     </div>
   );
