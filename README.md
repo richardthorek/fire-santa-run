@@ -135,23 +135,30 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 
 ## Documentation
 
+### Product Planning & Roadmap
+- 🗺️ **[ROADMAP.md](./ROADMAP.md)** - **NEW!** 6-month product roadmap with Release 1 summary and future releases
+- 📊 **[Release 1 Summary](./docs/RELEASE_1_SUMMARY.md)** - **NEW!** Complete implementation summary and achievements
+- 📋 **[Missing Features Analysis](./MISSING_FEATURES_ANALYSIS.md)** - Known gaps and future enhancements
+- 📘 **[Master Plan](./MASTER_PLAN.md)** - Comprehensive technical architecture (4,700+ lines)
+
 ### Setup Guides
-- 🚀 **[Development Mode Guide](./docs/DEV_MODE.md)** - **NEW!** Rapid development without auth barriers
-- 📘 **[Master Plan](./MASTER_PLAN.md)** - Comprehensive architecture and feature roadmap
+- 🚀 **[Development Mode Guide](./docs/DEV_MODE.md)** - Rapid development without auth barriers
 - 🔐 **[Secrets Management](./docs/SECRETS_MANAGEMENT.md)** - API keys and environment variables setup
 - ☁️ **[Azure Storage Setup](./docs/AZURE_SETUP.md)** - Step-by-step Azure Table Storage configuration
 - 🤖 **[GitHub Copilot Instructions](./.github/copilot-instructions.md)** - Guidelines for AI-assisted development
 
 ### For Developers
-- **Authentication Strategy:** Phase 7 implementation (dev mode bypass enabled for Phases 1-6)
+- **Current Status:** Release 1 complete (15/15 core features ✅)
+- **Next Release:** Release 2.1 (January 2025) - Social previews, analytics, route optimization
 - Architecture overview and data models in [MASTER_PLAN.md](./MASTER_PLAN.md)
+- Implementation phases documented in [docs/RELEASE_1_SUMMARY.md](./docs/RELEASE_1_SUMMARY.md)
 - TypeScript interfaces in `src/types/`
 - Storage adapter pattern in `src/storage/` (supports localStorage and Azure)
 
 ### For Brigades
-- User guide: Coming soon
-- Best practices for GPS tracking: Coming soon
-- Social media sharing tips: Coming soon
+- Admin guide: [docs/ADMIN_USER_GUIDE.md](./docs/ADMIN_USER_GUIDE.md)
+- Navigation quick reference: [docs/NAVIGATION_QUICK_REFERENCE.md](./docs/NAVIGATION_QUICK_REFERENCE.md)
+- Share panel visual guide: [docs/SHARE_PANEL_VISUAL_GUIDE.md](./docs/SHARE_PANEL_VISUAL_GUIDE.md)
 
 ## Architecture
 
