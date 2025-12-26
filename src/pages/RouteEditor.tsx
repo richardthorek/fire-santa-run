@@ -172,9 +172,9 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                 color: '#616161',
                 marginLeft: '1rem',
               }}>
-                <span>📍 {route.waypoints.length} stops</span>
-                {route.distance && <span>🛣️ {formatDistance(route.distance)}</span>}
-                {route.estimatedDuration && <span>⏱️ {formatDuration(route.estimatedDuration)}</span>}
+                <span><span aria-hidden="true">📍</span> {route.waypoints.length} stops</span>
+                {route.distance && <span><span aria-hidden="true">🛣️</span> {formatDistance(route.distance)}</span>}
+                {route.estimatedDuration && <span><span aria-hidden="true">⏱️</span> {formatDuration(route.estimatedDuration)}</span>}
               </div>
             )}
           </div>
@@ -315,7 +315,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
 
       {/* Floating Right Sidebar Panel */}
       <div 
-        className="floating-sidebar"
+        className="route-editor-sidebar"
         style={{
         position: 'absolute',
         top: '6rem',
@@ -454,17 +454,17 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
       <style>
         {`
           @media (max-width: 768px) {
-            .floating-sidebar {
-              top: auto !important;
-              bottom: 0 !important;
-              right: 0 !important;
-              left: 0 !important;
-              width: 100% !important;
-              max-height: 60vh !important;
-              border-bottom-left-radius: 0 !important;
-              border-bottom-right-radius: 0 !important;
-              border-top-left-radius: 20px !important;
-              border-top-right-radius: 20px !important;
+            .route-editor-sidebar {
+              top: auto;
+              bottom: 0;
+              right: 0;
+              left: 0;
+              width: 100%;
+              max-height: 60vh;
+              border-bottom-left-radius: 0;
+              border-bottom-right-radius: 0;
+              border-top-left-radius: 20px;
+              border-top-right-radius: 20px;
             }
           }
         `}
