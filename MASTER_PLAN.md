@@ -1320,6 +1320,7 @@ interface User {
   name: string;                      // Display name
   entraUserId?: string;              // Microsoft Entra External ID user ID (when authenticated via Entra)
   emailVerified: boolean;            // Email verification status
+  verifiedBrigades?: string[];       // Brigade IDs where user has approved admin verification (for non-.gov.au emails)
   createdAt: string;                 // ISO 8601 timestamp
   lastLoginAt?: string;              // Last login timestamp
   profilePicture?: string;           // URL or base64 encoded image
@@ -1408,6 +1409,56 @@ interface MemberInvitation {
   createdAt: string;
   updatedAt: string;
 }
+
+interface AdminVerificationRequest {
+  id: string;                        // Unique verification request identifier (UUID)
+  userId: string;                    // User requesting admin verification
+  brigadeId: string;                 // Brigade they want to become admin of
+  email: string;                     // User's email (non-.gov.au)
+  
+  // Evidence
+  evidenceFiles: EvidenceFile[];     // Uploaded proof documents (ID, certificates, letters)
+  explanation: string;               // User's explanation (50-500 characters)
+  
+  // Status
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  
+  // Review (Site Owner)
+  reviewedBy?: string;               // Site owner user ID who reviewed
+  reviewedAt?: string;               // Review timestamp
+  reviewNotes?: string;              // Site owner's review notes/reason (private)
+  
+  // Metadata
+  submittedAt: string;               // When user submitted request
+  expiresAt: string;                 // Auto-expire after 30 days
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface EvidenceFile {
+  id: string;                        // Unique file identifier (UUID)
+  filename: string;                  // Original filename
+  contentType: string;               // MIME type: 'image/jpeg', 'image/png', 'image/heic', 'application/pdf'
+  size: number;                      // File size in bytes
+  url: string;                       // Azure Blob Storage URL (secured with SAS token)
+  uploadedAt: string;                // Upload timestamp
+}
+
+interface SiteOwner {
+  id: string;                        // Unique identifier (UUID)
+  userId: string;                    // Reference to User record
+  isSuperAdmin: boolean;             // Can access all system functions
+  permissions: SiteOwnerPermission[]; // Granular permissions
+  createdAt: string;
+  createdBy: string;                 // Who granted site owner access
+}
+
+type SiteOwnerPermission = 
+  | 'review_verifications'           // Review admin verification requests
+  | 'manage_brigades'                // View/edit all brigades (oversight)
+  | 'view_audit_logs'                // Access system audit logs
+  | 'manage_site_owners'             // Add/remove other site owners
+  | 'system_settings';               // Modify system-wide settings
 
 interface Route {
   id: string;
@@ -1498,10 +1549,23 @@ This section defines the comprehensive business logic for user authentication, b
 - No local password storage
 
 **Email Domain Rules:**
-- **Regular members:** Can use any organizational email or .gov.au addresses
-- **Brigade admins:** **MUST** use email addresses ending in `.gov.au`
-- **Brigade claiming:** Only users with `.gov.au` email can claim unclaimed brigades
+- **Regular members:** Can use any organizational email or personal email addresses
+- **Brigade admins:** **EITHER** `.gov.au` email **OR** approved admin verification request
+- **Brigade claiming:** `.gov.au` email **OR** approved admin verification request
 - **Validation:** Email domain checked during registration and role promotion
+
+**Admin Verification Pathways:**
+
+**Pathway 1: Automatic (.gov.au email)**
+- Users with `.gov.au` emails can immediately become admins
+- No manual verification required
+- Instant brigade claiming allowed
+
+**Pathway 2: Manual Verification (Non-.gov.au email)**
+- Users without `.gov.au` email upload evidence of brigade membership
+- Evidence reviewed and approved by site owner (super admin)
+- Once approved, user can claim brigade or be promoted to admin
+- Required for states that don't issue government emails to volunteers
 
 **Email Validation Logic:**
 ```typescript
@@ -1509,12 +1573,28 @@ function isGovernmentEmail(email: string): boolean {
   return email.toLowerCase().endsWith('.gov.au');
 }
 
-function canBecomeAdmin(email: string): boolean {
-  return isGovernmentEmail(email);
+function hasApprovedVerification(userId: string, brigadeId: string): boolean {
+  const request = getVerificationRequest(userId, brigadeId);
+  return request?.status === 'approved';
 }
 
-function canClaimBrigade(email: string): boolean {
-  return isGovernmentEmail(email);
+function canBecomeAdmin(user: User, brigadeId: string): { eligible: boolean; method?: string } {
+  // Method 1: Auto-verify with .gov.au email
+  if (isGovernmentEmail(user.email)) {
+    return { eligible: true, method: 'auto-verified' };
+  }
+  
+  // Method 2: Check for approved verification request
+  if (hasApprovedVerification(user.id, brigadeId)) {
+    return { eligible: true, method: 'manually-verified' };
+  }
+  
+  return { eligible: false };
+}
+
+function canClaimBrigade(user: User, brigadeId: string): boolean {
+  const adminCheck = canBecomeAdmin(user, brigadeId);
+  return adminCheck.eligible;
 }
 ```
 
@@ -1525,8 +1605,11 @@ function canClaimBrigade(email: string): boolean {
 - Unclaimed brigades exist in system but have no members
 - Public can view routes from unclaimed brigades (historical data)
 
+**Claiming Eligibility (Two Pathways):**
+1. User has `.gov.au` email address (instant claiming)
+2. User has approved AdminVerificationRequest for this brigade (after site owner review)
+
 **Claiming Workflow:**
-```
 1. User with .gov.au email searches for their brigade
 2. System shows unclaimed brigades from RFS dataset
 3. User selects brigade and clicks "Claim Brigade"
@@ -2539,6 +2622,14 @@ This phase updates all data schemas, storage adapters, and TypeScript interfaces
   - [ ] Invitation token generation
   - [ ] Expiration tracking
   - [ ] Status management
+- [ ] Create AdminVerificationRequest interface (`src/types/verification.ts`)
+  - [ ] Evidence file handling (photos, PDFs)
+  - [ ] Status tracking (pending, approved, rejected, expired)
+  - [ ] Site owner review fields
+- [ ] Create EvidenceFile interface for verification uploads
+- [ ] Create SiteOwner interface and permissions system
+- [ ] Update User interface
+  - [ ] Add `verifiedBrigades: string[]` field for tracking approved verifications
 - [ ] Update Route interface
   - [ ] Change `createdBy` from email to user ID reference
 
@@ -2558,33 +2649,52 @@ This phase updates all data schemas, storage adapters, and TypeScript interfaces
 - [ ] Implement invitation operations in `LocalStorageAdapter`
   - [ ] `saveInvitation()`, `getInvitation()`, `getInvitationByToken()`
   - [ ] `getPendingInvitations()`, `expireInvitations()`
+- [ ] Implement verification request operations in `LocalStorageAdapter`
+  - [ ] `saveVerificationRequest()`, `getVerificationRequest()`
+  - [ ] `getPendingVerifications()`, `getVerificationsByUser()`
+  - [ ] `approveVerification()`, `rejectVerification()`
 - [ ] Implement all new operations in `AzureTableStorageAdapter`
   - [ ] Create `users` table schema
   - [ ] Create `memberships` table schema (partition: brigadeId, row: userId)
   - [ ] Create `invitations` table schema
+  - [ ] Create `verificationrequests` table schema
   - [ ] Implement efficient queries for membership lookups
+  - [ ] Set up Azure Blob Storage for evidence file uploads
 
 **Business Logic Implementation:**
 - [ ] Create `src/utils/membershipRules.ts` with validation functions
-  - [ ] `canBecomeAdmin()` - Check .gov.au email requirement
-  - [ ] `canClaimBrigade()` - Validate brigade claiming eligibility
+  - [ ] `canBecomeAdmin()` - Check .gov.au email OR approved verification
+  - [ ] `canClaimBrigade()` - Validate brigade claiming eligibility (both pathways)
   - [ ] `validateAdminCount()` - Enforce 1-2 admin rule
   - [ ] `canRemoveMember()` - Check admin removal constraints
   - [ ] `canLeaveBrigade()` - Validate leave eligibility
   - [ ] `isInvitationValid()` - Check invitation expiration and status
+  - [ ] `hasApprovedVerification()` - Check if user has approved verification for brigade
 - [ ] Create `src/utils/emailValidation.ts`
   - [ ] `isGovernmentEmail()` - Regex for .gov.au validation
   - [ ] `matchesAllowedDomains()` - Check domain whitelist
   - [ ] `isAutoApproved()` - Check auto-approval eligibility
+- [ ] Create `src/utils/fileValidation.ts` for verification evidence
+  - [ ] `validateFileType()` - Check allowed MIME types
+  - [ ] `validateFileSize()` - Check size limits (5MB per file, 10MB total)
+  - [ ] `scanForMalware()` - Security scanning integration
 - [ ] Create `src/services/membershipService.ts` with core operations
   - [ ] `claimBrigade()` - Brigade claiming workflow
   - [ ] `inviteMember()` - Send member invitation
   - [ ] `acceptInvitation()` - Process invitation acceptance
   - [ ] `approveMembership()` - Admin approval workflow
-  - [ ] `promoteToAdmin()` - Admin promotion with validation
+  - [ ] `promoteToAdmin()` - Admin promotion with validation (both pathways)
   - [ ] `demoteFromAdmin()` - Admin demotion with safeguards
   - [ ] `removeMember()` - Member removal with constraints
   - [ ] `leaveBrigade()` - Self-service leave with admin checks
+- [ ] Create `src/services/verificationService.ts` for admin verification
+  - [ ] `submitVerificationRequest()` - User submits evidence
+  - [ ] `uploadEvidenceFile()` - Upload to Azure Blob Storage
+  - [ ] `getVerificationRequest()` - Retrieve request details
+  - [ ] `reviewVerificationRequest()` - Site owner review
+  - [ ] `approveVerification()` - Site owner approval
+  - [ ] `rejectVerification()` - Site owner rejection
+  - [ ] `expireOldRequests()` - Auto-expire after 30 days
 
 **API Endpoints (Azure Functions):**
 - [ ] Create `/api/users/*` endpoints
@@ -2606,16 +2716,32 @@ This phase updates all data schemas, storage adapters, and TypeScript interfaces
   - [ ] `POST /api/invitations/:token/accept` - Accept invitation
   - [ ] `POST /api/invitations/:token/decline` - Decline invitation
   - [ ] `DELETE /api/invitations/:invitationId` - Cancel invitation
+- [ ] Create `/api/verification/*` endpoints for admin verification
+  - [ ] `POST /api/verification/request` - Submit verification request with evidence
+  - [ ] `POST /api/verification/upload` - Upload evidence file to Azure Blob Storage
+  - [ ] `GET /api/verification/requests/:requestId` - Get request details
+  - [ ] `GET /api/verification/user/:userId` - Get user's verification requests
+- [ ] Create `/api/admin/verification/*` endpoints (site owner only)
+  - [ ] `GET /api/admin/verification/pending` - List pending verification requests
+  - [ ] `GET /api/admin/verification/requests/:requestId` - Get request with evidence
+  - [ ] `POST /api/admin/verification/requests/:requestId/approve` - Approve request
+  - [ ] `POST /api/admin/verification/requests/:requestId/reject` - Reject request
+  - [ ] `GET /api/admin/verification/evidence/:fileId` - Get evidence file (SAS token)
 
 **Testing:**
-- [ ] Unit tests for membership validation rules
+- [ ] Unit tests for membership validation rules (with verification pathway)
 - [ ] Unit tests for email validation functions
+- [ ] Unit tests for file validation (types, sizes, security)
 - [ ] Integration tests for membership service operations
-- [ ] Test brigade claiming workflow end-to-end
-- [ ] Test admin promotion/demotion with constraints
+- [ ] Integration tests for verification request workflow
+- [ ] Test brigade claiming workflow end-to-end (both pathways)
+- [ ] Test admin promotion/demotion with constraints (both pathways)
 - [ ] Test member removal edge cases
 - [ ] Test multi-brigade membership scenarios
 - [ ] Test invitation expiration and cancellation
+- [ ] Test verification request submission and file upload
+- [ ] Test site owner review and approval/rejection workflow
+- [ ] Test verification expiration after 30 days
 
 **Documentation:**
 - [ ] Update API documentation with new endpoints
