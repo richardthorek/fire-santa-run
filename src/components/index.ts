@@ -12,6 +12,9 @@ export { ShareModal } from './ShareModal';
 export { SEO } from './SEO';
 export { SkeletonBox, RouteCardSkeleton, DashboardSkeleton, MapSkeleton } from './LoadingSkeleton';
 
+// Convenience export for LoadingSkeleton (for consistency)
+export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';
+
 export type { MapViewProps } from './MapView';
 export type { RouteStatusBadgeProps } from './RouteStatusBadge';
 export type { WaypointListProps } from './WaypointList';

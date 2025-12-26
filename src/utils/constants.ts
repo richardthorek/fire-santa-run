@@ -70,6 +70,8 @@ export const COLORS = {
   // Supporting Colors
   skyBlue: '#29B6F6',
   oceanBlue: '#0288D1',
+  sandBeige: '#FFECB3',
+  sandLight: '#FFF9E6',
   
   // Neutrals
   neutral50: '#FAFAFA',
