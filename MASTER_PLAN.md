@@ -1314,34 +1314,151 @@ class TrackingConnection {
 ### 12. Data Model
 
 ```typescript
+interface User {
+  id: string;                        // Unique user identifier (UUID)
+  email: string;                     // Primary email address
+  name: string;                      // Display name
+  entraUserId?: string;              // Microsoft Entra External ID user ID (when authenticated via Entra)
+  emailVerified: boolean;            // Email verification status
+  verifiedBrigades?: string[];       // Brigade IDs where user has approved admin verification (for non-.gov.au emails)
+  createdAt: string;                 // ISO 8601 timestamp
+  lastLoginAt?: string;              // Last login timestamp
+  profilePicture?: string;           // URL or base64 encoded image
+}
+
 interface Brigade {
-  id: string;
-  slug: string; // URL-friendly identifier
-  name: string; // "Griffith Rural Fire Service"
-  location: string; // "Griffith, NSW"
-  logo?: string; // URL or base64
-  themeColor?: string;
-  allowedDomains: string[]; // ['@griffithrfs.org.au', '@rfs.nsw.gov.au']
-  allowedEmails: string[]; // Specific approved emails
-  requireApproval: boolean; // Manual approval for new members
+  id: string;                        // Unique brigade identifier (UUID)
+  slug: string;                      // URL-friendly identifier (e.g., "griffith-rfs")
+  name: string;                      // Official brigade name (e.g., "Griffith Rural Fire Service")
+  location: string;                  // Location (e.g., "Griffith, NSW")
+  rfsStationId?: number;             // Reference to RFS dataset station (for verification)
+  logo?: string;                     // URL or base64 encoded logo
+  themeColor?: string;               // Custom theme color (hex)
+  
+  // Membership Configuration
+  allowedDomains: string[];          // Email domains for auto-approval (e.g., ['@griffithrfs.org.au'])
+  allowedEmails: string[];           // Specific approved email addresses
+  requireManualApproval: boolean;    // Require admin approval for new members
+  
+  // Admin Management
+  adminUserIds: string[];            // Array of user IDs who are admins (min: 1, max: 2)
+  
+  // Status
+  isClaimed: boolean;                // Whether brigade has been claimed by an admin
+  claimedAt?: string;                // When brigade was first claimed
+  claimedBy?: string;                // User ID of first admin who claimed it
+  
+  // Metadata
   contact?: {
     email?: string;
     phone?: string;
     website?: string;
   };
-  createdAt: string;
+  createdAt: string;                 // Brigade record creation date
+  updatedAt: string;                 // Last updated timestamp
 }
 
-interface BrigadeMember {
-  id: string;
-  brigadeId: string;
-  email: string;
-  name: string;
-  role: 'admin' | 'operator' | 'viewer';
-  entraUserId: string; // Microsoft Entra External ID user ID
-  approvedAt?: string;
-  approvedBy?: string;
+interface BrigadeMembership {
+  id: string;                        // Unique membership identifier (UUID)
+  brigadeId: string;                 // Foreign key to Brigade
+  userId: string;                    // Foreign key to User
+  role: 'admin' | 'operator' | 'viewer';  // User role within this brigade
+  
+  // Status
+  status: 'pending' | 'active' | 'suspended' | 'removed';  // Membership status
+  
+  // Approval Tracking
+  invitedBy?: string;                // User ID of member who invited this user
+  invitedAt?: string;                // When invitation was sent
+  approvedBy?: string;               // User ID of admin who approved membership
+  approvedAt?: string;               // When membership was approved
+  
+  // Activity
+  joinedAt?: string;                 // When user became active member
+  removedAt?: string;                // When user was removed (if applicable)
+  removedBy?: string;                // User ID of admin who removed this member
+  
+  // Metadata
+  createdAt: string;
+  updatedAt: string;
 }
+
+interface MemberInvitation {
+  id: string;                        // Unique invitation identifier (UUID)
+  brigadeId: string;                 // Brigade extending the invitation
+  email: string;                     // Email address of invitee
+  role: 'operator' | 'viewer';       // Proposed role (admin invitations handled separately)
+  
+  // Invitation Status
+  status: 'pending' | 'accepted' | 'declined' | 'expired' | 'cancelled';
+  
+  // Tracking
+  invitedBy: string;                 // User ID of member who sent invitation
+  invitedAt: string;                 // When invitation was sent
+  expiresAt: string;                 // Invitation expiration (typically 7 days)
+  acceptedAt?: string;               // When invitation was accepted
+  declinedAt?: string;               // When invitation was declined
+  
+  // Invitation Token
+  token: string;                     // Unique invitation token (for email link)
+  
+  // Message
+  personalMessage?: string;          // Optional message from inviter
+  
+  // Metadata
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AdminVerificationRequest {
+  id: string;                        // Unique verification request identifier (UUID)
+  userId: string;                    // User requesting admin verification
+  brigadeId: string;                 // Brigade they want to become admin of
+  email: string;                     // User's email (non-.gov.au)
+  
+  // Evidence
+  evidenceFiles: EvidenceFile[];     // Uploaded proof documents (ID, certificates, letters)
+  explanation: string;               // User's explanation (50-500 characters)
+  
+  // Status
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  
+  // Review (Site Owner)
+  reviewedBy?: string;               // Site owner user ID who reviewed
+  reviewedAt?: string;               // Review timestamp
+  reviewNotes?: string;              // Site owner's review notes/reason (private)
+  
+  // Metadata
+  submittedAt: string;               // When user submitted request
+  expiresAt: string;                 // Auto-expire after 30 days
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface EvidenceFile {
+  id: string;                        // Unique file identifier (UUID)
+  filename: string;                  // Original filename
+  contentType: string;               // MIME type: 'image/jpeg', 'image/png', 'image/heic', 'application/pdf'
+  size: number;                      // File size in bytes
+  url: string;                       // Azure Blob Storage URL (secured with SAS token)
+  uploadedAt: string;                // Upload timestamp
+}
+
+interface SiteOwner {
+  id: string;                        // Unique identifier (UUID)
+  userId: string;                    // Reference to User record
+  isSuperAdmin: boolean;             // Can access all system functions
+  permissions: SiteOwnerPermission[]; // Granular permissions
+  createdAt: string;
+  createdBy: string;                 // Who granted site owner access
+}
+
+type SiteOwnerPermission = 
+  | 'review_verifications'           // Review admin verification requests
+  | 'manage_brigades'                // View/edit all brigades (oversight)
+  | 'view_audit_logs'                // Access system audit logs
+  | 'manage_site_owners'             // Add/remove other site owners
+  | 'system_settings';               // Modify system-wide settings
 
 interface Route {
   id: string;
@@ -1359,7 +1476,7 @@ interface Route {
   estimatedDuration: number; // minutes
   actualDuration?: number; // minutes
   createdAt: string;
-  createdBy: string; // User email
+  createdBy: string; // User ID (references User.id)
   publishedAt?: string;
   startedAt?: string;
   completedAt?: string;
@@ -1419,7 +1536,511 @@ interface TrackingSession {
 
 ---
 
-### 12a. RFS Station Locations Dataset
+### 12a. Authentication & Membership Business Rules
+
+This section defines the comprehensive business logic for user authentication, brigade management, and membership administration in the Fire Santa Run application.
+
+#### 1. User Registration & Email Validation
+
+**Registration Requirements:**
+- Users register with their email address and name
+- Email verification required before account activation
+- Passwords managed by Microsoft Entra External ID (OAuth 2.0)
+- No local password storage
+
+**Email Domain Rules:**
+- **Regular members:** Can use any organizational email or personal email addresses
+- **Brigade admins:** **EITHER** `.gov.au` email **OR** approved admin verification request
+- **Brigade claiming:** `.gov.au` email **OR** approved admin verification request
+- **Validation:** Email domain checked during registration and role promotion
+
+**Admin Verification Pathways:**
+
+**Pathway 1: Automatic (.gov.au email)**
+- Users with `.gov.au` emails can immediately become admins
+- No manual verification required
+- Instant brigade claiming allowed
+
+**Pathway 2: Manual Verification (Non-.gov.au email)**
+- Users without `.gov.au` email upload evidence of brigade membership
+- Evidence reviewed and approved by site owner (super admin)
+- Once approved, user can claim brigade or be promoted to admin
+- Required for states that don't issue government emails to volunteers
+
+**Email Validation Logic:**
+```typescript
+function isGovernmentEmail(email: string): boolean {
+  return email.toLowerCase().endsWith('.gov.au');
+}
+
+function hasApprovedVerification(userId: string, brigadeId: string): boolean {
+  const request = getVerificationRequest(userId, brigadeId);
+  return request?.status === 'approved';
+}
+
+function canBecomeAdmin(user: User, brigadeId: string): { eligible: boolean; method?: string } {
+  // Method 1: Auto-verify with .gov.au email
+  if (isGovernmentEmail(user.email)) {
+    return { eligible: true, method: 'auto-verified' };
+  }
+  
+  // Method 2: Check for approved verification request
+  if (hasApprovedVerification(user.id, brigadeId)) {
+    return { eligible: true, method: 'manually-verified' };
+  }
+  
+  return { eligible: false };
+}
+
+function canClaimBrigade(user: User, brigadeId: string): boolean {
+  const adminCheck = canBecomeAdmin(user, brigadeId);
+  return adminCheck.eligible;
+}
+```
+
+#### 2. Brigade Claiming Process
+
+**Initial Brigade State:**
+- Brigades can be pre-seeded from RFS dataset with `isClaimed: false`
+- Unclaimed brigades exist in system but have no members
+- Public can view routes from unclaimed brigades (historical data)
+
+**Claiming Eligibility (Two Pathways):**
+1. User has `.gov.au` email address (instant claiming)
+2. User has approved AdminVerificationRequest for this brigade (after site owner review)
+
+**Claiming Workflow:**
+1. User with .gov.au email searches for their brigade
+2. System shows unclaimed brigades from RFS dataset
+3. User selects brigade and clicks "Claim Brigade"
+4. System validates:
+   ✅ User email ends with .gov.au
+   ✅ Brigade is unclaimed (isClaimed: false)
+   ✅ User is not already member of this brigade
+5. If valid:
+   - Set brigade.isClaimed = true
+   - Set brigade.claimedAt = current timestamp
+   - Set brigade.claimedBy = user.id
+   - Add user.id to brigade.adminUserIds[]
+   - Create BrigadeMembership with role: 'admin', status: 'active'
+6. User becomes first admin of brigade
+```
+
+**Post-Claiming:**
+- First admin can now invite additional members
+- First admin can promote one other member to admin (brigade needs 2 admins)
+- Brigade can customize settings (logo, theme, contact info)
+
+#### 3. Brigade Admin Management
+
+**Admin Requirements:**
+- **Minimum admins:** 1 (always enforced)
+- **Maximum admins:** 2 (hard limit)
+- **Email requirement:** All admins MUST have .gov.au email addresses
+
+**Admin Promotion:**
+```typescript
+async function promoteToAdmin(
+  brigadeId: string,
+  userId: string,
+  promotedBy: string
+): Promise<Result> {
+  const brigade = await getBrigade(brigadeId);
+  const user = await getUser(userId);
+  const membership = await getMembership(brigadeId, userId);
+  
+  // Validation checks
+  if (!canBecomeAdmin(user.email)) {
+    return { error: 'Admin must have .gov.au email address' };
+  }
+  
+  if (brigade.adminUserIds.length >= 2) {
+    return { error: 'Brigade already has maximum 2 admins' };
+  }
+  
+  if (membership.status !== 'active') {
+    return { error: 'User must be active member' };
+  }
+  
+  if (membership.role === 'admin') {
+    return { error: 'User is already an admin' };
+  }
+  
+  // Promote to admin
+  brigade.adminUserIds.push(userId);
+  membership.role = 'admin';
+  
+  await saveBrigade(brigade);
+  await saveMembership(membership);
+  
+  return { success: true };
+}
+```
+
+**Admin Demotion:**
+```typescript
+async function demoteFromAdmin(
+  brigadeId: string,
+  userId: string,
+  demotedBy: string
+): Promise<Result> {
+  const brigade = await getBrigade(brigadeId);
+  
+  // Cannot demote if only 1 admin (would leave brigade with no admins)
+  if (brigade.adminUserIds.length <= 1) {
+    return { error: 'Cannot demote last admin. Brigade must have at least 1 admin.' };
+  }
+  
+  // Cannot demote yourself if you're the last admin
+  if (userId === demotedBy && brigade.adminUserIds.length === 1) {
+    return { error: 'Cannot demote yourself as last admin' };
+  }
+  
+  // Remove from admin list
+  brigade.adminUserIds = brigade.adminUserIds.filter(id => id !== userId);
+  
+  // Update membership role
+  const membership = await getMembership(brigadeId, userId);
+  membership.role = 'operator'; // Demoted admins become operators
+  
+  await saveBrigade(brigade);
+  await saveMembership(membership);
+  
+  return { success: true };
+}
+```
+
+#### 4. Member Invitation System (Self-Service)
+
+**Who Can Invite:**
+- Any active member (admin, operator, or viewer) can invite new members
+- Invitations create pending memberships that require acceptance
+
+**Invitation Workflow:**
+```
+1. Existing member sends invitation to email address
+2. System creates MemberInvitation record with:
+   - Unique token for invitation link
+   - Expiration date (7 days default)
+   - Proposed role (operator or viewer)
+   - Status: 'pending'
+3. Email sent to invitee with invitation link
+4. Invitee clicks link:
+   a. If not registered: Redirect to registration, then accept invitation
+   b. If registered: Show invitation details, accept/decline buttons
+5. If accepted:
+   - Create BrigadeMembership with status: 'pending' or 'active'
+   - If brigade.requireManualApproval === true: status = 'pending' (awaits admin)
+   - If brigade.requireManualApproval === false: status = 'active' (auto-approved)
+6. If declined:
+   - Update invitation.status = 'declined'
+   - Send notification to inviter
+```
+
+**Invitation Rules:**
+```typescript
+interface InvitationRules {
+  // General rules
+  maxPendingInvitations: 10;        // Per brigade
+  invitationValidityDays: 7;        // Expiration period
+  
+  // Role restrictions
+  membersCanInvite: ['operator', 'viewer']; // Members can invite non-admins
+  adminOnlyInvite: ['admin'];      // Only admins can promote to admin
+  
+  // Email validation
+  allowDuplicateInvitations: false; // Can't invite same email twice
+  allowExistingMembers: false;      // Can't invite current members
+}
+```
+
+#### 5. Member Approval Workflow
+
+**Manual Approval Process:**
+- When `brigade.requireManualApproval === true`:
+  1. New member joins (via invitation or self-signup)
+  2. BrigadeMembership created with `status: 'pending'`
+  3. All brigade admins notified of pending approval
+  4. Admin reviews member details and approves/rejects
+  5. If approved: `status: 'active'`, `approvedBy: adminUserId`, `approvedAt: timestamp`
+  6. If rejected: Membership deleted, user notified
+
+**Auto-Approval Rules:**
+- When `brigade.requireManualApproval === false`:
+  - Members matching `allowedDomains` are auto-approved
+  - Members in `allowedEmails` are auto-approved
+  - Others still require manual approval
+
+**Approval Logic:**
+```typescript
+async function approveMembership(
+  membershipId: string,
+  approvedBy: string
+): Promise<Result> {
+  const membership = await getMembership(membershipId);
+  const approver = await getUser(approvedBy);
+  
+  // Validate approver is admin
+  const approverMembership = await getMembership(
+    membership.brigadeId,
+    approvedBy
+  );
+  
+  if (approverMembership.role !== 'admin') {
+    return { error: 'Only admins can approve members' };
+  }
+  
+  // Approve membership
+  membership.status = 'active';
+  membership.approvedBy = approvedBy;
+  membership.approvedAt = new Date().toISOString();
+  membership.joinedAt = new Date().toISOString();
+  
+  await saveMembership(membership);
+  
+  // Send notification to new member
+  await notifyMemberApproved(membership.userId);
+  
+  return { success: true };
+}
+```
+
+#### 6. Member Removal
+
+**Who Can Remove Members:**
+- **Admins only** can remove members
+- Admins cannot remove themselves (must have another admin demote them first)
+- Removing a member does not delete their User account (they can join other brigades)
+
+**Removal Workflow:**
+```typescript
+async function removeMember(
+  brigadeId: string,
+  userIdToRemove: string,
+  removedBy: string
+): Promise<Result> {
+  const brigade = await getBrigade(brigadeId);
+  const removerMembership = await getMembership(brigadeId, removedBy);
+  const targetMembership = await getMembership(brigadeId, userIdToRemove);
+  
+  // Validate remover is admin
+  if (removerMembership.role !== 'admin') {
+    return { error: 'Only admins can remove members' };
+  }
+  
+  // Cannot remove yourself as admin if you're the last admin
+  if (userIdToRemove === removedBy) {
+    if (targetMembership.role === 'admin' && brigade.adminUserIds.length === 1) {
+      return { error: 'Cannot remove yourself as last admin' };
+    }
+  }
+  
+  // If removing an admin, ensure brigade still has at least 1 admin
+  if (targetMembership.role === 'admin') {
+    if (brigade.adminUserIds.length <= 1) {
+      return { error: 'Cannot remove last admin' };
+    }
+    // Remove from admin list
+    brigade.adminUserIds = brigade.adminUserIds.filter(id => id !== userIdToRemove);
+    await saveBrigade(brigade);
+  }
+  
+  // Update membership status
+  targetMembership.status = 'removed';
+  targetMembership.removedBy = removedBy;
+  targetMembership.removedAt = new Date().toISOString();
+  
+  await saveMembership(targetMembership);
+  
+  // Notify removed member
+  await notifyMemberRemoved(userIdToRemove, brigadeId);
+  
+  return { success: true };
+}
+```
+
+#### 7. Member Self-Service: Leave Brigade
+
+**Leave Workflow:**
+```typescript
+async function leaveBrigade(
+  brigadeId: string,
+  userId: string
+): Promise<Result> {
+  const brigade = await getBrigade(brigadeId);
+  const membership = await getMembership(brigadeId, userId);
+  
+  // Validate membership is active
+  if (membership.status !== 'active') {
+    return { error: 'Membership is not active' };
+  }
+  
+  // If user is admin, ensure brigade will still have at least 1 admin
+  if (membership.role === 'admin') {
+    if (brigade.adminUserIds.length <= 1) {
+      return {
+        error: 'Cannot leave as last admin. Promote another member to admin first.',
+        requiresAdminTransfer: true
+      };
+    }
+    
+    // Remove from admin list
+    brigade.adminUserIds = brigade.adminUserIds.filter(id => id !== userId);
+    await saveBrigade(brigade);
+  }
+  
+  // Update membership
+  membership.status = 'removed';
+  membership.removedBy = userId; // Self-removed
+  membership.removedAt = new Date().toISOString();
+  
+  await saveMembership(membership);
+  
+  return { success: true };
+}
+```
+
+**Admin Transfer Workflow (Before Leaving):**
+- If last admin wants to leave, they must:
+  1. Promote another member to admin first
+  2. Then leave brigade
+- UI prompts: "You're the last admin. Promote someone else to admin before leaving."
+
+#### 8. Multi-Brigade Membership
+
+**User Membership Rules:**
+- Users can be members of **multiple brigades** simultaneously
+- Each brigade membership has independent role and status
+- User's role in Brigade A does not affect their role in Brigade B
+
+**Data Model Support:**
+```typescript
+// User can have multiple memberships
+interface UserContext {
+  user: User;
+  memberships: BrigadeMembership[];  // Array of memberships across brigades
+  currentBrigade?: string;           // Currently active brigade context
+}
+
+// Example: User is admin in Brigade A, operator in Brigade B, viewer in Brigade C
+const userMemberships = [
+  { brigadeId: 'brigade-a', userId: 'user-1', role: 'admin', status: 'active' },
+  { brigadeId: 'brigade-b', userId: 'user-1', role: 'operator', status: 'active' },
+  { brigadeId: 'brigade-c', userId: 'user-1', role: 'viewer', status: 'active' }
+];
+```
+
+**Brigade Switching:**
+- User can switch between brigades via UI dropdown
+- Current brigade context stored in session
+- Routes, settings, and actions scoped to current brigade
+
+#### 9. Role-Based Access Control (RBAC)
+
+**Role Definitions:**
+
+**Admin Role:**
+- Full access to all brigade features
+- Can manage routes (create, edit, delete, publish)
+- Can manage members (invite, approve, remove, promote, demote)
+- Can modify brigade settings (logo, theme, contact info)
+- Can view analytics and statistics
+- Can claim unclaimed brigades (if .gov.au email)
+
+**Operator Role:**
+- Can create and edit routes
+- Can publish routes
+- Can navigate routes (turn-by-turn navigation)
+- Can broadcast location during Santa runs
+- Can invite new members (operator or viewer roles only)
+- Cannot manage brigade settings or other members
+
+**Viewer Role:**
+- Can view brigade routes
+- Can view public tracking pages
+- Can invite new members (viewer role only)
+- Cannot create or edit routes
+- Cannot navigate or broadcast
+- Cannot manage settings or members
+
+**Permission Matrix:**
+| Action | Admin | Operator | Viewer |
+|--------|-------|----------|--------|
+| View routes | ✅ | ✅ | ✅ |
+| Create routes | ✅ | ✅ | ❌ |
+| Edit routes | ✅ | ✅ | ❌ |
+| Delete routes | ✅ | ✅ | ❌ |
+| Publish routes | ✅ | ✅ | ❌ |
+| Navigate routes | ✅ | ✅ | ❌ |
+| Broadcast location | ✅ | ✅ | ❌ |
+| Invite members | ✅ | ✅ (non-admin) | ✅ (viewer only) |
+| Approve members | ✅ | ❌ | ❌ |
+| Remove members | ✅ | ❌ | ❌ |
+| Promote to admin | ✅ | ❌ | ❌ |
+| Demote from admin | ✅ | ❌ | ❌ |
+| Edit brigade settings | ✅ | ❌ | ❌ |
+| Claim brigade | ✅ (.gov.au only) | ❌ | ❌ |
+
+#### 10. Additional Business Rules & Constraints
+
+**Brigade Constraints:**
+- Brigade slug must be globally unique
+- Brigade name length: 3-100 characters
+- Admin count: min 1, max 2 (enforced at all times)
+- Cannot delete brigade if active routes exist (must archive first)
+
+**Membership Constraints:**
+- User can only have one membership per brigade
+- Cannot invite yourself
+- Cannot have duplicate pending invitations to same email
+- Membership changes audited (who, when, why)
+
+**Invitation Constraints:**
+- Invitation expires after 7 days (configurable)
+- Maximum 10 pending invitations per brigade at once
+- Cancelled invitations can be resent after 24 hours
+
+**Email Constraints:**
+- Email must be valid format (RFC 5322)
+- Email verification required before first login
+- Government email verification: regex `/\.gov\.au$/i`
+
+**Route Ownership:**
+- All routes owned by brigade (not individual users)
+- `createdBy` tracks user who created route (for audit)
+- Any member with sufficient permissions can edit brigade's routes
+- Deleting membership does not delete user's created routes
+
+#### 11. Migration Considerations
+
+**Migrating from Dev Mode:**
+When transitioning from development mode (localStorage) to production (Azure + Auth):
+
+1. **Brigade Data:**
+   - Export brigade configuration from localStorage
+   - Create brigade in Azure Table Storage
+   - First real user with .gov.au email claims brigade
+   - Existing routes migrated to claimed brigade
+
+2. **User Data:**
+   - Dev mode users (`dev@example.com`) are mock data
+   - Real users register through Entra External ID
+   - No migration of dev mode users to production
+
+3. **Route Attribution:**
+   - Dev mode routes have `createdBy: 'dev@example.com'`
+   - Update to first admin's user ID post-migration
+   - Maintain creation timestamp
+
+**Data Validation:**
+- Validate all .gov.au admin emails before production launch
+- Verify brigade claiming workflow with test brigades
+- Test multi-brigade membership scenarios
+- Confirm admin count constraints enforced
+
+---
+
+### 12b. RFS Station Locations Dataset
 
 **Integration**: The application integrates the national Rural & Country Fire Service Facilities dataset from Digital Atlas of Australia to provide comprehensive spatial reference data for brigade names, locations, and onboarding.
 
@@ -1980,25 +2601,414 @@ const ProtectedRoute = ({ children }) => {
   - [x] Theme color and icons configured
   - [ ] Service worker for offline support (deferred to future phase)
 
-#### Phase 7: Authentication with Microsoft Entra External ID (Week 6-7)
+#### Phase 6a: Pre-Authentication Data Schema Updates (NEW - Week 6)
+**🔧 Data Model Preparation for Authentication**
+
+This phase updates all data schemas, storage adapters, and TypeScript interfaces to support the comprehensive authentication and membership management system defined in Section 12a before implementing Entra External ID authentication in Phase 7.
+
+**Data Model Updates:**
+- [ ] Create User interface and types (`src/types/user.ts`)
+- [ ] Update Brigade interface with admin management fields
+  - [ ] Add `adminUserIds: string[]` field
+  - [ ] Add `isClaimed`, `claimedAt`, `claimedBy` fields
+  - [ ] Rename `requireApproval` to `requireManualApproval`
+  - [ ] Add `rfsStationId` for RFS dataset integration
+- [ ] Create BrigadeMembership interface (`src/types/membership.ts`)
+  - [ ] Support multi-brigade membership (many-to-many)
+  - [ ] Add status tracking (pending, active, suspended, removed)
+  - [ ] Add approval workflow fields
+  - [ ] Add audit fields (invitedBy, approvedBy, removedBy)
+- [ ] Create MemberInvitation interface (`src/types/invitation.ts`)
+  - [ ] Invitation token generation
+  - [ ] Expiration tracking
+  - [ ] Status management
+- [ ] Create AdminVerificationRequest interface (`src/types/verification.ts`)
+  - [ ] Evidence file handling (photos, PDFs)
+  - [ ] Status tracking (pending, approved, rejected, expired)
+  - [ ] Site owner review fields
+- [ ] Create EvidenceFile interface for verification uploads
+- [ ] Create SiteOwner interface and permissions system
+- [ ] Update User interface
+  - [ ] Add `verifiedBrigades: string[]` field for tracking approved verifications
+- [ ] Update Route interface
+  - [ ] Change `createdBy` from email to user ID reference
+
+**Storage Adapter Extensions:**
+- [ ] Update `IStorageAdapter` interface in `src/storage/types.ts`
+  - [ ] Add user CRUD operations
+  - [ ] Add membership CRUD operations
+  - [ ] Add invitation CRUD operations
+  - [ ] Add query methods for memberships by user/brigade
+- [ ] Implement user operations in `LocalStorageAdapter`
+  - [ ] `saveUser()`, `getUser()`, `getUserByEmail()`
+  - [ ] `getUserMemberships()`, `getBrigadeMembers()`
+- [ ] Implement membership operations in `LocalStorageAdapter`
+  - [ ] `saveMembership()`, `getMembership()`, `deleteMembership()`
+  - [ ] `getMembershipsByUser()`, `getMembershipsByBrigade()`
+  - [ ] `getPendingMemberships()`
+- [ ] Implement invitation operations in `LocalStorageAdapter`
+  - [ ] `saveInvitation()`, `getInvitation()`, `getInvitationByToken()`
+  - [ ] `getPendingInvitations()`, `expireInvitations()`
+- [ ] Implement verification request operations in `LocalStorageAdapter`
+  - [ ] `saveVerificationRequest()`, `getVerificationRequest()`
+  - [ ] `getPendingVerifications()`, `getVerificationsByUser()`
+  - [ ] `approveVerification()`, `rejectVerification()`
+- [ ] Implement all new operations in `AzureTableStorageAdapter`
+  - [ ] Create `users` table schema
+  - [ ] Create `memberships` table schema (partition: brigadeId, row: userId)
+  - [ ] Create `invitations` table schema
+  - [ ] Create `verificationrequests` table schema
+  - [ ] Implement efficient queries for membership lookups
+  - [ ] Set up Azure Blob Storage for evidence file uploads
+
+**Business Logic Implementation:**
+- [ ] Create `src/utils/membershipRules.ts` with validation functions
+  - [ ] `canBecomeAdmin()` - Check .gov.au email OR approved verification
+  - [ ] `canClaimBrigade()` - Validate brigade claiming eligibility (both pathways)
+  - [ ] `validateAdminCount()` - Enforce 1-2 admin rule
+  - [ ] `canRemoveMember()` - Check admin removal constraints
+  - [ ] `canLeaveBrigade()` - Validate leave eligibility
+  - [ ] `isInvitationValid()` - Check invitation expiration and status
+  - [ ] `hasApprovedVerification()` - Check if user has approved verification for brigade
+- [ ] Create `src/utils/emailValidation.ts`
+  - [ ] `isGovernmentEmail()` - Regex for .gov.au validation
+  - [ ] `matchesAllowedDomains()` - Check domain whitelist
+  - [ ] `isAutoApproved()` - Check auto-approval eligibility
+- [ ] Create `src/utils/fileValidation.ts` for verification evidence
+  - [ ] `validateFileType()` - Check allowed MIME types
+  - [ ] `validateFileSize()` - Check size limits (5MB per file, 10MB total)
+  - [ ] `scanForMalware()` - Security scanning integration
+- [ ] Create `src/services/membershipService.ts` with core operations
+  - [ ] `claimBrigade()` - Brigade claiming workflow
+  - [ ] `inviteMember()` - Send member invitation
+  - [ ] `acceptInvitation()` - Process invitation acceptance
+  - [ ] `approveMembership()` - Admin approval workflow
+  - [ ] `promoteToAdmin()` - Admin promotion with validation (both pathways)
+  - [ ] `demoteFromAdmin()` - Admin demotion with safeguards
+  - [ ] `removeMember()` - Member removal with constraints
+  - [ ] `leaveBrigade()` - Self-service leave with admin checks
+- [ ] Create `src/services/verificationService.ts` for admin verification
+  - [ ] `submitVerificationRequest()` - User submits evidence
+  - [ ] `uploadEvidenceFile()` - Upload to Azure Blob Storage
+  - [ ] `getVerificationRequest()` - Retrieve request details
+  - [ ] `reviewVerificationRequest()` - Site owner review
+  - [ ] `approveVerification()` - Site owner approval
+  - [ ] `rejectVerification()` - Site owner rejection
+  - [ ] `expireOldRequests()` - Auto-expire after 30 days
+
+**API Endpoints (Azure Functions):**
+- [ ] Create `/api/users/*` endpoints
+  - [ ] `POST /api/users/register` - User registration
+  - [ ] `GET /api/users/:userId` - Get user profile
+  - [ ] `PATCH /api/users/:userId` - Update user profile
+  - [ ] `GET /api/users/:userId/memberships` - Get user's brigade memberships
+- [ ] Create `/api/brigades/:brigadeId/members/*` endpoints
+  - [ ] `GET /api/brigades/:brigadeId/members` - List brigade members
+  - [ ] `POST /api/brigades/:brigadeId/members/invite` - Invite member
+  - [ ] `DELETE /api/brigades/:brigadeId/members/:userId` - Remove member
+  - [ ] `PATCH /api/brigades/:brigadeId/members/:userId/role` - Change role
+  - [ ] `GET /api/brigades/:brigadeId/members/pending` - Pending approvals
+  - [ ] `POST /api/brigades/:brigadeId/members/:userId/approve` - Approve member
+- [ ] Create `/api/brigades/:brigadeId/claim` endpoint
+  - [ ] `POST /api/brigades/:brigadeId/claim` - Claim unclaimed brigade
+- [ ] Create `/api/invitations/*` endpoints
+  - [ ] `GET /api/invitations/:token` - Get invitation details
+  - [ ] `POST /api/invitations/:token/accept` - Accept invitation
+  - [ ] `POST /api/invitations/:token/decline` - Decline invitation
+  - [ ] `DELETE /api/invitations/:invitationId` - Cancel invitation
+- [ ] Create `/api/verification/*` endpoints for admin verification
+  - [ ] `POST /api/verification/request` - Submit verification request with evidence
+  - [ ] `POST /api/verification/upload` - Upload evidence file to Azure Blob Storage
+  - [ ] `GET /api/verification/requests/:requestId` - Get request details
+  - [ ] `GET /api/verification/user/:userId` - Get user's verification requests
+- [ ] Create `/api/admin/verification/*` endpoints (site owner only)
+  - [ ] `GET /api/admin/verification/pending` - List pending verification requests
+  - [ ] `GET /api/admin/verification/requests/:requestId` - Get request with evidence
+  - [ ] `POST /api/admin/verification/requests/:requestId/approve` - Approve request
+  - [ ] `POST /api/admin/verification/requests/:requestId/reject` - Reject request
+  - [ ] `GET /api/admin/verification/evidence/:fileId` - Get evidence file (SAS token)
+
+**Testing:**
+- [ ] Unit tests for membership validation rules (with verification pathway)
+- [ ] Unit tests for email validation functions
+- [ ] Unit tests for file validation (types, sizes, security)
+- [ ] Integration tests for membership service operations
+- [ ] Integration tests for verification request workflow
+- [ ] Test brigade claiming workflow end-to-end (both pathways)
+- [ ] Test admin promotion/demotion with constraints (both pathways)
+- [ ] Test member removal edge cases
+- [ ] Test multi-brigade membership scenarios
+- [ ] Test invitation expiration and cancellation
+- [ ] Test verification request submission and file upload
+- [ ] Test site owner review and approval/rejection workflow
+- [ ] Test verification expiration after 30 days
+
+**Documentation:**
+- [ ] Update API documentation with new endpoints
+- [ ] Document migration path from current Brigade/Route model
+- [ ] Create developer guide for membership system
+- [ ] Add examples for common membership operations
+- [ ] Document Azure Table Storage schema design
+
+**Dev Mode Updates:**
+- [ ] Create mock user data generator for development
+- [ ] Update AuthContext to provide mock user with memberships
+- [ ] Add dev mode UI for testing membership scenarios
+- [ ] Mock invitation flows for local testing
+
+**Migration Scripts:**
+- [ ] Create migration script for existing brigade data
+  - [ ] Add `isClaimed: true` to existing brigades
+  - [ ] Generate `adminUserIds` from current admin emails
+  - [ ] Update `createdBy` references in routes
+- [ ] Create seed script for RFS dataset integration
+  - [ ] Import unclaimed brigades from RFS dataset
+  - [ ] Set `isClaimed: false` for new brigades
+
+**Success Criteria:**
+- ✅ All TypeScript interfaces updated without breaking existing code
+- ✅ Storage adapters support all new entities (users, memberships, invitations)
+- ✅ All business rules documented and implemented with validation
+- ✅ API endpoints created and tested
+- ✅ Dev mode continues to work with mock data
+- ✅ Migration path clearly documented
+- ✅ All tests passing
+- ✅ Ready for Phase 7 (Entra External ID integration)
+
+#### Phase 7: Authentication with Microsoft Entra External ID (Week 7-8)
 **🔒 Production Security Implementation**
 
-- [ ] Create Azure Entra External ID tenant
+> **Prerequisites:** Phase 6a must be completed with all data models, storage adapters, and membership APIs implemented and tested.
+
+**Entra External ID Setup:**
+- [ ] Create Azure Entra External ID tenant (Azure Portal)
 - [ ] Configure Entra External ID application registration
-- [ ] Implement MSAL authentication flow
-- [ ] Create login/logout pages
-- [ ] **Implement authentication toggle (dev mode bypass vs production)**
-- [ ] Protected route guards for brigade dashboard
-- [ ] **Brigade domain whitelist validation with RFS dataset cross-reference**
-- [ ] **Brigade onboarding flow with RFS station lookup and suggestions**
-- [ ] Member approval workflow for new users
-- [ ] Role-based access control (admin, operator, viewer)
-- [ ] Session management with token refresh
-- [ ] Secure API endpoints with JWT validation
-- [ ] Audit logging for authentication events
-- [ ] **Update deployment configuration to enable auth in production**
-- [ ] **Keep dev mode bypass for local development and testing**
-- [ ] **Integrate RFS dataset for brigade verification and location defaults**
+  - [ ] Set redirect URIs for local dev and production
+  - [ ] Configure API permissions (User.Read, email, profile)
+  - [ ] Enable ID tokens and access tokens
+  - [ ] Configure token lifetimes (1 hour access, 24 hour refresh)
+- [ ] Set up user flows for sign-up and sign-in
+  - [ ] Email + password authentication
+  - [ ] Social providers (optional: Google, Microsoft)
+  - [ ] MFA configuration (optional but recommended)
+
+**MSAL Integration:**
+- [ ] Install `@azure/msal-browser` and `@azure/msal-react`
+- [ ] Create MSAL configuration (`src/auth/msalConfig.ts`)
+  - [ ] Client ID from Entra app registration
+  - [ ] Authority URL (tenant-specific)
+  - [ ] Redirect URIs
+  - [ ] Scopes (User.Read, email, profile)
+- [ ] Implement `MsalProvider` wrapper in `src/main.tsx`
+- [ ] Update `AuthContext` to use MSAL for production mode
+  - [ ] `useMsal()` hook for authentication state
+  - [ ] `loginRedirect()` for login flow
+  - [ ] `logoutRedirect()` for logout flow
+  - [ ] Token acquisition with `acquireTokenSilent()`
+
+**Authentication UI:**
+- [ ] Create `/login` page with Entra sign-in button
+- [ ] Create `/logout` page with confirmation
+- [ ] Create `/auth/callback` page for OAuth redirect handling
+- [ ] Update navigation with login/logout links
+- [ ] Show user profile in header when authenticated
+- [ ] Implement loading states during authentication
+
+**Protected Routes:**
+- [ ] Update `ProtectedRoute` component to use real authentication
+  - [ ] Keep dev mode bypass (`VITE_DEV_MODE=true`)
+  - [ ] Redirect to `/login` in production if not authenticated
+  - [ ] Pass authentication state to child components
+- [ ] Protect brigade dashboard routes (`/dashboard/*`)
+- [ ] Protect route creation/editing routes
+- [ ] Protect navigation view (only for brigade members)
+- [ ] Keep tracking view public (no auth required: `/track/:routeId`)
+
+**User Registration & Profile:**
+- [ ] Implement post-authentication profile creation
+  - [ ] Extract user info from Entra ID token (email, name)
+  - [ ] Create User record in database if first login
+  - [ ] Update `lastLoginAt` on each login
+- [ ] Create user profile page (`/profile`)
+  - [ ] Display user information
+  - [ ] List brigade memberships
+  - [ ] Link to brigade dashboards
+  - [ ] Allow profile updates (name, profile picture)
+
+**Brigade Claiming Workflow (Using Phase 6a foundation):**
+- [ ] Create brigade claiming page (`/brigades/claim`)
+  - [ ] Search for unclaimed brigades from RFS dataset
+  - [ ] Show brigade details (name, location, station)
+  - [ ] "Claim Brigade" button (requires .gov.au email)
+  - [ ] Validation and error handling
+- [ ] Implement `claimBrigade()` API call
+  - [ ] Validate user has .gov.au email
+  - [ ] Check brigade is unclaimed
+  - [ ] Create first admin membership
+  - [ ] Update brigade status to claimed
+- [ ] Redirect to brigade dashboard after successful claim
+- [ ] Show confirmation message and next steps
+
+**Member Invitation UI (Using Phase 6a APIs):**
+- [ ] Create member management page (`/dashboard/:brigadeId/members`)
+  - [ ] List current members with roles
+  - [ ] "Invite Member" button
+  - [ ] Pending invitations list
+  - [ ] Pending approval list (for admins)
+- [ ] Create invitation modal
+  - [ ] Email input with validation
+  - [ ] Role selection (operator/viewer for non-admins, admin for admins)
+  - [ ] Optional personal message
+  - [ ] Send invitation
+- [ ] Create invitation acceptance page (`/invitations/:token`)
+  - [ ] Show invitation details (brigade, inviter, role)
+  - [ ] Accept/Decline buttons
+  - [ ] Redirect to brigade dashboard on acceptance
+  - [ ] Handle expired invitations
+
+**Member Approval Workflow (Using Phase 6a APIs):**
+- [ ] Add pending approvals section to admin dashboard
+  - [ ] List pending memberships with user details
+  - [ ] Approve/Reject buttons
+  - [ ] Batch approval option
+- [ ] Implement approval notifications
+  - [ ] Email notification on approval
+  - [ ] Email notification on rejection with reason
+- [ ] Auto-approval based on domain whitelist
+  - [ ] Check `allowedDomains` and `allowedEmails`
+  - [ ] Skip manual approval if match found
+
+**Admin Management UI (Using Phase 6a APIs):**
+- [ ] Add admin management section to brigade settings
+  - [ ] Display current admins (1-2)
+  - [ ] "Promote to Admin" button for members with .gov.au email
+  - [ ] "Demote from Admin" button (with constraints)
+  - [ ] Visual indicators for admin requirements
+- [ ] Implement promotion validation
+  - [ ] Check .gov.au email requirement
+  - [ ] Check max 2 admins constraint
+  - [ ] Confirm promotion action
+- [ ] Implement demotion safeguards
+  - [ ] Prevent demoting last admin
+  - [ ] Confirm demotion action
+  - [ ] Auto-assign operator role after demotion
+
+**Member Removal (Using Phase 6a APIs):**
+- [ ] Add "Remove Member" action to member list (admins only)
+  - [ ] Confirmation modal with reason input
+  - [ ] Validate admin constraints (can't remove last admin)
+  - [ ] Update UI after removal
+- [ ] Implement self-service leave
+  - [ ] "Leave Brigade" button in user profile
+  - [ ] Warning if user is last admin (must transfer first)
+  - [ ] Confirmation modal
+  - [ ] Redirect after leaving
+
+**Role-Based Access Control Implementation:**
+- [ ] Create permission checking utilities (`src/utils/permissions.ts`)
+  - [ ] `canManageRoutes(membership)` - Check if user can edit routes
+  - [ ] `canInviteMembers(membership)` - Check invitation permissions
+  - [ ] `canManageMembers(membership)` - Check admin actions
+  - [ ] `canEditBrigadeSettings(membership)` - Check settings access
+- [ ] Apply permission checks to all actions
+  - [ ] Hide/disable UI elements based on permissions
+  - [ ] Validate permissions on API endpoints
+  - [ ] Show permission denied messages
+- [ ] Implement role badges in UI
+  - [ ] Admin badge (red)
+  - [ ] Operator badge (gold)
+  - [ ] Viewer badge (gray)
+
+**API Security:**
+- [ ] Update API functions to validate JWT tokens
+  - [ ] Extract user ID from token claims
+  - [ ] Verify token signature with Entra public key
+  - [ ] Check token expiration
+- [ ] Implement authorization checks in API endpoints
+  - [ ] Validate user has membership in brigade
+  - [ ] Check role permissions for action
+  - [ ] Return 403 Forbidden if unauthorized
+- [ ] Add audit logging
+  - [ ] Log all authentication events (login, logout, failures)
+  - [ ] Log all membership changes (invite, approve, remove)
+  - [ ] Log all admin actions (promote, demote, settings changes)
+  - [ ] Store logs in Azure Table Storage or Application Insights
+
+**Domain Whitelist Validation:**
+- [ ] Implement email domain checking in API
+  - [ ] Use `emailValidation.ts` utilities from Phase 6a
+  - [ ] Check against `brigade.allowedDomains`
+  - [ ] Check against `brigade.allowedEmails`
+- [ ] Auto-approve members matching whitelist
+  - [ ] Skip manual approval workflow
+  - [ ] Immediately set `status: 'active'`
+  - [ ] Send welcome email
+
+**Session Management:**
+- [ ] Implement token refresh logic
+  - [ ] Use `acquireTokenSilent()` for automatic refresh
+  - [ ] Handle refresh failures (re-login)
+  - [ ] Show session expiration warnings
+- [ ] Persist authentication state
+  - [ ] Use MSAL cache (session storage)
+  - [ ] Restore session on page reload
+  - [ ] Clear session on logout
+- [ ] Implement inactivity timeout (optional)
+  - [ ] Detect user inactivity (30 min default)
+  - [ ] Show timeout warning modal
+  - [ ] Auto-logout after timeout
+
+**Dev Mode Preservation:**
+- [ ] Keep `VITE_DEV_MODE=true` bypass functional
+- [ ] Mock MSAL responses in dev mode for testing
+- [ ] Provide dev mode UI to simulate different roles
+- [ ] Allow switching between users/brigades in dev mode
+- [ ] Document dev mode authentication testing
+
+**Testing:**
+- [ ] Test complete authentication flow
+  - [ ] Login → Profile creation → Dashboard
+  - [ ] Token refresh
+  - [ ] Logout
+- [ ] Test brigade claiming with .gov.au validation
+- [ ] Test member invitation and acceptance flows
+- [ ] Test admin promotion/demotion workflows
+- [ ] Test member removal and self-service leave
+- [ ] Test role-based access control
+  - [ ] Verify permissions for each role
+  - [ ] Test unauthorized access attempts
+- [ ] Test multi-brigade switching
+- [ ] Test both dev mode and production mode
+
+**Documentation:**
+- [ ] Update deployment guide with Entra setup instructions
+- [ ] Document authentication architecture
+- [ ] Create admin user guide for membership management
+- [ ] Update API documentation with authentication requirements
+- [ ] Document common authentication troubleshooting
+
+**Deployment Configuration:**
+- [ ] Set `VITE_DEV_MODE=false` for production build
+- [ ] Configure Entra environment variables in Azure Static Web App
+  - [ ] `VITE_ENTRA_CLIENT_ID`
+  - [ ] `VITE_ENTRA_TENANT_ID`
+  - [ ] `VITE_ENTRA_AUTHORITY`
+  - [ ] `VITE_ENTRA_REDIRECT_URI`
+- [ ] Update CORS configuration for Entra callbacks
+- [ ] Configure custom domain for production (if applicable)
+- [ ] Test authentication in staging environment
+- [ ] Enable production authentication
+
+**Success Criteria:**
+- ✅ Users can register and login via Entra External ID
+- ✅ Brigade claiming works with .gov.au validation
+- ✅ Member invitation system fully functional
+- ✅ Admin management enforces 1-2 admin rule
+- ✅ Role-based permissions enforced throughout UI and API
+- ✅ Multi-brigade membership works seamlessly
+- ✅ Dev mode bypass still functional for development
+- ✅ All authentication flows tested and documented
+- ✅ Production deployment successful with authentication enabled
 
 #### Phase 8: Testing & Production Deployment (Week 7-8)
 - [ ] Unit tests with Vitest
