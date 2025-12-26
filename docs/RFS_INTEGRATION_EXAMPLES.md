@@ -339,8 +339,10 @@ export function App() {
 Calculate and display distance from user's location to nearest station:
 
 ```typescript
-import { findNearestStation } from '@/utils/rfsData';
+import { findNearestStation, searchStations } from '@/utils/rfsData';
 
+// Helper function to calculate distance (Haversine formula)
+// Note: You can also use the internal function from rfsData.ts if exported
 function calculateDistance(
   coord1: [number, number],
   coord2: [number, number]
@@ -370,6 +372,7 @@ export async function showNearestStationWithDistance() {
       position.coords.latitude
     ];
 
+    // Method 1: Use findNearestStation (returns single nearest)
     const station = await findNearestStation(userCoords, 100);
 
     if (station) {
@@ -377,6 +380,17 @@ export async function showNearestStationWithDistance() {
       console.log(`Nearest station: ${station.name}`);
       console.log(`Distance: ${distance.toFixed(1)} km`);
     }
+
+    // Method 2: Use searchStations for multiple results with distance sorting
+    const nearby = await searchStations({
+      nearLocation: { coordinates: userCoords, radiusKm: 100 },
+      limit: 5,
+    });
+
+    nearby.forEach((s) => {
+      const dist = calculateDistance(userCoords, s.coordinates);
+      console.log(`${s.name}: ${dist.toFixed(1)} km`);
+    });
   });
 }
 ```
