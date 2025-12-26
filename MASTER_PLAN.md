@@ -1653,7 +1653,7 @@ const ProtectedRoute = ({ children }) => {
 #### Phase 1: Infrastructure & Dev Mode Setup (Week 1) - ✅ COMPLETE
 - [x] Set up development environment
 - [x] Initialize React + TypeScript project with Vite
-- [x] Install dependencies (React Router, Mapbox, Socket.io)
+- [x] Install dependencies (React Router, Mapbox, @azure/web-pubsub-client)
 - [x] Create project structure (frontend + API)
 - [x] **Set up development mode configuration (VITE_DEV_MODE=true)**
 - [x] **Implement mock authentication context for dev mode**
@@ -1696,19 +1696,24 @@ const ProtectedRoute = ({ children }) => {
 - [x] **Background location tracking with wake lock API**
 - [x] **Progress indicators and route completion percentage**
 
-#### Phase 4: Real-Time Tracking with WebSocket (Week 3-4)
-- [ ] Choose WebSocket service (Pusher, Firebase, or Supabase)
-- [ ] WebSocket client integration
-- [ ] Broadcast location updates from navigator device
-- [ ] Public tracking page (no auth required)
+#### Phase 4: Real-Time Tracking with Azure Web PubSub (Week 3-4)
+- [ ] Create Azure Web PubSub hub resource
+- [ ] Implement `/api/negotiate` function for connection token generation
+- [ ] Implement `/api/broadcast` function for location updates
+- [ ] Configure Web PubSub connection string in environment
+- [ ] Integrate @azure/web-pubsub-client in frontend
+- [ ] Implement route-specific group messaging (route_{routeId} groups)
+- [ ] Broadcast location updates from navigator device (5s throttle)
+- [ ] Public tracking page with WebSocket subscription (no auth required)
 - [ ] Live Santa marker with smooth animations
 - [ ] Route polyline rendering
 - [ ] Progress indicators showing completed waypoints
 - [ ] ETA display to next waypoint
-- [ ] Connection status indicators
-- [ ] Fallback to polling if WebSocket unavailable
-- [ ] Multi-viewer support (1000+ concurrent viewers)
-- [ ] BroadcastChannel API for local testing across tabs
+- [ ] Connection status indicators with reconnection logic
+- [ ] Fallback to HTTP polling if WebSocket unavailable
+- [ ] Multi-viewer support (scalable to 1000+ concurrent viewers per route)
+- [ ] BroadcastChannel API for local development testing across tabs
+- [ ] Token scoping with appropriate permissions for viewers and broadcasters
 
 #### Phase 5: Shareable Links & QR Codes (Week 4-5)
 - [ ] Generate unique tracking URLs per route
@@ -1817,7 +1822,7 @@ const ProtectedRoute = ({ children }) => {
      - View current location on map
      - Monitor ETA to next waypoint
      - Mark waypoints as "Complete" when visited
-   - **Location broadcasts via WebSocket/BroadcastChannel**
+   - **Location broadcasts via Azure Web PubSub (BroadcastChannel for dev mode)**
    - Test rerouting functionality
    - Test pause/resume navigation
    - End navigation when complete
@@ -1866,7 +1871,7 @@ const ProtectedRoute = ({ children }) => {
      - View current location on map
      - Monitor ETA to next waypoint
      - Mark waypoints as "Complete" when visited
-   - **Location automatically broadcasts to public via Azure Web PubSub**
+   - **Location automatically broadcasts to public via Azure Web PubSub (group: route_{routeId})**
    - If off route: Option to reroute
    - Pause navigation for breaks
    - End navigation when complete
@@ -1979,8 +1984,9 @@ const ProtectedRoute = ({ children }) => {
 - Architecture overview
 - Contributing guidelines
 - Deployment guide
-- WebSocket integration guide
+- Azure Web PubSub integration guide
 - Mapbox API setup
+- API function development (negotiate, broadcast)
 
 **For Public:**
 - FAQ about tracking
@@ -2056,7 +2062,7 @@ const ProtectedRoute = ({ children }) => {
    - Recommendation: Option A (simpler)
 
 2. **Real-time for MVP or Phase 2?**
-   - Recommendation: Mock WebSocket in MVP, real implementation in Phase 2
+   - Recommendation: Use Azure Web PubSub for production; BroadcastChannel API for local development
 
 3. **Server-side rendering for meta tags?**
    - Recommendation: Use Vercel/Netlify functions for dynamic OG tags
@@ -2101,22 +2107,20 @@ The following secrets must be configured in the GitHub repository Settings > Sec
   - **Description:** Azure Storage account access key (Primary or Secondary)
   - **How to obtain:** See Azure Storage setup instructions below
 
-#### Real-time Service Configuration (Choose One)
-- **`PUSHER_APP_ID`**, **`PUSHER_KEY`**, **`PUSHER_SECRET`**, **`PUSHER_CLUSTER`**
-  - **Description:** Pusher credentials for WebSocket real-time tracking
-  - **How to obtain:** Sign up at https://pusher.com/ and create a new app
+#### Azure Web PubSub Configuration (Required for Production)
+- **`AZURE_WEBPUBSUB_CONNECTION_STRING`** (Required for production)
+  - **Description:** Connection string for Azure Web PubSub service for real-time location broadcasting
+  - **Format:** `Endpoint=https://<name>.webpubsub.azure.com;AccessKey=<key>;Version=1.0;`
+  - **How to obtain:** 
+    1. Create Azure Web PubSub resource in Azure Portal
+    2. Navigate to "Keys" under Settings
+    3. Copy "Connection String" from Primary or Secondary key
+  - **Example:** `Endpoint=https://santa-tracking.webpubsub.azure.com;AccessKey=<key>;Version=1.0;`
 
-OR
-
-- **`FIREBASE_API_KEY`**, **`FIREBASE_PROJECT_ID`**, **`FIREBASE_APP_ID`**
-  - **Description:** Firebase credentials for Realtime Database
-  - **How to obtain:** Create project at https://console.firebase.google.com/
-
-OR
-
-- **`SUPABASE_URL`**, **`SUPABASE_ANON_KEY`**
-  - **Description:** Supabase credentials for real-time functionality
-  - **How to obtain:** Create project at https://supabase.com/dashboard
+- **`AZURE_WEBPUBSUB_HUB_NAME`** (Optional, defaults to 'santa-tracking')
+  - **Description:** Hub name for Web PubSub service
+  - **Default:** `santa-tracking`
+  - **Example:** `santa-tracking` or `santa-runs-prod`
 
 #### Deployment Configuration
 - **`VERCEL_TOKEN`** (If using Vercel deployment)
@@ -2139,20 +2143,12 @@ VITE_MAPBOX_TOKEN=pk.your_mapbox_token_here
 VITE_AZURE_STORAGE_CONNECTION_STRING=your_connection_string_here
 VITE_AZURE_STORAGE_ACCOUNT_NAME=your_account_name
 
-# Real-time Service - Choose ONE of the following:
+# Azure Web PubSub Configuration (Production Real-time)
+AZURE_WEBPUBSUB_CONNECTION_STRING=Endpoint=https://your-hub.webpubsub.azure.com;AccessKey=your_key;Version=1.0;
+AZURE_WEBPUBSUB_HUB_NAME=santa-tracking
 
-# Option 1: Pusher
-VITE_PUSHER_KEY=your_pusher_key
-VITE_PUSHER_CLUSTER=your_cluster
-
-# Option 2: Firebase
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_APP_ID=your_app_id
-
-# Option 3: Supabase
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_anon_key
+# Development Mode Configuration
+VITE_DEV_MODE=true
 
 # Application Configuration
 VITE_APP_NAME="Fire Santa Run"
@@ -2348,6 +2344,260 @@ for await (const entity of entities) {
 
 ---
 
+## 22a. Azure Web PubSub Setup Instructions
+
+### Prerequisites
+- Azure account (same as used for Azure Storage and Static Web Apps)
+- Azure CLI installed (optional but recommended)
+
+### Step 1: Create Azure Web PubSub Resource
+
+#### Option A: Using Azure Portal (Web UI)
+
+1. **Navigate to Azure Portal**
+   - Go to https://portal.azure.com/
+   - Sign in with your Microsoft account
+
+2. **Create Web PubSub Service**
+   - Click "Create a resource"
+   - Search for "Web PubSub Service"
+   - Click "Create"
+
+3. **Configure Web PubSub Service**
+   - **Subscription:** Select your subscription
+   - **Resource Group:** Use existing `rg-santa-run` (same as Storage)
+   - **Resource name:** Enter unique name (e.g., `santa-tracking-pubsub`)
+     - Must be 3-63 characters, alphanumeric and hyphens
+     - Must be globally unique across Azure
+   - **Region:** Select same region as storage (e.g., `Australia East`)
+   - **Pricing tier:** 
+     - **Free** for development (20 concurrent connections, 20K messages/day)
+     - **Standard** for production (1000 connections per unit)
+   - **Unit count:** 1 (for Standard tier)
+   - Click "Review + Create" then "Create"
+
+4. **Get Connection String**
+   - Navigate to your Web PubSub resource
+   - Go to "Keys" under Settings
+   - Copy "Connection String" from Primary or Secondary
+   - This is your `AZURE_WEBPUBSUB_CONNECTION_STRING`
+
+#### Option B: Using Azure CLI
+
+```bash
+# Use existing variables from Azure Storage setup
+RESOURCE_GROUP="rg-santa-run"
+WEBPUBSUB_NAME="santa-tracking-pubsub"
+LOCATION="australiaeast"
+
+# Create Web PubSub service (Free tier for dev)
+az webpubsub create \
+  --name $WEBPUBSUB_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --location $LOCATION \
+  --sku Free_F1
+
+# For production, use Standard tier:
+# az webpubsub create \
+#   --name $WEBPUBSUB_NAME \
+#   --resource-group $RESOURCE_GROUP \
+#   --location $LOCATION \
+#   --sku Standard_S1 \
+#   --unit-count 1
+
+# Get connection string
+az webpubsub key show \
+  --name $WEBPUBSUB_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --query primaryConnectionString \
+  --output tsv
+```
+
+### Step 2: Create Hub
+
+Azure Web PubSub uses "hubs" to organize connections. Create a hub named `santa-tracking`:
+
+#### Via Azure Portal
+1. Navigate to your Web PubSub resource
+2. Go to "Hubs" under Settings
+3. Click "+ Hub"
+4. Enter hub name: `santa-tracking`
+5. Configure event handlers (optional for now)
+6. Click "Save"
+
+#### Via Azure CLI
+```bash
+# Hub is created automatically when first connection is made
+# No explicit creation needed, but you can configure event handlers:
+
+az webpubsub hub create \
+  --name $WEBPUBSUB_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --hub-name santa-tracking
+```
+
+### Step 3: Verify Setup and Test Connection
+
+Test connection using the Web PubSub client SDK:
+
+```typescript
+// Test connection in TypeScript (frontend)
+import { WebPubSubClient } from '@azure/web-pubsub-client';
+
+// Get connection URL from negotiate endpoint
+const response = await fetch('/api/negotiate?routeId=test-route');
+const { url } = await response.json();
+
+// Connect to Web PubSub
+const client = new WebPubSubClient(url);
+
+await client.start();
+console.log('Connected to Azure Web PubSub ✓');
+
+// Join a group
+await client.joinGroup('route_test-route');
+console.log('Joined group successfully ✓');
+
+// Test sending a message
+await client.sendToGroup('route_test-route', { type: 'test', message: 'Hello' });
+
+// Listen for messages
+client.on('group-message', (message) => {
+  console.log('Received:', message.data);
+});
+
+// Cleanup
+await client.stop();
+```
+
+### Step 4: Implement API Functions
+
+Create Azure Functions for token negotiation and broadcasting:
+
+#### `/api/negotiate` Function
+
+```typescript
+// api/negotiate.ts
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { WebPubSubServiceClient } from "@azure/web-pubsub";
+
+const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING!;
+const hubName = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa-tracking';
+
+export async function negotiate(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
+  const routeId = request.query.get('routeId');
+  
+  if (!routeId) {
+    return { status: 400, body: 'routeId query parameter required' };
+  }
+  
+  const serviceClient = new WebPubSubServiceClient(connectionString, hubName);
+  
+  // Generate token with permissions to join specific route group
+  const token = await serviceClient.getClientAccessToken({
+    userId: `viewer-${Date.now()}`, // Unique viewer ID
+    roles: [`webpubsub.joinLeaveGroup.route_${routeId}`],
+    groups: [`route_${routeId}`],
+    expirationTimeInMinutes: 60, // Token valid for 1 hour
+  });
+  
+  return {
+    status: 200,
+    jsonBody: {
+      url: token.url,
+    },
+  };
+}
+
+app.http('negotiate', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  handler: negotiate,
+});
+```
+
+#### `/api/broadcast` Function
+
+```typescript
+// api/broadcast.ts
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { WebPubSubServiceClient } from "@azure/web-pubsub";
+
+const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING!;
+const hubName = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa-tracking';
+
+export async function broadcast(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
+  const body = await request.json() as any;
+  const { routeId, location, timestamp, heading, speed, currentWaypointIndex } = body;
+  
+  if (!routeId || !location) {
+    return { status: 400, body: 'routeId and location required' };
+  }
+  
+  // TODO: Verify operator is authenticated and owns this route
+  
+  const serviceClient = new WebPubSubServiceClient(connectionString, hubName);
+  
+  // Broadcast to all viewers in the route group
+  await serviceClient.sendToGroup(`route_${routeId}`, {
+    type: 'location-update',
+    routeId,
+    location,
+    timestamp,
+    heading,
+    speed,
+    currentWaypointIndex,
+  });
+  
+  // Optionally: Store in Azure Table Storage for history
+  
+  return {
+    status: 200,
+    jsonBody: { success: true },
+  };
+}
+
+app.http('broadcast', {
+  methods: ['POST'],
+  authLevel: 'anonymous', // TODO: Change to 'function' with authentication
+  handler: broadcast,
+});
+```
+
+### Acceptance Criteria for Production
+
+**Real-time Tracking Requirements:**
+1. ✅ Live tracking MUST use Azure Web PubSub with standard WebSocket protocol
+2. ✅ Location broadcast throttled to maximum 5 seconds between updates
+3. ✅ Token scoping to route-specific groups (route_{routeId})
+4. ✅ Connection status UI with visual indicators (connected/disconnected/reconnecting)
+5. ✅ Automatic reconnection logic with exponential backoff
+6. ✅ Fallback to HTTP long-polling if WebSocket fails after 3 retry attempts
+7. ✅ BroadcastChannel API for local development mode only
+8. ✅ Support for 1000+ concurrent viewers per route (Standard tier)
+9. ✅ Zero message loss during normal operation
+10. ✅ Graceful degradation: show last known position if connection lost
+
+**Development Mode Fallbacks:**
+- Use BroadcastChannel API for cross-tab testing without Azure resources
+- Mock location updates for testing tracking page
+- Local storage for session persistence
+
+**Security Requirements:**
+- No authentication required for public viewers (read-only group access)
+- Token-based authorization via /api/negotiate endpoint
+- Brigade operators require authentication before broadcasting
+- Group isolation prevents cross-route message leakage
+- Rate limiting on broadcast endpoint (max 1 update per 5 seconds)
+
+---
+
 ## 23. Storage Layer Architecture
 
 ### Data Persistence Strategy
@@ -2534,8 +2784,8 @@ jobs:
           VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
           VITE_AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
           VITE_AZURE_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
-          VITE_PUSHER_KEY: ${{ secrets.PUSHER_KEY }}
-          VITE_PUSHER_CLUSTER: ${{ secrets.PUSHER_CLUSTER }}
+          AZURE_WEBPUBSUB_CONNECTION_STRING: ${{ secrets.AZURE_WEBPUBSUB_CONNECTION_STRING }}
+          AZURE_WEBPUBSUB_HUB_NAME: ${{ secrets.AZURE_WEBPUBSUB_HUB_NAME }}
         run: npm run build
       
       - name: Deploy to Vercel
@@ -2634,9 +2884,9 @@ React + TypeScript web application for Australian Rural Fire Service brigades to
 ## Key Technologies
 - React 19 + TypeScript
 - Vite build system
-- Mapbox GL JS for mapping
+- Mapbox GL JS for mapping and navigation (Directions API)
 - Azure Table Storage for data persistence
-- Socket.io / Pusher for real-time tracking
+- Azure Web PubSub for real-time tracking
 - React Router for navigation
 
 ## Development Environment Setup
@@ -2645,7 +2895,8 @@ React + TypeScript web application for Australian Rural Fire Service brigades to
 Before making changes, verify all required secrets are configured:
 - `VITE_MAPBOX_TOKEN` - Required for all map functionality
 - `AZURE_STORAGE_CONNECTION_STRING` - Required for production data persistence
-- Real-time service credentials (Pusher, Firebase, or Supabase)
+- `AZURE_WEBPUBSUB_CONNECTION_STRING` - Required for production real-time tracking
+- `AZURE_WEBPUBSUB_HUB_NAME` - Optional (defaults to 'santa-tracking')
 
 ### Local Development
 1. Clone repository
@@ -2675,10 +2926,12 @@ Before making changes, verify all required secrets are configured:
 - Generate QR codes using qrcode.react library
 
 ### Real-time Tracking
-- Use WebSocket for production (Pusher/Firebase/Supabase)
-- BroadcastChannel API for local multi-tab testing
-- Graceful degradation if WebSocket unavailable
+- Use Azure Web PubSub for production (standard WebSocket protocol)
+- BroadcastChannel API for local development and multi-tab testing
+- HTTP long-polling fallback if WebSocket unavailable
 - Throttle location updates (max 1 per 5 seconds)
+- Token-based authentication via /api/negotiate endpoint
+- Route-specific groups for isolated broadcasts (route_{routeId})
 
 ## Code Style
 - Use TypeScript strict mode
@@ -2730,10 +2983,14 @@ Before making changes, verify all required secrets are configured:
 - Check Azure Storage firewall rules
 
 ### Real-time Tracking Not Working
-- Verify WebSocket service credentials
-- Check network tab for WebSocket connection
+- Verify `AZURE_WEBPUBSUB_CONNECTION_STRING` is configured correctly
+- Check `/api/negotiate` endpoint returns valid connection URL
+- Check network tab for WebSocket connection to *.webpubsub.azure.com
 - Ensure location permissions granted in browser
-- Check firewall/proxy doesn't block WebSocket
+- Check firewall/proxy doesn't block WebSocket connections (port 443)
+- Verify route group membership (route_{routeId})
+- Test fallback to HTTP polling if WebSocket fails
+- Check Azure Web PubSub service status in Azure Portal
 
 ## Security Checklist
 - [ ] No secrets in code or git history
@@ -2855,10 +3112,13 @@ process.env.VITE_MAPBOX_TOKEN = 'pk.test.token';
 #### Integration Testing with Real Services
 1. [ ] Mapbox maps load correctly with real token
 2. [ ] Azure Table Storage operations work
-3. [ ] WebSocket connection establishes
-4. [ ] Location updates transmit and display
-5. [ ] QR codes scan correctly on mobile devices
-6. [ ] Social media previews display correctly
+3. [ ] Azure Web PubSub connection establishes via /api/negotiate
+4. [ ] Location updates transmit through Web PubSub and display on tracking page
+5. [ ] Route-specific group isolation works (viewers only see their route)
+6. [ ] Connection resilience: automatic reconnection after network interruption
+7. [ ] HTTP polling fallback activates when WebSocket unavailable
+8. [ ] QR codes scan correctly on mobile devices
+9. [ ] Social media previews display correctly
 
 ### CI/CD Testing
 
@@ -2898,8 +3158,9 @@ The GitHub Actions workflows will automatically run:
 
 - **Mapbox Tokens:** Rotate annually or if compromised
 - **Azure Storage Keys:** Rotate quarterly (use Azure Key Vault for automated rotation)
-- **WebSocket Service Keys:** Rotate semi-annually
+- **Azure Web PubSub Keys:** Rotate semi-annually (Primary/Secondary key rollover)
 - **Deployment Tokens:** Rotate when team members leave
+- **Entra External ID Secrets:** Rotate annually or per compliance requirements
 
 ### Emergency Secret Revocation
 
@@ -2918,7 +3179,12 @@ Add a pre-deployment validation script:
 // scripts/validate-secrets.ts
 const requiredSecrets = [
   'VITE_MAPBOX_TOKEN',
-  'VITE_AZURE_STORAGE_CONNECTION_STRING',
+  'AZURE_STORAGE_CONNECTION_STRING',
+  'AZURE_WEBPUBSUB_CONNECTION_STRING',
+];
+
+const optionalSecrets = [
+  'AZURE_WEBPUBSUB_HUB_NAME', // Defaults to 'santa-tracking'
 ];
 
 const missingSecrets = requiredSecrets.filter(
@@ -2931,6 +3197,7 @@ if (missingSecrets.length > 0) {
 }
 
 console.log('All required secrets are configured ✓');
+console.log('Optional secrets:', optionalSecrets.filter(key => process.env[key]).join(', '));
 ```
 
 Run in CI: `ts-node scripts/validate-secrets.ts`
@@ -2956,22 +3223,28 @@ Run in CI: `ts-node scripts/validate-secrets.ts`
 - Transactions: ~1,000,000 = $0.50 AUD/month
 - **Total: ~$0.51 AUD/month**
 
-### Real-time Service Costs
+### Azure Web PubSub Costs
 
-**Pusher:**
-- Free tier: 200 max connections, 200k messages/day
-- Pro: $49 USD/month for 500 connections
-- **Recommendation:** Start with free tier
+**Pricing Tiers (as of 2024):**
+- **Free tier:** 
+  - 20 concurrent connections
+  - 20,000 messages per day
+  - 1 unit included
+  - **Best for:** Development and testing
+  
+- **Standard tier:** 
+  - 1,000 concurrent connections per unit
+  - Unlimited messages
+  - $49 USD/month per unit
+  - Additional units: $49 USD/month each
+  - **Best for:** Production with multiple simultaneous routes
 
-**Firebase:**
-- Free tier: 50k simultaneous connections, 10 GB/month downloads
-- Pay-as-you-go: Very generous free tier
-- **Recommendation:** Firebase for better free tier
-
-**Supabase:**
-- Free tier: Unlimited API requests, 2 GB database, 50 MB file storage
-- Pro: $25 USD/month
-- **Recommendation:** Best value for open-source option
+**Scaling Strategy:**
+- Start with Free tier for development
+- Use 1 Standard unit for production (supports multiple routes with 1000+ viewers)
+- Scale horizontally by adding units as brigade count grows
+- Each route typically needs 10-100 concurrent connections (public viewers)
+- Monitor connection metrics in Azure Portal to optimize unit count
 
 ### Hosting Costs
 
