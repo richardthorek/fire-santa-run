@@ -4,7 +4,7 @@
  * Handles token refresh, expiration checking, and session management.
  */
 
-import type { PublicClientApplication, AccountInfo } from '@azure/msal-browser';
+import type { IPublicClientApplication, AccountInfo } from '@azure/msal-browser';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { tokenRequest } from './msalConfig';
 
@@ -29,7 +29,7 @@ export interface TokenRefreshResult {
  * @returns Token refresh result
  */
 export async function refreshToken(
-  instance: PublicClientApplication,
+  instance: IPublicClientApplication,
   account: AccountInfo
 ): Promise<TokenRefreshResult> {
   try {
@@ -74,7 +74,7 @@ export async function refreshToken(
  * @returns Token refresh result
  */
 export async function forceRefreshToken(
-  instance: PublicClientApplication,
+  instance: IPublicClientApplication,
   account: AccountInfo
 ): Promise<TokenRefreshResult> {
   try {
@@ -115,7 +115,7 @@ export async function forceRefreshToken(
  * @returns Access token or null
  */
 export async function getAccessToken(
-  instance: PublicClientApplication,
+  instance: IPublicClientApplication,
   account: AccountInfo
 ): Promise<string | null> {
   const result = await refreshToken(instance, account);
@@ -130,7 +130,7 @@ export async function getAccessToken(
  * @returns True if session is valid
  */
 export async function isSessionValid(
-  instance: PublicClientApplication,
+  instance: IPublicClientApplication,
   account: AccountInfo
 ): Promise<boolean> {
   const result = await refreshToken(instance, account);
@@ -150,13 +150,11 @@ export const SESSION_WARNING_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
  * @returns True if token is about to expire
  */
 export function isTokenNearExpiry(
-  instance: PublicClientApplication,
-  account: AccountInfo
+  instance: IPublicClientApplication
 ): boolean {
   try {
-    // Get cached token info (doesn't make network request)
-    const tokenCache = instance.getTokenCache();
-    const accounts = tokenCache.getAllAccounts();
+    // Get all accounts from MSAL instance
+    const accounts = instance.getAllAccounts();
     
     if (accounts.length === 0) return true;
     
@@ -178,7 +176,7 @@ export function isTokenNearExpiry(
  * @param account - User account
  */
 export async function clearTokenCache(
-  instance: PublicClientApplication,
+  instance: IPublicClientApplication,
   account: AccountInfo
 ): Promise<void> {
   try {

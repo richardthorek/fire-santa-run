@@ -93,6 +93,17 @@ export class HttpStorageAdapter implements IStorageAdapter {
     return await response.json();
   }
 
+  async getBrigadeByRFSId(rfsStationId: string): Promise<Brigade | null> {
+    const response = await fetch(`${this.apiBaseUrl}/brigades/rfs/${encodeURIComponent(rfsStationId)}`);
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Failed to fetch brigade by RFS ID: ${response.statusText}`);
+    }
+    return await response.json();
+  }
+
   async saveBrigade(brigade: Brigade): Promise<void> {
     const existingBrigade = await this.getBrigade(brigade.id);
     

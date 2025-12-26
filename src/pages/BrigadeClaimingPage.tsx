@@ -15,7 +15,6 @@ import { isGovernmentEmail } from '../utils/emailValidation';
 import { logBrigadeClaimed } from '../utils/auditLog';
 import { COLORS } from '../utils/constants';
 import type { RFSStation } from '../types/rfs';
-import type { Brigade } from '../types';
 
 const membershipService = new MembershipService(storageAdapter);
 
@@ -88,9 +87,12 @@ export function BrigadeClaimingPage() {
         // Create new brigade from RFS station
         brigade = {
           id: self.crypto.randomUUID(),
+          slug: station.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
           name: station.name,
           location: `${station.suburb || ''}, ${station.state}`.trim(),
-          contactEmail: user.email,
+          contact: {
+            email: user.email,
+          },
           rfsStationId: station.id.toString(),
           isClaimed: false,
           requireManualApproval: !hasGovEmail, // Auto-approve for .gov.au emails
