@@ -201,37 +201,33 @@ export function LoginPage() {
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              {isLoggingIn ? 'Please wait...' : 'Sign In with Microsoft'}
+              {isLoggingIn ? 'Signing in...' : 'Sign In with Microsoft'}
             </button>
             
             <div style={{
               textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
               margin: '1rem 0',
             }}>
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                margin: '1rem 0',
+                flex: 1,
+                height: '1px',
+                backgroundColor: COLORS.neutral300,
+              }} />
+              <span style={{
+                padding: '0 1rem',
+                fontSize: '0.75rem',
+                color: COLORS.neutral700,
+                fontWeight: 500,
               }}>
-                <div style={{
-                  flex: 1,
-                  height: '1px',
-                  backgroundColor: COLORS.neutral300,
-                }} />
-                <span style={{
-                  padding: '0 1rem',
-                  fontSize: '0.75rem',
-                  color: COLORS.neutral700,
-                  fontWeight: 500,
-                }}>
-                  OR
-                </span>
-                <div style={{
-                  flex: 1,
-                  height: '1px',
-                  backgroundColor: COLORS.neutral300,
-                }} />
-              </div>
+                OR
+              </span>
+              <div style={{
+                flex: 1,
+                height: '1px',
+                backgroundColor: COLORS.neutral300,
+              }} />
             </div>
             
             <button
@@ -263,7 +259,7 @@ export function LoginPage() {
                 e.currentTarget.style.backgroundColor = 'white';
               }}
             >
-              {isLoggingIn ? 'Please wait...' : 'Create New Account'}
+              {isLoggingIn ? 'Creating account...' : 'Create New Account'}
             </button>
             
             <div style={{
