@@ -21,7 +21,7 @@ export function BrigadeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const loadBrigade = async () => {
-      if (!user) {
+      if (!user || !user.brigadeId) {
         setBrigade(null);
         setIsLoading(false);
         return;
@@ -44,10 +44,10 @@ export function BrigadeProvider({ children }: { children: ReactNode }) {
               allowedDomains: [],
               allowedEmails: [],
               requireManualApproval: false,
-              adminUserIds: ['dev-user-1'],
+              adminUserIds: [user.id],
               isClaimed: true,
               claimedAt: new Date().toISOString(),
-              claimedBy: 'dev-user-1',
+              claimedBy: user.id,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };

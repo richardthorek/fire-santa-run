@@ -1,10 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useState, useEffect, type ReactNode } from 'react';
+import { useMsal } from '@azure/msal-react';
+import { InteractionStatus } from '@azure/msal-browser';
+import { loginRequest, isMsalConfigured } from '../auth/msalConfig';
 
 export interface User {
+  id: string;        // User ID (from Entra or generated in dev mode)
   email: string;
   name?: string;
-  brigadeId: string;
+  brigadeId?: string; // Default/current brigade ID (for backwards compatibility)
 }
 
 export interface AuthContextType {
@@ -18,7 +22,7 @@ export interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 /**
- * Authentication context with development mode support.
+ * Authentication context with development mode support and MSAL integration.
  * 
  * In dev mode (VITE_DEV_MODE=true):
  * - Automatically provides a mock authenticated user
@@ -28,32 +32,62 @@ export const AuthContext = createContext<AuthContextType | null>(null);
  * In production mode (VITE_DEV_MODE=false):
  * - Requires Microsoft Entra External ID authentication
  * - Full security controls and domain validation
+ * - Uses MSAL for authentication flows
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
   const [isLoading, setIsLoading] = useState(!isDevMode);
   const [user, setUser] = useState<User | null>(null);
+  
+  // MSAL hooks (only used in production mode)
+  const { instance, accounts, inProgress } = useMsal();
 
   useEffect(() => {
-    const initializeAuth = () => {
+    const initializeAuth = async () => {
       if (isDevMode) {
         // In dev mode, automatically provide mock user
         const mockBrigadeId = import.meta.env.VITE_MOCK_BRIGADE_ID || 'dev-brigade-1';
         setUser({
+          id: 'dev-user-1',
           email: 'dev@example.com',
           name: 'Development User',
           brigadeId: mockBrigadeId,
         });
         setIsLoading(false);
+      } else if (isMsalConfigured()) {
+        // In production mode with MSAL configured, check for authenticated user
+        if (inProgress === InteractionStatus.None) {
+          if (accounts && accounts.length > 0) {
+            // User is authenticated
+            const account = accounts[0];
+            setUser({
+              id: account.homeAccountId, // Unique user identifier from Entra
+              email: account.username,
+              name: account.name || account.username,
+              brigadeId: undefined, // Will be set by BrigadeContext
+            });
+          } else {
+            // No authenticated user
+            setUser(null);
+          }
+          setIsLoading(false);
+        } else {
+          // Authentication in progress, keep loading
+          setIsLoading(true);
+        }
       } else {
-        // In production, check for existing session
-        // TODO: Implement MSAL authentication in Phase 7
+        // Production mode but MSAL not configured
+        console.warn(
+          '[Auth] Production mode enabled but MSAL not configured. ' +
+          'Set VITE_DEV_MODE=true for development or configure Entra External ID.'
+        );
         setIsLoading(false);
+        setUser(null);
       }
     };
     
     initializeAuth();
-  }, [isDevMode]);
+  }, [isDevMode, accounts, inProgress]);
 
   const login = async () => {
     if (isDevMode) {
@@ -61,8 +95,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return Promise.resolve();
     }
     
-    // TODO: Implement MSAL login flow in Phase 7
-    throw new Error('Production authentication not yet implemented. Set VITE_DEV_MODE=true for development.');
+    if (!isMsalConfigured()) {
+      throw new Error(
+        'Production authentication not configured. ' +
+        'Set VITE_DEV_MODE=true for development or configure Entra External ID. ' +
+        'See docs/ENTRA_EXTERNAL_ID_SETUP.md for setup instructions.'
+      );
+    }
+
+    try {
+      setIsLoading(true);
+      // Use redirect flow (recommended for SPAs)
+      await instance.loginRedirect(loginRequest);
+      // After redirect, user will be redirected back to the app
+      // and the auth state will be updated automatically
+    } catch (error) {
+      console.error('[Auth] Login failed:', error);
+      setIsLoading(false);
+      throw error;
+    }
   };
 
   const logout = async () => {
@@ -71,8 +122,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return Promise.resolve();
     }
     
-    // TODO: Implement MSAL logout flow in Phase 7
-    setUser(null);
+    if (!isMsalConfigured()) {
+      setUser(null);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      // Use redirect flow for logout
+      await instance.logoutRedirect({
+        postLogoutRedirectUri: window.location.origin,
+      });
+    } catch (error) {
+      console.error('[Auth] Logout failed:', error);
+      setIsLoading(false);
+      throw error;
+    }
   };
 
   const value: AuthContextType = {

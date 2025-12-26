@@ -36,7 +36,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         }
         setIsLoading(false);
       });
-    } else if (mode === 'new' && user) {
+    } else if (mode === 'new' && user?.brigadeId) {
       setInitialRoute(createNewRoute(user.brigadeId, user.email));
     }
   }, [mode, routeId, getRoute, user]);

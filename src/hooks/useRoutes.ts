@@ -14,7 +14,7 @@ export function useRoutes() {
   const [error, setError] = useState<Error | null>(null);
 
   const loadRoutes = useCallback(async () => {
-    if (!user) {
+    if (!user?.brigadeId) {
       setRoutes([]);
       setIsLoading(false);
       return;
@@ -40,8 +40,8 @@ export function useRoutes() {
   }, [loadRoutes]);
 
   const saveRoute = useCallback(async (route: Route) => {
-    if (!user) {
-      throw new Error('User must be authenticated to save routes');
+    if (!user?.brigadeId) {
+      throw new Error('User must be authenticated with a brigade to save routes');
     }
 
     try {
@@ -55,8 +55,8 @@ export function useRoutes() {
   }, [user, loadRoutes]);
 
   const deleteRoute = useCallback(async (routeId: string) => {
-    if (!user) {
-      throw new Error('User must be authenticated to delete routes');
+    if (!user?.brigadeId) {
+      throw new Error('User must be authenticated with a brigade to delete routes');
     }
 
     try {
@@ -70,7 +70,7 @@ export function useRoutes() {
   }, [user, loadRoutes]);
 
   const getRoute = useCallback(async (routeId: string): Promise<Route | null> => {
-    if (!user) {
+    if (!user?.brigadeId) {
       return null;
     }
 

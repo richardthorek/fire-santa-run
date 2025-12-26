@@ -13,6 +13,9 @@ const RouteEditor = lazy(() => import('./pages').then(m => ({ default: m.RouteEd
 const NavigationView = lazy(() => import('./pages').then(m => ({ default: m.NavigationView })));
 const TrackingView = lazy(() => import('./pages').then(m => ({ default: m.TrackingView })));
 const RouteDetail = lazy(() => import('./pages').then(m => ({ default: m.RouteDetail })));
+const LoginPage = lazy(() => import('./pages').then(m => ({ default: m.LoginPage })));
+const LogoutPage = lazy(() => import('./pages').then(m => ({ default: m.LogoutPage })));
+const CallbackPage = lazy(() => import('./pages').then(m => ({ default: m.CallbackPage })));
 
 // Loading component
 function PageLoader() {
@@ -82,13 +85,23 @@ function App() {
       <div style={{ paddingTop: isDevMode ? '2.5rem' : 0, height: '100%', width: '100%' }}>
         <Suspense fallback={<PageLoader />}>
           <Routes>
+            {/* Authentication Routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/logout" element={<LogoutPage />} />
+            <Route path="/auth/callback" element={<CallbackPage />} />
+            
+            {/* Protected Routes */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/routes/new" element={<RouteEditor mode="new" />} />
             <Route path="/routes/:id/edit" element={<RouteEditorWrapper />} />
             <Route path="/routes/:id/navigate" element={<NavigationViewWrapper />} />
             <Route path="/routes/:id" element={<RouteDetailWrapper />} />
+            
+            {/* Public Routes */}
             <Route path="/track/:id" element={<TrackingViewWrapper />} />
+            
+            {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
