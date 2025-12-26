@@ -16,6 +16,8 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { TableClient } from '@azure/data-tables';
+import { validateToken, checkBrigadePermission } from './utils/auth';
+import { shouldAutoApprove } from './utils/emailValidation';
 
 // Get Azure Storage credentials
 const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
@@ -132,15 +134,82 @@ function generateToken(): string {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
+// Helper to get user's membership in a brigade
+async function getUserMembership(userId: string, brigadeId: string): Promise<any> {
+  const client = getMembershipsTableClient();
+  const entities = client.listEntities({
+    queryOptions: { 
+      filter: `PartitionKey eq '${brigadeId}' and userId eq '${userId}'` 
+    }
+  });
+
+  for await (const entity of entities) {
+    return entityToMembership(entity);
+  }
+
+  return null;
+}
+
+// Helper to get brigade details
+async function getBrigadeDetails(brigadeId: string): Promise<any> {
+  const BRIGADES_TABLE = process.env.VITE_DEV_MODE === 'true' ? 'devbrigades' : 'brigades';
+  const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
+  
+  if (!STORAGE_CONNECTION_STRING) {
+    throw new Error('Azure Storage connection string not configured');
+  }
+  
+  const client = TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, BRIGADES_TABLE);
+  
+  try {
+    const entity = await client.getEntity(brigadeId, brigadeId);
+    return {
+      id: entity.rowKey,
+      name: entity.name,
+      allowedDomains: entity.allowedDomains ? JSON.parse(entity.allowedDomains as string) : [],
+      allowedEmails: entity.allowedEmails ? JSON.parse(entity.allowedEmails as string) : [],
+    };
+  } catch (error: any) {
+    if (error.statusCode === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 // GET /api/brigades/{brigadeId}/members
 async function getBrigadeMembers(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    // Validate authentication
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return {
+        status: 401,
+        jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }
+      };
+    }
+
     const brigadeId = request.params.brigadeId;
 
     if (!brigadeId) {
       return {
         status: 400,
         jsonBody: { error: 'Missing required parameter: brigadeId' }
+      };
+    }
+
+    // Check brigade permission
+    const permissionCheck = await checkBrigadePermission(
+      authResult.userId!,
+      brigadeId,
+      'view_members',
+      getUserMembership
+    );
+
+    if (!permissionCheck.authorized) {
+      return {
+        status: 403,
+        jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }
       };
     }
 
@@ -177,6 +246,15 @@ async function getBrigadeMembers(request: HttpRequest, context: InvocationContex
 // POST /api/brigades/{brigadeId}/members/invite
 async function inviteMember(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    // Validate authentication
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return {
+        status: 401,
+        jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }
+      };
+    }
+
     const brigadeId = request.params.brigadeId;
     const invitationData = await request.json() as any;
 
@@ -186,6 +264,27 @@ async function inviteMember(request: HttpRequest, context: InvocationContext): P
         jsonBody: { error: 'Missing required fields: brigadeId, email, invitedBy' }
       };
     }
+
+    // Check brigade permission
+    const permissionCheck = await checkBrigadePermission(
+      authResult.userId!,
+      brigadeId,
+      'invite_members',
+      getUserMembership
+    );
+
+    if (!permissionCheck.authorized) {
+      return {
+        status: 403,
+        jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }
+      };
+    }
+
+    // Get brigade details for domain whitelist checking
+    const brigade = await getBrigadeDetails(brigadeId);
+    
+    // Check if email should be auto-approved
+    const autoApprove = brigade ? shouldAutoApprove(invitationData.email, brigade) : false;
 
     // Generate invitation
     const now = new Date();
@@ -211,11 +310,11 @@ async function inviteMember(request: HttpRequest, context: InvocationContext): P
 
     await client.createEntity(entity);
 
-    context.log(`Created invitation for ${invitationData.email} to brigade: ${brigadeId}`);
+    context.log(`Created invitation for ${invitationData.email} to brigade: ${brigadeId} (auto-approve: ${autoApprove})`);
 
     return {
       status: 201,
-      jsonBody: invitation
+      jsonBody: { ...invitation, autoApprove }
     };
 
   } catch (error: any) {
@@ -241,6 +340,15 @@ async function inviteMember(request: HttpRequest, context: InvocationContext): P
 // DELETE /api/brigades/{brigadeId}/members/{userId}
 async function removeMember(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    // Validate authentication
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return {
+        status: 401,
+        jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }
+      };
+    }
+
     const brigadeId = request.params.brigadeId;
     const userId = request.params.userId;
 
@@ -248,6 +356,21 @@ async function removeMember(request: HttpRequest, context: InvocationContext): P
       return {
         status: 400,
         jsonBody: { error: 'Missing required parameters: brigadeId, userId' }
+      };
+    }
+
+    // Check brigade permission
+    const permissionCheck = await checkBrigadePermission(
+      authResult.userId!,
+      brigadeId,
+      'remove_members',
+      getUserMembership
+    );
+
+    if (!permissionCheck.authorized) {
+      return {
+        status: 403,
+        jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }
       };
     }
 
@@ -273,7 +396,7 @@ async function removeMember(request: HttpRequest, context: InvocationContext): P
 
     await client.deleteEntity(brigadeId, membershipId);
 
-    context.log(`Removed member ${userId} from brigade: ${brigadeId}`);
+    context.log(`Removed member ${userId} from brigade: ${brigadeId} by user: ${authResult.userId}`);
 
     return {
       status: 200,
@@ -296,6 +419,15 @@ async function removeMember(request: HttpRequest, context: InvocationContext): P
 // PATCH /api/brigades/{brigadeId}/members/{userId}/role
 async function changeMemberRole(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    // Validate authentication
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return {
+        status: 401,
+        jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }
+      };
+    }
+
     const brigadeId = request.params.brigadeId;
     const userId = request.params.userId;
     const { role } = await request.json() as any;
@@ -311,6 +443,22 @@ async function changeMemberRole(request: HttpRequest, context: InvocationContext
       return {
         status: 400,
         jsonBody: { error: 'Invalid role. Must be: admin, operator, or viewer' }
+      };
+    }
+
+    // Check brigade permission - need different permissions for promoting/demoting admins
+    const requiredPermission = role === 'admin' ? 'promote_admin' : 'manage_members';
+    const permissionCheck = await checkBrigadePermission(
+      authResult.userId!,
+      brigadeId,
+      requiredPermission,
+      getUserMembership
+    );
+
+    if (!permissionCheck.authorized) {
+      return {
+        status: 403,
+        jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }
       };
     }
 
@@ -341,7 +489,7 @@ async function changeMemberRole(request: HttpRequest, context: InvocationContext
     const entity = membershipToEntity(membership);
     await client.updateEntity(entity, 'Replace');
 
-    context.log(`Changed role for member ${userId} in brigade ${brigadeId} to: ${role}`);
+    context.log(`Changed role for member ${userId} in brigade ${brigadeId} to: ${role} by user: ${authResult.userId}`);
 
     return {
       status: 200,
@@ -406,6 +554,15 @@ async function getPendingMembers(request: HttpRequest, context: InvocationContex
 // POST /api/brigades/{brigadeId}/members/{userId}/approve
 async function approveMember(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    // Validate authentication
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return {
+        status: 401,
+        jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }
+      };
+    }
+
     const brigadeId = request.params.brigadeId;
     const userId = request.params.userId;
     const { approvedBy } = await request.json() as any;
@@ -414,6 +571,21 @@ async function approveMember(request: HttpRequest, context: InvocationContext): 
       return {
         status: 400,
         jsonBody: { error: 'Missing required parameters: brigadeId, userId, approvedBy' }
+      };
+    }
+
+    // Check brigade permission
+    const permissionCheck = await checkBrigadePermission(
+      authResult.userId!,
+      brigadeId,
+      'approve_members',
+      getUserMembership
+    );
+
+    if (!permissionCheck.authorized) {
+      return {
+        status: 403,
+        jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }
       };
     }
 

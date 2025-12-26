@@ -15,6 +15,7 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { TableClient } from '@azure/data-tables';
+import { validateToken, checkBrigadePermission } from './utils/auth';
 
 // Get Azure Storage credentials
 const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
@@ -22,12 +23,42 @@ const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRI
 // Determine table name based on environment
 const isDevMode = process.env.VITE_DEV_MODE === 'true';
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
+const MEMBERSHIPS_TABLE = isDevMode ? 'devmemberships' : 'memberships';
 
 function getTableClient(): TableClient {
   if (!STORAGE_CONNECTION_STRING) {
     throw new Error('Azure Storage connection string not configured');
   }
   return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, ROUTES_TABLE);
+}
+
+function getMembershipsTableClient(): TableClient {
+  if (!STORAGE_CONNECTION_STRING) {
+    throw new Error('Azure Storage connection string not configured');
+  }
+  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, MEMBERSHIPS_TABLE);
+}
+
+// Helper to get user's membership in a brigade
+async function getUserMembership(userId: string, brigadeId: string): Promise<any> {
+  const client = getMembershipsTableClient();
+  const entities = client.listEntities({
+    queryOptions: { 
+      filter: `PartitionKey eq '${brigadeId}' and userId eq '${userId}'` 
+    }
+  });
+
+  for await (const entity of entities) {
+    return {
+      id: entity.rowKey,
+      brigadeId: entity.partitionKey,
+      userId: entity.userId,
+      role: entity.role,
+      status: entity.status,
+    };
+  }
+
+  return null;
 }
 
 // Helper to convert Table entity to Route object
@@ -151,6 +182,15 @@ async function getRoutes(request: HttpRequest, context: InvocationContext): Prom
 // POST /api/routes
 async function createRoute(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    // Validate authentication
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return {
+        status: 401,
+        jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }
+      };
+    }
+
     const route = await request.json() as any;
 
     if (!route.id || !route.brigadeId) {
@@ -160,12 +200,27 @@ async function createRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
+    // Check brigade permission
+    const permissionCheck = await checkBrigadePermission(
+      authResult.userId!,
+      route.brigadeId,
+      'manage_routes',
+      getUserMembership
+    );
+
+    if (!permissionCheck.authorized) {
+      return {
+        status: 403,
+        jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }
+      };
+    }
+
     const client = getTableClient();
     const entity = routeToEntity(route);
 
     await client.createEntity(entity);
 
-    context.log(`Created route: ${route.id} for brigade: ${route.brigadeId}`);
+    context.log(`Created route: ${route.id} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);
 
     return {
       status: 201,
@@ -195,6 +250,15 @@ async function createRoute(request: HttpRequest, context: InvocationContext): Pr
 // PUT /api/routes/{id}
 async function updateRoute(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    // Validate authentication
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return {
+        status: 401,
+        jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }
+      };
+    }
+
     const routeId = request.params.id;
     const route = await request.json() as any;
 
@@ -205,12 +269,27 @@ async function updateRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
+    // Check brigade permission
+    const permissionCheck = await checkBrigadePermission(
+      authResult.userId!,
+      route.brigadeId,
+      'manage_routes',
+      getUserMembership
+    );
+
+    if (!permissionCheck.authorized) {
+      return {
+        status: 403,
+        jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }
+      };
+    }
+
     const client = getTableClient();
     const entity = routeToEntity({ ...route, id: routeId });
 
     await client.updateEntity(entity, 'Merge');
 
-    context.log(`Updated route: ${routeId} for brigade: ${route.brigadeId}`);
+    context.log(`Updated route: ${routeId} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);
 
     return {
       status: 200,
@@ -240,6 +319,15 @@ async function updateRoute(request: HttpRequest, context: InvocationContext): Pr
 // DELETE /api/routes/{id}?brigadeId=xxx
 async function deleteRoute(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    // Validate authentication
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return {
+        status: 401,
+        jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }
+      };
+    }
+
     const routeId = request.params.id;
     const brigadeId = request.query.get('brigadeId');
 
@@ -250,10 +338,25 @@ async function deleteRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
+    // Check brigade permission
+    const permissionCheck = await checkBrigadePermission(
+      authResult.userId!,
+      brigadeId,
+      'manage_routes',
+      getUserMembership
+    );
+
+    if (!permissionCheck.authorized) {
+      return {
+        status: 403,
+        jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }
+      };
+    }
+
     const client = getTableClient();
     await client.deleteEntity(brigadeId, routeId);
 
-    context.log(`Deleted route: ${routeId} for brigade: ${brigadeId}`);
+    context.log(`Deleted route: ${routeId} for brigade: ${brigadeId} by user: ${authResult.userId}`);
 
     return {
       status: 204,
