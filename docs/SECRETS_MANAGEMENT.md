@@ -219,6 +219,87 @@ GitHub Actions will now have access to these secrets. Check workflow runs:
 
 ## Deployment Setup
 
+### Azure Static Web Apps Deployment
+
+The repository includes an Azure Static Web Apps CI/CD workflow that automatically deploys the application when changes are pushed to the `main` branch.
+
+#### Prerequisites
+1. Azure subscription
+2. Azure Static Web Apps resource created
+3. Deployment token from Azure Portal
+
+#### Setup Steps
+
+1. **Create Azure Static Web Apps resource:**
+   - Go to [Azure Portal](https://portal.azure.com/)
+   - Create a new Static Web App
+   - Connect to your GitHub repository
+   - Azure will create the workflow file automatically
+
+2. **Add required GitHub environment secrets:**
+
+   This repository uses a GitHub **environment** called "copilot" for deployment secrets.
+
+   Navigate to your repository's **Settings** → **Environments** → **copilot** → **Environment secrets** and add:
+
+   ```
+   Name: VITE_MAPBOX_TOKEN
+   Value: pk.your_mapbox_token_here
+   Description: Required for Mapbox maps and geocoding
+   ```
+
+   **Note:** If the "copilot" environment doesn't exist yet, create it first:
+   - Settings → Environments → New environment → Name: "copilot" → Configure environment
+
+   The workflow is configured to use the "copilot" environment and will access secrets from there during the build process.
+
+3. **Optional production secrets** (add when ready for production):
+   ```
+   Name: VITE_AZURE_STORAGE_CONNECTION_STRING
+   Value: DefaultEndpointsProtocol=https;AccountName=...
+   
+   Name: AZURE_WEBPUBSUB_CONNECTION_STRING
+   Value: Endpoint=https://...webpubsub.azure.com;AccessKey=...
+   
+   Name: VITE_APP_NAME
+   Value: Fire Santa Run
+   ```
+
+4. **Verify workflow:**
+   - Go to **Actions** tab in your repository
+   - Check the latest "Azure Static Web Apps CI/CD" workflow run
+   - Ensure it completes successfully
+
+#### Environment Variables in Azure Static Web Apps
+
+The workflow is configured to pass the following environment variables during build:
+
+- `VITE_DEV_MODE`: Set to `'false'` for production builds
+- `VITE_MAPBOX_TOKEN`: From GitHub secret
+- `VITE_APP_NAME`: Set to `'Fire Santa Run'`
+
+Additional environment variables can be added in the workflow file's `env` section under the "Build And Deploy" step.
+
+#### Troubleshooting
+
+**Build fails with "VITE_MAPBOX_TOKEN is not defined":**
+- Ensure the secret is added to the "copilot" environment (not as a repository secret)
+- Navigate to Settings → Environments → copilot → Environment secrets
+- Secret name must be exactly `VITE_MAPBOX_TOKEN` (case-sensitive)
+- Re-run the workflow after adding the secret
+
+**Secrets not being read by the workflow:**
+- Verify the workflow job specifies `environment: copilot`
+- Check that the "copilot" environment exists in Settings → Environments
+- Ensure the secret is added to the environment, not as a repository-level secret
+
+**Deployment succeeds but app doesn't work:**
+- Check that production environment variables are set correctly
+- Verify Azure Storage and Web PubSub secrets are added if using those features
+- Check browser console for specific errors
+
+---
+
 ### Vercel Deployment
 
 #### Via Dashboard (Recommended)
