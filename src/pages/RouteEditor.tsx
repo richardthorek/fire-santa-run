@@ -162,11 +162,19 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         borderRadius: '16px',
         padding: '1rem 1.5rem',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        border: '2px solid var(--rfs-yellow)',
         zIndex: 1000,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 auto', minWidth: '200px' }}>
-            <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#D32F2F', whiteSpace: 'nowrap' }}>
+            <h1 style={{ 
+              margin: 0, 
+              fontSize: '1.25rem', 
+              color: 'var(--fire-red)', 
+              whiteSpace: 'nowrap',
+              fontFamily: 'var(--font-heading)',
+              textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
+            }}>
               {mode === 'new' ? '➕ Create Route' : '✏️ Edit Route'}
             </h1>
             {route.geometry && (
@@ -327,20 +335,32 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         right: '1rem',
         bottom: '1rem',
         width: 'min(400px, calc(100vw - 2rem))',
+        maxWidth: 'calc(100vw - 5rem)', // Leave room for map controls on the right
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(10px)',
         borderRadius: '16px',
         padding: '1.5rem',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        border: '2px solid var(--christmas-green)',
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
         gap: '1.5rem',
-        zIndex: 1000,
+        zIndex: 900, // Lower than map controls (which are typically 1000)
       }}>
         {/* Route Metadata Form */}
         <div>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', color: '#212121' }}>Route Details</h3>
+          <h3 style={{ 
+            margin: '0 0 1rem 0', 
+            fontSize: '1.125rem', 
+            color: 'var(--fire-red)',
+            fontFamily: 'var(--font-heading)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}>
+            <span>🎄</span> Route Details
+          </h3>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
@@ -429,7 +449,17 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
 
         {/* Address Search */}
         <div>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', color: '#212121' }}>Add Waypoint</h3>
+          <h3 style={{ 
+            margin: '0 0 1rem 0', 
+            fontSize: '1.125rem', 
+            color: 'var(--fire-red)',
+            fontFamily: 'var(--font-heading)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}>
+            <span>📍</span> Add Waypoint
+          </h3>
           <AddressSearch
             onSelect={handleAddressSelect}
             proximity={route.waypoints.length > 0 ? route.waypoints[route.waypoints.length - 1].coordinates : undefined}
@@ -442,8 +472,16 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
 
         {/* Waypoints List */}
         <div style={{ flex: 1, minHeight: 0 }}>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem', color: '#212121' }}>
-            Waypoints ({route.waypoints.length})
+          <h3 style={{ 
+            margin: '0 0 1rem 0', 
+            fontSize: '1.125rem', 
+            color: 'var(--fire-red)',
+            fontFamily: 'var(--font-heading)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}>
+            <span>🎁</span> Waypoints ({route.waypoints.length})
           </h3>
           <WaypointList
             waypoints={route.waypoints}

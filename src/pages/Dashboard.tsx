@@ -78,8 +78,16 @@ export function Dashboard() {
       height: '100%', 
       overflow: 'auto',
       backgroundColor: 'var(--neutral-50)',
+      backgroundImage: `
+        radial-gradient(circle at 20% 30%, rgba(255, 230, 0, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(214, 40, 40, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 40% 80%, rgba(67, 160, 71, 0.03) 0%, transparent 50%)
+      `,
     }}>
       <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        {/* Christmas Lights Divider at top */}
+        <div className="christmas-lights" style={{ marginBottom: '2rem' }} />
+        
         {/* Header */}
       <div style={{ 
         display: 'flex', 
@@ -96,11 +104,12 @@ export function Dashboard() {
             fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', 
             color: 'var(--fire-red)',
             fontFamily: 'var(--font-heading)',
+            textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
           }}>
             🎅 Santa Run Routes
           </h1>
-          <p style={{ margin: 0, color: 'var(--neutral-700)' }}>
-            Plan and manage your Christmas Eve routes
+          <p style={{ margin: 0, color: 'var(--neutral-700)', fontSize: '1rem' }}>
+            Plan and manage your Christmas Eve routes ✨
           </p>
         </div>
         <a
@@ -184,7 +193,39 @@ export function Dashboard() {
           backgroundColor: 'var(--sand-light)',
           borderRadius: 'var(--border-radius)',
           border: '3px dashed var(--summer-gold)',
+          position: 'relative',
+          overflow: 'hidden',
         }}>
+          {/* Decorative snowflakes/stars */}
+          <div style={{
+            position: 'absolute',
+            top: '1rem',
+            left: '1rem',
+            fontSize: '24px',
+            opacity: 0.3,
+          }}>⭐</div>
+          <div style={{
+            position: 'absolute',
+            top: '1rem',
+            right: '1rem',
+            fontSize: '24px',
+            opacity: 0.3,
+          }}>✨</div>
+          <div style={{
+            position: 'absolute',
+            bottom: '1rem',
+            left: '2rem',
+            fontSize: '20px',
+            opacity: 0.3,
+          }}>🎁</div>
+          <div style={{
+            position: 'absolute',
+            bottom: '1rem',
+            right: '2rem',
+            fontSize: '20px',
+            opacity: 0.3,
+          }}>🌟</div>
+          
           <div style={{ fontSize: '64px', marginBottom: '1rem' }}>🎄</div>
           <h2 style={{ 
             marginBottom: '0.5rem', 
@@ -194,7 +235,7 @@ export function Dashboard() {
             {filterStatus === 'all' ? 'No routes yet' : `No ${filterStatus} routes`}
           </h2>
           <p style={{ color: 'var(--neutral-700)', marginBottom: '1.5rem' }}>
-            Create your first Santa run route to get started!
+            Create your first Santa run route to get started! 🎅
           </p>
           <a
             href="/routes/new"
@@ -229,23 +270,37 @@ export function Dashboard() {
               key={route.id}
               style={{
                 backgroundColor: 'white',
-                borderRadius: '12px',
+                borderRadius: '16px',
                 padding: '1.5rem',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                border: '1px solid #e0e0e0',
-                transition: 'transform 0.2s, box-shadow 0.2s',
+                border: '2px solid var(--neutral-200)',
+                transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
                 cursor: 'pointer',
+                position: 'relative',
+                overflow: 'hidden',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)';
+                e.currentTarget.style.boxShadow = '0 8px 20px rgba(214, 40, 40, 0.2)';
+                e.currentTarget.style.borderColor = 'var(--fire-red)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                e.currentTarget.style.borderColor = 'var(--neutral-200)';
               }}
               onClick={() => window.location.href = `/routes/${route.id}`}
             >
+              {/* Decorative corner accent */}
+              <div style={{
+                position: 'absolute',
+                top: '-10px',
+                right: '-10px',
+                fontSize: '40px',
+                opacity: 0.1,
+                pointerEvents: 'none',
+              }}>🎅</div>
+              
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
                 <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#212121', flex: 1 }}>
@@ -333,11 +388,13 @@ export function Dashboard() {
                       style={{
                         flex: 1,
                         padding: '0.5rem',
-                        border: '1px solid #e0e0e0',
+                        border: '2px solid var(--fire-red)',
                         borderRadius: '8px',
                         backgroundColor: 'white',
+                        color: 'var(--fire-red)',
                         cursor: 'pointer',
                         fontSize: '0.875rem',
+                        fontWeight: 600,
                       }}
                     >
                       ✏️ Edit
@@ -352,11 +409,13 @@ export function Dashboard() {
                     style={{
                       flex: 1,
                       padding: '0.5rem',
-                      border: '1px solid #e0e0e0',
+                      border: '2px solid var(--fire-red)',
                       borderRadius: '8px',
                       backgroundColor: 'white',
+                      color: 'var(--fire-red)',
                       cursor: 'pointer',
                       fontSize: '0.875rem',
+                      fontWeight: 600,
                     }}
                   >
                     ✏️ Edit
@@ -375,11 +434,13 @@ export function Dashboard() {
                   style={{
                     flex: 1,
                     padding: '0.5rem',
-                    border: '1px solid #e0e0e0',
+                    border: '2px solid var(--summer-gold)',
                     borderRadius: '8px',
                     backgroundColor: 'white',
+                    color: 'var(--summer-gold)',
                     cursor: 'pointer',
                     fontSize: '0.875rem',
+                    fontWeight: 600,
                     opacity: (route.status === 'published' || route.status === 'active' || route.status === 'completed') ? 1 : 0.5,
                   }}
                   disabled={route.status === 'draft'}
