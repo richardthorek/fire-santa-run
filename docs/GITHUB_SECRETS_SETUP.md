@@ -22,16 +22,23 @@ The Azure Static Web Apps CI/CD workflow **requires** the `VITE_MAPBOX_TOKEN` se
 5. Click **"Create token"**
 6. Copy the token (starts with `pk.`)
 
-### Step 2: Add Secret to GitHub
+### Step 2: Add Secret to GitHub Environment
+
+This repository uses a GitHub environment called "copilot" for deployment secrets.
 
 1. Go to your repository on GitHub
 2. Click the **"Settings"** tab
-3. In the left sidebar, navigate to **"Secrets and variables"** → **"Actions"**
-4. Click **"New repository secret"**
-5. Add the secret:
+3. In the left sidebar, navigate to **"Environments"**
+4. Click on the **"copilot"** environment (if it doesn't exist, you may need to create it first)
+5. Scroll down to **"Environment secrets"** section
+6. Click **"Add secret"**
+7. Add the secret:
    - **Name:** `VITE_MAPBOX_TOKEN` (case-sensitive, must be exact)
    - **Value:** Paste your Mapbox token (the one that starts with `pk.`)
-6. Click **"Add secret"**
+8. Click **"Add secret"**
+
+**Note:** If the "copilot" environment doesn't exist, you can create it by:
+- Settings → Environments → New environment → Name it "copilot" → Configure environment
 
 ### Step 3: Verify
 

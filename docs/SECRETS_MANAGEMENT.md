@@ -236,9 +236,11 @@ The repository includes an Azure Static Web Apps CI/CD workflow that automatical
    - Connect to your GitHub repository
    - Azure will create the workflow file automatically
 
-2. **Add required GitHub secrets:**
+2. **Add required GitHub environment secrets:**
 
-   Navigate to your repository's **Settings** > **Secrets and variables** > **Actions** and add:
+   This repository uses a GitHub **environment** called "copilot" for deployment secrets.
+
+   Navigate to your repository's **Settings** → **Environments** → **copilot** → **Environment secrets** and add:
 
    ```
    Name: VITE_MAPBOX_TOKEN
@@ -246,7 +248,10 @@ The repository includes an Azure Static Web Apps CI/CD workflow that automatical
    Description: Required for Mapbox maps and geocoding
    ```
 
-   The workflow will automatically use this secret during the build process.
+   **Note:** If the "copilot" environment doesn't exist yet, create it first:
+   - Settings → Environments → New environment → Name: "copilot" → Configure environment
+
+   The workflow is configured to use the "copilot" environment and will access secrets from there during the build process.
 
 3. **Optional production secrets** (add when ready for production):
    ```
@@ -255,6 +260,9 @@ The repository includes an Azure Static Web Apps CI/CD workflow that automatical
    
    Name: AZURE_WEBPUBSUB_CONNECTION_STRING
    Value: Endpoint=https://...webpubsub.azure.com;AccessKey=...
+   
+   Name: VITE_APP_NAME
+   Value: Fire Santa Run
    ```
 
 4. **Verify workflow:**
@@ -275,9 +283,15 @@ Additional environment variables can be added in the workflow file's `env` secti
 #### Troubleshooting
 
 **Build fails with "VITE_MAPBOX_TOKEN is not defined":**
-- Ensure the secret is added to GitHub repository secrets (not organization secrets)
+- Ensure the secret is added to the "copilot" environment (not as a repository secret)
+- Navigate to Settings → Environments → copilot → Environment secrets
 - Secret name must be exactly `VITE_MAPBOX_TOKEN` (case-sensitive)
 - Re-run the workflow after adding the secret
+
+**Secrets not being read by the workflow:**
+- Verify the workflow job specifies `environment: copilot`
+- Check that the "copilot" environment exists in Settings → Environments
+- Ensure the secret is added to the environment, not as a repository-level secret
 
 **Deployment succeeds but app doesn't work:**
 - Check that production environment variables are set correctly

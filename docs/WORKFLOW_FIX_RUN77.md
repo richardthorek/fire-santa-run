@@ -3,15 +3,20 @@
 ## Issue
 GitHub workflow run #77 failed during the "Build And Deploy" step with Azure Static Web Apps CI/CD.
 
-## Root Cause
-The Vite build process requires the `VITE_MAPBOX_TOKEN` environment variable to be available at build time, but it was not configured in the GitHub Actions workflow. The application code uses `import.meta.env.VITE_MAPBOX_TOKEN` in multiple components (`MapView.tsx`, `NavigationMap.tsx`, `TrackingView.tsx`, etc.), and Vite embeds these values at build time.
+## Root Cause (Updated)
+
+**Initial Diagnosis:** The Vite build process requires the `VITE_MAPBOX_TOKEN` environment variable, but it was not configured in the workflow's env section.
+
+**Corrected Diagnosis:** The workflow was correctly configured to pass environment variables, BUT the secrets are stored in a GitHub **environment** called "copilot", not as repository secrets. The workflow job was not configured to use this environment, so it couldn't access the secrets.
+
+The application code uses `import.meta.env.VITE_MAPBOX_TOKEN` in multiple components (`MapView.tsx`, `NavigationMap.tsx`, `TrackingView.tsx`, etc.), and Vite embeds these values at build time.
 
 ## Solution Implemented
 
 ### 1. Updated Workflow Configuration
 **File:** `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml`
 
-Added environment variables to the "Build And Deploy" step:
+**Initial fix:** Added environment variables to the "Build And Deploy" step:
 ```yaml
 - name: Build And Deploy
   id: builddeploy
@@ -22,11 +27,20 @@ Added environment variables to the "Build And Deploy" step:
     VITE_APP_NAME: 'Fire Santa Run'
 ```
 
-Also added documentation comments at the top of the workflow file explaining required and optional GitHub secrets.
+**Corrected fix:** Added `environment: copilot` to the job configuration:
+```yaml
+jobs:
+  build_and_deploy_job:
+    runs-on: ubuntu-latest
+    name: Build and Deploy Job
+    environment: copilot  # ← This tells the workflow to use secrets from the "copilot" environment
+```
+
+This allows the workflow to access the environment secrets that are already configured in the "copilot" environment.
 
 ### 2. Enhanced Documentation
-- **Updated:** `docs/SECRETS_MANAGEMENT.md` - Added comprehensive Azure Static Web Apps deployment section
-- **Created:** `docs/GITHUB_SECRETS_SETUP.md` - Step-by-step guide for adding the required `VITE_MAPBOX_TOKEN` secret
+- **Updated:** `docs/SECRETS_MANAGEMENT.md` - Updated Azure Static Web Apps section to reference environment secrets
+- **Updated:** `docs/GITHUB_SECRETS_SETUP.md` - Corrected instructions to add secrets to the "copilot" environment
 
 ### 3. Why This Works
 Azure Static Web Apps deployment action internally runs `npm run build`, which executes:
@@ -35,31 +49,29 @@ Azure Static Web Apps deployment action internally runs `npm run build`, which e
 
 During the Vite build, environment variables prefixed with `VITE_` are embedded into the JavaScript bundle. By adding the `env` section to the workflow step, these variables become available to the build process, allowing it to complete successfully.
 
-## Action Required by Repository Owner
+## Action Required by Repository Owner (Updated)
 
-To complete the fix, the repository owner must:
+**Good news!** The secrets are already configured in the "copilot" environment. The workflow has now been updated to use this environment.
 
-1. **Get a Mapbox Token:**
-   - Visit https://account.mapbox.com/access-tokens/
-   - Create a new public token with scopes: `styles:read`, `fonts:read`, `geocoding:read`, `directions:read`
-   - Copy the token (starts with `pk.`)
+**No action required** - the fix should work immediately. Just re-run the failed workflow:
 
-2. **Add GitHub Secret:**
-   - Go to repository **Settings** → **Secrets and variables** → **Actions**
-   - Click **"New repository secret"**
-   - Name: `VITE_MAPBOX_TOKEN` (case-sensitive)
-   - Value: Paste the Mapbox token
-   - Click **"Add secret"**
-
-3. **Re-run Workflow:**
+1. **Re-run Workflow:**
    - Go to **Actions** tab
-   - Find the failed workflow run
+   - Find the failed workflow run #77
    - Click **"Re-run all jobs"**
    - Workflow should now succeed ✅
 
+**Note:** The secrets listed below are already present in the "copilot" environment:
+- ✅ `VITE_MAPBOX_TOKEN`
+- ✅ `VITE_APP_NAME`
+- ✅ `VITE_AZURE_STORAGE_CONNECTION_STRING`
+- ✅ `VITE_AZURE_STORAGE_ACCOUNT_NAME`
+- ✅ `AZURE_WEBPUBSUB_CONNECTION_STRING`
+- ✅ `AZURE_WEBPUBSUB_HUB_NAME`
+
 ## Expected Outcome
 
-After adding the `VITE_MAPBOX_TOKEN` secret:
+After re-running the workflow:
 - ✅ Build step completes successfully
 - ✅ Application bundle includes Mapbox token
 - ✅ Maps render correctly in production
