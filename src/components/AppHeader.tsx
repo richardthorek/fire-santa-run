@@ -58,6 +58,20 @@ export function AppHeader({ show = true }: AppHeaderProps) {
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       }}
     >
+      <style>
+        {`
+          @media (max-width: 640px) {
+            .brand-text, .user-name {
+              display: none;
+            }
+          }
+          @media (min-width: 641px) {
+            .brand-text, .user-name {
+              display: inline;
+            }
+          }
+        `}
+      </style>
       <div
         style={{
           display: 'flex',
@@ -82,7 +96,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
           }}
         >
           <span style={{ fontSize: '1.5rem' }}>🎅</span>
-          <span style={{ display: window.innerWidth > 640 ? 'inline' : 'none' }}>
+          <span className="brand-text">
             Fire Santa Run
           </span>
         </Link>
@@ -131,12 +145,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
             </div>
             
             {/* User Name (hide on mobile) */}
-            <span
-              style={{
-                color: COLORS.neutral900,
-                display: window.innerWidth > 640 ? 'inline' : 'none',
-              }}
-            >
+            <span className="user-name" style={{ color: COLORS.neutral900 }}>
               {user.name || user.email.split('@')[0]}
             </span>
             
