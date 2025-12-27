@@ -75,25 +75,27 @@ In production mode (`VITE_DEV_MODE=false`):
 
 ## Available Functions
 
-### Real-Time Tracking
+*The API provides **39 HTTP-triggered functions** across the following categories:*
+
+### Real-Time Tracking (2 functions)
 - **`POST /api/negotiate`** - Generate Web PubSub connection token for viewers/broadcasters
 - **`POST /api/broadcast`** - Broadcast Santa's location to all viewers
 
-### Routes Management
+### Routes Management (5 functions)
 - **`GET /api/routes?brigadeId={id}`** - List all routes for a brigade
 - **`GET /api/routes/{id}?brigadeId={id}`** - Get single route details
 - **`POST /api/routes`** - Create new route (requires auth)
 - **`PUT /api/routes/{id}`** - Update route (requires auth)
 - **`DELETE /api/routes/{id}?brigadeId={id}`** - Delete route (requires auth)
 
-### Brigade Management
+### Brigade Management (5 functions)
 - **`GET /api/brigades`** - List all brigades
 - **`GET /api/brigades/{id}`** - Get brigade details
 - **`POST /api/brigades`** - Create brigade (requires auth)
 - **`PUT /api/brigades/{id}`** - Update brigade (requires auth)
 - **`DELETE /api/brigades/{id}`** - Delete brigade (requires auth)
 
-### User & Membership Management
+### User & Membership Management (13 functions)
 - **`POST /api/users/register`** - Register new user
 - **`GET /api/users/{userId}`** - Get user profile
 - **`PATCH /api/users/{userId}`** - Update user profile
@@ -103,7 +105,7 @@ In production mode (`VITE_DEV_MODE=false`):
 - **`DELETE /api/brigades/{brigadeId}/members/{userId}`** - Remove member (requires auth)
 - **`PATCH /api/brigades/{brigadeId}/members/{userId}/role`** - Change member role (requires auth)
 
-### Invitations & Verification
+### Invitations & Verification (11 functions)
 - **`GET /api/invitations?brigadeId={id}`** - List invitations
 - **`POST /api/invitations`** - Create invitation (requires auth)
 - **`POST /api/invitations/{id}/accept`** - Accept invitation
@@ -112,8 +114,12 @@ In production mode (`VITE_DEV_MODE=false`):
 - **`POST /api/verification/verify-code`** - Verify email code
 - **`GET /api/admin-verification`** - Check if user is admin for unclaimed brigade
 
-### RFS Data
+### RFS Data (1 function)
 - **`GET /api/rfs-stations?q={searchTerm}`** - Search NSW RFS station database
+
+### Brigade Claim (2 functions)
+- **`POST /api/brigades/{brigadeId}/claim`** - Claim an unclaimed brigade (requires auth)
+- **`GET /api/brigades/{brigadeId}/claim-status`** - Check if brigade is claimable
 
 ## Local Development
 
@@ -146,7 +152,8 @@ The API will be available at `http://localhost:7071/api/`
 - **`npm run watch`** - Watch mode for development
 - **`npm run clean`** - Remove dist/ folder
 - **`npm start`** - Start Azure Functions host locally
-- **`npm test`** - Run tests (placeholder)
+
+*Note: Unit tests will be added in a future phase. The current test script is a placeholder.*
 
 ## Environment Variables
 

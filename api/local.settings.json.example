@@ -1,0 +1,18 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "VITE_DEV_MODE": "true",
+    "VITE_AZURE_STORAGE_CONNECTION_STRING": "",
+    "AZURE_WEBPUBSUB_CONNECTION_STRING": "",
+    "VITE_ENTRA_CLIENT_ID": "",
+    "VITE_ENTRA_TENANT_ID": "",
+    "VITE_ENTRA_AUTHORITY": ""
+  },
+  "Host": {
+    "LocalHttpPort": 7071,
+    "CORS": "*",
+    "CORSCredentials": false
+  }
+}
