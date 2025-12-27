@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
 import { MapView, WaypointList, AddressSearch } from '../components';
@@ -14,6 +15,7 @@ export interface RouteEditorProps {
 }
 
 export function RouteEditor({ routeId, mode }: RouteEditorProps) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { saveRoute, getRoute } = useRoutes();
   const [initialRoute, setInitialRoute] = useState<Route | null>(null);
@@ -33,14 +35,14 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         if (route) {
           setInitialRoute(route);
         } else {
-          window.location.href = '/dashboard';
+          navigate('/dashboard');
         }
         setIsLoading(false);
       });
     } else if (mode === 'new' && user?.brigadeId) {
       setInitialRoute(createNewRoute(user.brigadeId, user.email));
     }
-  }, [mode, routeId, getRoute, user]);
+  }, [mode, routeId, getRoute, user, navigate]);
 
   const {
     route,
@@ -115,13 +117,13 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         alert('Route published successfully! Share link generated.');
       }
       
-      window.location.href = '/dashboard';
+      navigate('/dashboard');
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to save route');
     } finally {
       setIsSaving(false);
     }
-  }, [route, validate, saveRoute]);
+  }, [route, validate, saveRoute, navigate]);
 
   if (isLoading) {
     return (
@@ -197,7 +199,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {route.geometry && route.navigationSteps && route.navigationSteps.length > 0 && (
               <button
-                onClick={() => window.location.href = `/routes/${route.id}/navigate`}
+                onClick={() => navigate(`/routes/${route.id}/navigate`)}
                 style={{
                   padding: '0.5rem 1rem',
                   border: 'none',
@@ -214,7 +216,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
               </button>
             )}
             <button
-              onClick={() => window.location.href = '/dashboard'}
+              onClick={() => navigate('/dashboard')}
               style={{
                 padding: '0.5rem 1rem',
                 border: '1px solid #e0e0e0',

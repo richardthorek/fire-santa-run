@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, Link } from 'react-router-dom';
 import './App.css';
 import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
@@ -168,6 +168,7 @@ function RouteEditorWrapper() {
 
 // Wrapper for Navigation View
 function NavigationViewWrapper() {
+  const navigate = useNavigate();
   const pathSegments = window.location.pathname.split('/');
   const routeId = pathSegments[pathSegments.length - 2]; // /routes/:id/navigate
   const { getRoute } = useRoutes();
@@ -196,7 +197,7 @@ function NavigationViewWrapper() {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
         <h1>Route Not Found</h1>
-        <a href="/dashboard" style={{ color: '#D32F2F' }}>← Back to Dashboard</a>
+        <Link to="/dashboard" style={{ color: '#D32F2F' }}>← Back to Dashboard</Link>
       </div>
     );
   }
@@ -205,10 +206,10 @@ function NavigationViewWrapper() {
     <NavigationView
       route={route}
       onExit={() => {
-        window.location.href = '/dashboard';
+        navigate('/dashboard');
       }}
       onComplete={() => {
-        window.location.href = '/dashboard';
+        navigate('/dashboard');
       }}
     />
   );
@@ -247,8 +248,8 @@ function NotFound() {
       <p style={{ marginBottom: '2rem', color: '#616161' }}>
         Santa couldn't find this page!
       </p>
-      <a 
-        href="/dashboard"
+      <Link 
+        to="/dashboard"
         style={{
           padding: '0.75rem 1.5rem',
           background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
@@ -259,7 +260,7 @@ function NotFound() {
         }}
       >
         Go to Dashboard
-      </a>
+      </Link>
     </div>
   );
 }

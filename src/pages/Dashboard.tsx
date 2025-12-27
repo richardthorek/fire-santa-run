@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '../hooks';
 import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout } from '../components';
 import type { Route, RouteStatus } from '../types';
@@ -6,6 +7,7 @@ import { formatDistance, formatDuration } from '../utils/mapbox';
 import { format } from 'date-fns';
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const { routes, isLoading, error } = useRoutes();
   const [filterStatus, setFilterStatus] = useState<RouteStatus | 'all'>('all');
   const [shareModalRoute, setShareModalRoute] = useState<Route | null>(null);
@@ -290,7 +292,7 @@ export function Dashboard() {
                 e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
                 e.currentTarget.style.borderColor = 'var(--neutral-200)';
               }}
-              onClick={() => window.location.href = `/routes/${route.id}`}
+              onClick={() => navigate(`/routes/${route.id}`)}
             >
               {/* Decorative corner accent */}
               <div style={{
@@ -365,7 +367,7 @@ export function Dashboard() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        window.location.href = `/routes/${route.id}/navigate`;
+                        navigate(`/routes/${route.id}/navigate`);
                       }}
                       style={{
                         flex: 1,
@@ -384,7 +386,7 @@ export function Dashboard() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        window.location.href = `/routes/${route.id}/edit`;
+                        navigate(`/routes/${route.id}/edit`);
                       }}
                       style={{
                         flex: 1,
@@ -405,7 +407,7 @@ export function Dashboard() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      window.location.href = `/routes/${route.id}/edit`;
+                      navigate(`/routes/${route.id}/edit`);
                     }}
                     style={{
                       flex: 1,
