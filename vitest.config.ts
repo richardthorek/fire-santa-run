@@ -11,7 +11,7 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{js,ts,tsx}'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'lcov'],
       exclude: [
         'node_modules/',
         'src/__tests__/',
@@ -19,6 +19,13 @@ export default defineConfig({
         '**/*.config.*',
         '**/mockData.ts',
       ],
+      // Coverage thresholds - fail if coverage drops below these values
+      thresholds: {
+        statements: 40,
+        branches: 40,
+        functions: 40,
+        lines: 40,
+      },
     },
   },
   resolve: {
