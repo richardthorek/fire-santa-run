@@ -4,7 +4,7 @@
  * Allows brigade admins to manage members, send invitations, and handle approvals.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 import { useUserProfile } from '../hooks/useUserProfile';
@@ -15,6 +15,7 @@ import { canInviteMembers, canManageMembers, canApproveMembership } from '../uti
 import type { BrigadeMembership } from '../types/membership';
 import type { MemberInvitation } from '../types/invitation';
 import type { User } from '../types/user';
+import type { Brigade } from '../storage/types';
 import { COLORS } from '../utils/constants';
 import {
   logMemberInvited,
@@ -40,7 +41,7 @@ export function MemberManagementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [brigade, setBrigade] = useState<any>(null);
+  const [brigade, setBrigade] = useState<Brigade | null>(null);
 
   // Get current user's membership in this brigade
   const currentMembership = memberships.find(m => m.brigadeId === brigadeId);
@@ -50,16 +51,7 @@ export function MemberManagementPage() {
   const hasManagePermission = currentMembership ? canManageMembers(currentMembership) : false;
   const hasApprovalPermission = currentMembership ? canApproveMembership(currentMembership) : false;
 
-  useEffect(() => {
-    if (!brigadeId) {
-      navigate('/profile');
-      return;
-    }
-
-    loadData();
-  }, [brigadeId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!brigadeId) return;
 
     setLoading(true);
@@ -83,7 +75,16 @@ export function MemberManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [brigadeId]);
+
+  useEffect(() => {
+    if (!brigadeId) {
+      navigate('/profile');
+      return;
+    }
+
+    loadData();
+  }, [brigadeId, loadData, navigate]);
 
   const handleApproveMembership = async (membership: BrigadeMembership) => {
     if (!authUser || !brigadeId) return;

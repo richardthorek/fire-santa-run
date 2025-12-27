@@ -21,7 +21,6 @@ import { getTableClient, isDevMode } from './utils/storage';
 
 const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 const INVITATIONS_TABLE = isDevMode ? 'dev-invitations' : 'invitations';
-const USERS_TABLE = isDevMode ? 'dev-users' : 'users';
 const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
 
 async function getMembershipsTableClient() {
@@ -30,10 +29,6 @@ async function getMembershipsTableClient() {
 
 async function getInvitationsTableClient() {
   return getTableClient(INVITATIONS_TABLE);
-}
-
-async function getUsersTableClient() {
-  return getTableClient(USERS_TABLE);
 }
 
 // Helper to convert Table entity to Membership object
@@ -76,25 +71,25 @@ function membershipToEntity(membership: any) {
   };
 }
 
-// Helper to convert Table entity to Invitation object
-function entityToInvitation(entity: any) {
-  return {
-    id: entity.rowKey,
-    brigadeId: entity.partitionKey,
-    email: entity.email,
-    role: entity.role,
-    status: entity.status,
-    invitedBy: entity.invitedBy,
-    invitedAt: entity.invitedAt,
-    expiresAt: entity.expiresAt,
-    acceptedAt: entity.acceptedAt,
-    declinedAt: entity.declinedAt,
-    token: entity.token,
-    personalMessage: entity.personalMessage,
-    createdAt: entity.createdAt,
-    updatedAt: entity.updatedAt,
-  };
-}
+// Helper to convert Table entity to Invitation object (currently unused but may be needed for future endpoints)
+// function entityToInvitation(entity: any) {
+//   return {
+//     id: entity.rowKey,
+//     brigadeId: entity.partitionKey,
+//     email: entity.email,
+//     role: entity.role,
+//     status: entity.status,
+//     invitedBy: entity.invitedBy,
+//     invitedAt: entity.invitedAt,
+//     expiresAt: entity.expiresAt,
+//     acceptedAt: entity.acceptedAt,
+//     declinedAt: entity.declinedAt,
+//     token: entity.token,
+//     personalMessage: entity.personalMessage,
+//     createdAt: entity.createdAt,
+//     updatedAt: entity.updatedAt,
+//   };
+// }
 
 // Helper to convert Invitation to Table entity
 function invitationToEntity(invitation: any) {

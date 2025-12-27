@@ -4,7 +4,7 @@
  * Allows users to accept or decline brigade membership invitations.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 import { storageAdapter } from '../storage';
@@ -12,6 +12,7 @@ import { MembershipService } from '../services/membershipService';
 import { RoleBadge, SEO, AppLayout } from '../components';
 import type { MemberInvitation } from '../types/invitation';
 import type { User } from '../types/user';
+import type { Brigade } from '../storage/types';
 import { COLORS } from '../utils/constants';
 import { isInvitationValid } from '../utils/membershipRules';
 
@@ -28,26 +29,14 @@ export function InvitationAcceptancePage() {
   const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
   
   const [invitation, setInvitation] = useState<MemberInvitation | null>(null);
-  const [brigade, setBrigade] = useState<any>(null);
+  const [brigade, setBrigade] = useState<Brigade | null>(null);
   const [inviter, setInviter] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      // Redirect to login with return URL
-      navigate(`/login?returnUrl=/invitations/${token}`);
-      return;
-    }
-
-    if (!authLoading && isAuthenticated && token) {
-      loadInvitation();
-    }
-  }, [authLoading, isAuthenticated, token]);
-
-  const loadInvitation = async () => {
+  const loadInvitation = useCallback(async () => {
     if (!token) {
       setError('Invalid invitation link');
       setLoading(false);
@@ -87,7 +76,19 @@ export function InvitationAcceptancePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      // Redirect to login with return URL
+      navigate(`/login?returnUrl=/invitations/${token}`);
+      return;
+    }
+
+    if (!authLoading && isAuthenticated && token) {
+      loadInvitation();
+    }
+  }, [authLoading, isAuthenticated, token, loadInvitation, navigate]);
 
   const handleAccept = async () => {
     if (!authUser || !invitation) return;

@@ -53,7 +53,7 @@ export interface FileValidationResult {
  * // { valid: false, error: 'File type not allowed...' }
  */
 export function validateFileType(file: File): FileValidationResult {
-  if (!ALLOWED_MIME_TYPES.includes(file.type as any)) {
+  if (!ALLOWED_MIME_TYPES.includes(file.type as typeof ALLOWED_MIME_TYPES[number])) {
     return {
       valid: false,
       error: `File type not allowed. Allowed types: JPEG, PNG, HEIC, PDF. Got: ${file.type || 'unknown'}`,

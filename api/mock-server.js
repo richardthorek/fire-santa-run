@@ -1,8 +1,6 @@
 const http = require('http');
 const url = require('url');
 
-const PORT = process.env.PORT || 7071;
-
 const brigades = {
   'dev-brigade-1': {
     id: 'dev-brigade-1',
@@ -113,18 +111,6 @@ const app = express();
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 7071;
-
-// In-memory data store for testing
-const brigades = {
-  'dev-brigade-1': {
-    id: 'dev-brigade-1',
-    name: 'Development Fire Brigade',
-    claimed: false,
-    rfsStationId: 'RFS-DEV-001',
-  },
-};
-
-const users = {};
 
 app.get('/api/brigades', (req, res) => {
   res.json(Object.values(brigades));

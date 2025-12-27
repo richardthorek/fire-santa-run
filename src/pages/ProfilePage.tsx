@@ -6,7 +6,8 @@ import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
 import { RoleBadge, AppLayout } from '../components';
 import { COLORS } from '../utils/constants';
-import type { BrigadeMembership } from '../types/membership';
+import type { BrigadeMembership, MemberRole } from '../types/membership';
+import type { Brigade } from '../storage/types';
 import { useRef } from 'react';
 
 const membershipService = new MembershipService(storageAdapter);
@@ -104,8 +105,6 @@ export function ProfilePage() {
     return () => {
       isCancelled = true;
     };
-  // The guard prevents re-execution, memberships is stabilized in useUserProfile
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, user, memberships]);
 
   const handleEdit = () => {
@@ -570,7 +569,7 @@ export function ProfilePage() {
 
 // Helper component for membership cards
 function MembershipCard({ membership, userId }: { membership: BrigadeMembership; userId: string }) {
-  const [brigade, setBrigade] = useState<any>(null);
+  const [brigade, setBrigade] = useState<Brigade | null>(null);
   const [loading, setLoading] = useState(true);
   const [leaving, setLeaving] = useState(false);
 
@@ -629,8 +628,8 @@ function MembershipCard({ membership, userId }: { membership: BrigadeMembership;
   }
 
   const getRoleBadge = (role: string) => {
-    // Use the RoleBadge component
-    return <RoleBadge role={role as any} size="small" />;
+    // Use the RoleBadge component - cast string to MemberRole as this comes from membership data
+    return <RoleBadge role={role as MemberRole} size="small" />;
   };
 
   const getStatusBadge = (status: string) => {

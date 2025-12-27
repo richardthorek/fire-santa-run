@@ -81,7 +81,7 @@ export interface AuditLogEntry {
   resourceId?: string;
   
   /** Additional event metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   
   /** Event message */
   message: string;
@@ -111,7 +111,7 @@ export function logAuditEvent(
     brigadeId?: string;
     targetUserId?: string;
     resourceId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   } = {}
 ): void {
   const entry: AuditLogEntry = {

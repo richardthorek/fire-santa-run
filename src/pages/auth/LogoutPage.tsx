@@ -14,18 +14,19 @@ export function LogoutPage() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [logoutComplete, setLogoutComplete] = useState(false);
   
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+  // In dev mode, auto-complete logout immediately
+  const [logoutComplete, setLogoutComplete] = useState(isDevMode);
 
   useEffect(() => {
-    // In dev mode, just show the logout message without actually logging out
-    // (since dev mode user is always authenticated)
+    // In dev mode, auto-redirect after showing message
     if (isDevMode) {
-      setLogoutComplete(true);
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         navigate('/', { replace: true });
       }, 2000);
+      
+      return () => clearTimeout(timer);
     }
   }, [isDevMode, navigate]);
 

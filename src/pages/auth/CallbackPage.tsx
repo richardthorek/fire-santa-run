@@ -15,9 +15,14 @@ import { COLORS } from '../../utils/constants';
 export function CallbackPage() {
   const navigate = useNavigate();
   const { inProgress } = useMsal();
-  const [error, setError] = useState<string | null>(null);
   
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+  
+  // Parse error from URL parameters (if any) - done once on mount
+  const params = new URLSearchParams(window.location.search);
+  const errorParam = params.get('error');
+  const errorDescription = params.get('error_description');
+  const [error] = useState<string | null>(errorParam ? (errorDescription || errorParam) : null);
 
   useEffect(() => {
     // In dev mode, immediately redirect to dashboard
@@ -38,21 +43,16 @@ export function CallbackPage() {
     }
   }, [isDevMode, inProgress, navigate]);
 
-  // Handle errors from URL parameters (if any)
+  // Handle errors - redirect to landing page after delay
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const errorParam = params.get('error');
-    const errorDescription = params.get('error_description');
-    
-    if (errorParam) {
-      setError(errorDescription || errorParam);
-      
-      // Redirect to landing page after showing error
-      setTimeout(() => {
+    if (error) {
+      const timer = setTimeout(() => {
         navigate('/', { replace: true });
       }, 3000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [navigate]);
+  }, [error, navigate]);
 
   if (error) {
     return (

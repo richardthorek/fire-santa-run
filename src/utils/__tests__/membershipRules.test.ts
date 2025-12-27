@@ -6,19 +6,17 @@
 import { describe, it, expect } from 'vitest';
 import {
   canBecomeAdmin,
-  canClaimBrigade,
   validateAdminCount,
   canRemoveMember,
   canLeaveBrigade,
   isInvitationValid,
-  hasApprovedVerification,
   canPromoteToAdmin,
   canDemoteFromAdmin,
   validateInvitationRole,
 } from '../membershipRules';
 import type { User } from '../../types/user';
 import type { Brigade } from '../../storage/types';
-import type { BrigadeMembership, MemberRole } from '../../types/membership';
+import type { BrigadeMembership } from '../../types/membership';
 import type { MemberInvitation } from '../../types/invitation';
 import type { AdminVerificationRequest } from '../../types/verification';
 
