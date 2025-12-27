@@ -37,6 +37,7 @@ function entityToUser(entity: any) {
     createdAt: entity.createdAt,
     lastLoginAt: entity.lastLoginAt,
     profilePicture: entity.profilePicture,
+    brigadeId: entity.brigadeId,
   };
 }
 
@@ -53,6 +54,7 @@ function userToEntity(user: any) {
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
     profilePicture: user.profilePicture,
+    brigadeId: user.brigadeId,
   };
 }
 
@@ -327,6 +329,7 @@ async function updateUser(request: HttpRequest, context: InvocationContext): Pro
       name: updates.name !== undefined ? updates.name : existingUser.name,
       profilePicture: updates.profilePicture !== undefined ? updates.profilePicture : existingUser.profilePicture,
       lastLoginAt: updates.lastLoginAt !== undefined ? updates.lastLoginAt : existingUser.lastLoginAt,
+      brigadeId: updates.brigadeId !== undefined ? updates.brigadeId : existingUser.brigadeId,
     };
 
     const entity = userToEntity(updatedUser);

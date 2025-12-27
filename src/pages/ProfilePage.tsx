@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUserProfile } from '../hooks/useUserProfile';
+import { useAuth } from '../context';
 import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
 import { RoleBadge, AppLayout } from '../components';
 import { COLORS } from '../utils/constants';
 import type { BrigadeMembership } from '../types/membership';
+import { useRef } from 'react';
 
 const membershipService = new MembershipService(storageAdapter);
 
@@ -17,10 +19,70 @@ const membershipService = new MembershipService(storageAdapter);
  */
 export function ProfilePage() {
   const { user, memberships, isLoading, error, updateProfile } = useUserProfile();
+  const { setActiveBrigadeId } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [brigadeOptions, setBrigadeOptions] = useState<{ id: string; name: string }[]>([]);
+  const [selectedBrigadeId, setSelectedBrigadeId] = useState<string | undefined>(undefined);
+  const [brigadeError, setBrigadeError] = useState<string | null>(null);
+  const [isUpdatingBrigade, setIsUpdatingBrigade] = useState(false);
+  const selectionInitializedRef = useRef(false);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const loadBrigades = async () => {
+      if (!memberships.length) {
+        setBrigadeOptions([]);
+        setSelectedBrigadeId(undefined);
+        return;
+      }
+
+      try {
+        const activeMemberships = memberships.filter(m => m.status === 'active');
+        const uniqueIds = Array.from(new Set(activeMemberships.map(m => m.brigadeId)));
+        const brigades = await Promise.all(uniqueIds.map(async (id) => {
+          const brigade = await storageAdapter.getBrigade(id);
+          return { id, name: brigade?.name || 'Unknown Brigade' };
+        }));
+
+        if (isCancelled) return;
+
+        setBrigadeOptions(brigades);
+        const preferredId = user?.brigadeId;
+        const resolvedId = (preferredId && brigades.some(b => b.id === preferredId) ? preferredId : undefined)
+          ?? brigades[0]?.id;
+
+        // Auto-select the resolved brigade once (and persist) when user has a single/first active membership
+        if (resolvedId && resolvedId !== selectedBrigadeId) {
+          setSelectedBrigadeId(resolvedId);
+          setActiveBrigadeId(resolvedId);
+
+          // Persist to user profile only once per load to avoid loops
+          if (!selectionInitializedRef.current && !user?.brigadeId) {
+            selectionInitializedRef.current = true;
+            try {
+              await updateProfile({ brigadeId: resolvedId });
+            } catch (err) {
+              console.error('Failed to persist active brigade selection:', err);
+            }
+          }
+        }
+      } catch (err) {
+        if (isCancelled) return;
+        console.error('Failed to load brigades for selection:', err);
+        setBrigadeError('Failed to load brigades');
+      }
+    };
+
+    loadBrigades();
+    return () => {
+      isCancelled = true;
+    };
+  // Deliberately exclude setActiveBrigadeId and updateProfile (treated as stable) to avoid effect loops
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memberships, user?.brigadeId, selectedBrigadeId]);
 
   const handleEdit = () => {
     setEditName(user?.name || '');
@@ -50,6 +112,22 @@ export function ProfilePage() {
   const handleCancel = () => {
     setIsEditing(false);
     setSaveError(null);
+  };
+
+  const handleActiveBrigadeChange = async (brigadeId: string) => {
+    setSelectedBrigadeId(brigadeId);
+    setBrigadeError(null);
+    setIsUpdatingBrigade(true);
+
+    try {
+      await updateProfile({ brigadeId });
+      setActiveBrigadeId(brigadeId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update brigade';
+      setBrigadeError(message);
+    } finally {
+      setIsUpdatingBrigade(false);
+    }
   };
 
   if (isLoading) {
@@ -101,6 +179,9 @@ export function ProfilePage() {
       </div>
     );
   }
+
+  const selectedBrigadeName = brigadeOptions.find(b => b.id === selectedBrigadeId)?.name;
+  const hasActiveBrigades = brigadeOptions.length > 0;
 
   return (
     <AppLayout>
@@ -238,13 +319,25 @@ export function ProfilePage() {
                 justifyContent: 'space-between',
                 alignItems: 'center',
               }}>
-                <p style={{
-                  fontSize: '1rem',
-                  color: COLORS.neutral900,
-                  margin: 0,
-                }}>
-                  {user.name}
-                </p>
+                <div>
+                  <p style={{
+                    fontSize: '1rem',
+                    color: COLORS.neutral900,
+                    margin: 0,
+                  }}>
+                    {user.name}
+                  </p>
+                  <p style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    color: COLORS.neutral700,
+                    margin: 0,
+                    textTransform: 'uppercase',
+                  }}>
+                    {selectedBrigadeName ? `Active Brigade: ${selectedBrigadeName}` : 'No active brigade selected'}
+                  </p>
+                </div>
                 <button
                   onClick={handleEdit}
                   style={{
@@ -261,6 +354,67 @@ export function ProfilePage() {
                   Edit
                 </button>
               </div>
+            )}
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: COLORS.neutral700,
+              marginBottom: '0.5rem',
+            }}>
+              Choose Active Brigade
+            </label>
+            {hasActiveBrigades ? (
+              <div>
+                <select
+                  value={selectedBrigadeId || ''}
+                  onChange={(e) => handleActiveBrigadeChange(e.target.value)}
+                  disabled={isUpdatingBrigade}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    fontSize: '1rem',
+                    border: `1px solid ${COLORS.neutral300}`,
+                    borderRadius: '8px',
+                    backgroundColor: 'white',
+                    color: COLORS.neutral900,
+                  }}
+                >
+                  <option value="" disabled>Select a brigade</option>
+                  {brigadeOptions.map(option => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+                <p style={{
+                  marginTop: '0.35rem',
+                  fontSize: '0.8rem',
+                  color: COLORS.neutral700,
+                }}>
+                  {selectedBrigadeName ? `Active: ${selectedBrigadeName}` : 'Select which brigade to use for routes and dashboard'}
+                </p>
+                {brigadeError && (
+                  <p style={{
+                    fontSize: '0.875rem',
+                    color: COLORS.fireRed,
+                    marginTop: '0.35rem',
+                  }}>
+                    {brigadeError}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p style={{
+                fontSize: '0.95rem',
+                color: COLORS.neutral700,
+                margin: 0,
+              }}>
+                No active brigades yet. Claim or accept an invitation to enable selection.
+              </p>
             )}
           </div>
 

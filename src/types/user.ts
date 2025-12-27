@@ -29,4 +29,7 @@ export interface User {
   
   /** URL or base64 encoded profile picture */
   profilePicture?: string;
+
+  /** Preferred/active brigade selection */
+  brigadeId?: string;
 }

@@ -19,6 +19,7 @@ export interface AuthContextType {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  setActiveBrigadeId: (brigadeId: string | null) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -168,12 +169,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setActiveBrigadeId = (brigadeId: string | null) => {
+    setUser(prev => {
+      if (!prev) return prev;
+      return { ...prev, brigadeId: brigadeId ?? undefined };
+    });
+  };
+
   const value: AuthContextType = {
     isAuthenticated: !!user,
     user,
     login,
     logout,
     isLoading,
+    setActiveBrigadeId,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
