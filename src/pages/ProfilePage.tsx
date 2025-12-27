@@ -34,11 +34,24 @@ export function ProfilePage() {
   const [isUpdatingBrigade, setIsUpdatingBrigade] = useState(false);
   const selectionInitializedRef = useRef(false);
 
-  // Load brigades once on mount; select first active brigade locally. If none, show error. No auto-persist.
+  // Load brigades once on mount and when memberships actually change; select first active brigade locally.
+  // If none, show error. No auto-persist.
   useEffect(() => {
     let isCancelled = false;
     const loadOnce = async () => {
-      if (selectionInitializedRef.current && selectedBrigadeId) return;
+      // Stronger guard: only run once per mount
+      if (selectionInitializedRef.current) {
+        if (import.meta.env.DEV) {
+          console.debug('ProfilePage: selection already initialized, skipping');
+        }
+        return;
+      }
+
+      // Don't initialize until we have loaded user data
+      if (isLoading || !user) {
+        return;
+      }
+
       selectionInitializedRef.current = true;
 
       if (!memberships.length) {
@@ -90,9 +103,9 @@ export function ProfilePage() {
     return () => {
       isCancelled = true;
     };
-  // Deliberately exclude setActiveBrigadeId and updateProfile (treated as stable) to avoid effect loops
+  // The guard prevents re-execution, memberships is stabilized in useUserProfile
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memberships]);
+  }, [isLoading, user, memberships]);
 
   const handleEdit = () => {
     setEditName(user?.name || '');
