@@ -15,12 +15,7 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { TableClient } from '@azure/data-tables';
-
-// Get Azure Storage credentials
-const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
-
-// Determine table name based on environment
-const isDevMode = process.env.VITE_DEV_MODE === 'true';
+import { STORAGE_CONNECTION_STRING, isDevMode } from './utils/storage';
 const BRIGADES_TABLE = isDevMode ? 'devbrigades' : 'brigades';
 
 function getTableClient(): TableClient {
