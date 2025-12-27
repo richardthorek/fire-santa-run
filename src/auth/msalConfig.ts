@@ -121,9 +121,10 @@ export const msalConfig: Configuration = {
     // localStorage: Tokens persist across browser sessions (better UX)
     cacheLocation: BrowserCacheLocation.SessionStorage,
     
-    // Store auth state in cookies for SSO scenarios
+    // Store auth state in cookies for SSO scenarios and iOS Safari compatibility
     // Enables silent single sign-on across browser tabs
-    storeAuthStateInCookie: false, // Set to true if supporting IE11 or Edge Legacy
+    // IMPORTANT: Required for iOS Safari with Intelligent Tracking Prevention (ITP)
+    storeAuthStateInCookie: true, // Enable for iOS Safari compatibility
   },
   system: {
     // Configure logging for debugging
@@ -189,7 +190,7 @@ export const loginRequest: RedirectRequest = {
     'email',       // Access to user's email address
     'User.Read',   // Microsoft Graph API - read user profile
   ],
-  prompt: 'login',                // Force email entry instead of account picker
+  prompt: 'select_account',        // Allow account picker (better for iOS/multi-account)
   ...(domainHint ? { domainHint } : {}),
 };
 
