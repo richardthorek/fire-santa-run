@@ -180,21 +180,7 @@ export function LandingPage() {
                   </p>
                   <button
                     onClick={() => navigate('/dashboard')}
-                    style={{
-                      width: '100%',
-                      padding: '1rem 1.5rem',
-                      fontSize: '1.05rem',
-                      fontWeight: 700,
-                      color: 'var(--fire-red)',
-                      backgroundColor: 'white',
-                      border: 'none',
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                      transition: 'transform 0.2s',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    className="btn btn-tertiary btn-block"
                   >
                     Go to Dashboard
                   </button>
@@ -208,22 +194,10 @@ export function LandingPage() {
                   <button
                     onClick={handleLogin}
                     disabled={isLoggingIn}
+                    className="btn btn-tertiary"
                     style={{
-                      padding: '1.1rem 1.5rem',
-                      fontSize: '1.05rem',
-                      fontWeight: 700,
-                      color: 'var(--fire-red)',
-                      backgroundColor: 'white',
-                      border: 'none',
-                      borderRadius: '12px',
-                      cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-                      opacity: isLoggingIn ? 0.7 : 1,
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                      transition: 'all 0.2s',
                       whiteSpace: 'nowrap',
                     }}
-                    onMouseEnter={(e) => !isLoggingIn && (e.currentTarget.style.transform = 'translateY(-2px)')}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                   >
                     {isLoggingIn ? '🎅 Signing in...' : '🎅 Sign In'}
                   </button>
@@ -231,28 +205,11 @@ export function LandingPage() {
                   <button
                     onClick={handleLogin}
                     disabled={isLoggingIn}
+                    className="btn btn-secondary"
                     style={{
-                      padding: '1.1rem 1.5rem',
-                      fontSize: '1.05rem',
-                      fontWeight: 700,
-                      color: 'white',
-                      backgroundColor: 'transparent',
-                      border: '2px solid white',
-                      borderRadius: '12px',
-                      cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-                      opacity: isLoggingIn ? 0.7 : 1,
-                      transition: 'all 0.2s',
                       whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isLoggingIn) {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.backgroundColor = 'transparent';
+                      color: 'white',
+                      borderColor: 'white',
                     }}
                   >
                     {isLoggingIn ? '🚀 Creating...' : '🚀 Sign Up Free'}
