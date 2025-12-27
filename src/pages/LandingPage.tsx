@@ -215,8 +215,7 @@ export function LandingPage() {
                 marginBottom: 0,
                 opacity: 0.9,
               }}>
-                Sign in with your brigade email via Microsoft
-              </p>
+                Use a government provided email (e.g. .gov.au) to avoid secondary verification as a Fire Brigade member.              </p>
             </div>
           </div>
         </section>
