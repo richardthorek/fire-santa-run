@@ -258,6 +258,21 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
+/* Responsive grid for feature advent calendar */
+@media (max-width: 768px) {
+  /* On mobile, stack everything in a single column */
+  .advent-calendar-grid {
+    grid-template-columns: 1fr !important;
+    grid-auto-rows: auto !important;
+  }
+  
+  .advent-calendar-grid > div {
+    grid-column: span 1 !important;
+    grid-row: span 1 !important;
+    min-height: 180px;
+  }
+}
+
 /* Gentle Glow */
 @keyframes gentle-glow {
   0%, 100% { filter: drop-shadow(0 0 5px rgba(247, 127, 0, 0.3)); }
