@@ -4,7 +4,7 @@
  * Allows brigade admins to manage members, send invitations, and handle approvals.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 import { useUserProfile } from '../hooks/useUserProfile';
@@ -51,16 +51,7 @@ export function MemberManagementPage() {
   const hasManagePermission = currentMembership ? canManageMembers(currentMembership) : false;
   const hasApprovalPermission = currentMembership ? canApproveMembership(currentMembership) : false;
 
-  useEffect(() => {
-    if (!brigadeId) {
-      navigate('/profile');
-      return;
-    }
-
-    loadData();
-  }, [brigadeId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!brigadeId) return;
 
     setLoading(true);
@@ -84,7 +75,16 @@ export function MemberManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [brigadeId]);
+
+  useEffect(() => {
+    if (!brigadeId) {
+      navigate('/profile');
+      return;
+    }
+
+    loadData();
+  }, [brigadeId, loadData, navigate]);
 
   const handleApproveMembership = async (membership: BrigadeMembership) => {
     if (!authUser || !brigadeId) return;

@@ -4,7 +4,7 @@
  * Allows users to accept or decline brigade membership invitations.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 import { storageAdapter } from '../storage';
@@ -36,19 +36,7 @@ export function InvitationAcceptancePage() {
   const [accepting, setAccepting] = useState(false);
   const [declining, setDeclining] = useState(false);
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      // Redirect to login with return URL
-      navigate(`/login?returnUrl=/invitations/${token}`);
-      return;
-    }
-
-    if (!authLoading && isAuthenticated && token) {
-      loadInvitation();
-    }
-  }, [authLoading, isAuthenticated, token]);
-
-  const loadInvitation = async () => {
+  const loadInvitation = useCallback(async () => {
     if (!token) {
       setError('Invalid invitation link');
       setLoading(false);
@@ -88,7 +76,19 @@ export function InvitationAcceptancePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      // Redirect to login with return URL
+      navigate(`/login?returnUrl=/invitations/${token}`);
+      return;
+    }
+
+    if (!authLoading && isAuthenticated && token) {
+      loadInvitation();
+    }
+  }, [authLoading, isAuthenticated, token, loadInvitation, navigate]);
 
   const handleAccept = async () => {
     if (!authUser || !invitation) return;

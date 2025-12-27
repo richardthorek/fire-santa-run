@@ -16,7 +16,7 @@ import {
 } from '../membershipRules';
 import type { User } from '../../types/user';
 import type { Brigade } from '../../storage/types';
-import type { BrigadeMembership, MemberRole } from '../../types/membership';
+import type { BrigadeMembership } from '../../types/membership';
 import type { MemberInvitation } from '../../types/invitation';
 import type { AdminVerificationRequest } from '../../types/verification';
 

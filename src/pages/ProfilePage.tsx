@@ -105,8 +105,6 @@ export function ProfilePage() {
     return () => {
       isCancelled = true;
     };
-  // The guard prevents re-execution, memberships is stabilized in useUserProfile
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, user, memberships]);
 
   const handleEdit = () => {
