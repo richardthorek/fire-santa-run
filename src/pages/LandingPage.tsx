@@ -200,7 +200,7 @@ export function LandingPage() {
                   </button>
                 </div>
               ) : (
-                <div style={{
+                <div className="auth-buttons-horizontal" style={{
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
                   gap: '1rem',
