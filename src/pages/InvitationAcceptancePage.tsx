@@ -12,6 +12,7 @@ import { MembershipService } from '../services/membershipService';
 import { RoleBadge, SEO, AppLayout } from '../components';
 import type { MemberInvitation } from '../types/invitation';
 import type { User } from '../types/user';
+import type { Brigade } from '../storage/types';
 import { COLORS } from '../utils/constants';
 import { isInvitationValid } from '../utils/membershipRules';
 
@@ -28,7 +29,7 @@ export function InvitationAcceptancePage() {
   const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
   
   const [invitation, setInvitation] = useState<MemberInvitation | null>(null);
-  const [brigade, setBrigade] = useState<any>(null);
+  const [brigade, setBrigade] = useState<Brigade | null>(null);
   const [inviter, setInviter] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

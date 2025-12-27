@@ -15,6 +15,7 @@ import { canInviteMembers, canManageMembers, canApproveMembership } from '../uti
 import type { BrigadeMembership } from '../types/membership';
 import type { MemberInvitation } from '../types/invitation';
 import type { User } from '../types/user';
+import type { Brigade } from '../storage/types';
 import { COLORS } from '../utils/constants';
 import {
   logMemberInvited,
@@ -40,7 +41,7 @@ export function MemberManagementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [brigade, setBrigade] = useState<any>(null);
+  const [brigade, setBrigade] = useState<Brigade | null>(null);
 
   // Get current user's membership in this brigade
   const currentMembership = memberships.find(m => m.brigadeId === brigadeId);

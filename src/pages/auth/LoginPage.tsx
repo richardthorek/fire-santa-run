@@ -20,7 +20,7 @@ export function LoginPage() {
   
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
   // Support both URL parameter and location state for return URL
-  const returnUrl = searchParams.get('returnUrl') || (location.state as any)?.from?.pathname || '/dashboard';
+  const returnUrl = searchParams.get('returnUrl') || (location.state as { from?: { pathname?: string } })?.from?.pathname || '/dashboard';
 
   // Redirect if already authenticated
   useEffect(() => {

@@ -11,6 +11,7 @@
 import { HttpRequest } from '@azure/functions';
 import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
+import type { BrigadeMembership } from '../../../src/types/membership';
 
 // JWT validation configuration
 // Note: Tenant ID is public information for the Brigade Santa Run Entra External ID tenant
@@ -164,16 +165,18 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
       token: decoded,
     };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Token validation failed
     let errorMessage = 'Invalid or expired token';
     
-    if (error.name === 'TokenExpiredError') {
-      errorMessage = 'Token has expired';
-    } else if (error.name === 'JsonWebTokenError') {
-      errorMessage = 'Invalid token';
-    } else if (error.name === 'NotBeforeError') {
-      errorMessage = 'Token not yet valid';
+    if (error instanceof Error) {
+      if (error.name === 'TokenExpiredError') {
+        errorMessage = 'Token has expired';
+      } else if (error.name === 'JsonWebTokenError') {
+        errorMessage = 'Invalid token';
+      } else if (error.name === 'NotBeforeError') {
+        errorMessage = 'Token not yet valid';
+      }
     }
 
     return {
@@ -193,7 +196,7 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
  */
 export interface BrigadePermissionCheck {
   authorized: boolean;
-  membership?: any;
+  membership?: BrigadeMembership;
   error?: string;
 }
 
@@ -244,7 +247,7 @@ export async function checkBrigadePermission(
   userId: string,
   brigadeId: string,
   requiredPermission: string,
-  getMembership: (userId: string, brigadeId: string) => Promise<any>
+  getMembership: (userId: string, brigadeId: string) => Promise<BrigadeMembership | null>
 ): Promise<BrigadePermissionCheck> {
   try {
     // Fetch user's membership in the brigade
@@ -278,10 +281,10 @@ export async function checkBrigadePermission(
       membership,
     };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       authorized: false,
-      error: error.message || 'Failed to check brigade permission',
+      error: error instanceof Error ? error.message : 'Failed to check brigade permission',
     };
   }
 }

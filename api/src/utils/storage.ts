@@ -26,9 +26,10 @@ export async function getTableClient(tableName: string): Promise<TableClient> {
   if (!createdTables.has(tableName) && serviceClient) {
     try {
       await serviceClient.createTable(tableName);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Ignore if table already exists; surface other errors.
-      if (error?.statusCode !== 409 && error?.code !== 'TableAlreadyExists') {
+      const err = error as { statusCode?: number; code?: string };
+      if (err?.statusCode !== 409 && err?.code !== 'TableAlreadyExists') {
         throw error;
       }
     }

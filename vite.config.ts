@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { defineConfig } from 'vite'
+import { defineConfig, type ConfigEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-export default defineConfig(( _env: any ) => {
-  const mode = _env?.mode;
+export default defineConfig(( env: ConfigEnv ) => {
+  const mode = env?.mode;
   const isDev = mode === 'development' || process.env.VITE_DEV_MODE === 'true';
 
   return {
