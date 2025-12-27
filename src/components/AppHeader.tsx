@@ -32,9 +32,19 @@ export function AppHeader({ show = true }: AppHeaderProps) {
       }
     };
 
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && menuOpen) {
+        setMenuOpen(false);
+      }
+    };
+
     if (menuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscapeKey);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleEscapeKey);
+      };
     }
   }, [menuOpen]);
 
@@ -50,6 +60,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
 
   return (
     <header
+      role="banner"
       style={{
         position: 'sticky',
         top: 0,
@@ -81,17 +92,22 @@ export function AppHeader({ show = true }: AppHeaderProps) {
             fontWeight: 700,
             fontSize: '1.25rem',
           }}
+          aria-label="Fire Santa Run - Go to Dashboard"
         >
-          <span style={{ fontSize: '1.5rem' }}>🎅</span>
+          <span style={{ fontSize: '1.5rem' }} role="img" aria-label="Santa emoji">🎅</span>
           <span className="brand-text">
             Fire Santa Run
           </span>
         </Link>
 
         {/* User Profile Menu */}
+        <nav aria-label="User navigation">
         <div style={{ position: 'relative' }} ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
+            aria-expanded={menuOpen}
+            aria-haspopup="true"
+            aria-label={`User menu for ${user.name || user.email}`}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -127,6 +143,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
                 fontWeight: 700,
                 fontSize: '0.875rem',
               }}
+              aria-hidden="true"
             >
               {(user.name || user.email).charAt(0).toUpperCase()}
             </div>
@@ -146,6 +163,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
                 transform: menuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                 transition: 'transform 0.2s',
               }}
+              aria-hidden="true"
             >
               <path
                 d="M4 6L8 10L12 6"
@@ -160,6 +178,8 @@ export function AppHeader({ show = true }: AppHeaderProps) {
           {/* Dropdown Menu */}
           {menuOpen && (
             <div
+              role="menu"
+              aria-label="User menu"
               style={{
                 position: 'absolute',
                 top: 'calc(100% + 0.5rem)',
@@ -254,6 +274,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
               >
                 <button
                   onClick={handleLogout}
+                  role="menuitem"
                   style={{
                     width: '100%',
                     display: 'flex',
@@ -276,13 +297,14 @@ export function AppHeader({ show = true }: AppHeaderProps) {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <span style={{ fontSize: '1.25rem' }}>🚪</span>
+                  <span style={{ fontSize: '1.25rem' }} role="img" aria-label="Logout">🚪</span>
                   <span>Logout</span>
                 </button>
               </div>
             </div>
           )}
         </div>
+        </nav>
       </div>
     </header>
   );
@@ -301,6 +323,7 @@ function MenuLink({ to, icon, label, onClick }: MenuLinkProps) {
     <Link
       to={to}
       onClick={onClick}
+      role="menuitem"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -318,7 +341,7 @@ function MenuLink({ to, icon, label, onClick }: MenuLinkProps) {
         e.currentTarget.style.backgroundColor = 'transparent';
       }}
     >
-      <span style={{ fontSize: '1.25rem' }}>{icon}</span>
+      <span style={{ fontSize: '1.25rem' }} role="img" aria-label={`${label} icon`}>{icon}</span>
       <span style={{ fontWeight: 500 }}>{label}</span>
     </Link>
   );

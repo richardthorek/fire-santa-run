@@ -4,6 +4,11 @@
  */
 
 import { vi } from 'vitest';
+import { toHaveNoViolations } from 'vitest-axe/matchers';
+import { expect } from 'vitest';
+
+// Extend Vitest matchers with axe accessibility matchers
+expect.extend(toHaveNoViolations);
 
 // Mock localStorage
 const localStorageMock = (() => {

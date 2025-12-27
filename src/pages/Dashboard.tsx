@@ -109,14 +109,15 @@ export function Dashboard() {
             fontFamily: 'var(--font-heading)',
             textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
           }}>
-            🎅 Santa Run Routes
+            <span role="img" aria-label="Santa">🎅</span> Santa Run Routes
           </h1>
           <p style={{ margin: 0, color: 'var(--neutral-700)', fontSize: '1rem' }}>
-            Plan and manage your Christmas Eve routes ✨
+            Plan and manage your Christmas Eve routes <span role="img" aria-label="sparkles">✨</span>
           </p>
         </div>
         <a
           href="/routes/new"
+          aria-label="Create new Santa Run route"
           style={{
             padding: '0.875rem 1.75rem',
             background: 'linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%)',
@@ -139,12 +140,12 @@ export function Dashboard() {
             e.currentTarget.style.boxShadow = '0 4px 12px rgba(211, 47, 47, 0.3)';
           }}
         >
-          ➕ Create New Route
+          <span aria-hidden="true">➕</span> Create New Route
         </a>
       </div>
 
       {/* Status Filter Tabs */}
-      <div style={{
+      <nav aria-label="Route status filters" style={{
         display: 'flex',
         gap: '0.5rem',
         marginBottom: '1.5rem',
@@ -153,11 +154,14 @@ export function Dashboard() {
         backgroundColor: 'var(--neutral-100)',
         borderRadius: 'var(--border-radius-sm)',
         border: '2px solid var(--neutral-200)',
-      }}>
+      }} role="tablist">
         {(['all', 'draft', 'published', 'active', 'completed'] as const).map(status => (
           <button
             key={status}
             onClick={() => setFilterStatus(status)}
+            role="tab"
+            aria-selected={filterStatus === status}
+            aria-label={`Show ${status} routes (${statusCounts[status]})`}
             style={{
               padding: '0.625rem 1.25rem',
               border: 'none',
@@ -186,42 +190,46 @@ export function Dashboard() {
             {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)} ({statusCounts[status]})
           </button>
         ))}
-      </div>
+      </nav>
 
       {/* Routes List */}
       {filteredRoutes.length === 0 ? (
-        <div style={{
-          padding: '4rem 2rem',
-          textAlign: 'center',
-          backgroundColor: 'var(--sand-light)',
-          borderRadius: 'var(--border-radius)',
-          border: '3px dashed var(--summer-gold)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
+        <div 
+          role="region" 
+          aria-label="No routes found"
+          style={{
+            padding: '4rem 2rem',
+            textAlign: 'center',
+            backgroundColor: 'var(--sand-light)',
+            borderRadius: 'var(--border-radius)',
+            border: '3px dashed var(--summer-gold)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
           {/* Decorative snowflakes/stars */}
-          <div style={{
+          <div aria-hidden="true" style={{
             position: 'absolute',
             top: '1rem',
             left: '1rem',
             fontSize: '24px',
             opacity: 0.3,
           }}>⭐</div>
-          <div style={{
+          <div aria-hidden="true" style={{
             position: 'absolute',
             top: '1rem',
             right: '1rem',
             fontSize: '24px',
             opacity: 0.3,
           }}>✨</div>
-          <div style={{
+          <div aria-hidden="true" style={{
             position: 'absolute',
             bottom: '1rem',
             left: '2rem',
             fontSize: '20px',
             opacity: 0.3,
           }}>🎁</div>
-          <div style={{
+          <div aria-hidden="true" style={{
             position: 'absolute',
             bottom: '1rem',
             right: '2rem',
@@ -229,7 +237,7 @@ export function Dashboard() {
             opacity: 0.3,
           }}>🌟</div>
           
-          <div style={{ fontSize: '64px', marginBottom: '1rem' }}>🎄</div>
+          <div aria-hidden="true" style={{ fontSize: '64px', marginBottom: '1rem' }}>🎄</div>
           <h2 style={{ 
             marginBottom: '0.5rem', 
             color: 'var(--fire-red)',
@@ -238,29 +246,30 @@ export function Dashboard() {
             {filterStatus === 'all' ? 'No routes yet' : `No ${filterStatus} routes`}
           </h2>
           <p style={{ color: 'var(--neutral-700)', marginBottom: '1.5rem' }}>
-            Create your first Santa run route to get started! 🎅
+            Create your first Santa run route to get started! <span role="img" aria-label="Santa">🎅</span>
           </p>
           <a
             href="/routes/new"
+            aria-label="Create your first route"
             style={{
               padding: '0.875rem 1.75rem',
-              background: 'linear-gradient(135deg, var(--summer-gold) 0%, var(--summer-gold-light) 100%)',
-              color: 'var(--neutral-900)',
+              background: 'linear-gradient(135deg, var(--summer-gold-dark) 0%, var(--summer-gold-darker) 100%)',
+              color: 'white',
               textDecoration: 'none',
               borderRadius: 'var(--border-radius-sm)',
               fontWeight: 700,
               fontFamily: 'var(--font-body)',
               display: 'inline-block',
-              boxShadow: '0 4px 12px rgba(255, 167, 38, 0.3)',
+              boxShadow: '0 4px 12px rgba(245, 124, 0, 0.3)',
               transition: 'all 0.3s ease',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 167, 38, 0.4)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(245, 124, 0, 0.4)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 167, 38, 0.3)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 124, 0, 0.3)';
             }}
           >
             Create First Route
