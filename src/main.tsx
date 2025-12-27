@@ -55,7 +55,9 @@ async function initializeApp() {
       const result = await msalInstance.handleRedirectPromise();
       if (result?.account) {
         msalInstance.setActiveAccount(result.account);
-        console.log('[MSAL] Redirect handled successfully, account set:', result.account.username);
+        if (import.meta.env.DEV) {
+          console.log('[MSAL] Redirect handled successfully, account:', result.account.homeAccountId);
+        }
       }
     } catch (error) {
       console.error('[MSAL] Error during initialization:', error);
@@ -63,7 +65,13 @@ async function initializeApp() {
   }
 
   // Render React app after MSAL initialization completes
-  createRoot(document.getElementById('root')!).render(
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    console.error('[App] Root element not found. Cannot render application.');
+    return;
+  }
+
+  createRoot(rootElement).render(
     <StrictMode>
       <MsalProvider instance={msalInstance}>
         <AuthProvider>
@@ -76,9 +84,13 @@ async function initializeApp() {
   );
 
   // Remove the loading screen after React has mounted
-  const loadingElement = document.getElementById('msal-loading');
-  if (loadingElement) {
-    loadingElement.remove();
+  try {
+    const loadingElement = document.getElementById('msal-loading');
+    if (loadingElement) {
+      loadingElement.remove();
+    }
+  } catch (error) {
+    console.warn('[App] Failed to remove loading screen:', error);
   }
 }
 
