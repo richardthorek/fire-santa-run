@@ -1,6 +1,6 @@
 import type { IStorageAdapter } from './types';
 import { LocalStorageAdapter } from './localStorage';
-import { HttpStorageAdapter } from './http';
+import { AzureTableStorageAdapter } from './azure';
 
 /**
  * Storage adapter factory that returns the appropriate implementation
@@ -19,16 +19,28 @@ import { HttpStorageAdapter } from './http';
  */
 function createStorageAdapter(): IStorageAdapter {
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-  
-  // Dev mode: Use localStorage for rapid development
+  const connectionString = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
+  const hasAzureCredentials = !!connectionString;
+
+  // Dev mode WITH Azure credentials: use Azure with dev prefix to isolate data
+  if (isDevMode && hasAzureCredentials && connectionString) {
+    console.info('[Storage] Dev mode with Azure credentials. Using AzureTableStorageAdapter with dev prefix.');
+    return new AzureTableStorageAdapter(connectionString, 'dev');
+  }
+
+  // Dev mode WITHOUT Azure credentials: fall back to localStorage
   if (isDevMode) {
     console.info('[Storage] Dev mode enabled. Using localStorage adapter.');
     return new LocalStorageAdapter();
   }
-  
-  // Production mode: Use HTTP API adapter to call Azure Functions
-  console.info('[Storage] Production mode. Using HTTP API adapter (calls /api endpoints).');
-  return new HttpStorageAdapter('/api');
+
+  // Production mode requires Azure credentials
+  if (!connectionString) {
+    throw new Error('Production mode requires Azure Storage connection string');
+  }
+
+  console.info('[Storage] Production mode. Using AzureTableStorageAdapter.');
+  return new AzureTableStorageAdapter(connectionString);
 }
 
 // Export singleton instance

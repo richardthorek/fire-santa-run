@@ -12,10 +12,39 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+// Hoisted mocks for Azure Table client to avoid reference errors during module mocking
+const tableClientMocks = vi.hoisted(() => {
+  const createClient = () => ({
+    createTable: vi.fn().mockResolvedValue(undefined),
+    listEntities: vi.fn(),
+    upsertEntity: vi.fn(),
+    deleteEntity: vi.fn(),
+    getEntity: vi.fn(),
+  });
+
+  return {
+    createClient,
+    fromConnectionString: vi.fn().mockImplementation(() => createClient()),
+  };
+});
+
+vi.mock('@azure/data-tables', () => ({
+  TableClient: {
+    fromConnectionString: tableClientMocks.fromConnectionString,
+  }
+}));
+
 describe('Storage Adapter Factory', () => {
   beforeEach(() => {
-    // Reset environment variables before each test
+    // Reset environment variables and mocks before each test
     vi.resetModules();
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    tableClientMocks.fromConnectionString.mockClear();
+
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   describe('Dev mode without Azure credentials', () => {
@@ -89,42 +118,32 @@ describe('AzureTableStorageAdapter', () => {
   describe('Table name prefixing', () => {
     it('should use "devroutes" and "devbrigades" tables when prefix is "dev"', async () => {
       const mockConnectionString = 'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=key;EndpointSuffix=core.windows.net';
-      
-      // Mock TableClient.fromConnectionString
-      const mockFromConnectionString = vi.fn();
-      vi.mock('@azure/data-tables', () => ({
-        TableClient: {
-          fromConnectionString: mockFromConnectionString
-        }
-      }));
-      
+
+      tableClientMocks.fromConnectionString.mockClear();
+      tableClientMocks.fromConnectionString.mockImplementation(() => tableClientMocks.createClient());
+
       // Create adapter with 'dev' prefix
       const { AzureTableStorageAdapter } = await import('../azure');
       new AzureTableStorageAdapter(mockConnectionString, 'dev');
       
       // Verify table names
-      expect(mockFromConnectionString).toHaveBeenCalledWith(mockConnectionString, 'devroutes');
-      expect(mockFromConnectionString).toHaveBeenCalledWith(mockConnectionString, 'devbrigades');
+      expect(tableClientMocks.fromConnectionString).toHaveBeenCalledWith(mockConnectionString, 'devroutes');
+      expect(tableClientMocks.fromConnectionString).toHaveBeenCalledWith(mockConnectionString, 'devbrigades');
     });
 
     it('should use "routes" and "brigades" tables when no prefix', async () => {
       const mockConnectionString = 'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=key;EndpointSuffix=core.windows.net';
-      
-      // Mock TableClient.fromConnectionString
-      const mockFromConnectionString = vi.fn();
-      vi.mock('@azure/data-tables', () => ({
-        TableClient: {
-          fromConnectionString: mockFromConnectionString
-        }
-      }));
-      
+
+      tableClientMocks.fromConnectionString.mockClear();
+      tableClientMocks.fromConnectionString.mockImplementation(() => tableClientMocks.createClient());
+
       // Create adapter without prefix
       const { AzureTableStorageAdapter } = await import('../azure');
       new AzureTableStorageAdapter(mockConnectionString);
       
       // Verify table names
-      expect(mockFromConnectionString).toHaveBeenCalledWith(mockConnectionString, 'routes');
-      expect(mockFromConnectionString).toHaveBeenCalledWith(mockConnectionString, 'brigades');
+      expect(tableClientMocks.fromConnectionString).toHaveBeenCalledWith(mockConnectionString, 'routes');
+      expect(tableClientMocks.fromConnectionString).toHaveBeenCalledWith(mockConnectionString, 'brigades');
     });
   });
 });
