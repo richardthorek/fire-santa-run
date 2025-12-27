@@ -76,7 +76,13 @@ export function useUserProfile(): UseUserProfileResult {
       setMemberships(userMemberships);
     } catch (err) {
       console.error('Failed to load user profile:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load profile');
+      // Detect common SPA fallback where API returns index.html (HTML starts with '<!doctype')
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('<!doctype') || msg.includes('<html')) {
+        setError('Failed to load profile: server returned HTML (possible auth redirect). Please ensure the API is accessible and you are authenticated.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setIsLoading(false);
     }

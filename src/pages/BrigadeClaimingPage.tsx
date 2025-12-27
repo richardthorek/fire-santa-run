@@ -395,6 +395,13 @@ function BrigadeCard({ station, onClaim, claiming }: BrigadeCardProps) {
         setBrigadeStatus(brigade?.isClaimed ? 'claimed' : 'unclaimed');
       } catch (err) {
         console.error('Failed to check brigade status:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        // If the API returned HTML (SPA fallback) it's likely an auth redirect or API is unavailable
+        if (msg.includes('<!doctype') || msg.includes('<html')) {
+          setError('Failed to check brigade status: server returned HTML (possible auth redirect). Please ensure the API is accessible and you are logged in.');
+        } else {
+          setError(msg);
+        }
         setBrigadeStatus('unclaimed');
       }
     };
