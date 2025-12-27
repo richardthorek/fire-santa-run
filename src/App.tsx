@@ -196,7 +196,7 @@ function NavigationViewWrapper() {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
         <h1>Route Not Found</h1>
-        <a href="/dashboard" style={{ color: '#D32F2F' }}>← Back to Dashboard</a>
+        <Link to="/dashboard" style={{ color: '#D32F2F' }}>← Back to Dashboard</Link>
       </div>
     );
   }
@@ -247,8 +247,8 @@ function NotFound() {
       <p style={{ marginBottom: '2rem', color: '#616161' }}>
         Santa couldn't find this page!
       </p>
-      <a 
-        href="/dashboard"
+      <Link 
+        to="/dashboard"
         style={{
           padding: '0.75rem 1.5rem',
           background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
@@ -259,7 +259,7 @@ function NotFound() {
         }}
       >
         Go to Dashboard
-      </a>
+      </Link>
     </div>
   );
 }
