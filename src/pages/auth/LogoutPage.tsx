@@ -24,7 +24,7 @@ export function LogoutPage() {
     if (isDevMode) {
       setLogoutComplete(true);
       setTimeout(() => {
-        navigate('/login', { replace: true });
+        navigate('/', { replace: true });
       }, 2000);
     }
   }, [isDevMode, navigate]);
@@ -37,10 +37,10 @@ export function LogoutPage() {
       setLogoutComplete(true);
       
       // In production mode, MSAL will handle the redirect
-      // In dev mode, redirect to login after a short delay
+      // In dev mode, redirect to landing page after a short delay
       if (isDevMode) {
         setTimeout(() => {
-          navigate('/login', { replace: true });
+          navigate('/', { replace: true });
         }, 2000);
       }
     } catch (error) {
