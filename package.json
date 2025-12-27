@@ -16,7 +16,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "test:a11y": "vitest run --testNamePattern=\"a11y\"",
+    "audit:a11y": "npm run test:a11y && echo '✅ Accessibility tests passed'"
   },
   "dependencies": {
     "@azure/data-tables": "^13.3.2",
@@ -37,7 +39,11 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
+    "@axe-core/react": "^4.11.0",
     "@eslint/js": "^9.39.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@types/axe-core": "^2.0.2",
     "@types/mapbox__mapbox-gl-draw": "^1.4.9",
     "@types/mapbox__mapbox-gl-geocoder": "^5.1.0",
     "@types/mapbox-gl": "^3.4.1",
@@ -47,6 +53,7 @@
     "@vitejs/plugin-react": "^5.1.1",
     "@vitest/coverage-v8": "^4.0.16",
     "@vitest/ui": "^4.0.16",
+    "axe-core": "^4.11.0",
     "concurrently": "^8.2.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -56,6 +63,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.16",
+    "vitest-axe": "^0.1.0"
   }
 }
