@@ -17,7 +17,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { TableClient } from '@azure/data-tables';
 import { getTableClient, isDevMode } from './utils/storage';
 
-const VERIFICATION_TABLE = isDevMode ? 'devverificationrequests' : 'verificationrequests';
+const VERIFICATION_TABLE = isDevMode ? 'dev-verificationrequests' : 'verificationrequests';
 
 async function getVerificationTableClient(): Promise<TableClient> {
   return getTableClient(VERIFICATION_TABLE);

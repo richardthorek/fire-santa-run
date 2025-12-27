@@ -15,7 +15,7 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getTableClient, isDevMode } from './utils/storage';
-const BRIGADES_TABLE = isDevMode ? 'devbrigades' : 'brigades';
+const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
 
 async function resolveBrigadesClient() {
   return getTableClient(BRIGADES_TABLE);

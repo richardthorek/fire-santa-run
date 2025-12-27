@@ -9,8 +9,7 @@
   "scripts": {
     "dev": "concurrently \"npm:dev:api\" \"npm:dev:client\"",
     "dev:api": "cd api && func start --port 7071 --cors \"*\" --verbose",
-    "dev:api:mock": "node api/mock-server.js",
-    "dev:e2e": "concurrently \"npm:dev:api:mock\" \"npm:dev:client\"",
+    "dev:e2e": "concurrently \"npm:dev:api\" \"npm:dev:client\"",
     "dev:client": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
