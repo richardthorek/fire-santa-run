@@ -9,7 +9,8 @@ This application enables RFS brigades to:
 - 🔗 **Generate shareable links** with QR codes for community distribution
 - 📱 **Broadcast live GPS location** for public real-time tracking
 - 🎨 **Customize brigade branding** with logos and colors
-- 🔒 **Secure brigade data** with password-protected access
+- 🔒 **Secure brigade access** with Microsoft Entra External ID authentication
+- 👥 **Manage brigade members** with role-based permissions
 - 🌐 **Rich social previews** when sharing on Facebook, Twitter, etc.
 
 ## Features
@@ -17,11 +18,19 @@ This application enables RFS brigades to:
 ### For Brigade Operators
 - Interactive map-based route planning (Mapbox GL JS)
 - Drag-and-drop waypoint management
+- Turn-by-turn navigation with voice guidance during Santa runs
 - Multiple routes over time with unique tracking links
 - QR code generation for flyers and posters
 - Real-time GPS broadcasting from mobile devices
 - Route status management (draft, published, active, completed)
 - Historical route archive
+
+### For Brigade Administrators
+- Brigade claiming with .gov.au email or admin verification
+- Member management with role-based access control
+- Team invitations with email-based acceptance
+- Brigade customization (name, logo, theme colors)
+- Microsoft Entra External ID authentication
 
 ### For the Public
 - Live Santa tracking on mobile-optimized map
@@ -33,7 +42,7 @@ This application enables RFS brigades to:
 ## Quick Start
 
 ### Prerequisites
-- Node.js 20+ and npm
+- Node.js 22+ and npm
 - Mapbox account (free tier available) - [Sign up here](https://account.mapbox.com/)
 - **No authentication setup required for development!**
 
@@ -138,7 +147,7 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 ### Product Planning & Roadmap
 - 🗺️ **[ROADMAP.md](./ROADMAP.md)** - **NEW!** 6-month product roadmap with Release 1 summary and future releases
 - 📊 **[Release 1 Summary](./docs/RELEASE_1_SUMMARY.md)** - **NEW!** Complete implementation summary and achievements
-- 📋 **[Missing Features Analysis](./MISSING_FEATURES_ANALYSIS.md)** - Known gaps and future enhancements
+- 📋 **[Missing Features Analysis](./docs/MISSING_FEATURES_ANALYSIS.md)** - Known gaps and future enhancements
 - 📘 **[Master Plan](./MASTER_PLAN.md)** - Comprehensive technical architecture (4,700+ lines)
 
 ### Setup Guides
@@ -175,24 +184,39 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 
 ### Data Models
 
+Simplified overview (see [MASTER_PLAN.md](./MASTER_PLAN.md#data-model) for complete schemas):
+
 ```typescript
 interface Brigade {
   id: string;
   slug: string;
   name: string;
   location: string;
-  passwordHash: string;
+  rfsStationId?: number;
+  logo?: string;
   themeColor?: string;
+  allowedDomains: string[];
+  adminUserIds: string[];
+  isClaimed: boolean;
 }
 
 interface Route {
   id: string;
   brigadeId: string;
   name: string;
-  status: 'draft' | 'published' | 'active' | 'completed';
+  status: 'draft' | 'published' | 'active' | 'completed' | 'archived';
   waypoints: Waypoint[];
-  shareableLink: string;
+  geometry?: GeoJSON.LineString;      // Mapbox Directions route
+  navigationSteps?: NavigationStep[]; // Turn-by-turn instructions
+  shareableLink?: string;
   qrCodeUrl?: string;
+}
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  entraUserId?: string;  // Microsoft Entra ID
 }
 ```
 
@@ -348,12 +372,15 @@ See cost breakdown in [MASTER_PLAN.md](./MASTER_PLAN.md#cost-management--resourc
 
 ## Security
 
-- Passwords hashed using Web Crypto API (SHA-256)
+- **Authentication:** Microsoft Entra External ID (OAuth 2.0/OpenID Connect)
+- **Multi-factor authentication** support through Entra ID
+- **Domain whitelisting** for brigade member verification (.gov.au emails)
 - HTTPS required for production
-- CORS properly configured
+- CORS properly configured for Azure services
 - No secrets in repository
 - Environment variables for all sensitive data
 - Secret rotation every 90 days recommended
+- **Content Security Policy** headers configured in staticwebapp.config.json
 
 See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md#security-best-practices) for security best practices.
 
