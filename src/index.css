@@ -248,6 +248,16 @@ input:focus, select:focus, textarea:focus {
   animation: sparkle 2s infinite;
 }
 
+/* Bounce animation for scroll indicator */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
 /* Gentle Glow */
 @keyframes gentle-glow {
   0%, 100% { filter: drop-shadow(0 0 5px rgba(247, 127, 0, 0.3)); }

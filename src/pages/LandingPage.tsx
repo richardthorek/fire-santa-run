@@ -71,11 +71,11 @@ export function LandingPage() {
         backgroundColor: 'var(--neutral-50)',
         overflow: 'auto',
       }}>
-        {/* Hero Section */}
+        {/* Integrated Hero & Auth Section */}
         <section style={{
           background: 'linear-gradient(135deg, var(--santa-red) 0%, var(--fire-red-dark) 50%, var(--gold-accent) 100%)',
           color: 'white',
-          padding: '4rem 2rem',
+          padding: '3rem 2rem 2rem',
           textAlign: 'center',
           position: 'relative',
           overflow: 'hidden',
@@ -92,25 +92,26 @@ export function LandingPage() {
           }} />
           
           <div style={{ position: 'relative', zIndex: 1, maxWidth: '1200px', margin: '0 auto' }}>
+            {/* Title and tagline - more compact */}
             <div style={{ 
-              fontSize: '96px', 
-              marginBottom: '1rem',
+              fontSize: 'clamp(64px, 12vw, 80px)', 
+              marginBottom: '0.5rem',
               textShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
             }}>
               🎅🚒🎄
             </div>
             <h1 style={{
               fontFamily: 'var(--font-fun)',
-              fontSize: 'clamp(2.5rem, 8vw, 5rem)',
+              fontSize: 'clamp(2rem, 6vw, 3.5rem)',
               fontWeight: 'normal',
-              marginBottom: '1rem',
+              marginBottom: '0.5rem',
               textShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
               lineHeight: 1.1,
             }}>
               Fire Santa Run
             </h1>
             <p style={{
-              fontSize: 'clamp(1.25rem, 3vw, 2rem)',
+              fontSize: 'clamp(1.1rem, 2.5vw, 1.5rem)',
               marginBottom: '0.5rem',
               fontWeight: 600,
               textShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
@@ -118,246 +119,179 @@ export function LandingPage() {
               Track Santa's Journey in Real-Time
             </p>
             <p style={{
-              fontSize: 'clamp(1rem, 2vw, 1.25rem)',
-              marginBottom: '3rem',
+              fontSize: 'clamp(0.95rem, 1.8vw, 1.1rem)',
+              marginBottom: '2rem',
               opacity: 0.95,
-              maxWidth: '600px',
-              margin: '0 auto 3rem',
+              maxWidth: '700px',
+              margin: '0 auto 2rem',
             }}>
               Your local Rural Fire Service brings Christmas magic to the community. 
               Plan routes, navigate with confidence, and share the festive joy!
             </p>
-          </div>
-        </section>
 
-        {/* Authentication Section */}
-        <section style={{
-          padding: '3rem 2rem',
-          maxWidth: '600px',
-          margin: '0 auto',
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '20px',
-            boxShadow: 'var(--ui-shadow-soft)',
-            padding: '2.5rem',
-          }}>
-            <h2 style={{
-              fontFamily: 'var(--font-heading)',
-              fontSize: '1.75rem',
-              color: COLORS.fireRed,
-              marginBottom: '0.5rem',
-              textAlign: 'center',
+            {/* Integrated auth buttons - compact and prominent */}
+            <div style={{
+              maxWidth: '500px',
+              margin: '0 auto',
+              padding: '1.5rem',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(10px)',
+              borderRadius: '16px',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
             }}>
-              Sign In or Sign Up
-            </h2>
-            <p style={{
-              fontSize: '0.95rem',
-              color: COLORS.neutral700,
-              marginBottom: '2rem',
-              textAlign: 'center',
-            }}>
-              {isDevMode 
-                ? '🛠️ Development mode - you are automatically authenticated'
-                : 'Join your brigade to plan routes and track Santa'}
-            </p>
-
-            {loginError && (
-              <div style={{
-                padding: '1rem',
-                backgroundColor: COLORS.fireRedLight + '20',
-                borderLeft: `4px solid ${COLORS.fireRed}`,
-                borderRadius: '12px',
-                marginBottom: '1.5rem',
-              }}>
-                <p style={{
-                  fontSize: '0.875rem',
-                  color: COLORS.fireRedDark,
-                  margin: 0,
-                }}>
-                  {loginError}
-                </p>
-              </div>
-            )}
-
-            {isDevMode ? (
-              <div style={{
-                padding: '1.25rem',
-                backgroundColor: COLORS.summerGoldLight + '40',
-                borderRadius: '12px',
-                textAlign: 'center',
-              }}>
-                <p style={{
-                  fontSize: '0.95rem',
-                  color: COLORS.neutral800,
-                  margin: 0,
-                }}>
-                  🛠️ Development Mode Active<br />
-                  <strong>You are automatically signed in</strong>
-                </p>
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  style={{
-                    marginTop: '1rem',
-                    width: '100%',
-                    padding: '1rem',
-                    fontSize: '1rem',
-                    fontWeight: 600,
-                    color: 'white',
-                    background: `linear-gradient(135deg, ${COLORS.fireRed} 0%, ${COLORS.fireRedDark} 100%)`,
-                    border: 'none',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Go to Dashboard
-                </button>
-              </div>
-            ) : (
-              <>
-                <button
-                  onClick={handleLogin}
-                  disabled={isLoggingIn}
-                  style={{
-                    width: '100%',
-                    padding: '1.15rem',
-                    fontSize: '1.05rem',
-                    fontWeight: 600,
-                    color: 'white',
-                    background: `linear-gradient(135deg, ${COLORS.fireRed} 0%, ${COLORS.fireRedDark} 100%)`,
-                    border: 'none',
-                    borderRadius: '12px',
-                    cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-                    opacity: isLoggingIn ? 0.7 : 1,
-                    transition: 'all 0.3s ease',
-                    marginBottom: '1rem',
-                    boxShadow: '0 4px 12px rgba(211, 47, 47, 0.3)',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isLoggingIn) {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(211, 47, 47, 0.4)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(211, 47, 47, 0.3)';
-                  }}
-                >
-                  {isLoggingIn ? '🎅 Signing in...' : '🎅 Sign In with Microsoft'}
-                </button>
-                
+              {loginError && (
                 <div style={{
-                  textAlign: 'center',
-                  display: 'flex',
-                  alignItems: 'center',
-                  margin: '1.25rem 0',
-                }}>
-                  <div style={{
-                    flex: 1,
-                    height: '1px',
-                    backgroundColor: COLORS.neutral300,
-                  }} />
-                  <span style={{
-                    padding: '0 1rem',
-                    fontSize: '0.8rem',
-                    color: COLORS.neutral700,
-                    fontWeight: 500,
-                  }}>
-                    OR
-                  </span>
-                  <div style={{
-                    flex: 1,
-                    height: '1px',
-                    backgroundColor: COLORS.neutral300,
-                  }} />
-                </div>
-                
-                <button
-                  onClick={handleLogin}
-                  disabled={isLoggingIn}
-                  style={{
-                    width: '100%',
-                    padding: '1.15rem',
-                    fontSize: '1.05rem',
-                    fontWeight: 600,
-                    color: COLORS.fireRed,
-                    background: 'white',
-                    border: `2px solid ${COLORS.fireRed}`,
-                    borderRadius: '12px',
-                    cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-                    opacity: isLoggingIn ? 0.7 : 1,
-                    transition: 'all 0.3s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isLoggingIn) {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(211, 47, 47, 0.15)';
-                      e.currentTarget.style.backgroundColor = COLORS.neutral50;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.backgroundColor = 'white';
-                  }}
-                >
-                  {isLoggingIn ? '🚀 Creating account...' : '🚀 Create New Account'}
-                </button>
-                
-                <div style={{
-                  padding: '1rem',
-                  backgroundColor: COLORS.neutral100,
-                  borderRadius: '10px',
-                  marginTop: '1.5rem',
+                  padding: '0.75rem',
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
                 }}>
                   <p style={{
-                    fontSize: '0.8rem',
-                    color: COLORS.neutral700,
+                    fontSize: '0.875rem',
+                    color: COLORS.fireRedDark,
                     margin: 0,
-                    lineHeight: 1.5,
                   }}>
-                    <strong>New to Fire Santa Run?</strong><br />
-                    Click "Create New Account" to register with your brigade email address through Microsoft's secure authentication system.
+                    {loginError}
                   </p>
                 </div>
-              </>
-            )}
+              )}
 
-            <p style={{
-              fontSize: '0.75rem',
-              color: COLORS.neutral700,
-              textAlign: 'center',
-              marginTop: '1.5rem',
-              marginBottom: 0,
+              {isDevMode ? (
+                <>
+                  <p style={{
+                    fontSize: '0.9rem',
+                    marginBottom: '1rem',
+                    opacity: 0.95,
+                  }}>
+                    🛠️ Development Mode Active
+                  </p>
+                  <button
+                    onClick={() => navigate('/dashboard')}
+                    style={{
+                      width: '100%',
+                      padding: '1rem',
+                      fontSize: '1.05rem',
+                      fontWeight: 700,
+                      color: 'var(--fire-red)',
+                      backgroundColor: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                      transition: 'transform 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    Go to Dashboard
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleLogin}
+                    disabled={isLoggingIn}
+                    style={{
+                      width: '100%',
+                      padding: '1rem',
+                      fontSize: '1.05rem',
+                      fontWeight: 700,
+                      color: 'var(--fire-red)',
+                      backgroundColor: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                      opacity: isLoggingIn ? 0.7 : 1,
+                      marginBottom: '0.75rem',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                      transition: 'transform 0.2s',
+                    }}
+                    onMouseEnter={(e) => !isLoggingIn && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    {isLoggingIn ? '🎅 Signing in...' : '🎅 Sign In'}
+                  </button>
+                  
+                  <button
+                    onClick={handleLogin}
+                    disabled={isLoggingIn}
+                    style={{
+                      width: '100%',
+                      padding: '1rem',
+                      fontSize: '1.05rem',
+                      fontWeight: 700,
+                      color: 'white',
+                      backgroundColor: 'transparent',
+                      border: '2px solid white',
+                      borderRadius: '12px',
+                      cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                      opacity: isLoggingIn ? 0.7 : 1,
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isLoggingIn) {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    {isLoggingIn ? '🚀 Creating account...' : '🚀 Sign Up Free'}
+                  </button>
+                  
+                  <p style={{
+                    fontSize: '0.75rem',
+                    marginTop: '1rem',
+                    marginBottom: 0,
+                    opacity: 0.9,
+                  }}>
+                    Sign in with your brigade email via Microsoft
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Scroll indicator */}
+            <div style={{
+              marginTop: '2rem',
+              opacity: 0.9,
+              animation: 'bounce 2s infinite',
             }}>
-              By signing in, you agree to our Terms of Service and Privacy Policy
-            </p>
+              <p style={{
+                fontSize: '0.9rem',
+                marginBottom: '0.5rem',
+              }}>
+                Discover All Features ↓
+              </p>
+            </div>
           </div>
         </section>
 
         {/* Features Section - Advent Calendar Style Grid */}
         <section style={{
-          padding: '4rem 2rem',
+          padding: '2.5rem 2rem 4rem',
           background: 'linear-gradient(180deg, var(--neutral-50) 0%, var(--sand-light) 100%)',
         }}>
           <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+            <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
               <h2 style={{
                 fontFamily: 'var(--font-heading)',
-                fontSize: 'clamp(2rem, 5vw, 3rem)',
+                fontSize: 'clamp(1.75rem, 4.5vw, 2.5rem)',
                 color: 'var(--fire-red)',
-                marginBottom: '1rem',
+                marginBottom: '0.75rem',
               }}>
                 🎄 Open the Doors to Christmas Magic 🎄
               </h2>
               <p style={{
-                fontSize: '1.125rem',
+                fontSize: '1rem',
                 color: 'var(--neutral-700)',
                 maxWidth: '700px',
                 margin: '0 auto',
               }}>
-                Discover all the features that make Fire Santa Run the perfect tool for your brigade's Christmas celebrations
+                Discover all the features that make Fire Santa Run perfect for your brigade
               </p>
             </div>
 
