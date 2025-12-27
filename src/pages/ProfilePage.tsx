@@ -91,7 +91,8 @@ export function ProfilePage() {
         }
 
         setSelectedBrigadeId(resolvedId);
-        setActiveBrigadeId(resolvedId);
+        // Don't call setActiveBrigadeId here - it triggers BrigadeContext reload which unmounts this component
+        // Only set it in the dropdown handler when user explicitly changes selection
       } catch (err) {
         if (isCancelled) return;
         console.error('Failed to load brigades for selection:', err);
