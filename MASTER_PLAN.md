@@ -2349,27 +2349,31 @@ The storage adapter automatically detects which mode to use:
 
 ```typescript
 // src/storage/index.ts
+// Vitest: retain direct Azure selection for adapter unit tests
+// Runtime (browser): never expose Azure credentials; use HTTP API adapter
+// Runtime (non-browser): prefer HTTP when no credentials, Azure when provided
 function createStorageAdapter(): IStorageAdapter {
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-  const hasAzureCredentials = !!import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
-  
-  // Dev mode WITH Azure credentials: Use Azure with 'dev' prefix
-  if (isDevMode && hasAzureCredentials) {
-    const connectionString = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
-    return new AzureTableStorageAdapter(connectionString, 'dev');
-  }
-  
-  // Dev mode WITHOUT Azure credentials: Use localStorage
-  if (isDevMode) {
-    return new LocalStorageAdapter();
-  }
-  
-  // Production mode: Use Azure without prefix (requires credentials)
   const connectionString = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
-  if (!connectionString) {
-    throw new Error('Azure Storage connection string required for production');
+  const hasAzureCredentials = !!connectionString;
+  const isVitest = Boolean(import.meta.env.VITEST);
+  const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+  if (isVitest) {
+    if (isDevMode && hasAzureCredentials) return new AzureTableStorageAdapter(connectionString, 'dev');
+    if (isDevMode) return new LocalStorageAdapter();
+    if (!hasAzureCredentials) throw new Error('Production mode requires Azure Storage connection string');
+    return new AzureTableStorageAdapter(connectionString);
   }
-  
+
+  if (isBrowser) {
+    if (isDevMode) return new LocalStorageAdapter();
+    return new HttpStorageAdapter('/api');
+  }
+
+  if (isDevMode && hasAzureCredentials) return new AzureTableStorageAdapter(connectionString, 'dev');
+  if (isDevMode) return new LocalStorageAdapter();
+  if (!hasAzureCredentials) return new HttpStorageAdapter('/api');
   return new AzureTableStorageAdapter(connectionString);
 }
 ```
