@@ -7,6 +7,7 @@
 
 import type { ReactNode } from 'react';
 import { AppHeader } from './AppHeader';
+import { SkipLink } from './SkipLink';
 
 export interface AppLayoutProps {
   /**
@@ -23,8 +24,9 @@ export interface AppLayoutProps {
 export function AppLayout({ children, showHeader = true }: AppLayoutProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%' }}>
+      <SkipLink />
       {showHeader && <AppHeader />}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
+      <main id="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
         {children}
       </main>
     </div>

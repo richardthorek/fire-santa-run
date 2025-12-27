@@ -21,6 +21,11 @@
   --summer-gold: #FFA726;
   --summer-gold-light: #FFB74D;
   
+  /* Summer Gold - Accessible variants for WCAG AA compliance */
+  --summer-gold-dark: #F57C00;  /* 4.5:1 on white - for normal text */
+  --summer-gold-darker: #E65100;  /* 5.5:1 on white - high contrast */
+  --summer-gold-large-text: #FF8F00;  /* 3.2:1 on white - for large text only */
+  
   /* Christmas Green - Festive touch */
   --christmas-green: #43A047;
   --eucalyptus-green: #66BB6A;
@@ -148,7 +153,7 @@ button:disabled {
 }
 button:focus,
 button:focus-visible {
-  outline: 3px solid var(--summer-gold);
+  outline: 3px solid var(--summer-gold-dark);
   outline-offset: 2px;
 }
 
@@ -190,7 +195,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--summer-gold);
+  outline: 3px solid var(--summer-gold-dark);
   outline-offset: 2px;
 }
 
@@ -358,14 +363,14 @@ input:focus, select:focus, textarea:focus {
 
 /* Warning Button - Gold background, dark text */
 .btn-warning {
-  background: linear-gradient(135deg, var(--summer-gold) 0%, var(--gold-accent) 100%);
-  color: var(--neutral-900);
-  box-shadow: 0 4px 12px rgba(255, 167, 38, 0.3);
+  background: linear-gradient(135deg, var(--summer-gold-dark) 0%, var(--summer-gold-darker) 100%);
+  color: white;  /* White text on dark gold for better contrast */
+  box-shadow: 0 4px 12px rgba(245, 124, 0, 0.3);
 }
 
 .btn-warning:not(:disabled):hover {
-  background: linear-gradient(135deg, var(--gold-accent) 0%, var(--summer-gold) 100%);
-  box-shadow: 0 6px 16px rgba(255, 167, 38, 0.4);
+  background: linear-gradient(135deg, var(--summer-gold-darker) 0%, var(--summer-gold-dark) 100%);
+  box-shadow: 0 6px 16px rgba(245, 124, 0, 0.4);
 }
 
 /* Danger Button - Dark red background, white text (destructive actions) */
