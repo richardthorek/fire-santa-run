@@ -1,42 +1,32 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /api/admin/verification - Admin Verification Management API (Site Owner Only)
+ * /api/site-admin/verification - Admin Verification Management API (Site Owner Only)
  * 
  * Handles site owner review and approval/rejection of admin verification requests.
  * These endpoints should be protected by authentication in production.
  * 
  * Endpoints:
- * - GET /api/admin/verification/pending - List pending verification requests
- * - GET /api/admin/verification/requests/{requestId}?userId=xxx - Get request with evidence
- * - POST /api/admin/verification/requests/{requestId}/approve - Approve request
- * - POST /api/admin/verification/requests/{requestId}/reject - Reject request
+ * - GET /api/site-admin/verification/pending - List pending verification requests
+ * - GET /api/site-admin/verification/requests/{requestId}?userId=xxx - Get request with evidence
+ * - POST /api/site-admin/verification/requests/{requestId}/approve - Approve request
+ * - POST /api/site-admin/verification/requests/{requestId}/reject - Reject request
  * 
  * Note: Evidence file SAS token endpoint deferred to Phase 7 (requires Azure Blob Storage)
  */
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { TableClient } from '@azure/data-tables';
+import { getTableClient, isDevMode } from './utils/storage';
 
-// Get Azure Storage credentials
-const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
-
-// Determine table name based on environment
-const isDevMode = process.env.VITE_DEV_MODE === 'true';
 const VERIFICATION_TABLE = isDevMode ? 'devverificationrequests' : 'verificationrequests';
 const USERS_TABLE = isDevMode ? 'devusers' : 'users';
 
-function getVerificationTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, VERIFICATION_TABLE);
+async function getVerificationTableClient(): Promise<TableClient> {
+  return getTableClient(VERIFICATION_TABLE);
 }
 
-function getUsersTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, USERS_TABLE);
+async function getUsersTableClient(): Promise<TableClient> {
+  return getTableClient(USERS_TABLE);
 }
 
 // Helper to convert Table entity to VerificationRequest object
@@ -79,10 +69,10 @@ function verificationRequestToEntity(request: any) {
   };
 }
 
-// GET /api/admin/verification/pending
+// GET /api/site-admin/verification/pending
 async function getPendingVerifications(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
-    const client = getVerificationTableClient();
+    const client = await getVerificationTableClient();
     
     // Query all pending verifications
     const entities = client.listEntities({
@@ -123,7 +113,7 @@ async function getPendingVerifications(request: HttpRequest, context: Invocation
   }
 }
 
-// GET /api/admin/verification/requests/{requestId}?userId=xxx
+// GET /api/site-admin/verification/requests/{requestId}?userId=xxx
 async function getVerificationRequestDetails(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
     const requestId = request.params.requestId;
@@ -136,7 +126,7 @@ async function getVerificationRequestDetails(request: HttpRequest, context: Invo
       };
     }
 
-    const client = getVerificationTableClient();
+    const client = await getVerificationTableClient();
     const entity = await client.getEntity(userId, requestId);
 
     context.log(`Retrieved verification request details: ${requestId}`);
@@ -166,7 +156,7 @@ async function getVerificationRequestDetails(request: HttpRequest, context: Invo
   }
 }
 
-// POST /api/admin/verification/requests/{requestId}/approve?userId=xxx
+// POST /api/site-admin/verification/requests/{requestId}/approve?userId=xxx
 async function approveVerification(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
     const requestId = request.params.requestId;
@@ -180,8 +170,8 @@ async function approveVerification(request: HttpRequest, context: InvocationCont
       };
     }
 
-    const verificationClient = getVerificationTableClient();
-    const usersClient = getUsersTableClient();
+    const verificationClient = await getVerificationTableClient();
+    const usersClient = await getUsersTableClient();
 
     // Get verification request
     const entity = await verificationClient.getEntity(userId, requestId);
@@ -259,7 +249,7 @@ async function approveVerification(request: HttpRequest, context: InvocationCont
   }
 }
 
-// POST /api/admin/verification/requests/{requestId}/reject?userId=xxx
+// POST /api/site-admin/verification/requests/{requestId}/reject?userId=xxx
 async function rejectVerification(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
     const requestId = request.params.requestId;
@@ -273,7 +263,7 @@ async function rejectVerification(request: HttpRequest, context: InvocationConte
       };
     }
 
-    const client = getVerificationTableClient();
+    const client = await getVerificationTableClient();
 
     // Get verification request
     const entity = await client.getEntity(userId, requestId);
@@ -327,27 +317,27 @@ async function rejectVerification(request: HttpRequest, context: InvocationConte
 app.http('admin-verification-pending', {
   methods: ['GET'],
   authLevel: 'anonymous', // TODO: Change to 'function' in production with proper auth
-  route: 'admin/verification/pending',
+  route: 'site-admin/verification/pending',
   handler: getPendingVerifications
 });
 
 app.http('admin-verification-get', {
   methods: ['GET'],
   authLevel: 'anonymous', // TODO: Change to 'function' in production with proper auth
-  route: 'admin/verification/requests/{requestId}',
+  route: 'site-admin/verification/requests/{requestId}',
   handler: getVerificationRequestDetails
 });
 
 app.http('admin-verification-approve', {
   methods: ['POST'],
   authLevel: 'anonymous', // TODO: Change to 'function' in production with proper auth
-  route: 'admin/verification/requests/{requestId}/approve',
+  route: 'site-admin/verification/requests/{requestId}/approve',
   handler: approveVerification
 });
 
 app.http('admin-verification-reject', {
   methods: ['POST'],
   authLevel: 'anonymous', // TODO: Change to 'function' in production with proper auth
-  route: 'admin/verification/requests/{requestId}/reject',
+  route: 'site-admin/verification/requests/{requestId}/reject',
   handler: rejectVerification
 });

@@ -13,28 +13,16 @@
  */
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { TableClient } from '@azure/data-tables';
-
-// Get Azure Storage credentials
-const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
-
-// Determine table name based on environment
-const isDevMode = process.env.VITE_DEV_MODE === 'true';
+import { getTableClient, isDevMode } from './utils/storage';
 const USERS_TABLE = isDevMode ? 'devusers' : 'users';
 const MEMBERSHIPS_TABLE = isDevMode ? 'devmemberships' : 'memberships';
 
-function getUsersTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, USERS_TABLE);
+async function getUsersTableClient() {
+  return getTableClient(USERS_TABLE);
 }
 
-function getMembershipsTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, MEMBERSHIPS_TABLE);
+async function getMembershipsTableClient() {
+  return getTableClient(MEMBERSHIPS_TABLE);
 }
 
 // Helper to convert Table entity to User object
@@ -110,7 +98,7 @@ async function registerUser(request: HttpRequest, context: InvocationContext): P
       };
     }
 
-    const client = getUsersTableClient();
+    const client = await getUsersTableClient();
     const entity = userToEntity({
       ...user,
       emailVerified: false,
@@ -159,7 +147,7 @@ async function getUser(request: HttpRequest, context: InvocationContext): Promis
       };
     }
 
-    const client = getUsersTableClient();
+    const client = await getUsersTableClient();
     const entity = await client.getEntity(userId, userId);
 
     context.log(`Retrieved user: ${userId}`);
@@ -201,21 +189,41 @@ async function getUserByEmail(request: HttpRequest, context: InvocationContext):
       };
     }
 
-    const client = getUsersTableClient();
-    
-    // Query users table for matching email (case-insensitive using tolower)
-    // Escape email to prevent OData injection attacks
-    const escapedEmail = escapeODataValue(email.toLowerCase());
-    const entities = client.listEntities({
-      queryOptions: { filter: `tolower(email) eq '${escapedEmail}'` }
-    });
+    const client = await getUsersTableClient();
 
-    for await (const entity of entities) {
-      context.log(`Retrieved user by email: ${email}`);
-      return {
-        status: 200,
-        jsonBody: entityToUser(entity)
-      };
+    // Escape email variants to prevent OData injection attacks
+    const escapedExact = escapeODataValue(email);
+    const escapedLower = escapeODataValue(email.toLowerCase());
+
+    // 1) Try exact match on email (most efficient and widely supported)
+    try {
+      const entities = client.listEntities({ queryOptions: { filter: `email eq '${escapedExact}'` } });
+      for await (const entity of entities) {
+        context.log(`Retrieved user by exact email: ${email}`);
+        return { status: 200, jsonBody: entityToUser(entity) };
+      }
+    } catch (err: any) {
+      context.warn('Exact email filter failed, will fall back to more compatible strategies', err?.message || err);
+    }
+
+    // 2) Try server-side case-insensitive function if available (some Table endpoints don't implement OData functions)
+    try {
+      const entities = client.listEntities({ queryOptions: { filter: `tolower(email) eq '${escapedLower}'` } });
+      for await (const entity of entities) {
+        context.log(`Retrieved user by case-insensitive email (server-side): ${email}`);
+        return { status: 200, jsonBody: entityToUser(entity) };
+      }
+    } catch (err: any) {
+      // If the service does not implement OData functions it may return 501 NotImplemented
+      context.warn('Server-side case-insensitive filter not supported, falling back to client-side scan', err?.message || err);
+    }
+
+    // 3) Fallback: iterate all users and filter client-side (inefficient but safe fallback for dev/local)
+    for await (const entity of client.listEntities()) {
+      if (entity.email && String(entity.email).toLowerCase() === email.toLowerCase()) {
+        context.log(`Retrieved user by email via client-side scan: ${email}`);
+        return { status: 200, jsonBody: entityToUser(entity) };
+      }
     }
 
     // User not found
@@ -249,7 +257,7 @@ async function saveUser(request: HttpRequest, context: InvocationContext): Promi
       };
     }
 
-    const client = getUsersTableClient();
+    const client = await getUsersTableClient();
     
     try {
       // Try to get existing user
@@ -307,7 +315,7 @@ async function updateUser(request: HttpRequest, context: InvocationContext): Pro
       };
     }
 
-    const client = getUsersTableClient();
+    const client = await getUsersTableClient();
     
     // Get existing user
     const existingEntity = await client.getEntity(userId, userId);
@@ -363,7 +371,7 @@ async function getUserMemberships(request: HttpRequest, context: InvocationConte
       };
     }
 
-    const client = getMembershipsTableClient();
+    const client = await getMembershipsTableClient();
     
     // Query all memberships for this user across all brigades
     // Escape userId to prevent OData injection attacks

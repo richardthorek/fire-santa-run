@@ -15,19 +15,12 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { TableClient } from '@azure/data-tables';
+import { getTableClient, isDevMode } from './utils/storage';
 
-// Get Azure Storage credentials
-const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
-
-// Determine table name based on environment
-const isDevMode = process.env.VITE_DEV_MODE === 'true';
 const VERIFICATION_TABLE = isDevMode ? 'devverificationrequests' : 'verificationrequests';
 
-function getVerificationTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, VERIFICATION_TABLE);
+async function getVerificationTableClient(): Promise<TableClient> {
+  return getTableClient(VERIFICATION_TABLE);
 }
 
 // Helper to convert Table entity to VerificationRequest object
@@ -115,7 +108,7 @@ async function submitVerificationRequest(request: HttpRequest, context: Invocati
       updatedAt: now.toISOString(),
     };
 
-    const client = getVerificationTableClient();
+    const client = await getVerificationTableClient();
     const entity = verificationRequestToEntity(verificationRequest);
 
     await client.createEntity(entity);
@@ -160,7 +153,7 @@ async function getVerificationRequest(request: HttpRequest, context: InvocationC
       };
     }
 
-    const client = getVerificationTableClient();
+    const client = await getVerificationTableClient();
     const entity = await client.getEntity(userId, requestId);
 
     context.log(`Retrieved verification request: ${requestId}`);
@@ -202,7 +195,7 @@ async function getUserVerificationRequests(request: HttpRequest, context: Invoca
       };
     }
 
-    const client = getVerificationTableClient();
+    const client = await getVerificationTableClient();
     const entities = client.listEntities({
       queryOptions: { filter: `PartitionKey eq '${userId}'` }
     });

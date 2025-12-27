@@ -2729,12 +2729,12 @@ This phase updates all data schemas, storage adapters, and TypeScript interfaces
   - [ ] `POST /api/verification/upload` - Upload evidence file to Azure Blob Storage (Phase 7)
   - [x] `GET /api/verification/requests/:requestId` - Get request details
   - [x] `GET /api/verification/user/:userId` - Get user's verification requests
-- [x] Create `/api/admin/verification/*` endpoints (site owner only) (`api/src/admin-verification.ts`)
-  - [x] `GET /api/admin/verification/pending` - List pending verification requests
-  - [x] `GET /api/admin/verification/requests/:requestId` - Get request with evidence
-  - [x] `POST /api/admin/verification/requests/:requestId/approve` - Approve request
-  - [x] `POST /api/admin/verification/requests/:requestId/reject` - Reject request
-  - [ ] `GET /api/admin/verification/evidence/:fileId` - Get evidence file (SAS token) (Phase 7)
+- [x] Create `/api/site-admin/verification/*` endpoints (site owner only) (`api/src/admin-verification.ts`)
+  - [x] `GET /api/site-admin/verification/pending` - List pending verification requests
+  - [x] `GET /api/site-admin/verification/requests/:requestId` - Get request with evidence
+  - [x] `POST /api/site-admin/verification/requests/:requestId/approve` - Approve request
+  - [x] `POST /api/site-admin/verification/requests/:requestId/reject` - Reject request
+  - [ ] `GET /api/site-admin/verification/evidence/:fileId` - Get evidence file (SAS token) (Phase 7)
 
 **Testing:**
 - [x] Set up Vitest testing infrastructure (vitest.config.ts, test setup)
