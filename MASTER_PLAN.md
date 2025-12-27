@@ -1608,6 +1608,7 @@ function canClaimBrigade(user: User, brigadeId: string): boolean {
 - Brigades can be pre-seeded from RFS dataset with `isClaimed: false`
 - Unclaimed brigades exist in system but have no members
 - Public can view routes from unclaimed brigades (historical data)
+- Current seed (dev convenience): first 100 facilities from Rural_Country_Fire_Service_Facilities.geojson via api/scripts/seed-brigades.js (creates unclaimed brigades with rfsStationId set to source objectid)
 
 **Claiming Eligibility (Two Pathways):**
 1. User has `.gov.au` email address (instant claiming)

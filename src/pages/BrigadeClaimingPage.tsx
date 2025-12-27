@@ -152,16 +152,16 @@ export function BrigadeClaimingPage() {
         brigade = { ...brigade, isClaimed: true, claimedBy: user.id };
       }
 
-      // Log brigade claiming
-      logBrigadeClaimed(user.id, user.email, brigade.id, brigade.name);
+      // Log brigade claiming (brigade is guaranteed to exist here)
+      logBrigadeClaimed(user.id, user.email, brigade!.id, brigade!.name);
 
       // Success! Refresh profile to get new membership
       await refreshProfile();
 
-      // Redirect to brigade dashboard
-      navigate(`/dashboard/${brigade.id}`, {
+      // Redirect to dashboard (top-level) to avoid missing per-brigade route
+      navigate(`/dashboard`, {
         state: { 
-          message: `Successfully claimed ${brigade.name}!`,
+          message: `Successfully claimed ${brigade!.name}!`,
           messageType: 'success',
         },
       });
@@ -428,9 +428,9 @@ function BrigadeCard({ station, onClaim, claiming }: BrigadeCardProps) {
         const msg = err instanceof Error ? err.message : String(err);
         // If the API returned HTML (SPA fallback) it's likely an auth redirect or API is unavailable
         if (msg.includes('<!doctype') || msg.includes('<html')) {
-          setError('Failed to check brigade status: server returned HTML (possible auth redirect). Please ensure the API is accessible and you are logged in.');
+          console.warn('Failed to check brigade status: server returned HTML (possible auth redirect).');
         } else {
-          setError(msg);
+          console.warn('Failed to check brigade status:', msg);
         }
         setBrigadeStatus('unclaimed');
       }
