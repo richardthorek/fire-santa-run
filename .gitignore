@@ -32,7 +32,6 @@ dist-ssr
 # API specific
 api/node_modules
 api/dist
-api/.funcignore
 
 # Azure Functions
 local.settings.json
