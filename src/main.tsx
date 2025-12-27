@@ -85,10 +85,7 @@ async function initializeApp() {
 
   // Remove the loading screen after React has mounted
   try {
-    const loadingElement = document.getElementById('msal-loading');
-    if (loadingElement) {
-      loadingElement.remove();
-    }
+    document.getElementById('msal-loading')?.remove();
   } catch (error) {
     console.warn('[App] Failed to remove loading screen:', error);
   }
