@@ -44,13 +44,20 @@ export const axe = configureAxe({
 /**
  * Helper to get accessibility violation summary
  */
-export function formatViolations(violations: any[]) {
+export function formatViolations(violations: Array<{ 
+  impact: string; 
+  help: string; 
+  description: string; 
+  tags: string[]; 
+  nodes: Array<{ html: string; failureSummary: string }>; 
+  helpUrl: string 
+}>) {
   if (violations.length === 0) {
     return '✅ No accessibility violations found';
   }
 
   return violations.map((violation) => {
-    const nodeInfo = violation.nodes.map((node: any) => {
+    const nodeInfo = violation.nodes.map((node) => {
       return `    - ${node.html}\n      ${node.failureSummary}`;
     }).join('\n');
 
