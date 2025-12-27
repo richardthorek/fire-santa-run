@@ -10,6 +10,9 @@ jobs:
   test-coverage:
     runs-on: ubuntu-latest
     name: Run Tests with Coverage
+    permissions:
+      contents: read
+      pull-requests: write
     
     steps:
       - name: Checkout code
