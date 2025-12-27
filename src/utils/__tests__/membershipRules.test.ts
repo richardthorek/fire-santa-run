@@ -6,12 +6,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   canBecomeAdmin,
-  canClaimBrigade,
   validateAdminCount,
   canRemoveMember,
   canLeaveBrigade,
   isInvitationValid,
-  hasApprovedVerification,
   canPromoteToAdmin,
   canDemoteFromAdmin,
   validateInvitationRole,

@@ -2,7 +2,7 @@
  * Unit tests for route helper utilities
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   generateRouteId,
   generateWaypointId,

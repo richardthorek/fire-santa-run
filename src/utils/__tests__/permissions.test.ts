@@ -19,7 +19,7 @@ import {
   getRoleDescription,
   getAvailableRolesToInvite,
 } from '../permissions';
-import type { BrigadeMembership, MemberRole } from '../../types/membership';
+import type { BrigadeMembership } from '../../types/membership';
 
 describe('permissions', () => {
   const adminMembership: BrigadeMembership = {
