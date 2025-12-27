@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
 import './App.css';
 import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
@@ -167,6 +167,7 @@ function RouteEditorWrapper() {
 
 // Wrapper for Navigation View
 function NavigationViewWrapper() {
+  const navigate = useNavigate();
   const pathSegments = window.location.pathname.split('/');
   const routeId = pathSegments[pathSegments.length - 2]; // /routes/:id/navigate
   const { getRoute } = useRoutes();
@@ -204,10 +205,10 @@ function NavigationViewWrapper() {
     <NavigationView
       route={route}
       onExit={() => {
-        window.location.href = '/dashboard';
+        navigate('/dashboard');
       }}
       onComplete={() => {
-        window.location.href = '/dashboard';
+        navigate('/dashboard');
       }}
     />
   );

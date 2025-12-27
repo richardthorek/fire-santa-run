@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '../hooks';
 import { 
   MapView, 
@@ -17,6 +18,7 @@ export interface RouteDetailProps {
 }
 
 export function RouteDetail({ routeId }: RouteDetailProps) {
+  const navigate = useNavigate();
   const { getRoute, deleteRoute } = useRoutes();
   const [route, setRoute] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +55,7 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
     try {
       await deleteRoute(route.id);
       // Navigate back to dashboard after deletion
-      window.location.href = '/dashboard';
+      navigate('/dashboard');
     } catch (err) {
       console.error('Failed to delete route:', err);
       alert('Failed to delete route. Please try again.');
@@ -179,7 +181,7 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
           <div style={{ display: 'flex', alignItems: 'start', gap: '1rem', flexWrap: 'wrap' }}>
             {/* Back Button */}
             <button
-              onClick={() => window.location.href = '/dashboard'}
+              onClick={() => navigate('/dashboard')}
               style={{
                 padding: '0.5rem 1rem',
                 background: 'transparent',
@@ -403,7 +405,7 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
             {/* Navigate Button - Always shown */}
             <button
               onClick={() => canNavigate 
-                ? window.location.href = `/routes/${route.id}/navigate`
+                ? navigate(`/routes/${route.id}/navigate`)
                 : alert('Route must have waypoints and navigation data. Please edit the route to add stops.')
               }
               disabled={!canNavigate}
@@ -454,7 +456,7 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
 
             {/* Edit Button */}
             <button
-              onClick={() => window.location.href = `/routes/${route.id}/edit`}
+              onClick={() => navigate(`/routes/${route.id}/edit`)}
               style={{
                 padding: '0.875rem 1rem',
                 background: 'white',
