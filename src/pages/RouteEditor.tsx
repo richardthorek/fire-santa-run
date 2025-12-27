@@ -1,12 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context';
+import { useAuth, useBrigade } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
 import { MapView, WaypointList, AddressSearch } from '../components';
 import { createNewRoute, generateShareableLink, canPublishRoute } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
+import { getDefaultMapCenter } from '../utils/mapCenter';
 import type { Route, Waypoint } from '../types';
 
 export interface RouteEditorProps {
@@ -17,6 +18,7 @@ export interface RouteEditorProps {
 export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { brigade } = useBrigade();
   const { saveRoute, getRoute } = useRoutes();
   const [initialRoute, setInitialRoute] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(routeId ? true : false);
@@ -26,6 +28,29 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   const [editingWaypoint, setEditingWaypoint] = useState<Waypoint | null>(null);
   const [waypointForm, setWaypointForm] = useState({ name: '', notes: '' });
   const [autoZoom, setAutoZoom] = useState(true);
+  const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(undefined);
+
+  // Determine default map center (memoized to avoid recalculation on every render)
+  useEffect(() => {
+    let mounted = true;
+    getDefaultMapCenter(brigade).then(center => {
+      if (mounted) {
+        setMapCenter(center);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [brigade]);
+
+  // Memoize brigade station info to avoid recreating object on every render
+  const brigadeStation = useMemo(() => {
+    if (!brigade?.stationCoordinates) return undefined;
+    return {
+      coordinates: brigade.stationCoordinates,
+      name: brigade.name,
+    };
+  }, [brigade?.stationCoordinates, brigade?.name]);
 
   // Load existing route for edit mode
   useEffect(() => {
@@ -148,9 +173,12 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           waypoints={route.waypoints}
           routeGeometry={route.geometry}
           onMapClick={handleMapClick}
+          center={mapCenter}
+          zoom={brigade?.stationCoordinates ? 13 : 5}
           height="100%"
           autoZoom={autoZoom}
           fitBoundsPadding={MAP_LAYOUT.fitBoundsPadding.withSidebar}
+          brigadeStation={brigadeStation}
         />
       </div>
 

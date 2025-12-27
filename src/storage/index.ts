@@ -45,9 +45,13 @@ function createStorageAdapter(): IStorageAdapter {
     return new AzureTableStorageAdapter(connectionString);
   }
 
-  // Runtime branch: always hit the real API from the browser (dev mode still bypasses auth server-side)
+  // Browser runtime: Use localStorage in dev mode, HTTP API in production
   if (isBrowser) {
-    console.info('[Storage] Browser runtime. Using HTTP API adapter.');
+    if (isDevMode) {
+      console.info('[Storage] Browser dev mode. Using localStorage adapter.');
+      return new LocalStorageAdapter();
+    }
+    console.info('[Storage] Browser production mode. Using HTTP API adapter.');
     return new HttpStorageAdapter('/api');
   }
 

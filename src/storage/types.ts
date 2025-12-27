@@ -17,6 +17,9 @@ export interface Brigade {
   /** Location (e.g., "Griffith, NSW") */
   location: string;
   
+  /** Station coordinates [longitude, latitude] for map display */
+  stationCoordinates?: [number, number];
+  
   /** Reference to RFS dataset station (for verification) */
   rfsStationId?: string;
   

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { MAPBOX_CONFIG } from '../config/mapbox';
+import { MAPBOX_CONFIG, DEFAULT_CENTER } from '../config/mapbox';
 import type { Waypoint } from '../types';
 
 // Import Mapbox token from config
@@ -23,6 +23,10 @@ export interface MapViewProps {
   className?: string;
   autoZoom?: boolean;
   fitBoundsPadding?: number | mapboxgl.PaddingOptions;
+  brigadeStation?: {
+    coordinates: [number, number];
+    name: string;
+  };
 }
 
 /**
@@ -32,7 +36,7 @@ export function MapView({
   waypoints = [],
   routeGeometry,
   onMapClick,
-  center = [146.0391, -34.2908], // Default: Griffith, NSW
+  center = DEFAULT_CENTER,
   zoom = 13,
   showControls = true,
   interactive = true,
@@ -40,10 +44,12 @@ export function MapView({
   className = '',
   autoZoom = true,
   fitBoundsPadding = 50,
+  brigadeStation,
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const brigadeMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize map
@@ -146,6 +152,65 @@ export function MapView({
       map.current!.fitBounds(bounds, { padding: fitBoundsPadding, maxZoom: 15 });
     }
   }, [waypoints, mapLoaded, autoZoom, fitBoundsPadding]);
+
+  // Update brigade station marker
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    // Remove existing brigade marker
+    if (brigadeMarkerRef.current) {
+      brigadeMarkerRef.current.remove();
+      brigadeMarkerRef.current = null;
+    }
+
+    // Add brigade station marker if provided
+    if (brigadeStation) {
+      const el = document.createElement('div');
+      el.style.display = 'flex';
+      el.style.flexDirection = 'column';
+      el.style.alignItems = 'center';
+      el.style.gap = '4px';
+      
+      el.innerHTML = `
+        <div style="
+          width: 48px;
+          height: 48px;
+          background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%);
+          border: 3px solid white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 24px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          cursor: pointer;
+        ">
+          🚒
+        </div>
+        <div style="
+          background: rgba(255, 255, 255, 0.95);
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #D32F2F;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          white-space: nowrap;
+          max-width: 150px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        ">
+          ${brigadeStation.name}
+        </div>
+      `;
+
+      brigadeMarkerRef.current = new mapboxgl.Marker(el, { anchor: 'bottom' })
+        .setLngLat(brigadeStation.coordinates)
+        .addTo(map.current!);
+    }
+  }, [brigadeStation, mapLoaded]);
 
   // Update route polyline with candy cane styling
   useEffect(() => {
