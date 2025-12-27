@@ -10,6 +10,7 @@ export const mockBrigade: Brigade = {
   slug: 'griffith-rfs',
   name: 'Griffith Rural Fire Brigade',
   location: 'Griffith, NSW',
+  stationCoordinates: [146.0391, -34.2908], // Griffith Fire Station
   rfsStationId: undefined,
   logo: undefined,
   themeColor: '#D32F2F',
