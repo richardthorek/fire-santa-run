@@ -409,25 +409,15 @@ async function getUserMemberships(request: HttpRequest, context: InvocationConte
 }
 
 // Register HTTP endpoints
+// IMPORTANT: Register more specific routes BEFORE generic routes with parameters
+// to avoid route matching conflicts in Azure Functions routing
+
+// Specific routes first (literal path segments)
 app.http('users-register', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'users/register',
   handler: registerUser
-});
-
-app.http('users-save', {
-  methods: ['PUT'],
-  authLevel: 'anonymous',
-  route: 'users',
-  handler: saveUser
-});
-
-app.http('users-get', {
-  methods: ['GET'],
-  authLevel: 'anonymous',
-  route: 'users/{userId}',
-  handler: getUser
 });
 
 app.http('users-get-by-email', {
@@ -437,16 +427,32 @@ app.http('users-get-by-email', {
   handler: getUserByEmail
 });
 
-app.http('users-update', {
-  methods: ['PATCH'],
-  authLevel: 'anonymous',
-  route: 'users/{userId}',
-  handler: updateUser
-});
-
 app.http('users-memberships', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'users/{userId}/memberships',
   handler: getUserMemberships
+});
+
+// Routes without parameters
+app.http('users-save', {
+  methods: ['PUT'],
+  authLevel: 'anonymous',
+  route: 'users',
+  handler: saveUser
+});
+
+// Generic routes last (route parameters)
+app.http('users-get', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'users/{userId}',
+  handler: getUser
+});
+
+app.http('users-update', {
+  methods: ['PATCH'],
+  authLevel: 'anonymous',
+  route: 'users/{userId}',
+  handler: updateUser
 });
