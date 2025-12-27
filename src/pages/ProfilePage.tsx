@@ -18,6 +18,10 @@ const membershipService = new MembershipService(storageAdapter);
  * Automatically creates user profile on first login.
  */
 export function ProfilePage() {
+  if (import.meta.env.DEV) {
+    // Helps detect remounts causing repeated effects
+    console.debug('ProfilePage mounted', { ts: Date.now() });
+  }
   const { user, memberships, isLoading, error, updateProfile } = useUserProfile();
   const { setActiveBrigadeId } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -30,9 +34,13 @@ export function ProfilePage() {
   const [isUpdatingBrigade, setIsUpdatingBrigade] = useState(false);
   const selectionInitializedRef = useRef(false);
 
+  // Load brigades once on mount; select first active brigade locally. If none, show error. No auto-persist.
   useEffect(() => {
     let isCancelled = false;
-    const loadBrigades = async () => {
+    const loadOnce = async () => {
+      if (selectionInitializedRef.current && selectedBrigadeId) return;
+      selectionInitializedRef.current = true;
+
       if (!memberships.length) {
         setBrigadeOptions([]);
         setSelectedBrigadeId(undefined);
@@ -54,21 +62,23 @@ export function ProfilePage() {
         const resolvedId = (preferredId && brigades.some(b => b.id === preferredId) ? preferredId : undefined)
           ?? brigades[0]?.id;
 
-        // Auto-select the resolved brigade once (and persist) when user has a single/first active membership
-        if (resolvedId && resolvedId !== selectedBrigadeId) {
-          setSelectedBrigadeId(resolvedId);
-          setActiveBrigadeId(resolvedId);
-
-          // Persist to user profile only once per load to avoid loops
-          if (!selectionInitializedRef.current && !user?.brigadeId) {
-            selectionInitializedRef.current = true;
-            try {
-              await updateProfile({ brigadeId: resolvedId });
-            } catch (err) {
-              console.error('Failed to persist active brigade selection:', err);
-            }
-          }
+        if (import.meta.env.DEV) {
+          console.debug('ProfilePage single-load selection (no auto-persist)', {
+            membershipsCount: memberships.length,
+            activeMemberships: activeMemberships.map(m => ({ id: m.id, brigadeId: m.brigadeId, status: m.status })),
+            preferredId,
+            resolvedId,
+            userBrigadeId: user?.brigadeId,
+          });
         }
+
+        if (!resolvedId) {
+          setBrigadeError('No active brigades found');
+          return;
+        }
+
+        setSelectedBrigadeId(resolvedId);
+        setActiveBrigadeId(resolvedId);
       } catch (err) {
         if (isCancelled) return;
         console.error('Failed to load brigades for selection:', err);
@@ -76,13 +86,13 @@ export function ProfilePage() {
       }
     };
 
-    loadBrigades();
+    loadOnce();
     return () => {
       isCancelled = true;
     };
   // Deliberately exclude setActiveBrigadeId and updateProfile (treated as stable) to avoid effect loops
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memberships, user?.brigadeId, selectedBrigadeId]);
+  }, [memberships]);
 
   const handleEdit = () => {
     setEditName(user?.name || '');
@@ -120,6 +130,9 @@ export function ProfilePage() {
     setIsUpdatingBrigade(true);
 
     try {
+      if (import.meta.env.DEV) {
+        console.debug('handleActiveBrigadeChange', { brigadeId });
+      }
       await updateProfile({ brigadeId });
       setActiveBrigadeId(brigadeId);
     } catch (err) {

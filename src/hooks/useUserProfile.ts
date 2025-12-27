@@ -3,7 +3,7 @@
  * Handles post-authentication user profile creation and updates.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context';
 import { storageAdapter } from '../storage';
 import { logAuditEvent } from '../utils/auditLog';
@@ -29,6 +29,7 @@ export function useUserProfile(): UseUserProfileResult {
   const [memberships, setMemberships] = useState<BrigadeMembership[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
 
   const refreshProfile = async () => {
     if (!authUser || !isAuthenticated) {
@@ -93,14 +94,39 @@ export function useUserProfile(): UseUserProfileResult {
       throw new Error('No user to update');
     }
 
+    if (inFlightRef.current) {
+      if (import.meta.env.DEV) {
+        console.debug('updateProfile: another update in-flight, skipping');
+      }
+      return;
+    }
+
+    inFlightRef.current = true;
     try {
+      if (import.meta.env.DEV) {
+        console.debug('updateProfile called', { updates, currentUser: user });
+      }
+
       const updatedUser = {
         ...user,
         ...updates,
       };
+      // Avoid unnecessary round-trip if nothing actually changed
+      const keys = Object.keys(updates) as (keyof User)[];
+      const hasChange = keys.some((k) => {
+        return updates[k] !== undefined && updatedUser[k] !== user[k];
+      });
+
+      if (!hasChange) {
+        if (import.meta.env.DEV) {
+          console.debug('updateProfile noop: no changes detected');
+        }
+        return;
+      }
+
       await storageAdapter.saveUser(updatedUser);
       setUser(updatedUser);
-      
+
       // Log profile update
       logAuditEvent('user.updated', `User profile updated: ${user.email}`, {
         userId: user.id,
@@ -110,6 +136,8 @@ export function useUserProfile(): UseUserProfileResult {
     } catch (err) {
       console.error('Failed to update profile:', err);
       throw err;
+    } finally {
+      inFlightRef.current = false;
     }
   };
 
