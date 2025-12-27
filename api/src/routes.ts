@@ -17,8 +17,8 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { validateToken, checkBrigadePermission } from './utils/auth';
 import { getTableClient, isDevMode } from './utils/storage';
 
-const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
-const MEMBERSHIPS_TABLE = isDevMode ? 'devmemberships' : 'memberships';
+const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
+const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
 async function getRoutesTableClient() {
   return getTableClient(ROUTES_TABLE);

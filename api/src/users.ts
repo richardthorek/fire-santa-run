@@ -14,8 +14,8 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getTableClient, isDevMode } from './utils/storage';
-const USERS_TABLE = isDevMode ? 'devusers' : 'users';
-const MEMBERSHIPS_TABLE = isDevMode ? 'devmemberships' : 'memberships';
+const USERS_TABLE = isDevMode ? 'dev-users' : 'users';
+const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
 async function getUsersTableClient() {
   return getTableClient(USERS_TABLE);

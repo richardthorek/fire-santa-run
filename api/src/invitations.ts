@@ -16,8 +16,8 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { TableClient } from '@azure/data-tables';
 import { getTableClient, isDevMode } from './utils/storage';
 
-const INVITATIONS_TABLE = isDevMode ? 'devinvitations' : 'invitations';
-const MEMBERSHIPS_TABLE = isDevMode ? 'devmemberships' : 'memberships';
+const INVITATIONS_TABLE = isDevMode ? 'dev-invitations' : 'invitations';
+const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
 async function getInvitationsTableClient(): Promise<TableClient> {
   return getTableClient(INVITATIONS_TABLE);

@@ -19,10 +19,10 @@ import { validateToken, checkBrigadePermission } from './utils/auth';
 import { shouldAutoApprove } from './utils/emailValidation';
 import { getTableClient, isDevMode } from './utils/storage';
 
-const MEMBERSHIPS_TABLE = isDevMode ? 'devmemberships' : 'memberships';
-const INVITATIONS_TABLE = isDevMode ? 'devinvitations' : 'invitations';
-const USERS_TABLE = isDevMode ? 'devusers' : 'users';
-const BRIGADES_TABLE = isDevMode ? 'devbrigades' : 'brigades';
+const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
+const INVITATIONS_TABLE = isDevMode ? 'dev-invitations' : 'invitations';
+const USERS_TABLE = isDevMode ? 'dev-users' : 'users';
+const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
 
 async function getMembershipsTableClient() {
   return getTableClient(MEMBERSHIPS_TABLE);
