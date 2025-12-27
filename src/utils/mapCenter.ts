@@ -32,7 +32,7 @@ export async function getUserLocation(): Promise<[number, number] | null> {
  * Priority:
  * 1. Brigade station coordinates (if brigade and coordinates exist)
  * 2. User's current location (if permission granted)
- * 3. Australia center (fallback)
+ * 3. Australia center (fallback from DEFAULT_CENTER config)
  */
 export async function getDefaultMapCenter(
   brigade: Brigade | null | undefined
@@ -52,12 +52,6 @@ export async function getDefaultMapCenter(
     console.warn('Failed to get user location:', error);
   }
 
-  // Priority 3: Default to Australia center
+  // Priority 3: Default to Australia center (from config)
   return DEFAULT_CENTER;
 }
-
-/**
- * Australia-wide center point for fallback
- * Approximately central NSW (between major cities)
- */
-export const AUSTRALIA_CENTER: [number, number] = [133.7751, -25.2744];

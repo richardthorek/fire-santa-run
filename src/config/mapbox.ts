@@ -1,6 +1,6 @@
 export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbGV4YW1wbGUifQ.example';
 
-// Default center for Australia (central Australia, for when no other location is available)
+// Default center for Australia (central Australia for fallback when no other location available)
 export const DEFAULT_CENTER: [number, number] = [133.7751, -25.2744]; // Central Australia
 export const DEFAULT_ZOOM = 5; // Wider zoom to show more of Australia
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useBrigade } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
@@ -30,12 +30,27 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   const [autoZoom, setAutoZoom] = useState(true);
   const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(undefined);
 
-  // Determine default map center
+  // Determine default map center (memoized to avoid recalculation on every render)
   useEffect(() => {
+    let mounted = true;
     getDefaultMapCenter(brigade).then(center => {
-      setMapCenter(center);
+      if (mounted) {
+        setMapCenter(center);
+      }
     });
+    return () => {
+      mounted = false;
+    };
   }, [brigade]);
+
+  // Memoize brigade station info to avoid recreating object on every render
+  const brigadeStation = useMemo(() => {
+    if (!brigade?.stationCoordinates) return undefined;
+    return {
+      coordinates: brigade.stationCoordinates,
+      name: brigade.name,
+    };
+  }, [brigade?.stationCoordinates, brigade?.name]);
 
   // Load existing route for edit mode
   useEffect(() => {
@@ -163,14 +178,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           height="100%"
           autoZoom={autoZoom}
           fitBoundsPadding={MAP_LAYOUT.fitBoundsPadding.withSidebar}
-          brigadeStation={
-            brigade?.stationCoordinates
-              ? {
-                  coordinates: brigade.stationCoordinates,
-                  name: brigade.name,
-                }
-              : undefined
-          }
+          brigadeStation={brigadeStation}
         />
       </div>
 
