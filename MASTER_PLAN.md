@@ -1608,6 +1608,7 @@ function canClaimBrigade(user: User, brigadeId: string): boolean {
 - Brigades can be pre-seeded from RFS dataset with `isClaimed: false`
 - Unclaimed brigades exist in system but have no members
 - Public can view routes from unclaimed brigades (historical data)
+- Current seed (dev convenience): first 100 facilities from Rural_Country_Fire_Service_Facilities.geojson via api/scripts/seed-brigades.js (creates unclaimed brigades with rfsStationId set to source objectid)
 
 **Claiming Eligibility (Two Pathways):**
 1. User has `.gov.au` email address (instant claiming)
@@ -2729,12 +2730,12 @@ This phase updates all data schemas, storage adapters, and TypeScript interfaces
   - [ ] `POST /api/verification/upload` - Upload evidence file to Azure Blob Storage (Phase 7)
   - [x] `GET /api/verification/requests/:requestId` - Get request details
   - [x] `GET /api/verification/user/:userId` - Get user's verification requests
-- [x] Create `/api/admin/verification/*` endpoints (site owner only) (`api/src/admin-verification.ts`)
-  - [x] `GET /api/admin/verification/pending` - List pending verification requests
-  - [x] `GET /api/admin/verification/requests/:requestId` - Get request with evidence
-  - [x] `POST /api/admin/verification/requests/:requestId/approve` - Approve request
-  - [x] `POST /api/admin/verification/requests/:requestId/reject` - Reject request
-  - [ ] `GET /api/admin/verification/evidence/:fileId` - Get evidence file (SAS token) (Phase 7)
+- [x] Create `/api/site-admin/verification/*` endpoints (site owner only) (`api/src/admin-verification.ts`)
+  - [x] `GET /api/site-admin/verification/pending` - List pending verification requests
+  - [x] `GET /api/site-admin/verification/requests/:requestId` - Get request with evidence
+  - [x] `POST /api/site-admin/verification/requests/:requestId/approve` - Approve request
+  - [x] `POST /api/site-admin/verification/requests/:requestId/reject` - Reject request
+  - [ ] `GET /api/site-admin/verification/evidence/:fileId` - Get evidence file (SAS token) (Phase 7)
 
 **Testing:**
 - [x] Set up Vitest testing infrastructure (vitest.config.ts, test setup)

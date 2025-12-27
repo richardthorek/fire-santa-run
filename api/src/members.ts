@@ -15,38 +15,25 @@
  */
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { TableClient } from '@azure/data-tables';
 import { validateToken, checkBrigadePermission } from './utils/auth';
 import { shouldAutoApprove } from './utils/emailValidation';
+import { getTableClient, isDevMode } from './utils/storage';
 
-// Get Azure Storage credentials
-const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
-
-// Determine table name based on environment
-const isDevMode = process.env.VITE_DEV_MODE === 'true';
 const MEMBERSHIPS_TABLE = isDevMode ? 'devmemberships' : 'memberships';
 const INVITATIONS_TABLE = isDevMode ? 'devinvitations' : 'invitations';
 const USERS_TABLE = isDevMode ? 'devusers' : 'users';
+const BRIGADES_TABLE = isDevMode ? 'devbrigades' : 'brigades';
 
-function getMembershipsTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, MEMBERSHIPS_TABLE);
+async function getMembershipsTableClient() {
+  return getTableClient(MEMBERSHIPS_TABLE);
 }
 
-function getInvitationsTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, INVITATIONS_TABLE);
+async function getInvitationsTableClient() {
+  return getTableClient(INVITATIONS_TABLE);
 }
 
-function getUsersTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, USERS_TABLE);
+async function getUsersTableClient() {
+  return getTableClient(USERS_TABLE);
 }
 
 // Helper to convert Table entity to Membership object
@@ -136,7 +123,7 @@ function generateToken(): string {
 
 // Helper to get user's membership in a brigade
 async function getUserMembership(userId: string, brigadeId: string): Promise<any> {
-  const client = getMembershipsTableClient();
+  const client = await getMembershipsTableClient();
   const entities = client.listEntities({
     queryOptions: { 
       filter: `PartitionKey eq '${brigadeId}' and userId eq '${userId}'` 
@@ -152,14 +139,7 @@ async function getUserMembership(userId: string, brigadeId: string): Promise<any
 
 // Helper to get brigade details
 async function getBrigadeDetails(brigadeId: string): Promise<any> {
-  const BRIGADES_TABLE = process.env.VITE_DEV_MODE === 'true' ? 'devbrigades' : 'brigades';
-  const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
-  
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  
-  const client = TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, BRIGADES_TABLE);
+  const client = await getTableClient(BRIGADES_TABLE);
   
   try {
     const entity = await client.getEntity(brigadeId, brigadeId);
@@ -213,7 +193,7 @@ async function getBrigadeMembers(request: HttpRequest, context: InvocationContex
       };
     }
 
-    const client = getMembershipsTableClient();
+    const client = await getMembershipsTableClient();
     const entities = client.listEntities({
       queryOptions: { filter: `PartitionKey eq '${brigadeId}'` }
     });
@@ -305,7 +285,7 @@ async function inviteMember(request: HttpRequest, context: InvocationContext): P
       updatedAt: now.toISOString(),
     };
 
-    const client = getInvitationsTableClient();
+    const client = await getInvitationsTableClient();
     const entity = invitationToEntity(invitation);
 
     await client.createEntity(entity);
@@ -340,7 +320,6 @@ async function inviteMember(request: HttpRequest, context: InvocationContext): P
 // DELETE /api/brigades/{brigadeId}/members/{userId}
 async function removeMember(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
-    // Validate authentication
     const authResult = await validateToken(request);
     if (!authResult.authenticated) {
       return {
@@ -374,7 +353,7 @@ async function removeMember(request: HttpRequest, context: InvocationContext): P
       };
     }
 
-    const client = getMembershipsTableClient();
+    const client = await getMembershipsTableClient();
     
     // Find the membership
     const entities = client.listEntities({
@@ -462,7 +441,7 @@ async function changeMemberRole(request: HttpRequest, context: InvocationContext
       };
     }
 
-    const client = getMembershipsTableClient();
+    const client = await getMembershipsTableClient();
     
     // Find the membership
     const entities = client.listEntities({
@@ -502,8 +481,7 @@ async function changeMemberRole(request: HttpRequest, context: InvocationContext
     return {
       status: 500,
       jsonBody: {
-        error: 'Failed to change member role',
-        message: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Failed to change member role'
       }
     };
   }
@@ -521,7 +499,7 @@ async function getPendingMembers(request: HttpRequest, context: InvocationContex
       };
     }
 
-    const client = getMembershipsTableClient();
+    const client = await getMembershipsTableClient();
     const entities = client.listEntities({
       queryOptions: { filter: `PartitionKey eq '${brigadeId}' and status eq 'pending'` }
     });
@@ -589,7 +567,7 @@ async function approveMember(request: HttpRequest, context: InvocationContext): 
       };
     }
 
-    const client = getMembershipsTableClient();
+    const client = await getMembershipsTableClient();
     
     // Find the membership
     const entities = client.listEntities({

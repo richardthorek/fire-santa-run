@@ -17,6 +17,19 @@ export class HttpStorageAdapter implements IStorageAdapter {
     this.apiBaseUrl = apiBaseUrl;
   }
 
+  private async parseJsonResponse(response: Response) {
+    const contentType = response.headers.get('content-type') || '';
+    const text = await response.text();
+    if (!contentType.includes('application/json')) {
+      throw new Error(`Expected JSON response from API but received: ${text.slice(0, 200)}`);
+    }
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      throw new Error(`Failed to parse JSON response: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   // Routes
   async getRoutes(brigadeId: string): Promise<Route[]> {
     const response = await fetch(`${this.apiBaseUrl}/routes?brigadeId=${encodeURIComponent(brigadeId)}`);
@@ -90,7 +103,7 @@ export class HttpStorageAdapter implements IStorageAdapter {
     if (!response.ok) {
       throw new Error(`Failed to fetch brigade: ${response.statusText}`);
     }
-    return await response.json();
+    return await this.parseJsonResponse(response);
   }
 
   async getBrigadeByRFSId(rfsStationId: string): Promise<Brigade | null> {
@@ -101,7 +114,7 @@ export class HttpStorageAdapter implements IStorageAdapter {
     if (!response.ok) {
       throw new Error(`Failed to fetch brigade by RFS ID: ${response.statusText}`);
     }
-    return await response.json();
+    return await this.parseJsonResponse(response);
   }
 
   async saveBrigade(brigade: Brigade): Promise<void> {
@@ -159,7 +172,7 @@ export class HttpStorageAdapter implements IStorageAdapter {
     if (!response.ok) {
       throw new Error(`Failed to fetch user: ${response.statusText}`);
     }
-    return await response.json();
+    return await this.parseJsonResponse(response);
   }
 
   async getUserByEmail(email: string): Promise<User | null> {
@@ -170,7 +183,7 @@ export class HttpStorageAdapter implements IStorageAdapter {
     if (!response.ok) {
       throw new Error(`Failed to fetch user by email: ${response.statusText}`);
     }
-    return await response.json();
+    return await this.parseJsonResponse(response);
   }
 
   // Membership operations
@@ -195,7 +208,7 @@ export class HttpStorageAdapter implements IStorageAdapter {
     if (!response.ok) {
       throw new Error(`Failed to fetch user memberships: ${response.statusText}`);
     }
-    return await response.json();
+    return await this.parseJsonResponse(response);
   }
 
   async getMembershipsByBrigade(brigadeId: string): Promise<BrigadeMembership[]> {

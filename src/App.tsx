@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
 import './App.css';
 import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
@@ -19,7 +19,6 @@ const ProfilePage = lazy(() => import('./pages').then(m => ({ default: m.Profile
 const BrigadeClaimingPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeClaimingPage })));
 const MemberManagementPage = lazy(() => import('./pages').then(m => ({ default: m.MemberManagementPage })));
 const InvitationAcceptancePage = lazy(() => import('./pages').then(m => ({ default: m.InvitationAcceptancePage })));
-const LoginPage = lazy(() => import('./pages').then(m => ({ default: m.LoginPage })));
 const LogoutPage = lazy(() => import('./pages').then(m => ({ default: m.LogoutPage })));
 const CallbackPage = lazy(() => import('./pages').then(m => ({ default: m.CallbackPage })));
 
@@ -96,7 +95,7 @@ function App() {
             <Route path="/track/:id" element={<TrackingViewWrapper />} />
             
             {/* Authentication Routes */}
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<Navigate to={`/${window.location.search}`} replace />} />
             <Route path="/logout" element={<LogoutPage />} />
             <Route path="/auth/callback" element={<CallbackPage />} />
             

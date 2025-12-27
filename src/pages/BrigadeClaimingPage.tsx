@@ -11,6 +11,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { searchStationsByName, getStationsByState } from '../utils/rfsData';
 import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
+import { HttpStorageAdapter } from '../storage/http';
 import { isGovernmentEmail } from '../utils/emailValidation';
 import { logBrigadeClaimed } from '../utils/auditLog';
 import { COLORS } from '../utils/constants';
@@ -113,25 +114,54 @@ export function BrigadeClaimingPage() {
         return;
       }
 
-      // Attempt to claim the brigade
-      const result = await membershipService.claimBrigade(user, brigade.id);
+      const isHttpAdapter = storageAdapter instanceof HttpStorageAdapter;
 
-      if (!result.success) {
-        setError(result.error || 'Failed to claim brigade');
-        setClaiming(null);
-        return;
+      if (isHttpAdapter) {
+        const response = await fetch(`/api/brigades/${encodeURIComponent(brigade.id)}/claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id }),
+        });
+
+        if (response.status === 409) {
+          setError('This brigade has already been claimed');
+          setClaiming(null);
+          return;
+        }
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          const message = (payload && (payload.error || payload.message)) || response.statusText;
+          setError(message || 'Failed to claim brigade');
+          setClaiming(null);
+          return;
+        }
+
+        const payload = await response.json();
+        brigade = { ...brigade, ...payload.brigade, isClaimed: true, claimedBy: user.id };
+      } else {
+        // Attempt to claim the brigade via local/azure adapter path
+        const result = await membershipService.claimBrigade(user, brigade.id);
+
+        if (!result.success) {
+          setError(result.error || 'Failed to claim brigade');
+          setClaiming(null);
+          return;
+        }
+
+        brigade = { ...brigade, isClaimed: true, claimedBy: user.id };
       }
 
-      // Log brigade claiming
-      logBrigadeClaimed(user.id, user.email, brigade.id, brigade.name);
+      // Log brigade claiming (brigade is guaranteed to exist here)
+      logBrigadeClaimed(user.id, user.email, brigade!.id, brigade!.name);
 
       // Success! Refresh profile to get new membership
       await refreshProfile();
 
-      // Redirect to brigade dashboard
-      navigate(`/dashboard/${brigade.id}`, {
+      // Redirect to dashboard (top-level) to avoid missing per-brigade route
+      navigate(`/dashboard`, {
         state: { 
-          message: `Successfully claimed ${brigade.name}!`,
+          message: `Successfully claimed ${brigade!.name}!`,
           messageType: 'success',
         },
       });
@@ -395,6 +425,13 @@ function BrigadeCard({ station, onClaim, claiming }: BrigadeCardProps) {
         setBrigadeStatus(brigade?.isClaimed ? 'claimed' : 'unclaimed');
       } catch (err) {
         console.error('Failed to check brigade status:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        // If the API returned HTML (SPA fallback) it's likely an auth redirect or API is unavailable
+        if (msg.includes('<!doctype') || msg.includes('<html')) {
+          console.warn('Failed to check brigade status: server returned HTML (possible auth redirect).');
+        } else {
+          console.warn('Failed to check brigade status:', msg);
+        }
         setBrigadeStatus('unclaimed');
       }
     };

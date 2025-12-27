@@ -47,9 +47,9 @@ export function CallbackPage() {
     if (errorParam) {
       setError(errorDescription || errorParam);
       
-      // Redirect to login page after showing error
+      // Redirect to landing page after showing error
       setTimeout(() => {
-        navigate('/login', { replace: true });
+        navigate('/', { replace: true });
       }, 3000);
     }
   }, [navigate]);

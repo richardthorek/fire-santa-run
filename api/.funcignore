@@ -1,0 +1,34 @@
+# Azure Functions ignore file
+# Files and directories listed here will not be deployed to Azure Functions
+
+# Source files (only deploy compiled JavaScript)
+src/
+*.ts
+tsconfig.json
+
+# Development and testing files
+*.md
+.vscode/
+.git/
+.github/
+.gitignore
+
+# Dependencies (will be installed on Azure)
+node_modules/
+
+# Build artifacts we don't need
+*.map
+*.log
+
+# Local development files
+local.settings.json
+.env
+.env.*
+
+# Mock server for local development
+mock-server.js
+
+# Other config files
+.editorconfig
+.eslintrc*
+.prettierrc*

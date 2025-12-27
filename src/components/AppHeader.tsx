@@ -45,7 +45,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
-    navigate('/login');
+    navigate('/');
   };
 
   return (

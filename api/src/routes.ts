@@ -14,34 +14,23 @@
  */
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { TableClient } from '@azure/data-tables';
 import { validateToken, checkBrigadePermission } from './utils/auth';
+import { getTableClient, isDevMode } from './utils/storage';
 
-// Get Azure Storage credentials
-const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
-
-// Determine table name based on environment
-const isDevMode = process.env.VITE_DEV_MODE === 'true';
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 const MEMBERSHIPS_TABLE = isDevMode ? 'devmemberships' : 'memberships';
 
-function getTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, ROUTES_TABLE);
+async function getRoutesTableClient() {
+  return getTableClient(ROUTES_TABLE);
 }
 
-function getMembershipsTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, MEMBERSHIPS_TABLE);
+async function getMembershipsTableClient() {
+  return getTableClient(MEMBERSHIPS_TABLE);
 }
 
 // Helper to get user's membership in a brigade
 async function getUserMembership(userId: string, brigadeId: string): Promise<any> {
-  const client = getMembershipsTableClient();
+  const client = await getMembershipsTableClient();
   const entities = client.listEntities({
     queryOptions: { 
       filter: `PartitionKey eq '${brigadeId}' and userId eq '${userId}'` 
@@ -131,7 +120,7 @@ async function getRoutes(request: HttpRequest, context: InvocationContext): Prom
       };
     }
 
-    const client = getTableClient();
+    const client = await getRoutesTableClient();
 
     // Get single route
     if (routeId) {
@@ -215,7 +204,7 @@ async function createRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
-    const client = getTableClient();
+    const client = await getRoutesTableClient();
     const entity = routeToEntity(route);
 
     await client.createEntity(entity);
@@ -284,7 +273,7 @@ async function updateRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
-    const client = getTableClient();
+    const client = await getRoutesTableClient();
     const entity = routeToEntity({ ...route, id: routeId });
 
     await client.updateEntity(entity, 'Merge');
@@ -353,7 +342,7 @@ async function deleteRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
-    const client = getTableClient();
+    const client = await getRoutesTableClient();
     await client.deleteEntity(brigadeId, routeId);
 
     context.log(`Deleted route: ${routeId} for brigade: ${brigadeId} by user: ${authResult.userId}`);
