@@ -361,7 +361,12 @@ export function LandingPage() {
               </p>
             </div>
 
-            {/* Advent Calendar Grid - Mixed sizes */}
+            {/* Advent Calendar Grid - Mixed sizes 
+                Note: Using explicit grid spans for advent calendar effect.
+                The auto-fit ensures responsive behavior - grid will collapse
+                to fewer columns on smaller screens while maintaining span ratios.
+                Large features (2x2) become 2x1 or 1x1 on mobile naturally.
+            */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',

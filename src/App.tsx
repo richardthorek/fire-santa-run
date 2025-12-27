@@ -95,7 +95,7 @@ function App() {
             <Route path="/track/:id" element={<TrackingViewWrapper />} />
             
             {/* Authentication Routes */}
-            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/login" element={<Navigate to={`/${window.location.search}`} replace />} />
             <Route path="/logout" element={<LogoutPage />} />
             <Route path="/auth/callback" element={<CallbackPage />} />
             
