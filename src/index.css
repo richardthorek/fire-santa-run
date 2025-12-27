@@ -404,6 +404,19 @@ input:focus, select:focus, textarea:focus {
   gap: 0.5rem;
 }
 
+/* White variants for colored backgrounds */
+.btn-secondary-white {
+  background-color: transparent;
+  color: var(--candy-white);
+  border: 2px solid var(--candy-white);
+  box-shadow: none;
+}
+
+.btn-secondary-white:not(:disabled):hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--candy-white);
+}
+
 /* Responsive grid for feature advent calendar */
 @media (max-width: 768px) {
   /* On mobile, stack everything in a single column */

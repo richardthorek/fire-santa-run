@@ -194,10 +194,7 @@ export function LandingPage() {
                   <button
                     onClick={handleLogin}
                     disabled={isLoggingIn}
-                    className="btn btn-tertiary"
-                    style={{
-                      whiteSpace: 'nowrap',
-                    }}
+                    className="btn btn-primary"
                   >
                     {isLoggingIn ? '🎅 Signing in...' : '🎅 Sign In'}
                   </button>
@@ -205,12 +202,7 @@ export function LandingPage() {
                   <button
                     onClick={handleLogin}
                     disabled={isLoggingIn}
-                    className="btn btn-secondary"
-                    style={{
-                      whiteSpace: 'nowrap',
-                      color: 'white',
-                      borderColor: 'white',
-                    }}
+                    className="btn btn-secondary-white"
                   >
                     {isLoggingIn ? '🚀 Creating...' : '🚀 Sign Up Free'}
                   </button>
