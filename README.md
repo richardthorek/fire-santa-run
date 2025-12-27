@@ -165,12 +165,13 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 ### Technology Stack
 - **Frontend:** React 19 + TypeScript + Vite
 - **Mapping:** Mapbox GL JS with Draw plugin and Directions API
-- **Routing:** React Router v6
+- **Routing:** React Router v7
 - **Real-time:** Azure Web PubSub (WebSocket with HTTP fallback)
 - **Storage:** LocalStorage (dev) or Azure Table Storage (production)
 - **Authentication:** Microsoft Entra External ID (production)
+- **Hosting:** Azure Static Web Apps with Azure Functions API
 - **QR Codes:** qrcode.react
-- **Meta Tags:** React Helmet Async
+- **Meta Tags:** React 19 Native Metadata (automatic hoisting to `<head>`)
 
 ### Data Models
 
@@ -223,46 +224,60 @@ npm run build  # (builds and type checks)
 ```
 fire-santa-run/
 ├── .github/
-│   ├── workflows/          # CI/CD pipelines
+│   ├── workflows/          # CI/CD pipelines (Azure Static Web Apps)
 │   └── copilot-instructions.md
+├── api/                    # Azure Functions (serverless API)
+│   └── src/                # API function implementations
 ├── docs/                   # Documentation
 │   ├── AZURE_SETUP.md
+│   ├── DEV_MODE.md
 │   └── SECRETS_MANAGEMENT.md
 ├── scripts/                # Setup and utility scripts
 │   └── setup-azure-storage.sh
 ├── src/
 │   ├── components/         # Reusable UI components
-│   ├── pages/              # Route pages (dashboard, tracking)
+│   ├── pages/              # Route pages (dashboard, tracking, navigation)
 │   ├── types/              # TypeScript interfaces
 │   ├── utils/              # Helper functions
 │   ├── config/             # Configuration files
-│   └── storage/            # Storage adapters
+│   ├── storage/            # Storage adapters (localStorage/Azure)
+│   ├── context/            # React Context providers
+│   ├── hooks/              # Custom React hooks
+│   └── services/           # API service layer
+├── staticwebapp.config.json # Azure Static Web Apps configuration
 ├── MASTER_PLAN.md          # Complete architecture plan
 └── README.md               # This file
 ```
 
 ## Deployment
 
-### Quick Deploy to Vercel
+The application is deployed to **Azure Static Web Apps** with automatic CI/CD via GitHub Actions.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/richardthorek/fire-santa-run)
+### Automatic Deployment
 
-Set environment variables in Vercel dashboard after deployment.
+Deployment happens automatically when code is pushed to the repository:
+- **Production:** Merges to `main` branch deploy to production
+- **Preview:** Pull requests create preview environments
+- **Configuration:** See `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml`
 
-### Manual Deployment
+### Azure Static Web Apps Setup
 
-1. Build the application:
-   ```bash
-   npm run build
-   ```
+1. **Create Azure Static Web App** in Azure Portal
+2. **Link to GitHub repository** during creation (auto-configures CI/CD)
+3. **Configure environment variables** in Azure Portal:
+   - Navigate to Configuration > Application settings
+   - Add required secrets (see below)
+4. **Automatic deployment** triggers on push to main
 
-2. Deploy the `dist` folder to:
-   - Vercel (recommended)
-   - Netlify
-   - GitHub Pages
-   - Any static hosting service
+### Manual Build (for testing)
 
-3. Configure environment variables in hosting platform
+```bash
+# Build the application
+npm run build
+
+# The dist/ folder contains the static assets
+# The api/ folder contains Azure Functions
+```
 
 See deployment documentation in [MASTER_PLAN.md](./MASTER_PLAN.md#deployment--hosting) for detailed instructions.
 
@@ -286,38 +301,48 @@ See [Azure Setup Guide](./docs/AZURE_SETUP.md) for detailed instructions.
 
 ## GitHub Actions Setup
 
-The repository includes three workflows:
+The repository includes automated CI/CD workflows:
 
-1. **`deploy.yml`** - Builds, tests, and deploys to production
-2. **`preview.yml`** - Creates preview deployments for pull requests
-3. **`security.yml`** - Runs security scans on dependencies
+1. **`azure-static-web-apps-*.yml`** - Builds, tests, and deploys to Azure Static Web Apps
+2. **`test-coverage.yml`** - Runs test coverage reports
 
 ### Required GitHub Secrets
 
-Configure in Repository Settings > Secrets > Actions:
-- `VITE_MAPBOX_TOKEN` - Mapbox API token
-- `AZURE_STORAGE_CONNECTION_STRING` - Azure Table Storage connection string
-- `AZURE_WEBPUBSUB_CONNECTION_STRING` - Azure Web PubSub connection string
-- `AZURE_WEBPUBSUB_HUB_NAME` - Web PubSub hub name (optional, defaults to 'santa-tracking')
-- `VERCEL_TOKEN` / `NETLIFY_AUTH_TOKEN` - Deployment tokens (if using these platforms)
+Configure in Repository Settings > Secrets and variables > Actions > Environments > copilot:
+
+**Build-time secrets (required):**
+- `VITE_MAPBOX_TOKEN` - Mapbox API token for maps and geocoding
+- `VITE_ENTRA_CLIENT_ID` - Microsoft Entra External ID client ID
+- `VITE_ENTRA_TENANT_ID` - Microsoft Entra tenant ID
+- `VITE_ENTRA_AUTHORITY` - Microsoft Entra authority URL
+- `VITE_ENTRA_REDIRECT_URI` - OAuth redirect URI
+
+**Deployment token (auto-configured):**
+- `AZURE_STATIC_WEB_APPS_API_TOKEN_*` - Automatically added by Azure when linking repository
+
+**Runtime secrets (configured in Azure Portal):**
+- Azure Storage connection strings
+- Azure Web PubSub connection strings
 
 See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for complete setup.
 
 ## Cost Estimates
 
 ### Free Tier Setup (Development)
-- **Hosting:** Vercel/Netlify Free Tier
+- **Hosting:** Azure Static Web Apps Free Tier (100 GB bandwidth/month)
 - **Mapbox:** 50k map loads/month free
 - **Azure Web PubSub:** Free tier (20 connections, 20K messages/day)
-- **Azure Storage:** $0.05 AUD/month
-- **Total:** ~$0.05 AUD/month
+- **Azure Table Storage:** $0.05 AUD/month
+- **Entra External ID:** Free (up to 50K monthly active users)
+- **Total: ~$0.05 AUD/month**
 
 ### Production Setup (100 brigades)
-- **Hosting:** $20 USD/month (Vercel Pro) or $9 USD/month (Azure Static Web Apps)
+- **Hosting:** Azure Static Web Apps Standard $9 USD/month
 - **Mapbox:** $0-50 USD/month (depending on usage)
 - **Azure Web PubSub:** $49 USD/month (Standard tier, 1000 connections)
-- **Azure Storage:** ~$0.50 AUD/month
-- **Total:** ~$59-120 USD/month
+- **Azure Table Storage:** ~$0.50 AUD/month
+- **Entra External ID:** Free (up to 50K MAU)
+- **Total: ~$58-108 USD/month**
 
 See cost breakdown in [MASTER_PLAN.md](./MASTER_PLAN.md#cost-management--resource-planning).
 
