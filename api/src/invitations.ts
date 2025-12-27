@@ -14,27 +14,17 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { TableClient } from '@azure/data-tables';
+import { getTableClient, isDevMode } from './utils/storage';
 
-// Get Azure Storage credentials
-const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
-
-// Determine table name based on environment
-const isDevMode = process.env.VITE_DEV_MODE === 'true';
 const INVITATIONS_TABLE = isDevMode ? 'devinvitations' : 'invitations';
 const MEMBERSHIPS_TABLE = isDevMode ? 'devmemberships' : 'memberships';
 
-function getInvitationsTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, INVITATIONS_TABLE);
+async function getInvitationsTableClient(): Promise<TableClient> {
+  return getTableClient(INVITATIONS_TABLE);
 }
 
-function getMembershipsTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, MEMBERSHIPS_TABLE);
+async function getMembershipsTableClient(): Promise<TableClient> {
+  return getTableClient(MEMBERSHIPS_TABLE);
 }
 
 // Helper to convert Table entity to Invitation object
@@ -122,7 +112,7 @@ async function getInvitation(request: HttpRequest, context: InvocationContext): 
       };
     }
 
-    const client = getInvitationsTableClient();
+    const client = await getInvitationsTableClient();
     const invitation = await findInvitationByToken(client, token);
 
     if (!invitation) {
@@ -172,8 +162,8 @@ async function acceptInvitation(request: HttpRequest, context: InvocationContext
       };
     }
 
-    const invitationsClient = getInvitationsTableClient();
-    const membershipsClient = getMembershipsTableClient();
+    const invitationsClient = await getInvitationsTableClient();
+    const membershipsClient = await getMembershipsTableClient();
 
     const invitation = await findInvitationByToken(invitationsClient, token);
 
@@ -262,7 +252,7 @@ async function declineInvitation(request: HttpRequest, context: InvocationContex
       };
     }
 
-    const client = getInvitationsTableClient();
+    const client = await getInvitationsTableClient();
     const invitation = await findInvitationByToken(client, token);
 
     if (!invitation) {
@@ -320,7 +310,7 @@ async function cancelInvitation(request: HttpRequest, context: InvocationContext
       };
     }
 
-    const client = getInvitationsTableClient();
+    const client = await getInvitationsTableClient();
     
     // Get invitation to check status
     const entity = await client.getEntity(brigadeId, invitationId);

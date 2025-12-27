@@ -10,47 +10,35 @@
  */
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { TableClient } from '@azure/data-tables';
-
-// Get Azure Storage credentials
-const STORAGE_CONNECTION_STRING = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING || '';
-
-// Determine table name based on environment
-const isDevMode = process.env.VITE_DEV_MODE === 'true';
+import { getTableClient, isDevMode } from './utils/storage';
 const BRIGADES_TABLE = isDevMode ? 'devbrigades' : 'brigades';
 const MEMBERSHIPS_TABLE = isDevMode ? 'devmemberships' : 'memberships';
 const USERS_TABLE = isDevMode ? 'devusers' : 'users';
 
-function getBrigadesTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, BRIGADES_TABLE);
+async function getBrigadesTableClient() {
+  return getTableClient(BRIGADES_TABLE);
 }
 
-function getMembershipsTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, MEMBERSHIPS_TABLE);
+async function getMembershipsTableClient() {
+  return getTableClient(MEMBERSHIPS_TABLE);
 }
 
-function getUsersTableClient(): TableClient {
-  if (!STORAGE_CONNECTION_STRING) {
-    throw new Error('Azure Storage connection string not configured');
-  }
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, USERS_TABLE);
+async function getUsersTableClient() {
+  return getTableClient(USERS_TABLE);
 }
 
 // Helper to convert Table entity to Brigade object
 function entityToBrigade(entity: any) {
   return {
     id: entity.rowKey,
+    slug: entity.slug,
     name: entity.name,
     location: entity.location,
+    contact: entity.contact ? JSON.parse(entity.contact) : {},
     contactEmail: entity.contactEmail,
     contactPhone: entity.contactPhone,
     allowedDomains: entity.allowedDomains ? JSON.parse(entity.allowedDomains) : [],
+    allowedEmails: entity.allowedEmails ? JSON.parse(entity.allowedEmails) : [],
     adminUserIds: entity.adminUserIds ? JSON.parse(entity.adminUserIds) : [],
     isClaimed: entity.isClaimed === true,
     claimedAt: entity.claimedAt,
@@ -58,6 +46,9 @@ function entityToBrigade(entity: any) {
     requireManualApproval: entity.requireManualApproval === true,
     rfsStationId: entity.rfsStationId,
     createdAt: entity.createdAt,
+    updatedAt: entity.updatedAt,
+    logo: entity.logo,
+    themeColor: entity.themeColor,
   };
 }
 
@@ -66,11 +57,14 @@ function brigadeToEntity(brigade: any) {
   return {
     partitionKey: brigade.id,
     rowKey: brigade.id,
+    slug: brigade.slug,
     name: brigade.name,
     location: brigade.location,
-    contactEmail: brigade.contactEmail,
-    contactPhone: brigade.contactPhone,
+    contact: brigade.contact ? JSON.stringify(brigade.contact) : JSON.stringify({}),
+    contactEmail: brigade.contact?.email || brigade.contactEmail,
+    contactPhone: brigade.contact?.phone || brigade.contactPhone,
     allowedDomains: JSON.stringify(brigade.allowedDomains || []),
+    allowedEmails: JSON.stringify(brigade.allowedEmails || []),
     adminUserIds: JSON.stringify(brigade.adminUserIds || []),
     isClaimed: brigade.isClaimed,
     claimedAt: brigade.claimedAt,
@@ -78,6 +72,9 @@ function brigadeToEntity(brigade: any) {
     requireManualApproval: brigade.requireManualApproval,
     rfsStationId: brigade.rfsStationId,
     createdAt: brigade.createdAt,
+    updatedAt: brigade.updatedAt,
+    logo: brigade.logo || '',
+    themeColor: brigade.themeColor || '',
   };
 }
 
@@ -114,9 +111,9 @@ async function claimBrigade(request: HttpRequest, context: InvocationContext): P
       };
     }
 
-    const brigadesClient = getBrigadesTableClient();
-    const membershipsClient = getMembershipsTableClient();
-    const usersClient = getUsersTableClient();
+    const brigadesClient = await getBrigadesTableClient();
+    const membershipsClient = await getMembershipsTableClient();
+    const usersClient = await getUsersTableClient();
 
     // Get brigade
     const brigadeEntity = await brigadesClient.getEntity(brigadeId, brigadeId);
@@ -157,6 +154,7 @@ async function claimBrigade(request: HttpRequest, context: InvocationContext): P
     brigade.claimedAt = now;
     brigade.claimedBy = claimData.userId;
     brigade.adminUserIds = [claimData.userId];
+    brigade.updatedAt = now;
 
     // Update brigade
     await brigadesClient.updateEntity(brigadeToEntity(brigade), 'Replace');

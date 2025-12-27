@@ -11,6 +11,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { searchStationsByName, getStationsByState } from '../utils/rfsData';
 import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
+import { HttpStorageAdapter } from '../storage/http';
 import { isGovernmentEmail } from '../utils/emailValidation';
 import { logBrigadeClaimed } from '../utils/auditLog';
 import { COLORS } from '../utils/constants';
@@ -113,13 +114,42 @@ export function BrigadeClaimingPage() {
         return;
       }
 
-      // Attempt to claim the brigade
-      const result = await membershipService.claimBrigade(user, brigade.id);
+      const isHttpAdapter = storageAdapter instanceof HttpStorageAdapter;
 
-      if (!result.success) {
-        setError(result.error || 'Failed to claim brigade');
-        setClaiming(null);
-        return;
+      if (isHttpAdapter) {
+        const response = await fetch(`/api/brigades/${encodeURIComponent(brigade.id)}/claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id }),
+        });
+
+        if (response.status === 409) {
+          setError('This brigade has already been claimed');
+          setClaiming(null);
+          return;
+        }
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          const message = (payload && (payload.error || payload.message)) || response.statusText;
+          setError(message || 'Failed to claim brigade');
+          setClaiming(null);
+          return;
+        }
+
+        const payload = await response.json();
+        brigade = { ...brigade, ...payload.brigade, isClaimed: true, claimedBy: user.id };
+      } else {
+        // Attempt to claim the brigade via local/azure adapter path
+        const result = await membershipService.claimBrigade(user, brigade.id);
+
+        if (!result.success) {
+          setError(result.error || 'Failed to claim brigade');
+          setClaiming(null);
+          return;
+        }
+
+        brigade = { ...brigade, isClaimed: true, claimedBy: user.id };
       }
 
       // Log brigade claiming

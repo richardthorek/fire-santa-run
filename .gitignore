@@ -45,3 +45,4 @@ __azurite_db*__.json
 .netlify
 .azure
 test-rfs-api.js
+Rural_Country_Fire_Service_Facilities.geojson
