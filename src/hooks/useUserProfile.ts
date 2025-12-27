@@ -78,6 +78,10 @@ export function useUserProfile(): UseUserProfileResult {
       
       // Only update memberships state if the data actually changed
       // This prevents unnecessary re-renders in components that depend on memberships
+      // Note: Using JSON.stringify for deep equality is acceptable here because:
+      // - Membership arrays are typically small (1-3 items per user)
+      // - This runs only on profile refresh, not every render
+      // - Prevents infinite loops from unstable array references
       const currentMembershipsJson = JSON.stringify(userMemberships);
       if (currentMembershipsJson !== previousMembershipsRef.current) {
         previousMembershipsRef.current = currentMembershipsJson;
