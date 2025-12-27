@@ -1,4 +1,5 @@
-import { StrictMode } from 'react'
+// StrictMode removed temporarily to diagnose remount loop in ProfilePage
+// import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MsalProvider } from '@azure/msal-react'
 import { PublicClientApplication, EventType } from '@azure/msal-browser'
@@ -72,15 +73,13 @@ async function initializeApp() {
   }
 
   createRoot(rootElement).render(
-    <StrictMode>
-      <MsalProvider instance={msalInstance}>
-        <AuthProvider>
-          <BrigadeProvider>
-            <App />
-          </BrigadeProvider>
-        </AuthProvider>
-      </MsalProvider>
-    </StrictMode>,
+    <MsalProvider instance={msalInstance}>
+      <AuthProvider>
+        <BrigadeProvider>
+          <App />
+        </BrigadeProvider>
+      </AuthProvider>
+    </MsalProvider>,
   );
 
   // Remove the loading screen after React has mounted
