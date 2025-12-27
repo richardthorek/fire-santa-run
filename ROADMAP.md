@@ -511,121 +511,336 @@ Complete        Performance     Previews          Optimizer         Worker      
 
 ---
 
+## Release 1 Quality Uplift (Early January 2025)
+
+### Overview
+
+**Goal:** Complete quality gates before declaring Release 1 production-ready.
+
+**Duration:** 2 weeks  
+**Estimated Effort:** 80 hours
+
+Before proceeding to Release 2, Release 1 must meet production-readiness standards across testing, performance, accessibility, and code quality.
+
+### Dependencies
+- **Blocks:** Release 2.1, 2.2, 3.1, 3.2, and 4 (must complete before adding new features)
+- **Required For:** Production launch, public beta testing
+
+### Issues
+
+| Issue # | Title | Estimate | Priority | Dependencies |
+|---------|-------|----------|----------|--------------|
+| #95 | Increase Unit Test Coverage to 40%+ | 20h | CRITICAL | None |
+| #96 | Run Lighthouse Performance Audit and Optimize | 12h | CRITICAL | None |
+| #97 | Conduct WCAG AA Accessibility Audit and Remediation | 15h | CRITICAL | None |
+| #98 | Fix ESLint Errors and Code Quality Issues | 10h | HIGH | None |
+| #99 | Add Integration Tests for Core User Flows | 15h | HIGH | #95 |
+| #100 | Production Deployment Validation and Smoke Tests | 8h | HIGH | #95-#99 |
+
+**Total: 80 hours (~2 weeks with team)**
+
+---
+
+### Issue Details
+
+#### #95: Increase Unit Test Coverage to 40%+
+**Current:** 9 tests, ~15% coverage  
+**Target:** 40%+ coverage (at least 50 tests)  
+**Dependencies:** None
+
+**Key Tasks:**
+- Add unit tests for utility functions (`src/utils/`)
+- Add tests for custom hooks (`src/hooks/`)
+- Test storage adapters (localStorage, Azure)
+- Test navigation logic and GPS calculations
+- Test route planning utilities
+- Configure Vitest coverage reporting
+- Set up coverage gates in CI/CD
+
+**Success Criteria:**
+- [ ] Test coverage ≥ 40%
+- [ ] All critical paths tested
+- [ ] Coverage report in CI/CD
+- [ ] No untested critical functions
+
+---
+
+#### #96: Run Lighthouse Performance Audit and Optimize
+**Current:** Not tested  
+**Target:** Lighthouse score > 90 (Performance, Best Practices, SEO)  
+**Dependencies:** None
+
+**Key Tasks:**
+- Run Lighthouse audit on production build
+- Identify performance bottlenecks
+- Optimize bundle size (code-splitting)
+- Optimize images and assets
+- Implement lazy loading for routes
+- Add performance monitoring
+- Test on mobile devices (3G/4G)
+
+**Success Criteria:**
+- [ ] Performance score > 90
+- [ ] First Contentful Paint < 1.5s
+- [ ] Time to Interactive < 3.5s
+- [ ] Bundle size optimized (< 500KB main chunk)
+
+---
+
+#### #97: Conduct WCAG AA Accessibility Audit and Remediation
+**Current:** WCAG AA claimed, not audited  
+**Target:** Formal WCAG AA compliance with automated testing  
+**Dependencies:** None
+
+**Key Tasks:**
+- Run axe-core accessibility scan
+- Run Lighthouse accessibility audit
+- Test keyboard navigation (all interactive elements)
+- Test screen reader compatibility (NVDA, JAWS, VoiceOver)
+- Fix color contrast issues
+- Add ARIA labels where missing
+- Test with 200% zoom
+- Integrate axe-core into CI/CD
+
+**Success Criteria:**
+- [ ] Zero critical a11y issues (axe-core)
+- [ ] Lighthouse accessibility score 100
+- [ ] Full keyboard navigation support
+- [ ] Screen reader tested and working
+
+---
+
+#### #98: Fix ESLint Errors and Code Quality Issues
+**Current:** 35+ ESLint errors/warnings  
+**Target:** Zero errors, minimal warnings  
+**Dependencies:** None
+
+**Key Tasks:**
+- Fix unused variable warnings
+- Replace `any` types with proper types
+- Fix React hook dependency warnings
+- Remove unused imports and code
+- Fix `setState` in effect issues
+- Enable stricter ESLint rules
+- Run Prettier for code formatting
+
+**Success Criteria:**
+- [ ] Zero ESLint errors
+- [ ] < 5 ESLint warnings (justified)
+- [ ] All `any` types replaced
+- [ ] Clean TypeScript strict mode build
+
+---
+
+#### #99: Add Integration Tests for Core User Flows
+**Current:** No integration tests  
+**Target:** Critical user flows covered  
+**Dependencies:** #95 (test infrastructure)
+
+**Key Tasks:**
+- Set up React Testing Library
+- Test route creation flow (end-to-end)
+- Test navigation flow (mock GPS)
+- Test public tracking page
+- Test authentication flow (dev mode)
+- Test real-time tracking (mock WebSocket)
+- Add CI/CD integration test step
+
+**Success Criteria:**
+- [ ] 5+ integration tests covering critical flows
+- [ ] Tests run in CI/CD
+- [ ] Mock external dependencies (Mapbox, Azure)
+- [ ] Fast execution (< 30 seconds total)
+
+---
+
+#### #100: Production Deployment Validation and Smoke Tests
+**Current:** Not tested in production-like environment  
+**Target:** Verified production readiness  
+**Dependencies:** #95-#99 (all quality improvements complete)
+
+**Key Tasks:**
+- Deploy to staging environment (Azure)
+- Run smoke tests on all core features
+- Test with real Mapbox API
+- Test with real Azure services (Table Storage, Web PubSub)
+- Load test with multiple concurrent users
+- Test on real mobile devices (iOS, Android)
+- Document deployment issues and fixes
+- Create production deployment checklist
+
+**Success Criteria:**
+- [ ] All core features work in staging
+- [ ] Real Azure services functional
+- [ ] Mobile devices tested (iOS, Android)
+- [ ] Load test passed (50+ concurrent users)
+- [ ] Deployment checklist created
+
+---
+
 ## Release 2: Enhanced UX & Analytics (Q1 2025)
 
-### Release 2.1 - UX Polish & Social Features (January 2025)
+### Release 2.1 - UX Polish & Social Features (Late January 2025)
 
 **Goal:** Improve user engagement and virality through enhanced UX and rich social sharing.
 
 **Duration:** 3 weeks  
-**Estimated Effort:** 40-50 hours
+**Estimated Effort:** 36-45 hours
 
-#### Features
+### Dependencies
+- **Requires:** Release 1 Quality Uplift (#95-#100) complete
+- **Blocks:** None (can proceed alongside Release 2.2)
 
-##### 1. Rich Social Media Previews (HIGH)
-**Implements:** MASTER_PLAN.md Section 5
+### Issues
 
-- **Dynamic Open Graph Meta Tags**
-  - Generate route-specific preview cards
-  - Include route name, date, brigade name
-  - Route map thumbnail as og:image
-  - Server-side rendering for crawlers (Vercel/Azure Functions)
+| Issue # | Title | Estimate | Priority | Dependencies |
+|---------|-------|----------|----------|--------------|
+| #101 | Implement Dynamic Open Graph Social Preview Images | 15h | HIGH | #100 |
+| #102 | Add Duplicate Route Functionality | 8h | HIGH | None |
+| #103 | Create Route Templates Library | 5h | HIGH | #102 |
+| #104 | Add Countdown Timer to Public Tracking Page | 8h | MEDIUM | None |
+| #105 | Build Post-Event Thank You Screen with Route Summary | 8h | MEDIUM | None |
+| #106 | Implement Route Archive System | 8h | MEDIUM | None |
 
-- **Custom Preview Image Generation**
-  - Render map snapshot with route + Santa icon
-  - Add festive overlay (snowflakes, Christmas trees)
-  - Text overlay: "[Brigade] Santa Run - [Date]"
-  - 1200x630px optimized for Facebook/Twitter
+**Total: 52 hours (~3 weeks)**
 
-- **Implementation:**
-  - Use Puppeteer or Playwright for server-side map rendering
-  - Cache generated images in Azure Blob Storage
-  - Add meta tags in `PublicTracking.tsx` head section
-  - Test with Facebook Debugger, Twitter Card Validator
+---
 
-**Estimated Effort:** 12-15 hours  
+### Issue Details
+
+#### #101: Implement Dynamic Open Graph Social Preview Images
+**Implements:** MASTER_PLAN.md Section 5  
+**Priority:** HIGH  
+**Dependencies:** #100 (production deployment functional)
+
+### Issue Details
+
+#### #101: Implement Dynamic Open Graph Social Preview Images
+**Implements:** MASTER_PLAN.md Section 5  
+**Priority:** HIGH  
+**Dependencies:** #100 (production deployment functional)
+
+**Key Tasks:**
+- Generate route-specific preview cards with route name, date, brigade name
+- Render map snapshot with route + Santa icon
+- Add festive overlay (snowflakes, Christmas trees)
+- Text overlay: "[Brigade] Santa Run - [Date]"
+- Use Puppeteer or Playwright for server-side map rendering
+- Cache generated images in Azure Blob Storage (1200x630px optimized for Facebook/Twitter)
+- Add meta tags in `PublicTracking.tsx` head section
+- Test with Facebook Debugger, Twitter Card Validator
+
+**Success Criteria:**
+- [ ] Dynamic Open Graph meta tags for each route
+- [ ] Server-side image rendering operational
+- [ ] Images cached in Azure Blob Storage
+- [ ] Previews validate in social media debuggers
+- [ ] Route map thumbnail displays as og:image
+
+---
+
+#### #102: Add Duplicate Route Functionality
+**Implements:** MASTER_PLAN.md Section 9  
 **Priority:** HIGH  
 **Dependencies:** None
 
+**Key Tasks:**
+- Add "Duplicate" button on route detail page
+- Copy waypoints, name (append " - Copy"), metadata
+- Set status to "draft" automatically
+- Allow editing before saving
+- Test duplication with all route field types
+
+**Success Criteria:**
+- [ ] Duplicate button visible on route detail page
+- [ ] Route duplication creates exact copy with modified name
+- [ ] Duplicated route set to draft status
+- [ ] All waypoints and metadata copied correctly
+
 ---
 
-##### 2. Route Duplication & Templates (HIGH)
-**Implements:** MASTER_PLAN.md Section 9
-
-- **Duplicate Route Functionality**
-  - "Duplicate" button on route detail page
-  - Copy waypoints, name (append " - Copy"), metadata
-  - Set status to "draft" automatically
-  - Allow editing before saving
-
-- **Save as Template**
-  - Save route as reusable template
-  - Template library page
-  - Apply template to new route
-  - Common templates: "Suburban Loop", "Rural Circuit"
-
-**Estimated Effort:** 8-10 hours  
+#### #103: Create Route Templates Library
+**Implements:** MASTER_PLAN.md Section 9  
 **Priority:** HIGH  
-**Dependencies:** None
+**Dependencies:** #102 (duplicate functionality)
+
+**Key Tasks:**
+- Add "Save as Template" option to route editor
+- Create template library page
+- Apply template to new route creation
+- Include common templates: "Suburban Loop", "Rural Circuit"
+- Store templates in Azure Table Storage
+
+**Success Criteria:**
+- [ ] "Save as Template" button functional
+- [ ] Template library page displays all saved templates
+- [ ] Templates can be applied to create new routes
+- [ ] Pre-built templates available for common patterns
 
 ---
 
-##### 3. Public Tracking Pre/Post States (MEDIUM)
-**Implements:** MASTER_PLAN.md Section 10
-
-- **Before Route Starts:**
-  - Countdown timer to start time (HH:MM:SS)
-  - "Santa starts in..." message with date/time
-  - "Check back soon!" call-to-action
-  - Share buttons visible pre-start
-
-- **After Route Ends:**
-  - "Thanks for tracking Santa!" festive message
-  - Route summary card:
-    - Total distance traveled
-    - Total time (start to finish)
-    - Number of stops visited
-  - "View other routes" link
-  - Archive mode (frozen map at final position)
-
-**Estimated Effort:** 10-12 hours  
+#### #104: Add Countdown Timer to Public Tracking Page
+**Implements:** MASTER_PLAN.md Section 10  
 **Priority:** MEDIUM  
 **Dependencies:** None
 
+**Key Tasks:**
+- Create countdown timer component (HH:MM:SS)
+- Display "Santa starts in..." message with date/time
+- Add "Check back soon!" call-to-action
+- Ensure share buttons visible pre-start
+- Update UI when countdown reaches zero
+
+**Success Criteria:**
+- [ ] Countdown timer displays before route starts
+- [ ] Timer updates in real-time (seconds)
+- [ ] Clear messaging about start time
+- [ ] Share functionality available pre-start
+
 ---
 
-##### 4. Route Archive System (MEDIUM)
-**Implements:** MASTER_PLAN.md Section 9
-
-- **Archive Completed Routes**
-  - "Archive" button on completed routes
-  - Move to "Archived" tab on dashboard
-  - Hide from main dashboard by default
-  - Restore from archive option
-
-- **Automatic Archiving**
-  - Auto-archive routes older than 90 days
-  - Configurable archive threshold in brigade settings
-  - Email notification before auto-archive
-
-**Estimated Effort:** 6-8 hours  
+#### #105: Build Post-Event Thank You Screen with Route Summary
+**Implements:** MASTER_PLAN.md Section 10  
 **Priority:** MEDIUM  
 **Dependencies:** None
 
+**Key Tasks:**
+- Design "Thanks for tracking Santa!" festive message
+- Create route summary card with:
+  - Total distance traveled
+  - Total time (start to finish)
+  - Number of stops visited
+- Add "View other routes" link
+- Implement archive mode (frozen map at final position)
+
+**Success Criteria:**
+- [ ] Thank you screen displays after route completion
+- [ ] Route summary shows accurate statistics
+- [ ] Map frozen at final position
+- [ ] Links to other brigade routes functional
+
 ---
 
-#### Deliverables (Release 2.1)
+#### #106: Implement Route Archive System
+**Implements:** MASTER_PLAN.md Section 9  
+**Priority:** MEDIUM  
+**Dependencies:** None
 
-- [ ] Dynamic Open Graph preview generation
-- [ ] Server-side image rendering for social cards
-- [ ] Duplicate route functionality
-- [ ] Route templates library
-- [ ] Countdown timer on public tracking page
-- [ ] Post-event thank you screen with summary
-- [ ] Route archive system
-- [ ] Updated documentation
+**Key Tasks:**
+- Add "Archive" button on completed routes
+- Create "Archived" tab on dashboard
+- Hide archived routes from main dashboard by default
+- Add "Restore from archive" option
+- Implement auto-archive for routes older than 90 days
+- Add configurable archive threshold in brigade settings
+- Send email notification before auto-archive
 
-**Total Estimated Effort:** 36-45 hours
+**Success Criteria:**
+- [ ] Archive button available on completed routes
+- [ ] Archived tab shows all archived routes
+- [ ] Restore functionality works correctly
+- [ ] Auto-archive runs on schedule
+- [ ] Notifications sent before auto-archiving
 
 ---
 
@@ -634,141 +849,175 @@ Complete        Performance     Previews          Optimizer         Worker      
 **Goal:** Provide data-driven insights and optimize route planning efficiency.
 
 **Duration:** 4 weeks  
-**Estimated Effort:** 50-60 hours
+**Estimated Effort:** 48-59 hours
 
-#### Features
+### Dependencies
+- **Requires:** Release 1 Quality Uplift (#95-#100) complete
+- **Can run parallel to:** Release 2.1
+- **Blocks:** None
 
-##### 5. Viewer Analytics Dashboard (HIGH)
-**Implements:** MASTER_PLAN.md Section 9
+### Issues
 
-- **Live Viewer Count**
-  - Real-time viewer count on tracking page
-  - Display as badge: "🔴 LIVE - 234 watching"
-  - Update every 10 seconds via Web PubSub
+| Issue # | Title | Estimate | Priority | Dependencies |
+|---------|-------|----------|----------|--------------|
+| #107 | Build Viewer Analytics Dashboard | 18h | HIGH | #100 |
+| #108 | Add Live Viewer Count on Tracking Page | 5h | HIGH | None |
+| #109 | Implement Route Optimization Engine (TSP Solver) | 15h | HIGH | None |
+| #110 | Add ETA Calculation and Display Per Waypoint | 8h | HIGH | #109 |
+| #111 | Build Advanced Search and Filtering on Dashboard | 12h | MEDIUM | None |
+| #112 | Integrate Reverse Geocoding for Street Name Display | 8h | MEDIUM | None |
+| #113 | Add Route Preview Mode (Turn-by-Turn List) | 6h | LOW | None |
 
-- **Analytics Dashboard (Brigade Admins)**
-  - Total views per route
-  - Peak concurrent viewers
-  - Geographic distribution (heatmap)
-  - Session duration average
-  - Share source tracking (Twitter, Facebook, direct)
-
-- **Implementation:**
-  - Track viewer connections in Web PubSub groups
-  - Log viewer sessions to Azure Table Storage
-  - Create `/routes/:id/analytics` page
-  - Use Chart.js or Recharts for visualizations
-
-**Estimated Effort:** 15-18 hours  
-**Priority:** HIGH  
-**Dependencies:** Azure Table Storage schema updates
+**Total: 72 hours (~4 weeks)**
 
 ---
 
-##### 6. Route Optimization Engine (HIGH)
-**Implements:** MASTER_PLAN.md Section 3
+### Issue Details
 
-- **Automatic Waypoint Reordering**
-  - "Optimize Route" button on route editor
-  - Traveling Salesman Problem (TSP) solver
-  - Minimize total distance/time
-  - Preserve start and end waypoints (if set)
-
-- **ETA Calculation Per Waypoint**
-  - Estimate arrival times based on:
-    - Distance between waypoints
-    - Average speed (configurable, default 30 km/h)
-    - Stop duration (default 5 minutes per stop)
-  - Display ETAs in waypoint list
-  - Update ETAs during navigation (real-time)
-
-- **Implementation:**
-  - Use Mapbox Optimization API or local TSP library
-  - Calculate cumulative travel times
-  - Show before/after distance comparison
-  - Allow manual override if needed
-
-**Estimated Effort:** 12-15 hours  
+#### #107: Build Viewer Analytics Dashboard
+**Implements:** MASTER_PLAN.md Section 9  
 **Priority:** HIGH  
-**Dependencies:** Mapbox Optimization API (optional paid tier)
+**Dependencies:** #100 (Azure services configured)
+
+**Key Tasks:**
+- Track viewer connections in Web PubSub groups
+- Log viewer sessions to Azure Table Storage
+- Create `/routes/:id/analytics` page
+- Display total views per route
+- Show peak concurrent viewers
+- Generate geographic distribution heatmap
+- Calculate session duration average
+- Track share source (Twitter, Facebook, direct)
+- Use Chart.js or Recharts for visualizations
+
+**Success Criteria:**
+- [ ] Analytics dashboard accessible to brigade admins
+- [ ] All key metrics displayed accurately
+- [ ] Geographic heatmap renders correctly
+- [ ] Chart visualizations load within 2 seconds
 
 ---
 
-##### 7. Advanced Search & Filtering (MEDIUM)
-**Implements:** MASTER_PLAN.md Section 9
+#### #108: Add Live Viewer Count on Tracking Page
+**Implements:** MASTER_PLAN.md Section 9  
+**Priority:** HIGH  
+**Dependencies:** None
 
-- **Search Routes**
-  - Search bar on dashboard
-  - Search by name, description, waypoint address
-  - Real-time filtering as user types
-  - Highlight matching text
+**Key Tasks:**
+- Display real-time viewer count on tracking page
+- Show as badge: "🔴 LIVE - 234 watching"
+- Update every 10 seconds via Web PubSub
+- Handle connection/disconnection gracefully
 
-- **Advanced Filters**
-  - Filter by date range (start date, end date)
-  - Filter by status (draft, published, active, completed, archived)
-  - Filter by distance (< 10km, 10-25km, 25-50km, > 50km)
-  - Filter by number of stops (< 5, 5-10, 10-20, > 20)
+**Success Criteria:**
+- [ ] Live viewer count displays on public tracking page
+- [ ] Count updates in real-time (10s intervals)
+- [ ] Badge shows correct viewer numbers
+- [ ] No performance degradation with high viewer counts
 
-- **Sorting Options**
-  - Sort by date (newest, oldest)
-  - Sort by name (A-Z, Z-A)
-  - Sort by distance (shortest, longest)
-  - Sort by views (most popular)
+---
 
-**Estimated Effort:** 10-12 hours  
+#### #109: Implement Route Optimization Engine (TSP Solver)
+**Implements:** MASTER_PLAN.md Section 3  
+**Priority:** HIGH  
+**Dependencies:** None
+
+**Key Tasks:**
+- Add "Optimize Route" button on route editor
+- Implement Traveling Salesman Problem (TSP) solver
+- Minimize total distance/time while preserving start/end waypoints
+- Use Mapbox Optimization API or local TSP library
+- Show before/after distance comparison
+- Allow manual override if needed
+- Calculate cumulative travel times
+
+**Success Criteria:**
+- [ ] Optimize button functional in route editor
+- [ ] Route optimization reduces total distance
+- [ ] Start and end waypoints preserved
+- [ ] Before/after comparison displayed
+- [ ] Manual override option available
+
+---
+
+#### #110: Add ETA Calculation and Display Per Waypoint
+**Implements:** MASTER_PLAN.md Section 3  
+**Priority:** HIGH  
+**Dependencies:** #109 (optimized route geometry)
+
+**Key Tasks:**
+- Calculate arrival times based on distance, speed (default 30 km/h), and stop duration (5 min)
+- Display ETAs in waypoint list
+- Update ETAs during navigation in real-time
+- Account for varying speeds and actual stop times
+
+**Success Criteria:**
+- [ ] ETAs calculated for each waypoint
+- [ ] ETAs display in route planning interface
+- [ ] Real-time ETA updates during navigation
+- [ ] Configurable speed and stop duration settings
+
+---
+
+#### #111: Build Advanced Search and Filtering on Dashboard
+**Implements:** MASTER_PLAN.md Section 9  
 **Priority:** MEDIUM  
 **Dependencies:** None
 
+**Key Tasks:**
+- Add search bar on dashboard (search by name, description, waypoint address)
+- Implement real-time filtering as user types
+- Add filter by date range, status, distance, and number of stops
+- Add sort options (date, name, distance, views)
+- Highlight matching text in search results
+
+**Success Criteria:**
+- [ ] Search bar functional with real-time results
+- [ ] All filter options working correctly
+- [ ] Sort options apply correctly
+- [ ] Search highlights matching text
+- [ ] Fast performance (<100ms per keystroke)
+
 ---
 
-##### 8. "Santa is on [Street Name]" Feature (MEDIUM)
-**Implements:** MASTER_PLAN.md Section 6
-
-- **Reverse Geocoding Integration**
-  - Use Mapbox Geocoding API reverse lookup
-  - Convert GPS coordinates to street address
-  - Update every 30 seconds (rate limit friendly)
-  - Cache recent lookups
-
-- **Display on Tracking Page**
-  - Banner: "🎅 Santa is currently on Main Street"
-  - Fallback: "🎅 Santa is 1.2 km from next stop"
-  - Show suburb/town for context
-
-**Estimated Effort:** 6-8 hours  
+#### #112: Integrate Reverse Geocoding for Street Name Display
+**Implements:** MASTER_PLAN.md Section 6  
 **Priority:** MEDIUM  
-**Dependencies:** Mapbox Geocoding API
+**Dependencies:** None
+
+**Key Tasks:**
+- Use Mapbox Geocoding API reverse lookup
+- Convert GPS coordinates to street address
+- Update every 30 seconds (rate limit friendly)
+- Cache recent lookups for performance
+- Display banner: "🎅 Santa is currently on Main Street"
+- Fallback: "🎅 Santa is 1.2 km from next stop"
+- Show suburb/town for context
+
+**Success Criteria:**
+- [ ] Street name displays on tracking page
+- [ ] Updates every 30 seconds
+- [ ] Caching reduces API calls
+- [ ] Graceful fallback when address unavailable
 
 ---
 
-##### 9. Route Preview Mode (LOW)
-**Implements:** MASTER_PLAN.md Section 3
-
-- **Turn-by-Turn Preview**
-  - "Preview Instructions" button on route detail page
-  - Modal showing all navigation steps
-  - Scrollable list with distances
-  - Print-friendly format
-
-**Estimated Effort:** 5-6 hours  
+#### #113: Add Route Preview Mode (Turn-by-Turn List)
+**Implements:** MASTER_PLAN.md Section 3  
 **Priority:** LOW  
 **Dependencies:** None
 
----
+**Key Tasks:**
+- Add "Preview Instructions" button on route detail page
+- Create modal showing all navigation steps
+- Display scrollable list with distances
+- Make format print-friendly
 
-#### Deliverables (Release 2.2)
-
-- [ ] Live viewer count on tracking page
-- [ ] Analytics dashboard for brigade admins
-- [ ] Viewer geographic heatmap
-- [ ] Route optimization engine (TSP solver)
-- [ ] ETA calculation and display per waypoint
-- [ ] Search and filter routes on dashboard
-- [ ] Reverse geocoding for street name display
-- [ ] Route preview mode (turn-by-turn list)
-- [ ] Updated documentation and user guides
-
-**Total Estimated Effort:** 48-59 hours
+**Success Criteria:**
+- [ ] Preview button visible on route detail page
+- [ ] Modal displays all turn-by-turn instructions
+- [ ] Instructions include distances
+- [ ] Print-friendly format available
 
 ---
 
@@ -779,118 +1028,171 @@ Complete        Performance     Previews          Optimizer         Worker      
 **Goal:** Transform Fire Santa Run into a fully installable, offline-capable mobile application.
 
 **Duration:** 4 weeks  
-**Estimated Effort:** 60-70 hours
+**Estimated Effort:** 55-68 hours
 
-#### Features
+### Dependencies
+- **Requires:** Release 1 Quality Uplift (#95-#100) complete, Release 2.1 and 2.2 complete
+- **Blocks:** Release 3.2
+- **Can run parallel to:** None (requires stable base)
 
-##### 10. Service Worker & Offline Mode (HIGH)
-**Implements:** MASTER_PLAN.md Section 11
+### Issues
 
-- **Service Worker Setup**
-  - Workbox for service worker generation
-  - Cache-first strategy for static assets
-  - Network-first for API calls with offline fallback
-  - Background sync for location updates
+| Issue # | Title | Estimate | Priority | Dependencies |
+|---------|-------|----------|----------|--------------|
+| #114 | Set Up Service Worker with Workbox | 12h | HIGH | #100 |
+| #115 | Implement Offline Route Viewing | 10h | HIGH | #114 |
+| #116 | Enable Offline Navigation Mode | 15h | HIGH | #114, #115 |
+| #117 | Create PWA Manifest and App Icons | 10h | HIGH | None |
+| #118 | Add "Add to Home Screen" Install Prompts | 5h | HIGH | #117 |
+| #119 | Implement Background Sync for Queued Data | 15h | MEDIUM | #114 |
+| #120 | Build Offline Map Tile Caching | 18h | MEDIUM | #114 |
 
-- **Offline Route Viewing**
-  - Cache active route data locally
-  - View route map and waypoints offline
-  - "Offline Mode" indicator
-  - Sync updates when reconnected
-
-- **Offline Navigation**
-  - Cache Mapbox map tiles for route area
-  - Continue turn-by-turn navigation offline
-  - Queue location broadcasts, send when online
-  - Local-only mode for testing
-
-**Estimated Effort:** 20-25 hours  
-**Priority:** HIGH  
-**Dependencies:** Workbox, service worker API
+**Total: 85 hours (~4 weeks)**
 
 ---
 
-##### 11. App Manifest & Installability (HIGH)
-**Implements:** MASTER_PLAN.md Section 11
+### Issue Details
 
-- **PWA Manifest**
-  - Create `manifest.json` with app metadata
-  - Icons (192x192, 512x512) for home screen
-  - Display mode: `standalone` (fullscreen app)
-  - Theme color, background color
-  - Start URL configuration
+#### #114: Set Up Service Worker with Workbox
+**Implements:** MASTER_PLAN.md Section 11  
+**Priority:** HIGH  
+**Dependencies:** #100 (production deployment functional)
 
-- **Install Prompts**
-  - Detect installability
-  - Show "Add to Home Screen" prompt
-  - Custom install banner for iOS Safari
-  - Track installation analytics
+**Key Tasks:**
+- Install and configure Workbox for service worker generation
+- Implement cache-first strategy for static assets
+- Implement network-first for API calls with offline fallback
+- Set up background sync for location updates
+- Configure precaching for core app shell
 
-- **App Icons & Splash Screens**
-  - Design Fire Santa Run icon (festive, recognizable)
-  - Generate all icon sizes (48px to 512px)
-  - Splash screens for iOS (launch screens)
+**Success Criteria:**
+- [ ] Service worker registered and functional
+- [ ] Static assets cached on first load
+- [ ] Offline fallback works for API calls
+- [ ] Background sync operational
 
-**Estimated Effort:** 8-10 hours  
+---
+
+#### #115: Implement Offline Route Viewing
+**Implements:** MASTER_PLAN.md Section 11  
+**Priority:** HIGH  
+**Dependencies:** #114 (service worker infrastructure)
+
+**Key Tasks:**
+- Cache active route data locally in IndexedDB
+- Enable viewing route map and waypoints offline
+- Add "Offline Mode" indicator to UI
+- Sync updates when reconnected to network
+
+**Success Criteria:**
+- [ ] Routes viewable without internet connection
+- [ ] Map and waypoints display offline
+- [ ] Offline indicator visible when disconnected
+- [ ] Data syncs when connection restored
+
+---
+
+#### #116: Enable Offline Navigation Mode
+**Implements:** MASTER_PLAN.md Section 11  
+**Priority:** HIGH  
+**Dependencies:** #114 (service worker), #115 (offline routing)
+
+**Key Tasks:**
+- Cache Mapbox map tiles for route area
+- Continue turn-by-turn navigation offline
+- Queue location broadcasts, send when online
+- Implement local-only mode for testing
+
+**Success Criteria:**
+- [ ] Navigation continues without internet
+- [ ] Map tiles load from cache
+- [ ] Location updates queue offline
+- [ ] Updates transmit when connection restored
+
+---
+
+#### #117: Create PWA Manifest and App Icons
+**Implements:** MASTER_PLAN.md Section 11  
 **Priority:** HIGH  
 **Dependencies:** None
 
+**Key Tasks:**
+- Create `manifest.json` with app metadata
+- Design Fire Santa Run icon (festive, recognizable)
+- Generate all icon sizes (48px, 72px, 96px, 144px, 192px, 512px)
+- Create splash screens for iOS
+- Set display mode to `standalone` (fullscreen app)
+- Configure theme color and background color
+- Set start URL configuration
+
+**Success Criteria:**
+- [ ] manifest.json validates correctly
+- [ ] All icon sizes generated
+- [ ] Splash screens display on iOS
+- [ ] App displays in standalone mode when installed
+
 ---
 
-##### 12. Offline Sync Strategy (MEDIUM)
-**Implements:** Background Sync API
+#### #118: Add "Add to Home Screen" Install Prompts
+**Implements:** MASTER_PLAN.md Section 11  
+**Priority:** HIGH  
+**Dependencies:** #117 (PWA manifest configured)
 
-- **Queue Offline Actions**
-  - Location updates queued when offline
-  - Route edits saved locally, synced later
-  - Waypoint completion status cached
+**Key Tasks:**
+- Detect installability using beforeinstallprompt event
+- Show "Add to Home Screen" prompt at appropriate time
+- Create custom install banner for iOS Safari
+- Track installation analytics
+- Provide manual install instructions
 
-- **Automatic Sync**
-  - Detect network reconnection
-  - Sync queued data to Azure Table Storage
-  - Resolve conflicts (last-write-wins)
-  - Show sync progress indicator
+**Success Criteria:**
+- [ ] Install prompt displays on supported browsers
+- [ ] iOS custom banner shows installation instructions
+- [ ] Installation analytics tracked
+- [ ] Manual instructions available in help section
 
-**Estimated Effort:** 12-15 hours  
+---
+
+#### #119: Implement Background Sync for Queued Data
+**Implements:** Background Sync API  
 **Priority:** MEDIUM  
-**Dependencies:** Background Sync API, IndexedDB
+**Dependencies:** #114 (service worker)
+
+**Key Tasks:**
+- Queue offline actions (location updates, route edits)
+- Detect network reconnection
+- Sync queued data to Azure Table Storage
+- Resolve conflicts using last-write-wins strategy
+- Show sync progress indicator to user
+
+**Success Criteria:**
+- [ ] Offline actions queued in IndexedDB
+- [ ] Auto-sync on reconnection
+- [ ] Conflict resolution functional
+- [ ] Sync progress visible to user
 
 ---
 
-##### 13. Offline Map Caching (MEDIUM)
-**Implements:** Mapbox offline tile caching
-
-- **Route Area Pre-caching**
-  - Download map tiles for route bounding box
-  - Cache in IndexedDB (5-10 MB per route)
-  - User-initiated: "Download for Offline Use"
-  - Manage storage quota
-
-- **Offline Tile Serving**
-  - Intercept Mapbox tile requests
-  - Serve from cache if available
-  - Fallback to online tiles when connected
-  - Cache expiration (30 days)
-
-**Estimated Effort:** 15-18 hours  
+#### #120: Build Offline Map Tile Caching
+**Implements:** Mapbox offline tile caching  
 **Priority:** MEDIUM  
-**Dependencies:** Mapbox offline tile API, IndexedDB
+**Dependencies:** #114 (service worker)
 
----
+**Key Tasks:**
+- Implement route area pre-caching
+- Download map tiles for route bounding box (5-10 MB per route)
+- Store in IndexedDB with quota management
+- Add user-initiated "Download for Offline Use" button
+- Intercept Mapbox tile requests in service worker
+- Serve from cache if available, fallback to online
+- Implement cache expiration (30 days)
 
-#### Deliverables (Release 3.1)
-
-- [ ] Service worker with Workbox
-- [ ] Offline route viewing capability
-- [ ] Offline navigation support
-- [ ] PWA manifest with app icons
-- [ ] "Add to Home Screen" prompts
-- [ ] Background sync for queued data
-- [ ] Offline map tile caching
-- [ ] Network status indicators
-- [ ] Updated PWA documentation
-
-**Total Estimated Effort:** 55-68 hours
+**Success Criteria:**
+- [ ] Offline download button functional
+- [ ] Map tiles cached successfully
+- [ ] Tiles serve from cache offline
+- [ ] Cache expiration works correctly
+- [ ] Storage quota managed appropriately
 
 ---
 
