@@ -14,7 +14,7 @@
     ".webmanifest": "application/manifest+json"
   },
   "globalHeaders": {
-    "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https://api.mapbox.com https://*.tiles.mapbox.com data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.mapbox.com https://events.mapbox.com https://*.table.core.windows.net wss://*.webpubsub.azure.com; worker-src 'self' blob:;",
+    "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https://api.mapbox.com https://*.tiles.mapbox.com data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.mapbox.com https://events.mapbox.com https://*.table.core.windows.net wss://*.webpubsub.azure.com https://brigadesantarun.ciamlogin.com https://login.microsoftonline.com https://*.ciamlogin.com; worker-src 'self' blob:",
     "x-frame-options": "DENY",
     "x-content-type-options": "nosniff",
     "referrer-policy": "strict-origin-when-cross-origin"
