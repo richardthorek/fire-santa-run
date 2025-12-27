@@ -26,46 +26,70 @@ const msalInstance = isMsalConfigured()
       },
     });
 
-// Handle redirect promise (required for redirect flow)
-if (isMsalConfigured()) {
-  msalInstance.initialize().then(() => {
-    // Account selection logic is app dependent
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) {
-      msalInstance.setActiveAccount(accounts[0]);
-    }
-
-    // Optional - Listen to authentication events
-    msalInstance.addEventCallback((event) => {
-      if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
-        // @ts-expect-error - MSAL event payload types are complex
-        const account = event.payload.account;
-        msalInstance.setActiveAccount(account);
+// Initialize MSAL and render app
+// CRITICAL: We must wait for handleRedirectPromise() to complete BEFORE rendering React
+// This prevents race conditions on iOS Safari where the app renders before auth completes
+async function initializeApp() {
+  if (isMsalConfigured()) {
+    try {
+      // Initialize MSAL instance
+      await msalInstance.initialize();
+      
+      // Account selection logic is app dependent
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) {
+        msalInstance.setActiveAccount(accounts[0]);
       }
-    });
 
-    // Handle redirect promise after login/logout and set active account from the result
-    msalInstance
-      .handleRedirectPromise()
-      .then((result) => {
-        if (result?.account) {
-          msalInstance.setActiveAccount(result.account);
+      // Optional - Listen to authentication events
+      msalInstance.addEventCallback((event) => {
+        if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
+          // @ts-expect-error - MSAL event payload types are complex
+          const account = event.payload.account;
+          msalInstance.setActiveAccount(account);
         }
-      })
-      .catch((error) => {
-        console.error('[MSAL] Error handling redirect promise:', error);
       });
-  });
+
+      // Handle redirect promise after login/logout and set active account from the result
+      // CRITICAL: Wait for this to complete before rendering React
+      const result = await msalInstance.handleRedirectPromise();
+      if (result?.account) {
+        msalInstance.setActiveAccount(result.account);
+        if (import.meta.env.DEV) {
+          console.log('[MSAL] Redirect handled successfully, account:', result.account.homeAccountId);
+        }
+      }
+    } catch (error) {
+      console.error('[MSAL] Error during initialization:', error);
+    }
+  }
+
+  // Render React app after MSAL initialization completes
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    console.error('[App] Root element not found. Cannot render application.');
+    return;
+  }
+
+  createRoot(rootElement).render(
+    <StrictMode>
+      <MsalProvider instance={msalInstance}>
+        <AuthProvider>
+          <BrigadeProvider>
+            <App />
+          </BrigadeProvider>
+        </AuthProvider>
+      </MsalProvider>
+    </StrictMode>,
+  );
+
+  // Remove the loading screen after React has mounted
+  try {
+    document.getElementById('msal-loading')?.remove();
+  } catch (error) {
+    console.warn('[App] Failed to remove loading screen:', error);
+  }
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <MsalProvider instance={msalInstance}>
-      <AuthProvider>
-        <BrigadeProvider>
-          <App />
-        </BrigadeProvider>
-      </AuthProvider>
-    </MsalProvider>
-  </StrictMode>,
-)
+// Start the app
+initializeApp();

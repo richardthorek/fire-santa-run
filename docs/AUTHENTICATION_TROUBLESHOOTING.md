@@ -395,6 +395,48 @@ const loginRequest = {
 
 ## Browser Issues
 
+### iOS Safari Sign In Issues (FIXED)
+
+**Symptoms:**
+- Sign In button flashes and returns to landing page
+- No authentication UI presented
+- Works on desktop browsers but fails on iOS Safari
+
+**Root Cause:**
+This issue was caused by a race condition in MSAL initialization where React rendered before `handleRedirectPromise()` completed. iOS Safari's stricter redirect handling and Intelligent Tracking Prevention (ITP) made this particularly evident.
+
+**Fix Applied:**
+As of the latest update, this issue has been resolved with the following changes:
+
+1. **Async initialization**: App now waits for MSAL to fully initialize before rendering
+2. **Cookie-based auth state**: Enabled `storeAuthStateInCookie: true` for iOS Safari ITP compatibility
+3. **Better prompt**: Changed to `select_account` for improved multi-account support
+4. **Loading screen**: Visual feedback during MSAL initialization
+
+**If you still experience issues:**
+
+1. **Clear Safari cache and cookies:**
+   - iOS Settings → Safari → Clear History and Website Data
+
+2. **Check Safari tracking prevention:**
+   - iOS Settings → Safari → Prevent Cross-Site Tracking
+   - Try temporarily disabling for testing
+
+3. **Verify not in Private Browsing:**
+   - Private browsing has stricter storage restrictions
+   - Use normal browsing mode
+
+4. **Update iOS:**
+   - Ensure iOS is up to date (iOS 14+ recommended)
+
+**Expected behavior after fix:**
+1. Tap "Sign In" on landing page
+2. Brief loading screen
+3. Redirect to Microsoft login
+4. Sign in with account
+5. Redirect back to app
+6. Successfully authenticated and at dashboard
+
 ### CORS errors
 
 **Symptoms:**

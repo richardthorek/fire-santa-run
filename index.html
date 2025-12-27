@@ -25,6 +25,28 @@
   </head>
   <body>
     <div id="root"></div>
+    
+    <!-- Loading screen shown while MSAL initializes (removed when React mounts) -->
+    <div id="msal-loading" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #FAFAFA;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    ">
+      <div style="text-align: center;">
+        <div style="font-size: 64px; margin-bottom: 1rem;">🎅</div>
+        <p style="font-size: 1.125rem; color: #424242; font-family: system-ui, sans-serif;">
+          Loading Fire Santa Run...
+        </p>
+      </div>
+    </div>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
