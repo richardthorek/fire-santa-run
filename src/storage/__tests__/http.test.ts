@@ -43,6 +43,8 @@ describe('HttpStorageAdapter - User Operations', () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
         status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: async () => JSON.stringify(mockUser),
         json: async () => mockUser,
       });
 
@@ -151,6 +153,8 @@ describe('HttpStorageAdapter - User Operations', () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
         status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: async () => JSON.stringify(mockUser),
         json: async () => mockUser,
       });
 
@@ -205,6 +209,8 @@ describe('HttpStorageAdapter - Membership Operations', () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
         status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        text: async () => JSON.stringify(mockMemberships),
         json: async () => mockMemberships,
       });
 

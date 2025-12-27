@@ -45,3 +45,7 @@ __azurite_db*__.json
 .azure
 test-rfs-api.js
 Rural_Country_Fire_Service_Facilities.geojson
+
+# Test coverage reports
+coverage/
+*.lcov
