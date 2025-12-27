@@ -20,12 +20,13 @@ Fire Santa Run is a web application enabling Australian Rural Fire Service briga
 1. [Release 1 Summary (Complete)](#release-1-summary-complete)
 2. [Known Gaps & Limitations](#known-gaps--limitations)
 3. [Forward Roadmap (6 Months)](#forward-roadmap-6-months)
-4. [Release 2: Enhanced UX & Analytics (Q1 2025)](#release-2-enhanced-ux--analytics-q1-2025)
-5. [Release 3: Mobile PWA & Offline (Q2 2025)](#release-3-mobile-pwa--offline-q2-2025)
-6. [Release 4: Multi-Brigade Platform (Q2 2025)](#release-4-multi-brigade-platform-q2-2025)
-7. [Issue Schedule](#issue-schedule)
-8. [Success Metrics](#success-metrics)
-9. [Risk Assessment](#risk-assessment)
+4. [Release 1 Quality Uplift (Early January 2025)](#release-1-quality-uplift-early-january-2025)
+5. [Release 2: Enhanced UX & Analytics (Q1 2025)](#release-2-enhanced-ux--analytics-q1-2025)
+6. [Release 3: Mobile PWA & Offline (Q2 2025)](#release-3-mobile-pwa--offline-q2-2025)
+7. [Release 4: Multi-Brigade Platform (May 2025)](#release-4-multi-brigade-platform-may-2025)
+8. [Issue Automation Strategy](#issue-automation-strategy)
+9. [Success Metrics](#success-metrics)
+10. [Risk Assessment](#risk-assessment)
 
 ---
 
@@ -1201,270 +1202,375 @@ Before proceeding to Release 2, Release 1 must meet production-readiness standar
 **Goal:** Enhance mobile navigation experience with native-like features.
 
 **Duration:** 3 weeks  
-**Estimated Effort:** 40-50 hours
+**Estimated Effort:** 40-49 hours
 
-#### Features
+### Dependencies
+- **Requires:** Release 3.1 (#114-#120) complete
+- **Blocks:** None (can proceed alongside Release 4)
+- **Can run parallel to:** Release 4 after #121 complete
 
-##### 14. Background Location Tracking (HIGH)
-**Implements:** MASTER_PLAN.md Section 3a
+### Issues
 
-- **Geolocation API Background Mode**
-  - Request `background-geolocation` permission
-  - Continue tracking when app minimized
-  - Use Web Background Sync for location updates
-  - Battery-efficient: 30-second intervals
+| Issue # | Title | Estimate | Priority | Dependencies |
+|---------|-------|----------|----------|--------------|
+| #121 | Implement Background Location Tracking | 15h | HIGH | #116 |
+| #122 | Integrate Lock Screen Media Controls | 12h | MEDIUM | None |
+| #123 | Add Off-Route Detection and Rerouting | 12h | MEDIUM | None |
+| #124 | Implement Real-Time ETA Recalculation | 10h | MEDIUM | #110 |
+| #125 | Add Predictive ETA Improvements (Optional) | 8h | LOW | #124 |
 
-- **Wake Lock API**
-  - Prevent screen from sleeping during navigation
-  - "Keep Screen On" toggle in navigation view
-  - Show wake lock indicator
-  - Release lock on navigation end
+**Total: 57 hours (~3 weeks)**
 
-**Estimated Effort:** 12-15 hours  
+---
+
+### Issue Details
+
+#### #121: Implement Background Location Tracking
+**Implements:** MASTER_PLAN.md Section 3a  
 **Priority:** HIGH  
-**Dependencies:** Geolocation API, Wake Lock API (already implemented)
+**Dependencies:** #116 (offline navigation functional)
+
+**Key Tasks:**
+- Request `background-geolocation` permission
+- Continue tracking when app minimized
+- Use Web Background Sync for location updates
+- Implement battery-efficient tracking (30-second intervals)
+- Use Wake Lock API to prevent screen sleep during navigation
+- Add "Keep Screen On" toggle in navigation view
+- Show wake lock indicator
+- Release lock on navigation end
+
+**Success Criteria:**
+- [ ] Background location tracking permission requested
+- [ ] Tracking continues when app minimized
+- [ ] Battery-efficient implementation (30s intervals)
+- [ ] Wake lock prevents screen sleep
+- [ ] Wake lock toggle functional
+- [ ] Lock released on navigation end
 
 ---
 
-##### 15. Lock Screen Media Controls (MEDIUM)
-**Implements:** MASTER_PLAN.md Section 3a
-
-- **Media Session API Integration**
-  - Register as media session (for voice instructions)
-  - Lock screen controls: Play/Pause voice
-  - Next/Previous waypoint from lock screen
-  - Display route name and current instruction
-
-- **Voice Instruction Playback**
-  - Queue voice instructions
-  - Interrupt music/podcasts temporarily
-  - Resume media after instruction
-  - Volume ducking
-
-**Estimated Effort:** 10-12 hours  
+#### #122: Integrate Lock Screen Media Controls
+**Implements:** MASTER_PLAN.md Section 3a  
 **Priority:** MEDIUM  
-**Dependencies:** Media Session API, Web Audio API
+**Dependencies:** None
+
+**Key Tasks:**
+- Register app as media session for voice instructions
+- Add lock screen controls: Play/Pause voice
+- Add Next/Previous waypoint controls from lock screen
+- Display route name and current instruction on lock screen
+- Queue voice instructions
+- Implement audio ducking (interrupt music/podcasts temporarily)
+- Resume media after instruction
+- Handle volume control
+
+**Success Criteria:**
+- [ ] Media Session API integrated
+- [ ] Lock screen controls functional
+- [ ] Route info displays on lock screen
+- [ ] Voice instructions queue properly
+- [ ] Audio ducking works correctly
 
 ---
 
-##### 16. Rerouting UX Enhancement (MEDIUM)
-**Implements:** MASTER_PLAN.md Section 3a
-
-- **Off-Route Detection**
-  - Detect when > 100m off planned route
-  - Show banner: "You're off route. Reroute?"
-  - Options: "Reroute Now" or "Dismiss"
-  - Auto-dismiss if back on route
-
-- **Automatic Rerouting**
-  - Call Mapbox Directions API with current location
-  - Calculate new route to next unvisited waypoint
-  - Update navigation steps seamlessly
-  - Voice announcement: "Rerouting..."
-
-- **Reroute History**
-  - Log rerouting events
-  - Display reroute count in route summary
-  - Analytics: Common reroute locations
-
-**Estimated Effort:** 10-12 hours  
+#### #123: Add Off-Route Detection and Rerouting
+**Implements:** MASTER_PLAN.md Section 3a  
 **Priority:** MEDIUM  
-**Dependencies:** Mapbox Directions API
+**Dependencies:** None
+
+**Key Tasks:**
+- Detect when driver is >100m off planned route
+- Show banner: "You're off route. Reroute?"
+- Provide options: "Reroute Now" or "Dismiss"
+- Auto-dismiss banner if driver returns to route
+- Call Mapbox Directions API with current location
+- Calculate new route to next unvisited waypoint
+- Update navigation steps seamlessly
+- Voice announcement: "Rerouting..."
+- Log rerouting events for analytics
+- Display reroute count in route summary
+
+**Success Criteria:**
+- [ ] Off-route detection functional (>100m threshold)
+- [ ] Reroute banner displays appropriately
+- [ ] Automatic rerouting calculates correct path
+- [ ] Navigation updates seamlessly
+- [ ] Rerouting events logged
+- [ ] Analytics show common reroute locations
 
 ---
 
-##### 17. Real-Time ETA Updates (MEDIUM)
-**Implements:** MASTER_PLAN.md Section 3a
-
-- **Speed-Based ETA Recalculation**
-  - Calculate current speed from GPS
-  - Update ETA every 10 seconds
-  - Account for stops (stationary > 2 minutes)
-  - Show "Ahead of Schedule" or "Behind Schedule"
-
-- **Predictive ETAs**
-  - Machine learning model (optional)
-  - Learn from historical route data
-  - Adjust for time of day, traffic patterns
-  - Display confidence level
-
-**Estimated Effort:** 8-10 hours  
+#### #124: Implement Real-Time ETA Recalculation
+**Implements:** MASTER_PLAN.md Section 3a  
 **Priority:** MEDIUM  
-**Dependencies:** GPS accuracy, historical data
+**Dependencies:** #110 (base ETA calculation)
+
+**Key Tasks:**
+- Calculate current speed from GPS
+- Update ETA every 10 seconds
+- Account for stops (stationary > 2 minutes)
+- Show "Ahead of Schedule" or "Behind Schedule" indicator
+- Recalculate cumulative ETAs for remaining waypoints
+
+**Success Criteria:**
+- [ ] Speed calculated from GPS data
+- [ ] ETAs update every 10 seconds
+- [ ] Stops detected and factored in
+- [ ] Schedule indicators display correctly
+- [ ] Cumulative ETAs accurate
 
 ---
 
-#### Deliverables (Release 3.2)
+#### #125: Add Predictive ETA Improvements (Optional)
+**Implements:** MASTER_PLAN.md Section 3a  
+**Priority:** LOW  
+**Dependencies:** #124 (real-time ETA calculation)
 
-- [ ] Background location tracking
-- [ ] Lock screen media controls for voice
-- [ ] Off-route detection and rerouting
-- [ ] Automatic rerouting with confirmation
-- [ ] Real-time ETA recalculation based on speed
-- [ ] Predictive ETA improvements (optional)
-- [ ] Navigation history logging
-- [ ] Updated mobile navigation guide
+**Key Tasks:**
+- Implement basic machine learning model (optional)
+- Learn from historical route data
+- Adjust predictions for time of day
+- Consider traffic patterns
+- Display confidence level
+- Store historical timing data
 
-**Total Estimated Effort:** 40-49 hours
+**Success Criteria:**
+- [ ] ML model functional (if implemented)
+- [ ] Historical data collected
+- [ ] Predictions more accurate over time
+- [ ] Confidence level displayed
 
 ---
 
-## Release 4: Multi-Brigade Platform (Q2 2025)
-
-### Release 4 - Platform Maturity (May 2025)
+## Release 4: Multi-Brigade Platform (May 2025)
 
 **Goal:** Evolve from single-brigade tool to multi-brigade platform with public visibility and collaboration.
 
 **Duration:** 4 weeks  
-**Estimated Effort:** 60-75 hours
+**Estimated Effort:** 67-82 hours
 
-#### Features
+### Dependencies
+- **Requires:** Release 1 Quality Uplift (#95-#100) complete
+- **Can run parallel to:** Release 3.2 (after #121)
+- **Blocks:** None (final release in 6-month roadmap)
 
-##### 18. Public Brigade Pages (HIGH)
-**Implements:** MASTER_PLAN.md Section 1
+### Issues
 
-- **Brigade Profile Page**
-  - Public URL: `/brigade/{slug}` (e.g., `/brigade/griffith-rfs`)
-  - Brigade information: name, location, logo, contact
-  - List of all public routes (upcoming, past)
-  - Social media links
-  - "Claim This Brigade" button if unclaimed
+| Issue # | Title | Estimate | Priority | Dependencies |
+|---------|-------|----------|----------|--------------|
+| #126 | Build Public Brigade Profile Pages | 18h | HIGH | #100 |
+| #127 | Create Brigade Discovery and Search | 10h | HIGH | #126 |
+| #128 | Implement Logo Upload and Custom Branding | 12h | MEDIUM | #126 |
+| #129 | Build Member Management UI | 15h | MEDIUM | None |
+| #130 | Add Multi-Operator Route Collaboration | 12h | LOW | None |
+| #131 | Implement Data Export (JSON, CSV, KML, PDF) | 15h | LOW | None |
+| #132 | Add Data Import and Restore | 8h | LOW | #131 |
+| #133 | Create First-Time User Tutorial | 10h | LOW | None |
 
-- **Brigade Discovery**
-  - Homepage: Featured brigades
-  - Browse all brigades by state, region
-  - Search brigades by name, location
-  - Brigade map view (all NSW brigades with pins)
+**Total: 100 hours (~4 weeks)**
 
-**Estimated Effort:** 15-18 hours  
+---
+
+### Issue Details
+
+#### #126: Build Public Brigade Profile Pages
+**Implements:** MASTER_PLAN.md Section 1  
 **Priority:** HIGH  
-**Dependencies:** Brigade public profile schema
+**Dependencies:** #100 (production deployment functional)
+
+**Key Tasks:**
+- Create public brigade profile page: `/brigade/{slug}`
+- Display brigade information: name, location, logo, contact
+- List all public routes (upcoming and past)
+- Add social media links
+- Add "Claim This Brigade" button if unclaimed
+- Design responsive layout for mobile/desktop
+
+**Success Criteria:**
+- [ ] Public brigade pages accessible via `/brigade/{slug}`
+- [ ] All brigade information displays correctly
+- [ ] Route list shows upcoming and past routes
+- [ ] Social media links functional
+- [ ] Claim button works for unclaimed brigades
 
 ---
 
-##### 19. Brigade Branding Customization (MEDIUM)
-**Implements:** MASTER_PLAN.md Section 1
+#### #127: Create Brigade Discovery and Search
+**Implements:** MASTER_PLAN.md Section 1  
+**Priority:** HIGH  
+**Dependencies:** #126 (brigade profile pages)
 
-- **Logo Upload**
-  - Upload brigade logo (PNG, JPG, max 2 MB)
-  - Store in Azure Blob Storage
-  - Display on dashboard, public pages, tracking pages
-  - Default to RFS logo if not uploaded
+**Key Tasks:**
+- Create homepage featuring brigades
+- Add browse all brigades by state/region
+- Implement search brigades by name, location
+- Create brigade map view (all NSW brigades with pins)
+- Add filter by state/region
+- Sort options (alphabetical, most active, newest)
 
-- **Custom Theme Colors**
-  - Choose primary color (replaces Fire Red)
-  - Apply to buttons, headers, markers
-  - Preview before saving
-  - Reset to default theme
+**Success Criteria:**
+- [ ] Homepage features brigade discovery
+- [ ] Browse functionality works by state/region
+- [ ] Search returns accurate results
+- [ ] Map view displays all brigades
+- [ ] Filters and sort options functional
 
-- **Contact Information**
-  - Email, phone, website
-  - Social media handles (Facebook, Instagram, Twitter)
-  - Public display toggle (privacy control)
+---
 
-**Estimated Effort:** 10-12 hours  
+#### #128: Implement Logo Upload and Custom Branding
+**Implements:** MASTER_PLAN.md Section 1  
 **Priority:** MEDIUM  
-**Dependencies:** Azure Blob Storage for logos
+**Dependencies:** #126 (brigade pages)
+
+**Key Tasks:**
+- Implement logo upload (PNG, JPG, max 2 MB)
+- Store logos in Azure Blob Storage
+- Display logo on dashboard, public pages, tracking pages
+- Default to RFS logo if not uploaded
+- Add custom theme color picker
+- Apply theme to buttons, headers, markers
+- Add preview before saving
+- Add reset to default theme option
+- Implement contact information fields (email, phone, website, social media)
+- Add public display toggle for privacy control
+
+**Success Criteria:**
+- [ ] Logo upload functional
+- [ ] Logos stored in Azure Blob Storage
+- [ ] Logos display across all pages
+- [ ] Custom theme colors apply correctly
+- [ ] Preview functionality works
+- [ ] Contact information saves and displays
 
 ---
 
-##### 20. Member Management UI (MEDIUM)
-**Implements:** MASTER_PLAN.md Section 1
-
-- **Member List**
-  - View all brigade members
-  - Show role (admin, operator, viewer)
-  - Show status (active, pending, suspended)
-  - Show last login date
-
-- **Invite Members**
-  - Send email invitations
-  - Set role in invitation
-  - Generate invitation link (7-day expiry)
-  - Track invitation status
-
-- **Manage Permissions**
-  - Change member role
-  - Suspend/remove members
-  - Admin approval for pending members
-  - Audit log of permission changes
-
-**Estimated Effort:** 12-15 hours  
+#### #129: Build Member Management UI
+**Implements:** MASTER_PLAN.md Section 1  
 **Priority:** MEDIUM  
-**Dependencies:** Email service (SendGrid or Azure Communication Services)
+**Dependencies:** None
+
+**Key Tasks:**
+- Create member list view showing all brigade members
+- Display role (admin, operator, viewer) and status
+- Show last login date
+- Implement send email invitations
+- Allow role setting in invitation
+- Generate invitation links (7-day expiry)
+- Track invitation status
+- Add change member role functionality
+- Implement suspend/remove members
+- Add admin approval for pending members
+- Create audit log of permission changes
+
+**Success Criteria:**
+- [ ] Member list displays all members correctly
+- [ ] Email invitations send successfully
+- [ ] Invitation links work and expire correctly
+- [ ] Role changes apply immediately
+- [ ] Suspend/remove actions functional
+- [ ] Audit log records all changes
 
 ---
 
-##### 21. Route Collaboration Features (LOW)
-**Implements:** Multi-operator support
-
-- **Multiple Editors**
-  - Allow multiple operators to edit same route
-  - Real-time conflict detection
-  - Last-edit-wins strategy
-  - Show who's currently editing
-
-- **Route Comments**
-  - Add comments to routes
-  - Tag waypoints with notes
-  - Brigade-internal communication
-  - Comment history and timestamps
-
-**Estimated Effort:** 10-12 hours  
-**Priority:** LOW  
-**Dependencies:** Real-time collaboration via Web PubSub
-
----
-
-##### 22. Data Export & Reporting (LOW)
-**Implements:** Export and backup features
-
-- **Export Routes**
-  - Download single route as JSON
-  - Bulk export all brigade routes
-  - Export format: JSON, CSV, KML (Google Earth)
-  - Include waypoints, metadata, analytics
-
-- **Import Routes**
-  - Upload JSON backup file
-  - Restore deleted routes
-  - Import from external sources (GPX, KML)
-  - Validation and conflict resolution
-
-- **Printable Reports**
-  - Generate PDF route summary
-  - Include map screenshot, waypoints, instructions
-  - Print-friendly format
-  - Logo and branding
-
-**Estimated Effort:** 12-15 hours  
-**Priority:** LOW  
-**Dependencies:** PDF generation library (jsPDF or Puppeteer)
-
----
-
-##### 23. Enhanced Onboarding (LOW)
-**Implements:** User experience improvements
-
-- **First-Time Tutorial**
-  - Interactive walkthrough for new admins
-  - "Create Your First Route" guided flow
-  - Tooltips and help hints
-  - Skip option for experienced users
-
-- **In-App Help Center**
-  - FAQ section
-  - Video tutorials (YouTube embeds)
-  - Searchable knowledge base
-  - Contact support form
-
-**Estimated Effort:** 8-10 hours  
+#### #130: Add Multi-Operator Route Collaboration
+**Implements:** Multi-operator support  
 **Priority:** LOW  
 **Dependencies:** None
 
+**Key Tasks:**
+- Allow multiple operators to edit same route simultaneously
+- Implement real-time conflict detection
+- Use last-edit-wins strategy for conflicts
+- Show who's currently editing
+- Add comments to routes
+- Tag waypoints with notes
+- Implement brigade-internal communication
+- Show comment history and timestamps
+
+**Success Criteria:**
+- [ ] Multiple editors can work on same route
+- [ ] Conflict detection functional
+- [ ] Current editors displayed
+- [ ] Comments system operational
+- [ ] Waypoint notes functional
+
 ---
 
-#### Deliverables (Release 4)
+#### #131: Implement Data Export (JSON, CSV, KML, PDF)
+**Implements:** Export and backup features  
+**Priority:** LOW  
+**Dependencies:** None
+
+**Key Tasks:**
+- Implement download single route as JSON
+- Add bulk export all brigade routes
+- Support export formats: JSON, CSV, KML (Google Earth)
+- Include waypoints, metadata, analytics in exports
+- Generate PDF route summary
+- Include map screenshot, waypoints, instructions in PDF
+- Apply logo and branding to PDF
+- Create print-friendly format
+
+**Success Criteria:**
+- [ ] Single route export works in all formats
+- [ ] Bulk export functional
+- [ ] All data included in exports
+- [ ] PDF generation operational
+- [ ] PDF includes all required elements
+- [ ] Branding applies to PDFs
+
+---
+
+#### #132: Add Data Import and Restore
+**Implements:** Import and restore features  
+**Priority:** LOW  
+**Dependencies:** #131 (export functionality)
+
+**Key Tasks:**
+- Implement upload JSON backup file
+- Add restore deleted routes functionality
+- Support import from external sources (GPX, KML)
+- Implement validation for imported data
+- Add conflict resolution for duplicate routes
+- Show import preview before confirming
+
+**Success Criteria:**
+- [ ] JSON import functional
+- [ ] Restore deleted routes works
+- [ ] External format imports successful
+- [ ] Validation catches errors
+- [ ] Conflict resolution works correctly
+- [ ] Import preview displays accurately
+
+---
+
+#### #133: Create First-Time User Tutorial
+**Implements:** User experience improvements  
+**Priority:** LOW  
+**Dependencies:** None
+
+**Key Tasks:**
+- Create interactive walkthrough for new admins
+- Implement "Create Your First Route" guided flow
+- Add tooltips and help hints throughout app
+- Add skip option for experienced users
+- Create FAQ section
+- Embed video tutorials (YouTube)
+- Build searchable knowledge base
+- Add contact support form
+
+**Success Criteria:**
+- [ ] Tutorial launches for new users
+- [ ] Guided flow completes route creation
+- [ ] Tooltips display contextually
+- [ ] Skip option works
+- [ ] FAQ section accessible
+- [ ] Video tutorials embedded
+- [ ] Knowledge base searchable
+- [ ] Support form functional
+
+---
 
 - [ ] Public brigade profile pages
 - [ ] Brigade discovery and search
@@ -1482,231 +1588,178 @@ Before proceeding to Release 2, Release 1 must meet production-readiness standar
 
 ---
 
-## Issue Schedule
+## Issue Automation Strategy
 
-Below is a proposed GitHub issue schedule to implement the 6-month roadmap. Each issue is scoped for 1-2 week sprints.
+### Overview
+To maintain an extended backlog and streamline issue management, we propose a GitHub Actions-based automation system that creates, updates, and maintains issues from the ROADMAP.md source of truth.
 
-### Release 1 Quality Uplift Issues (Early January 2025)
+### Approach: GitHub Actions Workflow
 
-**Goal:** Complete quality gates before declaring Release 1 production-ready.
+**Strategy:** Use a GitHub Actions workflow that reads ROADMAP.md and automatically creates/updates GitHub Issues.
 
-| Issue # | Title | Estimate | Priority | Assignee |
-|---------|-------|----------|----------|----------|
-| #95 | Increase Unit Test Coverage to 40%+ | 20h | CRITICAL | TBD |
-| #96 | Run Lighthouse Performance Audit and Optimize | 12h | CRITICAL | TBD |
-| #97 | Conduct WCAG AA Accessibility Audit and Remediation | 15h | CRITICAL | TBD |
-| #98 | Fix ESLint Errors and Code Quality Issues | 10h | HIGH | TBD |
-| #99 | Add Integration Tests for Core User Flows | 15h | HIGH | TBD |
-| #100 | Production Deployment Validation and Smoke Tests | 8h | HIGH | TBD |
+#### Workflow Design
 
-**Total: 80 hours (~2 weeks with team)**
+```yaml
+# .github/workflows/sync-roadmap-issues.yml
+name: Sync Roadmap to GitHub Issues
 
-#### Issue Details
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ROADMAP.md'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (no actual changes)'
+        required: false
+        default: 'false'
 
-##### #95: Increase Unit Test Coverage to 40%+
-**Current:** 9 tests, ~15% coverage  
-**Target:** 40%+ coverage (at least 50 tests)
+jobs:
+  sync-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Parse ROADMAP.md and sync issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Parse ROADMAP.md
+            // Extract issue details (number, title, body, labels, milestone)
+            // For each issue:
+            //   - Check if issue exists
+            //   - Create if missing
+            //   - Update if content changed
+            //   - Add labels (release, priority, estimate)
+            //   - Set milestone
+```
 
-**Key Tasks:**
-- Add unit tests for utility functions (`src/utils/`)
-- Add tests for custom hooks (`src/hooks/`)
-- Test storage adapters (localStorage, Azure)
-- Test navigation logic and GPS calculations
-- Test route planning utilities
-- Configure Vitest coverage reporting
-- Set up coverage gates in CI/CD
+#### Implementation Details
 
-**Success Criteria:**
-- [ ] Test coverage ≥ 40%
-- [ ] All critical paths tested
-- [ ] Coverage report in CI/CD
-- [ ] No untested critical functions
+**1. Issue Template Format**
+Each issue in ROADMAP.md follows a consistent format that can be parsed:
+- Issue number: `#XXX`
+- Title: Extracted from issue table
+- Priority: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`
+- Estimate: Hours (e.g., `20h`)
+- Dependencies: Other issue numbers
+- Body: Includes Key Tasks and Success Criteria
 
----
+**2. Issue Metadata Mapping**
+```javascript
+{
+  number: 95,
+  title: "Increase Unit Test Coverage to 40%+",
+  labels: ["release-1-quality", "priority-critical", "testing", "estimate-20h"],
+  milestone: "Release 1 Quality Uplift",
+  body: "## Goal\n...\n## Key Tasks\n...\n## Success Criteria\n...",
+  dependencies: [] // or ["#94", "#93"]
+}
+```
 
-##### #96: Run Lighthouse Performance Audit and Optimize
-**Current:** Not tested  
-**Target:** Lighthouse score > 90 (Performance, Best Practices, SEO)
+**3. Labels Strategy**
+Auto-create and apply labels:
+- **Release labels:** `release-1-quality`, `release-2.1`, `release-2.2`, `release-3.1`, `release-3.2`, `release-4`
+- **Priority labels:** `priority-critical`, `priority-high`, `priority-medium`, `priority-low`
+- **Estimate labels:** `estimate-5h`, `estimate-8h`, `estimate-10h`, `estimate-12h`, `estimate-15h`, `estimate-18h`, `estimate-20h`
+- **Category labels:** `testing`, `performance`, `accessibility`, `ux`, `pwa`, `analytics`, `collaboration`
 
-**Key Tasks:**
-- Run Lighthouse audit on production build
-- Identify performance bottlenecks
-- Optimize bundle size (code-splitting)
-- Optimize images and assets
-- Implement lazy loading for routes
-- Add performance monitoring
-- Test on mobile devices (3G/4G)
+**4. Milestones**
+Create GitHub Milestones for each release:
+- Release 1 Quality Uplift (Due: Early January 2025)
+- Release 2.1 - UX Polish (Due: Late January 2025)
+- Release 2.2 - Analytics (Due: February 2025)
+- Release 3.1 - PWA Core (Due: March 2025)
+- Release 3.2 - Advanced Mobile (Due: April 2025)
+- Release 4 - Platform Maturity (Due: May 2025)
 
-**Success Criteria:**
-- [ ] Performance score > 90
-- [ ] First Contentful Paint < 1.5s
-- [ ] Time to Interactive < 3.5s
-- [ ] Bundle size optimized (< 500KB main chunk)
+**5. Dependency Tracking**
+- Parse dependencies from ROADMAP.md
+- Add dependency information to issue body
+- Optionally use tasklists to reference blocking issues: `- [ ] Blocked by #95`
 
----
+### Alternative Approaches Considered
 
-##### #97: Conduct WCAG AA Accessibility Audit and Remediation
-**Current:** WCAG AA claimed, not audited  
-**Target:** Formal WCAG AA compliance with automated testing
+#### Option 2: Manual Script (Local Execution)
+- **Pros:** More control, can run locally before committing
+- **Cons:** Requires manual execution, not automated
+- **When to use:** Initial bulk creation or major restructuring
+- **Implementation:** Node.js script using Octokit
 
-**Key Tasks:**
-- Run axe-core accessibility scan
-- Run Lighthouse accessibility audit
-- Test keyboard navigation (all interactive elements)
-- Test screen reader compatibility (NVDA, JAWS, VoiceOver)
-- Fix color contrast issues
-- Add ARIA labels where missing
-- Test with 200% zoom
-- Integrate axe-core into CI/CD
+```bash
+# Run locally
+node scripts/sync-roadmap-to-issues.js --dry-run
+node scripts/sync-roadmap-to-issues.js --create
+```
 
-**Success Criteria:**
-- [ ] Zero critical a11y issues (axe-core)
-- [ ] Lighthouse accessibility score 100
-- [ ] Full keyboard navigation support
-- [ ] Screen reader tested and working
+#### Option 3: GitHub Project Board Automation
+- **Pros:** Visual management, drag-and-drop prioritization
+- **Cons:** Requires GitHub Projects, separate from issues
+- **When to use:** In addition to automated issues for project tracking
 
----
+### Recommended Workflow
 
-##### #98: Fix ESLint Errors and Code Quality Issues
-**Current:** 35+ ESLint errors/warnings  
-**Target:** Zero errors, minimal warnings
+**Phase 1: Initial Setup (Manual)**
+1. Create milestones for all releases
+2. Create label set (release, priority, estimate, category)
+3. Run initial sync script to create all issues (#95-#133)
 
-**Key Tasks:**
-- Fix unused variable warnings
-- Replace `any` types with proper types
-- Fix React hook dependency warnings
-- Remove unused imports and code
-- Fix `setState` in effect issues
-- Enable stricter ESLint rules
-- Run Prettier for code formatting
+**Phase 2: Ongoing Automation (GitHub Actions)**
+1. Workflow triggers on ROADMAP.md changes
+2. Parses updated content
+3. Creates new issues if issue numbers added
+4. Updates existing issues if content changed
+5. Adds labels and milestones automatically
 
-**Success Criteria:**
-- [ ] Zero ESLint errors
-- [ ] < 5 ESLint warnings (justified)
-- [ ] All `any` types replaced
-- [ ] Clean TypeScript strict mode build
+**Phase 3: Maintenance**
+- Update ROADMAP.md as single source of truth
+- Workflow keeps issues in sync
+- Manual adjustments in GitHub Issues allowed (workflow won't overwrite manual edits unless forced)
 
----
+### Benefits of This Approach
 
-##### #99: Add Integration Tests for Core User Flows
-**Current:** No integration tests  
-**Target:** Critical user flows covered
+1. **Single Source of Truth:** ROADMAP.md remains the authoritative document
+2. **Automated Backlog:** Issues automatically created and updated
+3. **Version Controlled:** All changes tracked in git
+4. **Review Process:** Changes go through PR review before issues updated
+5. **Flexibility:** Can run in dry-run mode to preview changes
+6. **Low Maintenance:** Minimal ongoing effort after initial setup
 
-**Key Tasks:**
-- Set up React Testing Library
-- Test route creation flow (end-to-end)
-- Test navigation flow (mock GPS)
-- Test public tracking page
-- Test authentication flow (dev mode)
-- Test real-time tracking (mock WebSocket)
-- Add CI/CD integration test step
+### Action Items
 
-**Success Criteria:**
-- [ ] 5+ integration tests covering critical flows
-- [ ] Tests run in CI/CD
-- [ ] Mock external dependencies (Mapbox, Azure)
-- [ ] Fast execution (< 30 seconds total)
+- [ ] Create GitHub Actions workflow file (`.github/workflows/sync-roadmap-issues.yml`)
+- [ ] Write parser for ROADMAP.md issue format
+- [ ] Implement issue creation/update logic using `actions/github-script`
+- [ ] Create initial milestones and labels
+- [ ] Test workflow in dry-run mode
+- [ ] Run initial sync to create all 39 issues (#95-#133)
+- [ ] Document workflow in repository README
 
----
+### Execution Environment
 
-##### #100: Production Deployment Validation and Smoke Tests
-**Current:** Not tested in production-like environment  
-**Target:** Verified production readiness
+**✅ Can be implemented within Copilot environment:**
+- GitHub Actions workflows can be created and committed
+- Workflow uses GitHub's built-in permissions (no external secrets needed)
+- `actions/github-script` provides full GitHub API access
 
-**Key Tasks:**
-- Deploy to staging environment (Azure)
-- Run smoke tests on all core features
-- Test with real Mapbox API
-- Test with real Azure services (Table Storage, Web PubSub)
-- Load test with multiple concurrent users
-- Test on real mobile devices (iOS, Android)
-- Document deployment issues and fixes
-- Create production deployment checklist
+**Alternative: Run from local machine:**
+- Use Node.js script with Octokit
+- Requires `GITHUB_TOKEN` with `repo` and `write:issues` scopes
+- Useful for one-time bulk operations or testing
 
-**Success Criteria:**
-- [ ] All core features work in staging
-- [ ] Real Azure services functional
-- [ ] Mobile devices tested (iOS, Android)
-- [ ] Load test passed (50+ concurrent users)
-- [ ] Deployment checklist created
+### Success Metrics for Automation
 
----
-
-### Release 2.1 Issues (Late January 2025)
-
-| Issue # | Title | Estimate | Priority | Assignee |
-|---------|-------|----------|----------|----------|
-| #101 | Implement Dynamic Open Graph Social Preview Images | 15h | HIGH | TBD |
-| #102 | Add Duplicate Route Functionality | 8h | HIGH | TBD |
-| #103 | Create Route Templates Library | 5h | HIGH | TBD |
-| #104 | Add Countdown Timer to Public Tracking Page | 8h | MEDIUM | TBD |
-| #105 | Build Post-Event Thank You Screen with Route Summary | 8h | MEDIUM | TBD |
-| #106 | Implement Route Archive System | 8h | MEDIUM | TBD |
-
-**Total: 52 hours (~3 weeks)**
-
----
-
-### Release 2.2 Issues (February 2025)
-
-| Issue # | Title | Estimate | Priority | Assignee |
-|---------|-------|----------|----------|----------|
-| #107 | Build Viewer Analytics Dashboard | 18h | HIGH | TBD |
-| #108 | Add Live Viewer Count on Tracking Page | 5h | HIGH | TBD |
-| #109 | Implement Route Optimization Engine (TSP Solver) | 15h | HIGH | TBD |
-| #110 | Add ETA Calculation and Display Per Waypoint | 8h | HIGH | TBD |
-| #111 | Build Advanced Search and Filtering on Dashboard | 12h | MEDIUM | TBD |
-| #112 | Integrate Reverse Geocoding for Street Name Display | 8h | MEDIUM | TBD |
-| #113 | Add Route Preview Mode (Turn-by-Turn List) | 6h | LOW | TBD |
-
-**Total: 72 hours (~4 weeks)**
-
----
-
-### Release 3.1 Issues (March 2025)
-
-| Issue # | Title | Estimate | Priority | Assignee |
-|---------|-------|----------|----------|----------|
-| #114 | Set Up Service Worker with Workbox | 12h | HIGH | TBD |
-| #115 | Implement Offline Route Viewing | 10h | HIGH | TBD |
-| #116 | Enable Offline Navigation Mode | 15h | HIGH | TBD |
-| #117 | Create PWA Manifest and App Icons | 10h | HIGH | TBD |
-| #118 | Add "Add to Home Screen" Install Prompts | 5h | HIGH | TBD |
-| #119 | Implement Background Sync for Queued Data | 15h | MEDIUM | TBD |
-| #120 | Build Offline Map Tile Caching | 18h | MEDIUM | TBD |
-
-**Total: 85 hours (~4 weeks)**
-
----
-
-### Release 3.2 Issues (April 2025)
-
-| Issue # | Title | Estimate | Priority | Assignee |
-|---------|-------|----------|----------|----------|
-| #121 | Implement Background Location Tracking | 15h | HIGH | TBD |
-| #122 | Integrate Lock Screen Media Controls | 12h | MEDIUM | TBD |
-| #123 | Add Off-Route Detection and Rerouting | 12h | MEDIUM | TBD |
-| #124 | Implement Real-Time ETA Recalculation | 10h | MEDIUM | TBD |
-| #125 | Add Predictive ETA Improvements (Optional) | 8h | LOW | TBD |
-
-**Total: 57 hours (~3 weeks)**
-
----
-
-### Release 4 Issues (May 2025)
-
-| Issue # | Title | Estimate | Priority | Assignee |
-|---------|-------|----------|----------|----------|
-| #126 | Build Public Brigade Profile Pages | 18h | HIGH | TBD |
-| #127 | Create Brigade Discovery and Search | 10h | HIGH | TBD |
-| #128 | Implement Logo Upload and Custom Branding | 12h | MEDIUM | TBD |
-| #129 | Build Member Management UI | 15h | MEDIUM | TBD |
-| #130 | Add Multi-Operator Route Collaboration | 12h | LOW | TBD |
-| #131 | Implement Data Export (JSON, CSV, KML, PDF) | 15h | LOW | TBD |
-| #132 | Add Data Import and Restore | 8h | LOW | TBD |
-| #133 | Create First-Time User Tutorial | 10h | LOW | TBD |
-
-**Total: 100 hours (~4 weeks)**
+- All 39 issues (#95-#133) created successfully
+- Issues correctly labeled and assigned to milestones
+- Dependencies accurately reflected in issue descriptions
+- Future ROADMAP.md updates automatically reflected in issues
+- Zero manual intervention required for routine updates
 
 ---
 
