@@ -3,7 +3,7 @@
  * Handles post-authentication user profile creation and updates.
  */
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '../context';
 import { storageAdapter } from '../storage';
 import { logAuditEvent } from '../utils/auditLog';
@@ -30,8 +30,9 @@ export function useUserProfile(): UseUserProfileResult {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
+  const previousMembershipsRef = useRef<string>('[]');
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!authUser || !isAuthenticated) {
       setUser(null);
       setMemberships([]);
@@ -74,7 +75,18 @@ export function useUserProfile(): UseUserProfileResult {
 
       // Fetch user's brigade memberships
       const userMemberships = await storageAdapter.getMembershipsByUser(dbUser.id);
-      setMemberships(userMemberships);
+      
+      // Only update memberships state if the data actually changed
+      // This prevents unnecessary re-renders in components that depend on memberships
+      // Note: Using JSON.stringify for deep equality is acceptable here because:
+      // - Membership arrays are typically small (1-3 items per user)
+      // - This runs only on profile refresh, not every render
+      // - Prevents infinite loops from unstable array references
+      const currentMembershipsJson = JSON.stringify(userMemberships);
+      if (currentMembershipsJson !== previousMembershipsRef.current) {
+        previousMembershipsRef.current = currentMembershipsJson;
+        setMemberships(userMemberships);
+      }
     } catch (err) {
       console.error('Failed to load user profile:', err);
       // Detect common SPA fallback where API returns index.html (HTML starts with '<!doctype')
@@ -87,7 +99,7 @@ export function useUserProfile(): UseUserProfileResult {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [authUser, isAuthenticated]);
 
   const updateProfile = async (updates: Partial<User>) => {
     if (!user) {
@@ -144,7 +156,7 @@ export function useUserProfile(): UseUserProfileResult {
   // Load profile on mount and when auth state changes
   useEffect(() => {
     refreshProfile();
-  }, [authUser?.id, isAuthenticated]);
+  }, [refreshProfile]);
 
   return {
     user,
