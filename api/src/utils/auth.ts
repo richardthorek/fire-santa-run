@@ -11,7 +11,7 @@
 import { HttpRequest } from '@azure/functions';
 import * as jwt from 'jsonwebtoken';
 import * as jwksClient from 'jwks-rsa';
-import type { BrigadeMembership } from '../../../src/types/membership';
+import type { BrigadeMembership } from '../types/membership';
 
 // JWT validation configuration
 // Note: Tenant ID is public information for the Brigade Santa Run Entra External ID tenant

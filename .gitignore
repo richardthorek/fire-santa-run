@@ -46,6 +46,10 @@ __azurite_db*__.json
 test-rfs-api.js
 Rural_Country_Fire_Service_Facilities.geojson
 
+# TypeScript build outputs (except intentional JS config files)
+src/**/*.js
+src/**/*.js.map
+
 # Test coverage reports
 coverage/
 *.lcov
