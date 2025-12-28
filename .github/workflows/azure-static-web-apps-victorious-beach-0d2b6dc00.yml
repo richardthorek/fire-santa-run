@@ -1,9 +1,12 @@
-name: Azure Static Web Apps CI/CD
+name: CI/CD Pipeline
 
-# This workflow builds and deploys the Fire Santa Run application to Azure Static Web Apps
+# This workflow runs quality checks and deploys the Fire Santa Run application to Azure Static Web Apps
 #
-# Note: Quality checks (linting, testing, coverage) are handled by the CI workflow (ci.yml)
-# This workflow focuses solely on building and deploying to Azure.
+# Workflow Structure:
+# 1. Quality Checks Job (lint, test, coverage) - runs first, fails fast
+# 2. Deploy Job (builds and deploys to Azure) - only runs if quality checks pass
+# 3. Close PR Job (closes preview environments) - runs when PR is closed
+# 4. Failure Issue Job (creates GitHub issue) - runs if deployment fails on main branch
 #
 # Build Process:
 # - Frontend: Built by Azure Static Web Apps' Oryx (Vite + React + TypeScript)
@@ -19,7 +22,7 @@ name: Azure Static Web Apps CI/CD
 # Optional GitHub Secrets (for production features):
 #   - VITE_AZURE_STORAGE_CONNECTION_STRING: Azure Table Storage connection string
 #   - AZURE_WEBPUBSUB_CONNECTION_STRING: Azure Web PubSub connection string
-#   - VITE_APP_NAME: Application name (defaults to 'Fire Santa Run' if not set)
+#   - CODECOV_TOKEN: Codecov token for coverage reporting
 #
 # Note: Dependabot PRs will skip deployment as they cannot access environment secrets
 
@@ -33,7 +36,57 @@ on:
       - main
 
 jobs:
+  quality_checks:
+    # Run quality checks first - skip if PR is being closed
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    name: Quality Checks (Lint, Test, Coverage)
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run linter
+        run: npm run lint
+        
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        env:
+          # Required for tests that may reference these
+          VITE_DEV_MODE: 'true'
+          VITE_MAPBOX_TOKEN: 'test-token'
+          
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        if: always()
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+          flags: unittests
+          
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        with:
+          lcov-file: ./coverage/lcov.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          delete-old-comments: true
+
   build_and_deploy_job:
+    # Deploy only after quality checks pass
+    needs: quality_checks
     # Skip deployment for Dependabot PRs as they cannot access environment secrets
     if: |
       github.actor != 'dependabot[bot]' &&
@@ -82,6 +135,7 @@ jobs:
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
+    # This job runs independently when a PR is closed (doesn't need quality checks)
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     name: Close Pull Request Job
@@ -97,9 +151,10 @@ jobs:
           action: "close"
 
   create_bug_issue_on_failure:
+    # Create issue if quality checks or deployment fail on push to main
     if: ${{ failure() && github.event_name == 'push' }}
     runs-on: ubuntu-latest
-    needs: [build_and_deploy_job]
+    needs: [quality_checks, build_and_deploy_job]
     name: Create Bug Issue on Failure
     permissions:
       issues: write
