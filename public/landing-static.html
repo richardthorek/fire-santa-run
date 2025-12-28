@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fire Santa Run - Track Santa in Real-Time</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Track Santa in real-time as your local Rural Fire Service brings Christmas joy to your community. Plan routes, share tracking links, and spread holiday cheer!">
+  <meta name="theme-color" content="#D32F2F">
+  
+  <!-- Open Graph Tags -->
+  <meta property="og:site_name" content="Fire Santa Run">
+  <meta property="og:title" content="Fire Santa Run - Track Santa in Real-Time">
+  <meta property="og:description" content="Track Santa in real-time as your local Rural Fire Service brings Christmas joy to your community.">
+  <meta property="og:type" content="website">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/vite.svg">
+  
+  <!-- Critical CSS - Inlined for performance -->
+  <style>
+    /* CSS Variables */
+    :root {
+      --santa-red: #D62828;
+      --fire-red: #D32F2F;
+      --fire-red-dark: #B71C1C;
+      --sand-light: #FFF9E6;
+      --neutral-700: #616161;
+    }
+    
+    /* Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    /* Landing Page Styles */
+    .landing {
+      min-height: 100vh;
+      background: linear-gradient(180deg, var(--santa-red) 0%, var(--fire-red-dark) 30%, var(--fire-red) 60%, var(--sand-light) 100%);
+      overflow: auto;
+    }
+    
+    .hero {
+      color: white;
+      padding: 2.5rem 2rem 3rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .hero-pattern {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      opacity: 0.1;
+      /* Inline SVG pattern for critical CSS - small, festive cross pattern */
+      /* Note: ~250 bytes, acceptable for critical path rendering */
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .hero-emoji {
+      font-size: clamp(60px, 10vw, 72px);
+      margin-bottom: 0.75rem;
+      text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .hero-title {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      line-height: 1.1;
+    }
+    
+    .hero-subtitle {
+      font-size: clamp(1.15rem, 2.5vw, 1.4rem);
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    .hero-description {
+      font-size: clamp(0.95rem, 1.6vw, 1.05rem);
+      opacity: 0.95;
+      max-width: 700px;
+      margin: 0 auto 2rem;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    .auth-container {
+      max-width: 600px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .btn {
+      padding: 1rem 2rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: inline-block;
+      text-align: center;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 100%);
+      color: var(--fire-red-dark);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn-primary:hover {
+      background: white;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+      transform: translateY(-2px);
+    }
+    
+    .btn-secondary {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
+      color: white;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: rgba(255, 255, 255, 0.6);
+      transform: translateY(-2px);
+    }
+    
+    /* Features Section */
+    .features {
+      padding: 4rem 2rem;
+      background: white;
+    }
+    
+    .features-grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+    }
+    
+    .feature-card {
+      text-align: center;
+      padding: 2rem;
+      background: linear-gradient(135deg, #FFF9E6 0%, white 100%);
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    
+    .feature-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    
+    .feature-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--fire-red-dark);
+    }
+    
+    .feature-description {
+      font-size: 0.95rem;
+      color: var(--neutral-700);
+      line-height: 1.5;
+    }
+    
+    @media (max-width: 640px) {
+      .auth-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="landing">
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-pattern"></div>
+      <div class="hero-content">
+        <div class="hero-emoji">🎅🚒🎄</div>
+        <h1 class="hero-title">Fire Santa Run</h1>
+        <p class="hero-subtitle">Real-Time Santa Tracking for RFS Brigades</p>
+        <p class="hero-description">
+          Plan routes • Navigate with GPS • Share live tracking links • Spread Christmas joy
+        </p>
+        
+        <!-- Auth Buttons -->
+        <div class="auth-container">
+          <button id="signin-btn" class="btn btn-primary">
+            🎅 Sign In
+          </button>
+          <a href="/dashboard" class="btn btn-secondary">
+            📋 Learn More
+          </a>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Features Section -->
+    <section class="features">
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🗺️</div>
+          <h3 class="feature-title">Route Planning</h3>
+          <p class="feature-description">
+            Create custom Santa routes with drag-and-drop waypoints and estimated arrival times
+          </p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">📍</div>
+          <h3 class="feature-title">GPS Navigation</h3>
+          <p class="feature-description">
+            Turn-by-turn directions powered by Mapbox for brigade operators
+          </p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">📱</div>
+          <h3 class="feature-title">Live Tracking</h3>
+          <p class="feature-description">
+            Share tracking links with families to follow Santa in real-time
+          </p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🔐</div>
+          <h3 class="feature-title">Brigade Management</h3>
+          <p class="feature-description">
+            Secure authentication and multi-brigade support via Microsoft Entra
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+  <!-- Progressive Enhancement: Load React App on Demand -->
+  <script type="module">
+    // Only load full React app when user wants to sign in
+    const signinBtn = document.getElementById('signin-btn');
+    let appLoading = false;
+    
+    signinBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      
+      if (appLoading) return;
+      appLoading = true;
+      
+      // Update button state
+      signinBtn.textContent = '⏳ Loading...';
+      signinBtn.disabled = true;
+      
+      // Load the full React application
+      try {
+        // Intentional full page reload to transition from static HTML to React SPA
+        // This is by design - static page has no React, so we navigate to trigger app load
+        window.location.href = '/dashboard';
+      } catch (error) {
+        console.error('Failed to load app:', error);
+        signinBtn.textContent = '❌ Error - Retry';
+        signinBtn.disabled = false;
+        appLoading = false;
+      }
+    });
+    
+    // Check if dev mode and update UI
+    const isDevMode = window.location.search.includes('dev=true');
+    if (isDevMode) {
+      signinBtn.textContent = '🛠️ Dev Mode - Enter';
+    }
+  </script>
+</body>
+</html>

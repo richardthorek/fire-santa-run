@@ -1,3 +1,20 @@
+function getNextChristmasEveAt4pm(): { date: string; time: string } {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const targetYear = (now.getMonth() > 11 || (now.getMonth() === 11 && now.getDate() > 24))
+    ? currentYear + 1
+    : currentYear;
+
+  const target = new Date(targetYear, 11, 24, 16, 0, 0, 0);
+
+  const y = target.getFullYear();
+  const m = String(target.getMonth() + 1).padStart(2, '0');
+  const d = String(target.getDate()).padStart(2, '0');
+  const hh = String(target.getHours()).padStart(2, '0');
+  const mm = String(target.getMinutes()).padStart(2, '0');
+
+  return { date: `${y}-${m}-${d}`, time: `${hh}:${mm}` };
+}
 /**
  * Route helper utilities for ID generation, links, and status management
  */
@@ -146,13 +163,14 @@ export function validateRoute(route: Partial<Route>): { valid: boolean; errors: 
  * Create a new route with default values
  */
 export function createNewRoute(brigadeId: string, createdBy?: string): Route {
+  const nextChristmas = getNextChristmasEveAt4pm();
   return {
     id: generateRouteId(),
     brigadeId,
     name: '',
     description: '',
-    date: '',
-    startTime: '',
+    date: nextChristmas.date,
+    startTime: nextChristmas.time,
     status: 'draft',
     waypoints: [],
     createdAt: new Date().toISOString(),

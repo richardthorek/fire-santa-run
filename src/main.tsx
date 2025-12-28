@@ -27,6 +27,12 @@ const msalInstance = isMsalConfigured()
       },
     });
 
+// Expose MSAL instance globally so non-React modules (e.g., HTTP storage adapter)
+// can acquire tokens for API calls in production mode.
+// This is a safe, minimal bridge and only used when VITE_DEV_MODE=false.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(window as any).__msalInstance = msalInstance;
+
 // Initialize MSAL and render app
 // CRITICAL: We must wait for handleRedirectPromise() to complete BEFORE rendering React
 // This prevents race conditions on iOS Safari where the app renders before auth completes
