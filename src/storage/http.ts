@@ -6,6 +6,7 @@ import type { MemberInvitation } from '../types/invitation';
 import type { AdminVerificationRequest } from '../types/verification';
 import type { PublicClientApplication } from '@azure/msal-browser';
 import { tokenRequest } from '../auth/msalConfig';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
 
 // Access token helper for API calls in production mode.
 async function getAccessToken(): Promise<string | null> {
@@ -25,7 +26,33 @@ async function getAccessToken(): Promise<string | null> {
     });
     return response.accessToken;
   } catch (error) {
-    console.warn('[HTTP] Failed to acquire access token for API request:', error);
+    console.warn('[HTTP] Failed to acquire access token for API request (silent):', error?.message || error);
+    // If interaction is required, try an interactive popup to allow consent/login
+    try {
+      // Some MSAL errors indicate user interaction is required
+      // Try acquireTokenPopup to prompt the user for consent to the API scope
+      if (error instanceof InteractionRequiredAuthError || (error as any)?.errorCode === 'interaction_required') {
+        try {
+          const popupResponse = await msalInstance.acquireTokenPopup({ ...tokenRequest, account });
+          console.info('[HTTP] Acquired token via popup for API request');
+          return popupResponse.accessToken;
+        } catch (popupErr) {
+          console.warn('[HTTP] acquireTokenPopup failed or was blocked:', (popupErr as any)?.message || popupErr);
+          return null;
+        }
+      }
+
+      // If not interaction-required, log details for diagnosis
+      console.debug('[HTTP] MSAL error details:', {
+        name: (error as any)?.name,
+        errorCode: (error as any)?.errorCode,
+        subError: (error as any)?.subError,
+        message: (error as any)?.message,
+      });
+    } catch (e) {
+      console.warn('[HTTP] Error handling token acquisition failure:', e);
+    }
+
     return null;
   }
 }

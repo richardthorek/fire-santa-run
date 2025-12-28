@@ -174,6 +174,7 @@ async function createRoute(request: HttpRequest, context: InvocationContext): Pr
     // Validate authentication
     const authResult = await validateToken(request);
     if (!authResult.authenticated) {
+      context.error('Authentication failed during route create:', authResult);
       return {
         status: 401,
         jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }
@@ -242,6 +243,7 @@ async function updateRoute(request: HttpRequest, context: InvocationContext): Pr
     // Validate authentication
     const authResult = await validateToken(request);
     if (!authResult.authenticated) {
+      context.error('Authentication failed during route update:', authResult);
       return {
         status: 401,
         jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }
@@ -311,6 +313,7 @@ async function deleteRoute(request: HttpRequest, context: InvocationContext): Pr
     // Validate authentication
     const authResult = await validateToken(request);
     if (!authResult.authenticated) {
+      context.error('Authentication failed during route delete:', authResult);
       return {
         status: 401,
         jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' }

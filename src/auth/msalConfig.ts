@@ -195,7 +195,10 @@ const clientId = import.meta.env.VITE_ENTRA_CLIENT_ID || '';
  * This requests a token with the app's client ID as the audience.
  */
 function getApiScope(): string {
-  return `api://${clientId}/.default`;
+  // Use the explicit scope exposed on the API app registration (e.g. access_as_user)
+  // This prevents requesting a token for the app itself using .default which can
+  // trigger AADSTS90009 when the app requests tokens for its own App ID URI.
+  return `api://${clientId}/access_as_user`;
 }
 
 export const loginRequest: RedirectRequest = {
@@ -203,6 +206,8 @@ export const loginRequest: RedirectRequest = {
     'openid',      // Required for authentication
     'profile',     // Access to user's profile info (name, etc.)
     'email',       // Access to user's email address
+    // Also request the API scope during interactive login so users can consent
+    ...(clientId ? [getApiScope()] : []),
   ],
   prompt: 'select_account',        // Allow account picker (better for iOS/multi-account)
   ...(domainHint ? { domainHint } : {}),

@@ -19,34 +19,61 @@ import type { BrigadeMembership } from '../types/membership';
 const ENTRA_TENANT_ID = process.env.VITE_ENTRA_TENANT_ID || '50fcb752-2a4e-4efd-bdc2-e18a5042c5a8';
 const ENTRA_CLIENT_ID = process.env.VITE_ENTRA_CLIENT_ID || '';
 const ENTRA_AUTHORITY = (process.env.VITE_ENTRA_AUTHORITY || '').replace(/\/$/, '') || `https://login.microsoftonline.com/${ENTRA_TENANT_ID}`;
-const JWKS_URI = `${ENTRA_AUTHORITY}/discovery/v2.0/keys`;
+// Some tenants emit tokens with issuer on the tenant-id subdomain (e.g., https://{tenantId}.ciamlogin.com/{tenantId}/v2.0).
+const ALT_TENANT_AUTHORITY = `https://${ENTRA_TENANT_ID}.ciamlogin.com/${ENTRA_TENANT_ID}`;
+
+// Maintain a list of acceptable authorities/issuers. These map directly to the CIAM issuer hosts we expect.
+const BASE_AUTHORITIES = [ENTRA_AUTHORITY, ALT_TENANT_AUTHORITY].map(a => a.replace(/\/$/, ''));
+const ISSUER_CANDIDATES = BASE_AUTHORITIES.map(a => `${a}/v2.0`);
 
 // Dev mode bypass flag
 // Note: Uses VITE_ prefix for consistency with frontend environment variables in Azure Static Web Apps
 // All environment variables are shared between frontend and API in Azure Static Web Apps
 const isDevMode = process.env.VITE_DEV_MODE === 'true';
 
-// JWKS client for fetching public keys
-const jwksClientInstance = jwksClient.default({
-  jwksUri: JWKS_URI,
-  cache: true,
-  cacheMaxAge: 86400000, // 24 hours
-  rateLimit: true,
-  jwksRequestsPerMinute: 10,
+// JWKS clients for each issuer we allow. We pick the correct one based on the token's issuer.
+const jwksClients = BASE_AUTHORITIES.map(authority => {
+  const jwksUri = `${authority}/discovery/v2.0/keys`;
+  return {
+    authority,
+    issuer: `${authority}/v2.0`,
+    client: jwksClient.default({
+      jwksUri,
+      cache: true,
+      cacheMaxAge: 86400000, // 24 hours
+      rateLimit: true,
+      jwksRequestsPerMinute: 10,
+    }),
+  };
 });
 
+function selectJwksClient(token: string) {
+  // Decode without verifying to determine issuer host for JWKS resolution.
+  const decoded = jwt.decode(token, { complete: true }) as jwt.Jwt | null;
+  const iss = (decoded?.payload as jwt.JwtPayload | undefined)?.iss?.toLowerCase();
+  if (iss) {
+    const match = jwksClients.find(entry => entry.issuer.toLowerCase() === iss);
+    if (match) return match.client;
+  }
+  // Fallback to the first configured authority if issuer is missing/unexpected.
+  return jwksClients[0].client;
+}
+
 /**
- * Get the signing key for JWT verification
+ * Get the signing key for JWT verification, choosing the JWKS endpoint that matches the token issuer.
  */
-function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback): void {
-  jwksClientInstance.getSigningKey(header.kid as string, (err, key) => {
-    if (err) {
-      callback(err);
-      return;
-    }
-    const signingKey = key?.getPublicKey();
-    callback(null, signingKey);
-  });
+function getKeyForToken(token: string) {
+  const client = selectJwksClient(token);
+  return (header: jwt.JwtHeader, callback: jwt.SigningKeyCallback): void => {
+    client.getSigningKey(header.kid as string, (err, key) => {
+      if (err) {
+        callback(err);
+        return;
+      }
+      const signingKey = key?.getPublicKey();
+      callback(null, signingKey);
+    });
+  };
 }
 
 /**
@@ -151,13 +178,16 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
         ? [ENTRA_CLIENT_ID, `api://${ENTRA_CLIENT_ID}`] as [string, string]
         : undefined;
 
+      // Build list of acceptable issuers to handle tenant-id subdomain vs configured authority
+      const issuerCandidates = ISSUER_CANDIDATES;
+
       jwt.verify(
         token,
-        getKey,
+        getKeyForToken(token),
         {
           // When client ID is missing (local misconfig), skip audience check but still verify signature/issuer.
           ...(validAudiences ? { audience: validAudiences } : {}),
-          issuer: `${ENTRA_AUTHORITY}/v2.0`,
+          issuer: issuerCandidates,
           algorithms: ['RS256'],
         },
         (err: jwt.VerifyErrors | null, decoded: unknown) => {
@@ -188,6 +218,10 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
   } catch (error: unknown) {
     // Token validation failed
     let errorMessage = 'Invalid or expired token';
+    const decoded = jwt.decode(token) as jwt.JwtPayload | null;
+    const iss = decoded?.iss;
+    const aud = decoded?.aud;
+    const tid = (decoded as any)?.tid;
     
     if (error instanceof Error) {
       if (error.name === 'TokenExpiredError') {
@@ -201,7 +235,8 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
 
     return {
       authenticated: false,
-      error: errorMessage,
+      // Surface issuer/audience to calling logs for diagnostics (no PII)
+      error: `${errorMessage} (iss=${iss || 'n/a'}, aud=${aud || 'n/a'}, tid=${tid || 'n/a'})`,
     };
   }
 }
