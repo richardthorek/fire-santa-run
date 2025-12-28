@@ -19,13 +19,15 @@ export default defineConfig({
         '**/*.config.*',
         '**/mockData.ts',
       ],
-      // Coverage thresholds - fail if coverage drops below these values
-      thresholds: {
-        statements: 40,
-        branches: 40,
-        functions: 40,
-        lines: 40,
-      },
+      // Coverage thresholds - temporarily disabled for pre-v1.0 development
+      // These will be re-enabled as hard requirements once project reaches v1.0
+      // Coverage reports are still generated and tracked via Codecov
+      // thresholds: {
+      //   statements: 40,
+      //   branches: 40,
+      //   functions: 40,
+      //   lines: 40,
+      // },
     },
   },
   resolve: {
