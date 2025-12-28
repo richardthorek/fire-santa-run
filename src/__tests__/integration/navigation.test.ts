@@ -31,21 +31,13 @@ describe('Integration: Navigation Flow (Mock GPS)', () => {
   it('should detect arrival at waypoints', () => {
     const waypoint = createMockWaypoint(0, { coordinates: [151.2093, -33.8688] });
     
-    // Position at waypoint
-    const atWaypoint = {
-      coordinates: [151.2093, -33.8688] as [number, number],
-      timestamp: Date.now(),
-      accuracy: 10,
-    };
+    // Position at waypoint - use coordinate tuple format
+    const atWaypoint: [number, number] = [151.2093, -33.8688];
     
     expect(isNearWaypoint(atWaypoint, waypoint)).toBe(true);
     
     // Position far from waypoint
-    const farFromWaypoint = {
-      coordinates: [151.3000, -33.9000] as [number, number],
-      timestamp: Date.now(),
-      accuracy: 10,
-    };
+    const farFromWaypoint: [number, number] = [151.3000, -33.9000];
     
     expect(isNearWaypoint(farFromWaypoint, waypoint)).toBe(false);
   });
