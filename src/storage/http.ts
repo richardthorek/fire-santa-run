@@ -4,6 +4,31 @@ import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
 import type { MemberInvitation } from '../types/invitation';
 import type { AdminVerificationRequest } from '../types/verification';
+import type { PublicClientApplication } from '@azure/msal-browser';
+import { tokenRequest } from '../auth/msalConfig';
+
+// Access token helper for API calls in production mode.
+async function getAccessToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const msalInstance = (window as any).__msalInstance as PublicClientApplication | undefined;
+  if (!msalInstance) return null;
+
+  const account = msalInstance.getActiveAccount();
+  if (!account) return null;
+
+  try {
+    const response = await msalInstance.acquireTokenSilent({
+      ...tokenRequest,
+      account,
+    });
+    return response.accessToken;
+  } catch (error) {
+    console.warn('[HTTP] Failed to acquire access token for API request:', error);
+    return null;
+  }
+}
 
 /**
  * HTTP API storage adapter for production mode.
@@ -28,6 +53,11 @@ export class HttpStorageAdapter implements IStorageAdapter {
     } catch (err) {
       throw new Error(`Failed to parse JSON response: ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+
+  private async getAuthHeaders(): Promise<HeadersInit> {
+    const token = await getAccessToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
   // Routes
@@ -56,9 +86,10 @@ export class HttpStorageAdapter implements IStorageAdapter {
     
     if (existingRoute) {
       // Update
+      const authHeaders = await this.getAuthHeaders();
       const response = await fetch(`${this.apiBaseUrl}/routes/${encodeURIComponent(route.id)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(route),
       });
       if (!response.ok) {
@@ -66,9 +97,10 @@ export class HttpStorageAdapter implements IStorageAdapter {
       }
     } else {
       // Create
+      const authHeaders = await this.getAuthHeaders();
       const response = await fetch(`${this.apiBaseUrl}/routes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(route),
       });
       if (!response.ok) {
@@ -78,8 +110,10 @@ export class HttpStorageAdapter implements IStorageAdapter {
   }
 
   async deleteRoute(brigadeId: string, routeId: string): Promise<void> {
+    const authHeaders = await this.getAuthHeaders();
     const response = await fetch(`${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}?brigadeId=${encodeURIComponent(brigadeId)}`, {
       method: 'DELETE',
+      headers: { ...authHeaders },
     });
     if (!response.ok && response.status !== 404) {
       throw new Error(`Failed to delete route: ${response.statusText}`);
@@ -122,9 +156,10 @@ export class HttpStorageAdapter implements IStorageAdapter {
     
     if (existingBrigade) {
       // Update
+      const authHeaders = await this.getAuthHeaders();
       const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigade.id)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(brigade),
       });
       if (!response.ok) {
@@ -132,9 +167,10 @@ export class HttpStorageAdapter implements IStorageAdapter {
       }
     } else {
       // Create
+      const authHeaders = await this.getAuthHeaders();
       const response = await fetch(`${this.apiBaseUrl}/brigades`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(brigade),
       });
       if (!response.ok) {
@@ -144,8 +180,10 @@ export class HttpStorageAdapter implements IStorageAdapter {
   }
 
   async deleteBrigade(brigadeId: string): Promise<void> {
+    const authHeaders = await this.getAuthHeaders();
     const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigadeId)}`, {
       method: 'DELETE',
+      headers: { ...authHeaders },
     });
     if (!response.ok && response.status !== 404) {
       throw new Error(`Failed to delete brigade: ${response.statusText}`);
@@ -154,9 +192,10 @@ export class HttpStorageAdapter implements IStorageAdapter {
 
   // User operations
   async saveUser(user: User): Promise<void> {
+    const authHeaders = await this.getAuthHeaders();
     const response = await fetch(`${this.apiBaseUrl}/users`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(user),
     });
     if (!response.ok) {

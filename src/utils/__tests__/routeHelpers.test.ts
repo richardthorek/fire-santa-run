@@ -335,12 +335,19 @@ describe('routeHelpers', () => {
       const brigadeId = 'brigade-123';
       const route = createNewRoute(brigadeId);
 
+      const now = new Date();
+      const targetYear = (now.getMonth() > 11 || (now.getMonth() === 11 && now.getDate() > 24))
+        ? now.getFullYear() + 1
+        : now.getFullYear();
+
       expect(route.brigadeId).toBe(brigadeId);
       expect(route.status).toBe('draft');
       expect(route.waypoints).toEqual([]);
       expect(route.name).toBe('');
       expect(route.id).toMatch(/^route_/);
       expect(route.createdAt).toBeTruthy();
+      expect(route.date).toBe(`${targetYear}-12-24`);
+      expect(route.startTime).toBe('16:00');
     });
 
     it('should include createdBy if provided', () => {

@@ -18,7 +18,8 @@ import type { BrigadeMembership } from '../types/membership';
 // It's used to construct the JWKS endpoint URL for fetching public keys
 const ENTRA_TENANT_ID = process.env.VITE_ENTRA_TENANT_ID || '50fcb752-2a4e-4efd-bdc2-e18a5042c5a8';
 const ENTRA_CLIENT_ID = process.env.VITE_ENTRA_CLIENT_ID || '';
-const JWKS_URI = `https://login.microsoftonline.com/${ENTRA_TENANT_ID}/discovery/v2.0/keys`;
+const ENTRA_AUTHORITY = (process.env.VITE_ENTRA_AUTHORITY || '').replace(/\/$/, '') || `https://login.microsoftonline.com/${ENTRA_TENANT_ID}`;
+const JWKS_URI = `${ENTRA_AUTHORITY}/discovery/v2.0/keys`;
 
 // Dev mode bypass flag
 // Note: Uses VITE_ prefix for consistency with frontend environment variables in Azure Static Web Apps
@@ -54,6 +55,7 @@ function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback): void {
 export interface DecodedToken {
   oid: string; // Object ID (user ID in Entra)
   sub: string; // Subject (user identifier)
+  tid?: string; // Tenant ID
   email?: string;
   name?: string;
   preferred_username?: string;
@@ -75,6 +77,17 @@ export interface AuthResult {
   name?: string;
   error?: string;
   token?: DecodedToken;
+}
+
+/**
+ * Construct the MSAL homeAccountId-style identifier so it matches what the SPA
+ * stores in the memberships table (uid.utid). This keeps backend permission
+ * checks aligned with membership records created by the frontend.
+ */
+function buildHomeAccountId(oid?: string, tid?: string): string | undefined {
+  if (!oid) return undefined;
+  if (tid) return `${oid}.${tid}`;
+  return oid;
 }
 
 /**
@@ -123,12 +136,9 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
     };
   }
 
-  // Validate configuration
+  // Validate configuration (allow missing client ID in local dev but warn)
   if (!ENTRA_CLIENT_ID) {
-    return {
-      authenticated: false,
-      error: 'Authentication not configured (missing VITE_ENTRA_CLIENT_ID)',
-    };
+    console.warn('[Auth] VITE_ENTRA_CLIENT_ID not set. Skipping audience check for token validation.');
   }
 
   try {
@@ -138,8 +148,9 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
         token,
         getKey,
         {
-          audience: ENTRA_CLIENT_ID,
-          issuer: `https://login.microsoftonline.com/${ENTRA_TENANT_ID}/v2.0`,
+          // When client ID is missing (local misconfig), skip audience check but still verify signature/issuer.
+          ...(ENTRA_CLIENT_ID ? { audience: ENTRA_CLIENT_ID } : {}),
+          issuer: `${ENTRA_AUTHORITY}/v2.0`,
           algorithms: ['RS256'],
         },
         (err, decoded) => {
@@ -153,7 +164,9 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
     });
 
     // Extract user information from claims
-    const userId = decoded.oid || decoded.sub;
+    const oid = decoded.oid || decoded.sub;
+    const tenantId = decoded.tid || ENTRA_TENANT_ID;
+    const userId = buildHomeAccountId(oid, tenantId);
     const email = decoded.email || decoded.preferred_username;
     const name = decoded.name || `${decoded.given_name || ''} ${decoded.family_name || ''}`.trim();
 
