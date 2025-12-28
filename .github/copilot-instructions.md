@@ -223,6 +223,44 @@ if (isDevMode) {
 - Preview deployments automatic for PRs
 - Production deployment on merge to `main`
 
+### GitHub Actions Workflow Guidelines
+
+**Current Architecture:** Single unified CI/CD pipeline (`.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml`)
+
+**Core Principle:** Maintain workflow efficiency by avoiding redundant builds and enforcing quality gates before deployment.
+
+**When Adding New Checks/Tasks:**
+
+1. **Should it block deployment?**
+   - ✅ **YES** → Add to `quality_checks` job in main workflow
+   - Examples: linting, testing, static analysis, security scans, type checking
+   - These run FIRST and fail fast
+
+2. **Is it triggered by push/PR events?**
+   - ✅ **YES** → Add as new job in main workflow with appropriate dependencies
+   - Examples: post-deployment smoke tests, notifications
+   - Use `needs:` to establish job dependencies
+
+3. **Is it independent/scheduled/manual?**
+   - ✅ **YES** → Create separate workflow
+   - Examples: scheduled dependency updates, security scans, manual rollback operations
+   - Use `schedule:` or `workflow_dispatch:` triggers
+
+**Never:**
+- ❌ Create parallel workflows that duplicate builds
+- ❌ Add redundant dependency installation steps
+- ❌ Create workflows that should be part of deployment gate
+
+**Decision Template:**
+```
+New task: [describe task]
+├─ Blocks deployment? → Add to quality_checks job
+├─ Runs on push/PR? → Add as dependent job in main workflow  
+└─ Independent schedule/manual? → Create new workflow
+```
+
+**Reference:** See MASTER_PLAN.md Section 24 for complete workflow strategy and examples.
+
 ## 🔧 Key Technical Integrations
 
 ### Mapbox Integration
