@@ -62,11 +62,12 @@
     
     <!-- Google Fonts - Load asynchronously to avoid render blocking -->
     <!-- Using media="print" initially, then switch to "all" once loaded -->
+    <!-- Fallback: System fonts if JavaScript disabled or onload unsupported -->
     <link 
       rel="stylesheet" 
       href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Baloo+2:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800;900&family=Quicksand:wght@400;500;600;700&display=swap"
       media="print"
-      onload="this.media='all'"
+      onload="this.media='all'; this.onload=null;"
     >
     <noscript>
       <link 
