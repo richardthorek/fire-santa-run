@@ -1,12 +1,21 @@
 {
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "/assets/*", "/*.{js,css,png,jpg,jpeg,gif,svg,ico,json,txt,xml,webmanifest}"]
+    "exclude": ["/api/*", "/assets/*", "/landing-static.html", "/*.{js,css,png,jpg,jpeg,gif,svg,ico,json,txt,xml,webmanifest}"]
   },
   "routes": [
     {
+      "route": "/",
+      "rewrite": "/landing-static.html",
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/track/*",
       "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/dashboard*",
+      "rewrite": "/index.html"
     }
   ],
   "mimeTypes": {

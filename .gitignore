@@ -53,3 +53,7 @@ src/**/*.js.map
 # Test coverage reports
 coverage/
 *.lcov
+
+# Lighthouse reports
+lighthouse-reports/
+lighthouse-report*
