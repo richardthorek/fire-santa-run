@@ -98,6 +98,17 @@ export function MapView({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Update map center when center prop changes
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    
+    // Only update if center has actually changed to avoid unnecessary re-centers
+    const currentCenter = map.current.getCenter();
+    if (currentCenter.lng !== center[0] || currentCenter.lat !== center[1]) {
+      map.current.setCenter(center);
+    }
+  }, [center, mapLoaded]);
+
   // Update waypoint markers
   useEffect(() => {
     if (!map.current || !mapLoaded) return;

@@ -8,6 +8,7 @@ import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
 import { getDefaultMapCenter } from '../utils/mapCenter';
+import { DEFAULT_CENTER } from '../config/mapbox';
 import type { Route, Waypoint } from '../types';
 
 export interface RouteEditorProps {
@@ -28,14 +29,27 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   const [editingWaypoint, setEditingWaypoint] = useState<Waypoint | null>(null);
   const [waypointForm, setWaypointForm] = useState({ name: '', notes: '' });
   const [autoZoom, setAutoZoom] = useState(true);
-  const [mapCenter, setMapCenter] = useState<[number, number] | undefined>(undefined);
+  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
+  const [mapZoom, setMapZoom] = useState(5); // Default Australia-wide zoom
 
-  // Determine default map center (memoized to avoid recalculation on every render)
+  // Determine default map center and zoom level
   useEffect(() => {
     let mounted = true;
     getDefaultMapCenter(brigade).then(center => {
       if (mounted) {
         setMapCenter(center);
+        
+        // Set appropriate zoom based on which center is being used
+        if (brigade?.stationCoordinates) {
+          // Brigade station - close zoom
+          setMapZoom(13);
+        } else if (center[0] !== DEFAULT_CENTER[0] || center[1] !== DEFAULT_CENTER[1]) {
+          // User location was used - medium zoom for local area
+          setMapZoom(12);
+        } else {
+          // Australia fallback - wide zoom
+          setMapZoom(5);
+        }
       }
     });
     return () => {
@@ -174,7 +188,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           routeGeometry={route.geometry}
           onMapClick={handleMapClick}
           center={mapCenter}
-          zoom={brigade?.stationCoordinates ? 13 : 5}
+          zoom={mapZoom}
           height="100%"
           autoZoom={autoZoom}
           fitBoundsPadding={MAP_LAYOUT.fitBoundsPadding.withSidebar}

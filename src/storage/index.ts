@@ -45,7 +45,7 @@ function createStorageAdapter(): IStorageAdapter {
     return new AzureTableStorageAdapter(connectionString);
   }
 
-  // Browser runtime: Use localStorage in dev mode, HTTP API in production
+  // Browser dev mode: Use localStorage directly. Browser production mode: Use HTTP API.
   if (isBrowser) {
     if (isDevMode) {
       console.info('[Storage] Browser dev mode. Using localStorage adapter.');
