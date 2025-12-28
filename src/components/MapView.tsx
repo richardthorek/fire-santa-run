@@ -170,41 +170,41 @@ export function MapView({
       el.style.flexDirection = 'column';
       el.style.alignItems = 'center';
       el.style.gap = '4px';
-      
-      el.innerHTML = `
-        <div style="
-          width: 48px;
-          height: 48px;
-          background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%);
-          border: 3px solid white;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 24px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-          cursor: pointer;
-        ">
-          🚒
-        </div>
-        <div style="
-          background: rgba(255, 255, 255, 0.95);
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 10px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: #D32F2F;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-          white-space: nowrap;
-          max-width: 150px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        ">
-          ${brigadeStation.name}
-        </div>
-      `;
+
+      // Icon container
+      const iconEl = document.createElement('div');
+      iconEl.style.width = '48px';
+      iconEl.style.height = '48px';
+      iconEl.style.background = 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)';
+      iconEl.style.border = '3px solid white';
+      iconEl.style.borderRadius = '50%';
+      iconEl.style.display = 'flex';
+      iconEl.style.alignItems = 'center';
+      iconEl.style.justifyContent = 'center';
+      iconEl.style.fontSize = '24px';
+      iconEl.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+      iconEl.style.cursor = 'pointer';
+      iconEl.textContent = '🚒';
+
+      // Label container
+      const labelEl = document.createElement('div');
+      labelEl.style.background = 'rgba(255, 255, 255, 0.95)';
+      labelEl.style.padding = '4px 8px';
+      labelEl.style.borderRadius = '4px';
+      labelEl.style.fontSize = '10px';
+      labelEl.style.fontWeight = '600';
+      labelEl.style.textTransform = 'uppercase';
+      labelEl.style.letterSpacing = '0.5px';
+      labelEl.style.color = '#D32F2F';
+      labelEl.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
+      labelEl.style.whiteSpace = 'nowrap';
+      labelEl.style.maxWidth = '150px';
+      labelEl.style.overflow = 'hidden';
+      labelEl.style.textOverflow = 'ellipsis';
+      labelEl.textContent = brigadeStation.name;
+
+      el.appendChild(iconEl);
+      el.appendChild(labelEl);
 
       brigadeMarkerRef.current = new mapboxgl.Marker(el, { anchor: 'bottom' })
         .setLngLat(brigadeStation.coordinates)
