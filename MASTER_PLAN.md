@@ -4106,150 +4106,155 @@ export async function migrateToAzure() {
 
 ## 24. GitHub Actions Workflows
 
-### Required Workflows
+### Workflow Strategy
 
-Create `.github/workflows/` directory with the following workflow files:
+**Philosophy:** Maintain a **single, unified CI/CD pipeline** that efficiently runs quality checks before deployment. This approach:
+- **Eliminates redundancy** - No duplicate builds or dependency installations
+- **Enforces quality gates** - Deployment only occurs if tests pass
+- **Fails fast** - Linting and tests run first, catching issues early
+- **Optimizes GitHub Actions minutes** - Single workflow run instead of multiple parallel workflows
+- **Improves developer experience** - Clear single status check in PRs
 
-#### 1. CI/CD Pipeline (`.github/workflows/deploy.yml`)
+### Current Implementation
 
-```yaml
-name: Deploy to Production
+**Primary Workflow:** `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml`
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
+**Workflow Name:** `CI/CD Pipeline`
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Lint
-        run: npm run lint
-      
-      - name: Type check
-        run: npm run build
-      
-      - name: Run tests
-        run: npm test
-        if: always()
+**Triggers:**
+- Push to `main` branch
+- Pull requests to `main` (opened, synchronize, reopened, closed)
 
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Build
-        env:
-          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
-          VITE_AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
-          VITE_AZURE_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
-          AZURE_WEBPUBSUB_CONNECTION_STRING: ${{ secrets.AZURE_WEBPUBSUB_CONNECTION_STRING }}
-          AZURE_WEBPUBSUB_HUB_NAME: ${{ secrets.AZURE_WEBPUBSUB_HUB_NAME }}
-        run: npm run build
-      
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        if: success()
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
+**Jobs Structure:**
+
+#### 1. Quality Checks Job (`quality_checks`)
+**Purpose:** Fast-fail quality gates before deployment
+**Runs:** On all pushes and PRs (except when PR is closed)
+**Steps:**
+- Checkout code
+- Setup Node.js 22.x with npm cache
+- Install dependencies (`npm ci`)
+- Run linter (`npm run lint`)
+- Run tests with coverage (`npm run test:coverage`)
+- Upload coverage to Codecov
+- Comment coverage report on PRs
+
+**Key Points:**
+- Uses minimal environment variables (dev mode)
+- No actual build artifacts needed (Azure Oryx will rebuild)
+- Fails fast if code quality issues detected
+
+#### 2. Build and Deploy Job (`build_and_deploy_job`)
+**Purpose:** Build and deploy to Azure Static Web Apps
+**Runs:** Only after quality checks pass (uses `needs: quality_checks`)
+**Conditions:**
+- Not triggered by Dependabot (lacks environment secrets)
+- Not triggered when PR is closed
+**Steps:**
+- Checkout code (with submodules)
+- Setup Node.js 22.x
+- Install dependencies (`npm ci`)
+- Build and deploy using `Azure/static-web-apps-deploy@v1`
+  - Frontend built by Azure Oryx (Vite + React + TypeScript)
+  - API built by Azure Oryx (`npm install && npm run build`)
+  - Uses production environment variables
+  - Creates preview deployments for PRs
+
+**Environment:** `copilot` (for secrets access)
+
+#### 3. Close Pull Request Job (`close_pull_request_job`)
+**Purpose:** Clean up preview environments when PR is closed
+**Runs:** Independently when PR closed event occurs
+**Steps:**
+- Close preview deployment in Azure Static Web Apps
+
+#### 4. Create Bug Issue on Failure (`create_bug_issue_on_failure`)
+**Purpose:** Automatic issue creation for failed deployments
+**Runs:** Only if previous jobs fail AND push to main branch
+**Dependencies:** `needs: [quality_checks, build_and_deploy_job]`
+**Steps:**
+- Fetch workflow run details
+- Identify failed jobs and steps
+- Create detailed GitHub issue with:
+  - Workflow run information
+  - Failed job details
+  - Links to logs
+  - Commit information
+  - Troubleshooting steps
+
+### Workflow Guidelines
+
+**When to Add New Workflows:**
+- ✅ **Do create separate workflow:** For scheduled tasks (e.g., dependency updates, security scans)
+- ✅ **Do create separate workflow:** For manual operations (workflow_dispatch only)
+- ❌ **Don't create separate workflow:** For tasks that should block deployment (add to `quality_checks` job)
+- ❌ **Don't create separate workflow:** For tasks that duplicate existing steps
+
+**When to Add Steps to Existing Workflow:**
+- ✅ **Add to `quality_checks` job:** Linting, testing, static analysis, security scans that should block deployment
+- ✅ **Add to `build_and_deploy_job`:** Build-time configurations, deployment prerequisites
+- ✅ **Add new job with dependencies:** For post-deployment tasks (smoke tests, notifications)
+
+**Decision Tree for New Tasks:**
+
+```
+Does the task need to block deployment?
+├─ YES → Add to quality_checks job
+└─ NO
+   ├─ Is it triggered by push/PR? 
+   │  ├─ YES → Add as new job in main workflow
+   │  └─ NO → Create separate workflow (schedule, workflow_dispatch, etc.)
+   └─ Does it duplicate existing work?
+      ├─ YES → Refactor existing workflow, don't duplicate
+      └─ NO → Evaluate if separate workflow needed
+
 ```
 
-#### 2. Dependency Security Scan (`.github/workflows/security.yml`)
+**Examples:**
 
-```yaml
-name: Security Scan
+| Task | Action | Rationale |
+|------|--------|-----------|
+| Add ESLint | Add to `quality_checks` job | Should block deployment |
+| Add TypeScript strict mode check | Add to `quality_checks` job | Should block deployment |
+| Add accessibility tests | Add to `quality_checks` job | Should block deployment |
+| Add smoke tests after deploy | Add new job after `build_and_deploy_job` | Post-deployment verification |
+| Add scheduled dependency updates | Create new workflow | Independent scheduled task |
+| Add CodeQL security scanning | Create new workflow | Independent security task |
+| Add manual rollback workflow | Create new workflow | Manual operation only |
 
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-  schedule:
-    - cron: '0 0 * * 0' # Weekly on Sunday
+### Required Secrets
 
-jobs:
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
-      
-      - name: Run Snyk security scan
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: test
-        continue-on-error: true
-```
+**In GitHub Repository Settings → Environments → `copilot`:**
+- `VITE_MAPBOX_TOKEN` - Mapbox API token (required)
+- `AZURE_STATIC_WEB_APPS_API_TOKEN_VICTORIOUS_BEACH_0D2B6DC00` - Azure deployment token (auto-generated)
+- `VITE_ENTRA_CLIENT_ID` - Entra External ID OAuth client ID
+- `VITE_ENTRA_TENANT_ID` - Entra External ID tenant ID
+- `VITE_ENTRA_AUTHORITY` - Entra External ID authority URL
+- `VITE_ENTRA_REDIRECT_URI` - OAuth redirect URI
+- `CODECOV_TOKEN` - Codecov coverage reporting token (optional)
 
-#### 3. Preview Deployments (`.github/workflows/preview.yml`)
+### Benefits of Current Approach
 
-```yaml
-name: Deploy Preview
+**Efficiency:**
+- Single `npm ci` per workflow run (not 2x)
+- Dependencies installed once and reused
+- Cached npm packages between steps
 
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+**Quality:**
+- Quality checks run before deployment
+- Failed tests prevent bad deployments
+- Coverage reports on every PR
 
-jobs:
-  preview:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Build
-        env:
-          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
-        run: npm run build
-      
-      - name: Deploy Preview to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          github-comment: true
-```
+**Cost:**
+- Reduced GitHub Actions minutes usage
+- Reduced Azure build minutes usage
+- No redundant builds
+
+**Developer Experience:**
+- Single workflow status to monitor
+- Clear failure points (quality vs deployment)
+- Fast feedback on quality issues
+- Automatic issue creation on failure
 
 ---
 
