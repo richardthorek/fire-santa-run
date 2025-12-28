@@ -18,5 +18,39 @@ export default defineConfig(( env: ConfigEnv ) => {
           },
         }
       : undefined,
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Split React and React-DOM into separate chunk
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            // Split Mapbox (large mapping library) into separate chunk
+            'mapbox': ['mapbox-gl', '@mapbox/mapbox-gl-geocoder', '@mapbox/mapbox-gl-draw'],
+            // Split Azure SDKs into separate chunk
+            'azure': ['@azure/msal-browser', '@azure/msal-react', '@azure/data-tables', '@azure/web-pubsub-client'],
+            // Split UI libraries into separate chunk
+            'ui-libs': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities', 'qrcode.react'],
+            // Split Socket.IO into separate chunk
+            'realtime': ['socket.io-client'],
+            // Split date utilities
+            'date-utils': ['date-fns'],
+          },
+        },
+      },
+      // Set chunk size warning limit to 500KB (as per requirements)
+      chunkSizeWarningLimit: 500,
+      // Enable module preloading for faster navigation
+      modulePreload: {
+        polyfill: true,
+      },
+      // Use terser for better minification
+      minify: 'terser' as const,
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+        },
+      },
+    },
   };
 });
