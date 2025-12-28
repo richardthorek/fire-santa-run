@@ -147,8 +147,9 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
       // Build list of valid audiences
       // The token audience can be either the client ID or api://{clientId}
       // jwt.verify expects audience as a string or a tuple [string, ...string[]]
-      const validAudiences = ENTRA_CLIENT_ID 
-        ? [ENTRA_CLIENT_ID, `api://${ENTRA_CLIENT_ID}`] as [string, string]
+      // We construct a tuple with exactly 2 elements for both valid audience formats
+      const validAudiences: [string, string] | undefined = ENTRA_CLIENT_ID 
+        ? [ENTRA_CLIENT_ID, `api://${ENTRA_CLIENT_ID}`]
         : undefined;
 
       jwt.verify(
