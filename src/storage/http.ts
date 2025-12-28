@@ -60,14 +60,34 @@ async function getAccessToken(): Promise<string | null> {
     console.log('[HTTP] Token acquired successfully. Audience:', (response as any).idTokenClaims?.aud);
     return response.accessToken;
   } catch (error) {
-    console.error('[HTTP] Failed to acquire access token for API request:', error);
-    // If silent token acquisition fails, we might need to trigger interactive login
-    if (error instanceof Error) {
-      console.error('[HTTP] Error details:', {
-        name: error.name,
-        message: error.message,
+    console.warn('[HTTP] Failed to acquire access token for API request (silent):', (error as any)?.message || error);
+    // If interaction is required, try an interactive popup to allow consent/login
+    try {
+      // Some MSAL errors indicate user interaction is required
+      // Try acquireTokenPopup to prompt the user for consent to the API scope
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((error as any) && ((error as any).name === 'InteractionRequiredAuthError' || (error as any)?.errorCode === 'interaction_required')) {
+        try {
+          const popupResponse = await msalInstance.acquireTokenPopup({ ...tokenRequest, account });
+          console.info('[HTTP] Acquired token via popup for API request');
+          return popupResponse.accessToken;
+        } catch (popupErr) {
+          console.warn('[HTTP] acquireTokenPopup failed or was blocked:', (popupErr as any)?.message || popupErr);
+          return null;
+        }
+      }
+
+      // If not interaction-required, log details for diagnosis
+      console.debug('[HTTP] MSAL error details:', {
+        name: (error as any)?.name,
+        errorCode: (error as any)?.errorCode,
+        subError: (error as any)?.subError,
+        message: (error as any)?.message,
       });
+    } catch (e) {
+      console.warn('[HTTP] Error handling token acquisition failure:', e);
     }
+
     return null;
   }
 }
