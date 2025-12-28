@@ -106,11 +106,51 @@ jobs:
 
 ## Action Plan
 
-1. **Create new combined CI workflow** that merges accessibility and test-coverage
-2. **Remove redundant workflows** (accessibility.yml, test-coverage.yml)
-3. **Optionally add dependency** from deployment to CI (needs: [quality-checks])
-4. **Standardize Node.js version** to 22.x everywhere
-5. **Update .gitignore** to exclude TypeScript build artifacts
+1. ✅ **Create new combined CI workflow** that merges accessibility and test-coverage
+2. ✅ **Remove redundant workflows** (accessibility.yml, test-coverage.yml)
+3. ⏭️ **Optionally add dependency** from deployment to CI (requires workflow_run trigger, not implemented)
+4. ✅ **Standardize Node.js version** to 22.x everywhere
+5. ✅ **Update .gitignore** to exclude TypeScript build artifacts
+
+## Implementation Summary
+
+### Changes Made
+1. **Created `.github/workflows/ci.yml`**: Consolidated quality checks workflow
+   - Runs linting, tests with coverage, and builds (frontend + API)
+   - Single dependency installation
+   - Single test execution
+   - Single coverage report upload
+   - Consistent Node.js 22.x
+
+2. **Removed `.github/workflows/accessibility.yml`**: Redundant with CI workflow
+   - Accessibility tests are included in the main test suite (`npm run test:coverage`)
+   - No separate workflow needed
+
+3. **Removed `.github/workflows/test-coverage.yml`**: Redundant with CI workflow
+   - Coverage reporting now handled by CI workflow
+   - No duplicate test runs
+
+4. **Updated `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml`**:
+   - Added comment noting CI workflow handles quality checks
+   - Focuses solely on deployment
+
+5. **Fixed API build error**: 
+   - Created `api/src/types/membership.ts` to avoid cross-boundary imports
+   - Updated `.gitignore` to exclude TypeScript build artifacts
+
+### Result
+- **Before**: 3 workflows with significant overlap (duplicate test runs, dependency installs)
+- **After**: 2 workflows with clear separation of concerns
+  - `ci.yml`: Quality checks (lint, test, build validation)
+  - `azure-static-web-apps-*.yml`: Deployment to Azure
+
+### Benefits
+- ✅ Faster CI runs (no redundant operations)
+- ✅ Reduced complexity (fewer workflows to maintain)
+- ✅ Single source of truth for test results
+- ✅ Consistent Node.js version (22.x)
+- ✅ Clear separation: quality vs. deployment
+- ✅ Easier to understand what failed and why
 
 ## Migration Notes
 
