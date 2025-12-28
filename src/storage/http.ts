@@ -36,8 +36,8 @@ async function getAccessToken(): Promise<string | null> {
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const msalInstance = (window as any).__msalInstance as PublicClientApplication | undefined;
+  const msalWindow = window as unknown as { __msalInstance?: PublicClientApplication };
+  const msalInstance = msalWindow.__msalInstance;
   if (!msalInstance) {
     console.error('[HTTP] getAccessToken: MSAL instance not found on window');
     return null;
@@ -55,34 +55,48 @@ async function getAccessToken(): Promise<string | null> {
       ...tokenRequest,
       account,
     });
-    // Type assertion needed as idTokenClaims is not in the public API type
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    console.log('[HTTP] Token acquired successfully. Audience:', (response as any).idTokenClaims?.aud);
+    // `idTokenClaims` may be present on the response; safely access without using `any`
+    const idTokenClaims = (response as unknown as { idTokenClaims?: Record<string, unknown> }).idTokenClaims;
+    console.log('[HTTP] Token acquired successfully. Audience:', idTokenClaims?.aud);
     return response.accessToken;
   } catch (error) {
-    console.warn('[HTTP] Failed to acquire access token for API request (silent):', (error as any)?.message || error);
+    // Normalize error information without using `any`
+    const errObj = error as unknown;
+    let errMessage = '';
+    if (errObj instanceof Error) {
+      errMessage = errObj.message;
+    } else if (typeof errObj === 'object' && errObj !== null) {
+      errMessage = String((errObj as Record<string, unknown>)['message'] ?? '');
+    } else {
+      errMessage = String(errObj);
+    }
+
+    console.warn('[HTTP] Failed to acquire access token for API request (silent):', errMessage);
+
     // If interaction is required, try an interactive popup to allow consent/login
     try {
-      // Some MSAL errors indicate user interaction is required
-      // Try acquireTokenPopup to prompt the user for consent to the API scope
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((error as any) && ((error as any).name === 'InteractionRequiredAuthError' || (error as any)?.errorCode === 'interaction_required')) {
+      const errRecord = (errObj as Record<string, unknown> | null);
+      const isInteractionRequired = (errObj instanceof Error && errObj.name === 'InteractionRequiredAuthError')
+        || (errRecord && String(errRecord['errorCode']) === 'interaction_required');
+
+      if (isInteractionRequired) {
         try {
           const popupResponse = await msalInstance.acquireTokenPopup({ ...tokenRequest, account });
           console.info('[HTTP] Acquired token via popup for API request');
           return popupResponse.accessToken;
         } catch (popupErr) {
-          console.warn('[HTTP] acquireTokenPopup failed or was blocked:', (popupErr as any)?.message || popupErr);
+          const popupMsg = popupErr instanceof Error ? popupErr.message : String(popupErr);
+          console.warn('[HTTP] acquireTokenPopup failed or was blocked:', popupMsg);
           return null;
         }
       }
 
       // If not interaction-required, log details for diagnosis
       console.debug('[HTTP] MSAL error details:', {
-        name: (error as any)?.name,
-        errorCode: (error as any)?.errorCode,
-        subError: (error as any)?.subError,
-        message: (error as any)?.message,
+        name: errObj instanceof Error ? errObj.name : String((errRecord && errRecord['name']) ?? ''),
+        errorCode: errRecord ? String(errRecord['errorCode'] ?? '') : '',
+        subError: errRecord ? String(errRecord['subError'] ?? '') : '',
+        message: errMessage,
       });
     } catch (e) {
       console.warn('[HTTP] Error handling token acquisition failure:', e);

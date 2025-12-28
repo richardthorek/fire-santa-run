@@ -219,10 +219,10 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
   } catch (error: unknown) {
     // Token validation failed
     let errorMessage = 'Invalid or expired token';
-    const decoded = jwt.decode(token) as jwt.JwtPayload | null;
+    const decoded = jwt.decode(token) as DecodedToken | null;
     const iss = decoded?.iss;
     const aud = decoded?.aud;
-    const tid = (decoded as any)?.tid;
+    const tid = decoded?.tid;
     
     if (error instanceof Error) {
       if (error.name === 'TokenExpiredError') {
