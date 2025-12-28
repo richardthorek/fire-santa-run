@@ -180,33 +180,53 @@ export const msalConfig: Configuration = {
  * 
  * These scopes define what permissions the application requests from the user.
  * They should match the permissions configured in Azure App Registration.
+ * 
+ * IMPORTANT: To access the Fire Santa Run API, we need to request a token for
+ * the API resource. The default Graph scopes (User.Read) will return a Graph-audience
+ * token which the API cannot validate. We use the .default scope to request all
+ * permissions the app has been granted for the API resource.
  */
 const domainHint = import.meta.env.VITE_ENTRA_DOMAIN_HINT;
+const clientId = import.meta.env.VITE_ENTRA_CLIENT_ID || '';
+
+/**
+ * Get the API scope for the Fire Santa Run API.
+ * Format: api://{clientId}/.default
+ * This requests a token with the app's client ID as the audience.
+ */
+function getApiScope(): string {
+  return `api://${clientId}/.default`;
+}
 
 export const loginRequest: RedirectRequest = {
   scopes: [
     'openid',      // Required for authentication
     'profile',     // Access to user's profile info (name, etc.)
     'email',       // Access to user's email address
-    'User.Read',   // Microsoft Graph API - read user profile
   ],
   prompt: 'select_account',        // Allow account picker (better for iOS/multi-account)
   ...(domainHint ? { domainHint } : {}),
 };
 
 /**
- * Scopes for silent token acquisition
+ * Scopes for silent token acquisition for Graph API calls.
+ * Use this for acquiring tokens to call Microsoft Graph API.
+ */
+export const graphTokenRequest: TokenRequestShape = {
+  scopes: [
+    'User.Read',   // Microsoft Graph API - read user profile
+  ],
+  forceRefresh: false,
+};
+
+/**
+ * Scopes for silent token acquisition for Fire Santa Run API calls.
+ * Use this for acquiring tokens to call the backend API.
  * 
  * These scopes are used when silently refreshing tokens without user interaction.
- * Should be a subset of loginRequest scopes.
  */
 export const tokenRequest: TokenRequestShape = {
-  scopes: [
-    'openid',
-    'profile',
-    'email',
-    'User.Read',
-  ],
+  scopes: clientId ? [getApiScope()] : ['openid', 'profile', 'email'],
   // Force refresh to get a new token (useful for debugging)
   forceRefresh: false,
 };
@@ -226,7 +246,7 @@ export const protectedResources = {
   // Fire Santa Run API (Azure Functions)
   api: {
     endpoint: '/api',
-    scopes: [], // Custom API scopes if needed
+    scopes: clientId ? [getApiScope()] : [],
   },
 };
 

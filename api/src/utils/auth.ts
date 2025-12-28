@@ -144,16 +144,23 @@ export async function validateToken(request: HttpRequest): Promise<AuthResult> {
   try {
     // Verify and decode token
     const decoded = await new Promise<DecodedToken>((resolve, reject) => {
+      // Build list of valid audiences
+      // The token audience can be either the client ID or api://{clientId}
+      // jwt.verify expects audience as a string or a tuple [string, ...string[]]
+      const validAudiences = ENTRA_CLIENT_ID 
+        ? [ENTRA_CLIENT_ID, `api://${ENTRA_CLIENT_ID}`] as [string, string]
+        : undefined;
+
       jwt.verify(
         token,
         getKey,
         {
           // When client ID is missing (local misconfig), skip audience check but still verify signature/issuer.
-          ...(ENTRA_CLIENT_ID ? { audience: ENTRA_CLIENT_ID } : {}),
+          ...(validAudiences ? { audience: validAudiences } : {}),
           issuer: `${ENTRA_AUTHORITY}/v2.0`,
           algorithms: ['RS256'],
         },
-        (err, decoded) => {
+        (err: jwt.VerifyErrors | null, decoded: unknown) => {
           if (err) {
             reject(err);
           } else {
