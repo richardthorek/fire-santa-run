@@ -22,7 +22,6 @@ name: CI/CD Pipeline
 # Optional GitHub Secrets (for production features):
 #   - VITE_AZURE_STORAGE_CONNECTION_STRING: Azure Table Storage connection string
 #   - AZURE_WEBPUBSUB_CONNECTION_STRING: Azure Web PubSub connection string
-#   - CODECOV_TOKEN: Codecov token for coverage reporting
 #
 # Note: Dependabot PRs will skip deployment as they cannot access environment secrets
 
@@ -66,15 +65,6 @@ jobs:
           # Required for tests that may reference these
           VITE_DEV_MODE: 'true'
           VITE_MAPBOX_TOKEN: 'test-token'
-          
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
-        if: always()
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-          flags: unittests
           
       - name: Comment coverage on PR
         if: github.event_name == 'pull_request'
