@@ -38,6 +38,8 @@ export default defineConfig(( env: ConfigEnv ): UserConfig => {
         },
       },
       // Set chunk size warning limit to 500KB (as per requirements)
+      // Note: This is acceptable for modern web apps with mapping libraries
+      // Mapbox GL alone is ~450KB gzipped. Target is to keep all OTHER chunks under 200KB
       chunkSizeWarningLimit: 500,
       // Enable module preloading for faster navigation
       modulePreload: {
@@ -47,7 +49,8 @@ export default defineConfig(( env: ConfigEnv ): UserConfig => {
       minify: 'terser',
       terserOptions: {
         compress: {
-          drop_console: true,
+          // Only drop console logs in production builds
+          drop_console: !isDev,
           drop_debugger: true,
         },
       },

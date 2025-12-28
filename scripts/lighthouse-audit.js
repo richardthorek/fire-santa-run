@@ -14,9 +14,10 @@
  */
 
 import { exec } from 'child_process';
+import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { join, resolve, normalize } from 'path';
 
 const execAsync = promisify(exec);
 
@@ -77,12 +78,16 @@ async function runLighthouse() {
       throw new Error('Invalid URL format');
     }
     
-    // Sanitize output path (remove any shell metacharacters)
-    const sanitizedOutputPath = OUTPUT_PATH.replace(/[^a-zA-Z0-9\/_-]/g, '');
+    // Sanitize output path using Node.js path utilities
+    const sanitizedOutputPath = resolve(normalize(OUTPUT_PATH));
+    
+    // Ensure output path is within expected directory
+    const outputDir = resolve(OUTPUT_DIR);
+    if (!sanitizedOutputPath.startsWith(outputDir)) {
+      throw new Error('Output path must be within the output directory');
+    }
     
     // Run Lighthouse with proper escaping
-    const { spawn } = await import('child_process');
-    
     return new Promise((resolve, reject) => {
       const lighthouse = spawn('npx', [
         'lighthouse',
@@ -108,67 +113,77 @@ async function runLighthouse() {
     }).then(() => {
       // Read and parse the JSON report
       const reportPath = `${sanitizedOutputPath}.report.json`;
-      const report = JSON.parse(readFileSync(reportPath, 'utf-8'));
-
-      // Display results
-      console.log(colorize('📊 Lighthouse Scores:', 'bold'));
-      console.log('─'.repeat(50));
-
-      const categories = report.categories;
-      let allPassed = true;
-
-      for (const [key, target] of Object.entries(PERFORMANCE_TARGETS)) {
-        const category = categories[key];
-        const score = Math.round(category.score * 100);
-        const passed = score >= target;
-        const status = passed ? colorize('✓', 'green') : colorize('✗', 'red');
-        console.log(`${status} ${category.title}: ${formatScore(category.score)} (target: ${target})`);
-        
-        if (!passed) allPassed = false;
-      }
-
-      // Display key metrics
-      console.log('\n' + colorize('⏱️  Performance Metrics:', 'bold'));
-      console.log('─'.repeat(50));
-
-      const audits = report.audits;
-      const metrics = {
-        'First Contentful Paint': audits['first-contentful-paint'],
-        'Largest Contentful Paint': audits['largest-contentful-paint'],
-        'Time to Interactive': audits['interactive'],
-        'Total Blocking Time': audits['total-blocking-time'],
-        'Cumulative Layout Shift': audits['cumulative-layout-shift'],
-        'Speed Index': audits['speed-index'],
-      };
-
-      for (const [name, audit] of Object.entries(metrics)) {
-        console.log(`  ${name}: ${audit.displayValue}`);
-      }
-
-      // Display bundle sizes
-      console.log('\n' + colorize('📦 Bundle Size Analysis:', 'bold'));
-      console.log('─'.repeat(50));
       
-      // Note: This would require parsing the build output or using a separate tool
-      console.log('  See build output for detailed bundle sizes');
-      console.log('  Main chunk should be < 500KB (documented exception for Mapbox: ~450KB gzipped)');
-
-      // Final summary
-      console.log('\n' + colorize('Summary:', 'bold'));
-      console.log('─'.repeat(50));
-      
-      if (allPassed) {
-        console.log(colorize('✅ All performance targets met!', 'green'));
-        console.log(`\nHTML Report: ${sanitizedOutputPath}.report.html`);
-        return 0;
-      } else {
-        console.log(colorize('⚠️  Some performance targets not met', 'yellow'));
-        console.log(`\nFor detailed analysis, see: ${sanitizedOutputPath}.report.html`);
+      try {
+        const reportContent = readFileSync(reportPath, 'utf-8');
+        const report = JSON.parse(reportContent);
         
-        // Don't fail the build for now - this is informational
-        // In the future, you might want to fail CI on performance regression
-        console.log(colorize('\nNote: Performance score < 90 is acceptable for CSR React apps with large mapping libraries', 'yellow'));
-        return 0;
+        if (!report.categories || !report.audits) {
+          throw new Error('Invalid Lighthouse report format');
+        }
+
+        // Display results
+        console.log(colorize('📊 Lighthouse Scores:', 'bold'));
+        console.log('─'.repeat(50));
+
+        const categories = report.categories;
+        let allPassed = true;
+
+        for (const [key, target] of Object.entries(PERFORMANCE_TARGETS)) {
+          const category = categories[key];
+          const score = Math.round(category.score * 100);
+          const passed = score >= target;
+          const status = passed ? colorize('✓', 'green') : colorize('✗', 'red');
+          console.log(`${status} ${category.title}: ${formatScore(category.score)} (target: ${target})`);
+          
+          if (!passed) allPassed = false;
+        }
+
+        // Display key metrics
+        console.log('\n' + colorize('⏱️  Performance Metrics:', 'bold'));
+        console.log('─'.repeat(50));
+
+        const audits = report.audits;
+        const metrics = {
+          'First Contentful Paint': audits['first-contentful-paint'],
+          'Largest Contentful Paint': audits['largest-contentful-paint'],
+          'Time to Interactive': audits['interactive'],
+          'Total Blocking Time': audits['total-blocking-time'],
+          'Cumulative Layout Shift': audits['cumulative-layout-shift'],
+          'Speed Index': audits['speed-index'],
+        };
+
+        for (const [name, audit] of Object.entries(metrics)) {
+          console.log(`  ${name}: ${audit.displayValue}`);
+        }
+
+        // Display bundle sizes
+        console.log('\n' + colorize('📦 Bundle Size Analysis:', 'bold'));
+        console.log('─'.repeat(50));
+        
+        // Note: This would require parsing the build output or using a separate tool
+        console.log('  See build output for detailed bundle sizes');
+        console.log('  Main chunk should be < 500KB (documented exception for Mapbox: ~450KB gzipped)');
+
+        // Final summary
+        console.log('\n' + colorize('Summary:', 'bold'));
+        console.log('─'.repeat(50));
+        
+        if (allPassed) {
+          console.log(colorize('✅ All performance targets met!', 'green'));
+          console.log(`\nHTML Report: ${sanitizedOutputPath}.report.html`);
+          return 0;
+        } else {
+          console.log(colorize('⚠️  Some performance targets not met', 'yellow'));
+          console.log(`\nFor detailed analysis, see: ${sanitizedOutputPath}.report.html`);
+          
+          // Don't fail the build for now - this is informational
+          // In the future, you might want to fail CI on performance regression
+          console.log(colorize('\nNote: Performance score < 90 is acceptable for CSR React apps with large mapping libraries', 'yellow'));
+          return 0;
+        }
+      } catch (fileError) {
+        throw new Error(`Failed to read or parse Lighthouse report: ${fileError.message}`);
       }
     });
 
