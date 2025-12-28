@@ -2,6 +2,9 @@ name: Azure Static Web Apps CI/CD
 
 # This workflow builds and deploys the Fire Santa Run application to Azure Static Web Apps
 #
+# Note: Quality checks (linting, testing, coverage) are handled by the CI workflow (ci.yml)
+# This workflow focuses solely on building and deploying to Azure.
+#
 # Build Process:
 # - Frontend: Built by Azure Static Web Apps' Oryx (Vite + React + TypeScript)
 # - API: Built by Oryx using api_build_command (Azure Functions v4 + Node.js + TypeScript)
