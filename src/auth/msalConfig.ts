@@ -229,6 +229,11 @@ export const graphTokenRequest: TokenRequestShape = {
  * Use this for acquiring tokens to call the backend API.
  * 
  * These scopes are used when silently refreshing tokens without user interaction.
+ * 
+ * IMPORTANT: When clientId is not configured (dev mode or misconfiguration):
+ * - Falls back to basic OIDC scopes (openid, profile, email)
+ * - This prevents authentication errors during development
+ * - Production mode (VITE_DEV_MODE=false) should always have clientId configured
  */
 export const tokenRequest: TokenRequestShape = {
   scopes: clientId ? [getApiScope()] : ['openid', 'profile', 'email'],
@@ -240,6 +245,11 @@ export const tokenRequest: TokenRequestShape = {
  * Protected resource endpoints
  * 
  * Define API endpoints and their required scopes for easy reference.
+ * 
+ * IMPORTANT: When clientId is not configured:
+ * - api.scopes will be an empty array
+ * - This is intentional for dev mode compatibility
+ * - Production mode should always have clientId configured
  */
 export const protectedResources = {
   // Microsoft Graph API

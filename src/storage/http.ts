@@ -6,53 +6,68 @@ import type { MemberInvitation } from '../types/invitation';
 import type { AdminVerificationRequest } from '../types/verification';
 import type { PublicClientApplication } from '@azure/msal-browser';
 import { tokenRequest } from '../auth/msalConfig';
-import { InteractionRequiredAuthError } from '@azure/msal-browser';
 
 // Access token helper for API calls in production mode.
 async function getAccessToken(): Promise<string | null> {
-  if (typeof window === 'undefined') return null;
+  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+  const clientId = import.meta.env.VITE_ENTRA_CLIENT_ID;
+  
+  // In dev mode, authentication should be bypassed by the backend
+  // So we don't need to attach tokens
+  if (isDevMode) {
+    console.log('[HTTP] Dev mode enabled. No token required for API calls.');
+    return null;
+  }
+  
+  // In production mode, we need a client ID to be configured
+  if (!clientId) {
+    console.error(
+      '[HTTP] Production mode detected (VITE_DEV_MODE=false or not set) but VITE_ENTRA_CLIENT_ID is not configured.\n' +
+      'To fix this:\n' +
+      '1. For local development: Create .env.local and set VITE_DEV_MODE=true\n' +
+      '2. For production testing: Set VITE_ENTRA_CLIENT_ID and other Entra variables in .env.local\n' +
+      'See .env.example for configuration template.'
+    );
+    return null;
+  }
+
+  if (typeof window === 'undefined') {
+    console.warn('[HTTP] getAccessToken: Not in browser environment');
+    return null;
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const msalInstance = (window as any).__msalInstance as PublicClientApplication | undefined;
-  if (!msalInstance) return null;
+  if (!msalInstance) {
+    console.error('[HTTP] getAccessToken: MSAL instance not found on window');
+    return null;
+  }
 
   const account = msalInstance.getActiveAccount();
-  if (!account) return null;
+  if (!account) {
+    console.error('[HTTP] getAccessToken: No active account found. User may not be logged in.');
+    return null;
+  }
 
   try {
+    console.log('[HTTP] Attempting to acquire token with scopes:', tokenRequest.scopes);
     const response = await msalInstance.acquireTokenSilent({
       ...tokenRequest,
       account,
     });
+    // Type assertion needed as idTokenClaims is not in the public API type
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    console.log('[HTTP] Token acquired successfully. Audience:', (response as any).idTokenClaims?.aud);
     return response.accessToken;
   } catch (error) {
-    console.warn('[HTTP] Failed to acquire access token for API request (silent):', error?.message || error);
-    // If interaction is required, try an interactive popup to allow consent/login
-    try {
-      // Some MSAL errors indicate user interaction is required
-      // Try acquireTokenPopup to prompt the user for consent to the API scope
-      if (error instanceof InteractionRequiredAuthError || (error as any)?.errorCode === 'interaction_required') {
-        try {
-          const popupResponse = await msalInstance.acquireTokenPopup({ ...tokenRequest, account });
-          console.info('[HTTP] Acquired token via popup for API request');
-          return popupResponse.accessToken;
-        } catch (popupErr) {
-          console.warn('[HTTP] acquireTokenPopup failed or was blocked:', (popupErr as any)?.message || popupErr);
-          return null;
-        }
-      }
-
-      // If not interaction-required, log details for diagnosis
-      console.debug('[HTTP] MSAL error details:', {
-        name: (error as any)?.name,
-        errorCode: (error as any)?.errorCode,
-        subError: (error as any)?.subError,
-        message: (error as any)?.message,
+    console.error('[HTTP] Failed to acquire access token for API request:', error);
+    // If silent token acquisition fails, we might need to trigger interactive login
+    if (error instanceof Error) {
+      console.error('[HTTP] Error details:', {
+        name: error.name,
+        message: error.message,
       });
-    } catch (e) {
-      console.warn('[HTTP] Error handling token acquisition failure:', e);
     }
-
     return null;
   }
 }
@@ -83,7 +98,21 @@ export class HttpStorageAdapter implements IStorageAdapter {
   }
 
   private async getAuthHeaders(): Promise<HeadersInit> {
+    const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
     const token = await getAccessToken();
+    
+    // In production mode, if we can't get a token, this is a critical error
+    if (!token && !isDevMode) {
+      throw new Error(
+        'Cannot make authenticated API request: No access token available.\n' +
+        'This usually means:\n' +
+        '1. User is not logged in (check AuthContext.isAuthenticated)\n' +
+        '2. Token acquisition failed (check browser console for MSAL errors)\n' +
+        '3. MSAL configuration is incorrect\n\n' +
+        'Please log in and try again.'
+      );
+    }
+    
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
