@@ -1335,6 +1335,7 @@ interface Brigade {
   slug: string;                      // URL-friendly identifier (e.g., "griffith-rfs")
   name: string;                      // Official brigade name (e.g., "Griffith Rural Fire Service")
   location: string;                  // Location (e.g., "Griffith, NSW")
+  stationCoordinates?: [number, number]; // Station location [longitude, latitude] for map display
   rfsStationId?: number;             // Reference to RFS dataset station (for verification)
   logo?: string;                     // URL or base64 encoded logo
   themeColor?: string;               // Custom theme color (hex)

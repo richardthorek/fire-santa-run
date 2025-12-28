@@ -1,12 +1,14 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context';
+import { useAuth, useBrigade } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
 import { MapView, WaypointList, AddressSearch } from '../components';
 import { createNewRoute, generateShareableLink, canPublishRoute } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
+import { getDefaultMapCenter } from '../utils/mapCenter';
+import { DEFAULT_CENTER } from '../config/mapbox';
 import type { Route, Waypoint } from '../types';
 
 export interface RouteEditorProps {
@@ -17,6 +19,7 @@ export interface RouteEditorProps {
 export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { brigade } = useBrigade();
   const { saveRoute, getRoute } = useRoutes();
   const [initialRoute, setInitialRoute] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(routeId ? true : false);
@@ -26,6 +29,42 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   const [editingWaypoint, setEditingWaypoint] = useState<Waypoint | null>(null);
   const [waypointForm, setWaypointForm] = useState({ name: '', notes: '' });
   const [autoZoom, setAutoZoom] = useState(true);
+  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
+  const [mapZoom, setMapZoom] = useState(5); // Default Australia-wide zoom
+
+  // Determine default map center and zoom level
+  useEffect(() => {
+    let mounted = true;
+    getDefaultMapCenter(brigade).then(center => {
+      if (mounted) {
+        setMapCenter(center);
+        
+        // Set appropriate zoom based on which center is being used
+        if (brigade?.stationCoordinates) {
+          // Brigade station - close zoom
+          setMapZoom(13);
+        } else if (center[0] !== DEFAULT_CENTER[0] || center[1] !== DEFAULT_CENTER[1]) {
+          // User location was used - medium zoom for local area
+          setMapZoom(12);
+        } else {
+          // Australia fallback - wide zoom
+          setMapZoom(5);
+        }
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [brigade]);
+
+  // Memoize brigade station info to avoid recreating object on every render
+  const brigadeStation = useMemo(() => {
+    if (!brigade?.stationCoordinates) return undefined;
+    return {
+      coordinates: brigade.stationCoordinates,
+      name: brigade.name,
+    };
+  }, [brigade?.stationCoordinates, brigade?.name]);
 
   // Load existing route for edit mode
   useEffect(() => {
@@ -148,9 +187,12 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           waypoints={route.waypoints}
           routeGeometry={route.geometry}
           onMapClick={handleMapClick}
+          center={mapCenter}
+          zoom={mapZoom}
           height="100%"
           autoZoom={autoZoom}
           fitBoundsPadding={MAP_LAYOUT.fitBoundsPadding.withSidebar}
+          brigadeStation={brigadeStation}
         />
       </div>
 

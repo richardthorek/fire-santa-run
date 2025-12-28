@@ -1,8 +1,11 @@
 export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbGV4YW1wbGUifQ.example';
 
-// Default center for Australia (roughly central NSW)
-export const DEFAULT_CENTER: [number, number] = [146.9161, -33.8688]; // Griffith, NSW
-export const DEFAULT_ZOOM = 10;
+// Default center for Australia (central Australia for fallback when no other location available)
+export const DEFAULT_CENTER: [number, number] = [133.7751, -25.2744]; // Central Australia
+
+// Zoom levels for different map contexts
+export const DEFAULT_ZOOM = 13; // General default zoom for typical map views (street level)
+export const AUSTRALIA_FALLBACK_ZOOM = 5; // Wider zoom to show more of Australia when using national fallback
 
 // Mapbox configuration options
 // Note: collectResourceTiming is set to false in all map initializations

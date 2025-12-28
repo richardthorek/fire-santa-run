@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map Center Test - Fire Santa Run</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%);
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 2rem;
+    }
+
+    .test-section {
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background: #f5f5f5;
+      border-radius: 12px;
+      border-left: 4px solid #D32F2F;
+    }
+
+    .test-section h2 {
+      color: #D32F2F;
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+    }
+
+    .test-info {
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+
+    .test-info p {
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    .test-info strong {
+      color: #D32F2F;
+    }
+
+    .test-result {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.875rem;
+      margin-left: 0.5rem;
+    }
+
+    .result-success {
+      background: #E8F5E9;
+      color: #43A047;
+    }
+
+    .result-info {
+      background: #E3F2FD;
+      color: #1976D2;
+    }
+
+    .result-warning {
+      background: #FFF3E0;
+      color: #F57C00;
+    }
+
+    button {
+      background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-right: 1rem;
+      margin-bottom: 1rem;
+      transition: transform 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .code-block {
+      background: #2b2b2b;
+      color: #f8f8f2;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.875rem;
+    }
+
+    .legend {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: #E8F5E9;
+      border-radius: 12px;
+    }
+
+    .legend h3 {
+      color: #43A047;
+      margin-bottom: 1rem;
+    }
+
+    .legend ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .legend li {
+      margin-bottom: 0.5rem;
+      padding-left: 1.5rem;
+      position: relative;
+    }
+
+    .legend li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #43A047;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🗺️ Map Center Test</h1>
+      <p>Testing default map location logic for Fire Santa Run</p>
+    </div>
+
+    <div class="content">
+      <!-- Test 1: Brigade Station -->
+      <div class="test-section">
+        <h2>Test 1: Brigade with Station Coordinates</h2>
+        <p>When a brigade has stationCoordinates defined, the map should center on the brigade station.</p>
+        <button onclick="testBrigadeStation()">Run Test</button>
+        <div id="test1-result" class="test-info" style="display:none;"></div>
+      </div>
+
+      <!-- Test 2: User Location -->
+      <div class="test-section">
+        <h2>Test 2: No Brigade (User Location)</h2>
+        <p>When no brigade is active, the map should attempt to get user's current location.</p>
+        <button onclick="testUserLocation()">Run Test (Requires Location Permission)</button>
+        <div id="test2-result" class="test-info" style="display:none;"></div>
+      </div>
+
+      <!-- Test 3: Australia Fallback -->
+      <div class="test-section">
+        <h2>Test 3: Fallback to Australia Center</h2>
+        <p>When no brigade and no user location, the map should default to central Australia.</p>
+        <button onclick="testAustraliaFallback()">Run Test</button>
+        <div id="test3-result" class="test-info" style="display:none;"></div>
+      </div>
+
+      <!-- Implementation Details -->
+      <div class="legend">
+        <h3>Implementation Details</h3>
+        <ul>
+          <li>Brigade interface updated with optional <code>stationCoordinates?: [number, number]</code></li>
+          <li>New utility function <code>getDefaultMapCenter(brigade)</code> implements priority logic</li>
+          <li>MapView component displays brigade station with 🚒 icon and brigade name</li>
+          <li>RouteEditor uses brigade context to determine map center</li>
+          <li>Default zoom: 13 for brigade station, 5 for Australia-wide view</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Mock Brigade Data
+    const mockBrigadeWithStation = {
+      id: 'dev-brigade-1',
+      name: 'Griffith Rural Fire Brigade',
+      location: 'Griffith, NSW',
+      stationCoordinates: [146.0391, -34.2908]
+    };
+
+    const mockBrigadeWithoutStation = {
+      id: 'dev-brigade-2',
+      name: 'Test Brigade',
+      location: 'Test Location, NSW'
+    };
+
+    // Default center (Central Australia)
+    const AUSTRALIA_CENTER = [133.7751, -25.2744];
+
+    // Test Functions
+    async function testBrigadeStation() {
+      const resultDiv = document.getElementById('test1-result');
+      resultDiv.style.display = 'block';
+      
+      const brigade = mockBrigadeWithStation;
+      const center = await getDefaultMapCenter(brigade);
+      
+      const matches = center[0] === brigade.stationCoordinates[0] && 
+                      center[1] === brigade.stationCoordinates[1];
+      
+      resultDiv.innerHTML = `
+        <p><strong>Brigade:</strong> ${brigade.name}</p>
+        <p><strong>Expected Center:</strong> ${JSON.stringify(brigade.stationCoordinates)}</p>
+        <p><strong>Actual Center:</strong> ${JSON.stringify(center)} 
+          <span class="test-result ${matches ? 'result-success' : 'result-warning'}">
+            ${matches ? '✓ PASS' : '✗ FAIL'}
+          </span>
+        </p>
+      `;
+    }
+
+    async function testUserLocation() {
+      const resultDiv = document.getElementById('test2-result');
+      resultDiv.style.display = 'block';
+      
+      resultDiv.innerHTML = '<p>Requesting location permission...</p>';
+      
+      const brigade = null; // No brigade
+      const center = await getDefaultMapCenter(brigade);
+      
+      const isUserLocation = center[0] !== AUSTRALIA_CENTER[0] && 
+                             center[1] !== AUSTRALIA_CENTER[1];
+      
+      resultDiv.innerHTML = `
+        <p><strong>Brigade:</strong> None (null)</p>
+        <p><strong>User Location Center:</strong> ${JSON.stringify(center)} 
+          <span class="test-result ${isUserLocation ? 'result-success' : 'result-info'}">
+            ${isUserLocation ? '✓ Got User Location' : 'ℹ Used Fallback'}
+          </span>
+        </p>
+        <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
+          ${isUserLocation ? 
+            'User granted location permission. Map will center on their location.' : 
+            'User denied location or geolocation unavailable. Map fell back to Australia center.'}
+        </p>
+      `;
+    }
+
+    async function testAustraliaFallback() {
+      const resultDiv = document.getElementById('test3-result');
+      resultDiv.style.display = 'block';
+      
+      // Simulate denied geolocation by using a brigade without coordinates
+      const brigade = mockBrigadeWithoutStation;
+      const center = await getDefaultMapCenterWithoutGeolocation(brigade);
+      
+      const matches = center[0] === AUSTRALIA_CENTER[0] && 
+                      center[1] === AUSTRALIA_CENTER[1];
+      
+      resultDiv.innerHTML = `
+        <p><strong>Brigade:</strong> ${brigade.name} (no station coordinates)</p>
+        <p><strong>Geolocation:</strong> Simulated denial</p>
+        <p><strong>Expected Center:</strong> ${JSON.stringify(AUSTRALIA_CENTER)}</p>
+        <p><strong>Actual Center:</strong> ${JSON.stringify(center)} 
+          <span class="test-result ${matches ? 'result-success' : 'result-warning'}">
+            ${matches ? '✓ PASS' : '✗ FAIL'}
+          </span>
+        </p>
+      `;
+    }
+
+    // Utility Functions (Simplified versions from mapCenter.ts)
+    async function getUserLocation() {
+      if (!navigator.geolocation) {
+        return null;
+      }
+
+      return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve([position.coords.longitude, position.coords.latitude]);
+          },
+          (error) => {
+            console.warn('Geolocation denied or failed:', error.message);
+            resolve(null);
+          },
+          {
+            timeout: 5000,
+            maximumAge: 300000
+          }
+        );
+      });
+    }
+
+    async function getDefaultMapCenter(brigade) {
+      // Priority 1: Brigade station coordinates
+      if (brigade?.stationCoordinates) {
+        return brigade.stationCoordinates;
+      }
+
+      // Priority 2: User's current location
+      try {
+        const userLocation = await getUserLocation();
+        if (userLocation) {
+          return userLocation;
+        }
+      } catch (error) {
+        console.warn('Failed to get user location:', error);
+      }
+
+      // Priority 3: Default to Australia center
+      return AUSTRALIA_CENTER;
+    }
+
+    async function getDefaultMapCenterWithoutGeolocation(brigade) {
+      // Simulate geolocation failure
+      if (brigade?.stationCoordinates) {
+        return brigade.stationCoordinates;
+      }
+      return AUSTRALIA_CENTER;
+    }
+  </script>
+</body>
+</html>

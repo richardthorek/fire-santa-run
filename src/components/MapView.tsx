@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { MAPBOX_CONFIG } from '../config/mapbox';
+import { MAPBOX_CONFIG, DEFAULT_CENTER } from '../config/mapbox';
 import type { Waypoint } from '../types';
 
 // Import Mapbox token from config
@@ -23,6 +23,10 @@ export interface MapViewProps {
   className?: string;
   autoZoom?: boolean;
   fitBoundsPadding?: number | mapboxgl.PaddingOptions;
+  brigadeStation?: {
+    coordinates: [number, number];
+    name: string;
+  };
 }
 
 /**
@@ -32,7 +36,7 @@ export function MapView({
   waypoints = [],
   routeGeometry,
   onMapClick,
-  center = [146.0391, -34.2908], // Default: Griffith, NSW
+  center = DEFAULT_CENTER,
   zoom = 13,
   showControls = true,
   interactive = true,
@@ -40,10 +44,12 @@ export function MapView({
   className = '',
   autoZoom = true,
   fitBoundsPadding = 50,
+  brigadeStation,
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const brigadeMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize map
@@ -91,6 +97,17 @@ export function MapView({
       }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update map center when center prop changes
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+    
+    // Only update if center has actually changed to avoid unnecessary re-centers
+    const currentCenter = map.current.getCenter();
+    if (currentCenter.lng !== center[0] || currentCenter.lat !== center[1]) {
+      map.current.setCenter(center);
+    }
+  }, [center, mapLoaded]);
 
   // Update waypoint markers
   useEffect(() => {
@@ -146,6 +163,65 @@ export function MapView({
       map.current!.fitBounds(bounds, { padding: fitBoundsPadding, maxZoom: 15 });
     }
   }, [waypoints, mapLoaded, autoZoom, fitBoundsPadding]);
+
+  // Update brigade station marker
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    // Remove existing brigade marker
+    if (brigadeMarkerRef.current) {
+      brigadeMarkerRef.current.remove();
+      brigadeMarkerRef.current = null;
+    }
+
+    // Add brigade station marker if provided
+    if (brigadeStation) {
+      const el = document.createElement('div');
+      el.style.display = 'flex';
+      el.style.flexDirection = 'column';
+      el.style.alignItems = 'center';
+      el.style.gap = '4px';
+
+      // Icon container
+      const iconEl = document.createElement('div');
+      iconEl.style.width = '48px';
+      iconEl.style.height = '48px';
+      iconEl.style.background = 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)';
+      iconEl.style.border = '3px solid white';
+      iconEl.style.borderRadius = '50%';
+      iconEl.style.display = 'flex';
+      iconEl.style.alignItems = 'center';
+      iconEl.style.justifyContent = 'center';
+      iconEl.style.fontSize = '24px';
+      iconEl.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+      iconEl.style.cursor = 'pointer';
+      iconEl.textContent = '🚒';
+
+      // Label container
+      const labelEl = document.createElement('div');
+      labelEl.style.background = 'rgba(255, 255, 255, 0.95)';
+      labelEl.style.padding = '4px 8px';
+      labelEl.style.borderRadius = '4px';
+      labelEl.style.fontSize = '10px';
+      labelEl.style.fontWeight = '600';
+      labelEl.style.textTransform = 'uppercase';
+      labelEl.style.letterSpacing = '0.5px';
+      labelEl.style.color = '#D32F2F';
+      labelEl.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
+      labelEl.style.whiteSpace = 'nowrap';
+      labelEl.style.maxWidth = '150px';
+      labelEl.style.overflow = 'hidden';
+      labelEl.style.textOverflow = 'ellipsis';
+      labelEl.textContent = brigadeStation.name;
+
+      el.appendChild(iconEl);
+      el.appendChild(labelEl);
+
+      brigadeMarkerRef.current = new mapboxgl.Marker(el, { anchor: 'bottom' })
+        .setLngLat(brigadeStation.coordinates)
+        .addTo(map.current!);
+    }
+  }, [brigadeStation, mapLoaded]);
 
   // Update route polyline with candy cane styling
   useEffect(() => {
