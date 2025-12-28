@@ -181,8 +181,10 @@ if (isDevMode) {
 3. Set `VITE_DEV_MODE=true` in `.env.local`
 4. Add `VITE_MAPBOX_TOKEN` (only required variable for dev mode)
 5. Run `npm install`
-6. Run `npm run dev`
+6. Run `npm run dev` (this now builds the Functions app before starting both servers)
 7. Access at `http://localhost:5173`
+
+**Important for Functions code:** The Azure Functions app runs from the compiled `api/dist` output. After backend code changes, a rebuild is required before `func start` picks them up. Use `npm run build:api` (or just `npm run dev`, which builds first) rather than only restarting `func start`.
 
 ### Common Development Tasks
 

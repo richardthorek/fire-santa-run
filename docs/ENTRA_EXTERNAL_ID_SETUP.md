@@ -85,7 +85,35 @@ After creating the app registration:
    - Confirm by clicking **Yes**
    - This prevents users from seeing a consent screen
 
-### 1.4 Enable Token Configuration
+### 1.4 Expose an API (Required for Backend Authentication)
+
+**IMPORTANT:** This step is critical for the backend API to validate access tokens correctly.
+
+1. Go to **Expose an API** in the left sidebar
+2. Click **+ Add** next to **Application ID URI**
+3. Accept the default value `api://{clientId}` or customize it
+   - Default: `api://8451d08e-33f6-4c8f-9185-428d0aca7b3e`
+   - Click **Save**
+
+4. Add a scope for API access (optional, or use `.default`):
+   - Click **+ Add a scope**
+   - **Scope name:** `access_as_user`
+   - **Who can consent:** Admins and users
+   - **Admin consent display name:** Access Fire Santa Run API
+   - **Admin consent description:** Allows the app to access the Fire Santa Run API on behalf of the signed-in user
+   - **User consent display name:** Access Fire Santa Run API
+   - **User consent description:** Allows the app to access your brigade data and perform actions on your behalf
+   - **State:** Enabled
+   - Click **Add scope**
+
+5. The frontend automatically uses `api://{clientId}/.default` to request tokens for the API
+
+**Why this matters:**
+- Without exposing an API, MSAL will return tokens with Microsoft Graph audience
+- The backend requires tokens with the app's client ID as the audience
+- Exposing the API allows the frontend to request properly-scoped tokens
+
+### 1.5 Enable Token Configuration
 
 1. Go to **Token configuration** in the left sidebar
 2. Add optional claims for ID token:
@@ -98,7 +126,7 @@ After creating the app registration:
    - Click **Add**
    - If prompted about Microsoft Graph permissions, check the box and click **Add**
 
-### 1.5 Configure Token Lifetimes
+### 1.6 Configure Token Lifetimes
 
 Token lifetimes are configured at the tenant level using token lifetime policies. For most applications, the default settings are appropriate:
 

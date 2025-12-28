@@ -13,18 +13,23 @@ The frontend application uses MSAL (Microsoft Authentication Library) to obtain 
 ```typescript
 // In React application
 import { useMsal } from '@azure/msal-react';
+import { tokenRequest } from '../auth/msalConfig';
 
 const { instance, accounts } = useMsal();
 const account = accounts[0];
 
-// Get access token
+// Get access token for Fire Santa Run API
+// IMPORTANT: Use tokenRequest which includes the API scope (api://{clientId}/.default)
+// This ensures the token has the correct audience for the backend API
 const response = await instance.acquireTokenSilent({
-  scopes: ['openid', 'profile', 'email', 'User.Read'],
+  ...tokenRequest,
   account: account
 });
 
 const accessToken = response.accessToken;
 ```
+
+**Important:** The token request must include the API scope `api://{clientId}/.default` to receive a token with the correct audience. Using only Graph scopes (like `User.Read`) will result in a token with Microsoft Graph audience (`00000003-0000-0000-c000-000000000000`), which the API will reject with a 401 Unauthorized error.
 
 ### 2. Include Token in API Requests
 
@@ -49,8 +54,34 @@ The API validates tokens using the following process:
 1. **Extract token** from `Authorization: Bearer <token>` header
 2. **Verify signature** using Entra External ID public keys (JWKS)
 3. **Check expiration** to ensure token is still valid
-4. **Validate audience** matches the configured client ID
+4. **Validate audience** matches one of the following:
+   - The application client ID (e.g., `8451d08e-33f6-4c8f-9185-428d0aca7b3e`)
+   - The API identifier (e.g., `api://8451d08e-33f6-4c8f-9185-428d0aca7b3e`)
 5. **Extract user claims** (user ID, email, name)
+
+**Important:** The backend accepts tokens with either the client ID or the `api://` format as the audience. This ensures compatibility with both approaches to requesting API tokens.
+
+## API Scope Configuration
+
+### App Registration Setup
+
+To use the Fire Santa Run API with proper authentication, the Entra app registration must be configured to expose an API:
+
+1. In Azure Portal, go to **App registrations** > **Fire Santa Run Web App**
+2. Navigate to **Expose an API** in the left sidebar
+3. Click **+ Add a scope**
+4. Set the **Application ID URI** to `api://{clientId}` (e.g., `api://8451d08e-33f6-4c8f-9185-428d0aca7b3e`)
+5. Add a scope (or use `.default` to request all exposed permissions)
+
+The frontend automatically uses the `.default` scope (`api://{clientId}/.default`) to request tokens that can access the API.
+
+### Token Audience
+
+When the frontend requests a token with the API scope:
+- **Requested scope:** `api://8451d08e-33f6-4c8f-9185-428d0aca7b3e/.default`
+- **Token audience (`aud` claim):** `api://8451d08e-33f6-4c8f-9185-428d0aca7b3e` or `8451d08e-33f6-4c8f-9185-428d0aca7b3e`
+
+The backend validates both formats to ensure maximum compatibility.
 
 ## Development Mode
 
@@ -302,6 +333,29 @@ Authorization: Bearer <admin_token>
 ```
 
 ## Troubleshooting
+
+### "Invalid or expired token" - Audience Mismatch
+
+**Cause:** Token has wrong audience (e.g., Microsoft Graph `00000003-0000-0000-c000-000000000000` instead of app client ID)
+
+**Symptoms:**
+- 401 Unauthorized error when calling API endpoints
+- Network tab shows token with `aud` claim set to Microsoft Graph
+
+**Fix:**
+1. Ensure the frontend uses `tokenRequest` from `msalConfig.ts` (includes API scope)
+2. Verify the app registration exposes an API with identifier `api://{clientId}`
+3. Check that `VITE_ENTRA_CLIENT_ID` is set correctly in environment variables
+4. Clear browser cache and re-login to get a fresh token
+5. Inspect token in browser DevTools Network tab to verify `aud` claim matches client ID
+
+**How to inspect token audience:**
+```typescript
+// In browser console after login
+const token = localStorage.getItem('msal.token.keys');
+// Decode the JWT (use jwt.io) and check the "aud" claim
+// It should be either the client ID or api://{clientId}
+```
 
 ### "No authorization token provided"
 
