@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { isNearWaypoint } from '../../utils/navigation';
 import { createMockRoute, createMockWaypoint, MockGeolocation } from './testUtils';
-import type { Route, Waypoint } from '../../types';
+import type { Route } from '../../types';
 
 describe('Integration: Navigation Flow (Mock GPS)', () => {
   let mockGeolocation: MockGeolocation;

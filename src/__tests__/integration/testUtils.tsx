@@ -3,6 +3,9 @@
  * Shared mocks, helpers, and setup for integration tests
  */
 
+/* eslint-disable react-refresh/only-export-components */
+// This file exports test utilities, not React components
+
 import { vi } from 'vitest';
 import { render, renderHook } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
@@ -142,7 +145,7 @@ export class MockGeolocation {
 
   getCurrentPosition(
     success: PositionCallback,
-    error?: PositionErrorCallback
+    _error?: PositionErrorCallback
   ): void {
     const position = this.createMockPosition();
     setTimeout(() => success(position), 10);
@@ -150,8 +153,8 @@ export class MockGeolocation {
 
   watchPosition(
     success: PositionCallback,
-    error?: PositionErrorCallback,
-    options?: PositionOptions
+    _error?: PositionErrorCallback,
+    _options?: PositionOptions
   ): number {
     const id = ++this.watchId;
     this.watchers.set(id, success);

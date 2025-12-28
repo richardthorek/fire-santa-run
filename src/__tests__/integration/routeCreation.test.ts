@@ -11,9 +11,8 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createNewRoute, canPublishRoute } from '../../utils/routeHelpers';
-import { storageAdapter } from '../../storage';
 import { createMockRoute, createMockWaypoint, mockDirectionsAPI } from './testUtils';
-import type { Route, Waypoint } from '../../types';
+import type { Route } from '../../types';
 
 describe('Integration: Route Creation Flow', () => {
   beforeEach(() => {
