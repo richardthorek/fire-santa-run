@@ -24,7 +24,7 @@ const ALT_TENANT_AUTHORITY = `https://${ENTRA_TENANT_ID}.ciamlogin.com/${ENTRA_T
 
 // Maintain a list of acceptable authorities/issuers. These map directly to the CIAM issuer hosts we expect.
 const BASE_AUTHORITIES = [ENTRA_AUTHORITY, ALT_TENANT_AUTHORITY].map(a => a.replace(/\/$/, ''));
-const ISSUER_CANDIDATES = BASE_AUTHORITIES.map(a => `${a}/v2.0`);
+const ISSUER_CANDIDATES = BASE_AUTHORITIES.map(a => `${a}/v2.0`) as [string, ...string[]];
 
 // Dev mode bypass flag
 // Note: Uses VITE_ prefix for consistency with frontend environment variables in Azure Static Web Apps
