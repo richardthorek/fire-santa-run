@@ -124,6 +124,71 @@ jobs:
           output_location: "dist" # Built app content directory - optional
           ###### End of Repository/Build Configurations ######
 
+  smoke_tests:
+    # Run smoke tests after successful deployment
+    needs: build_and_deploy_job
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed'))
+    runs-on: ubuntu-latest
+    name: Smoke Tests
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Wait for deployment
+        run: sleep 30
+        
+      - name: Run smoke tests on staging environment
+        id: smoke_tests
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For PRs, test the preview environment
+            DEPLOYMENT_URL="https://victorious-beach-0d2b6dc00-${{ github.event.pull_request.number }}.azurestaticapps.net"
+          else
+            # For pushes to main, test production
+            DEPLOYMENT_URL="https://victorious-beach-0d2b6dc00.azurestaticapps.net"
+          fi
+          
+          echo "Testing deployment at: $DEPLOYMENT_URL"
+          node scripts/smoke-test.js "$DEPLOYMENT_URL" || true
+        continue-on-error: true
+      
+      - name: Comment smoke test results on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const body = `## 🧪 Smoke Test Results
+            
+            Smoke tests have been executed on the preview deployment.
+            
+            **Deployment URL:** https://victorious-beach-0d2b6dc00-${{ github.event.pull_request.number }}.azurestaticapps.net
+            
+            ℹ️ Check the workflow logs for detailed results.
+            
+            Note: Some tests may fail if secrets are not available in preview environments.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
   close_pull_request_job:
     # This job runs independently when a PR is closed (doesn't need quality checks)
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
@@ -144,7 +209,7 @@ jobs:
     # Create issue if quality checks or deployment fail on push to main
     if: ${{ failure() && github.event_name == 'push' }}
     runs-on: ubuntu-latest
-    needs: [quality_checks, build_and_deploy_job]
+    needs: [quality_checks, build_and_deploy_job, smoke_tests]
     name: Create Bug Issue on Failure
     permissions:
       issues: write
