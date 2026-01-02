@@ -4257,6 +4257,145 @@ Does the task need to block deployment?
 - Fast feedback on quality issues
 - Automatic issue creation on failure
 
+### 24a. Production Deployment Validation Strategy
+
+**Overview:**
+
+Production deployments require rigorous validation to ensure reliability, performance, and security. This strategy outlines the comprehensive testing approach for staging and production environments.
+
+**Core Validation Components:**
+
+1. **Smoke Tests** - Quick validation of critical functionality after deployment
+2. **Load Tests** - Performance validation under concurrent user load
+3. **Mobile Device Tests** - Real device testing on iOS and Android
+4. **Security Validation** - HTTPS, headers, and authentication verification
+
+**Implementation:**
+
+**Smoke Test Suite (`scripts/smoke-test.js`):**
+- Application availability check
+- Static asset loading
+- API endpoint validation
+- Azure Web PubSub connectivity
+- Environment configuration verification
+- Security headers inspection
+- Performance metrics collection
+- Mobile responsiveness check
+- Error handling validation
+
+Usage:
+```bash
+# Test local development
+npm run test:smoke http://localhost:5173
+
+# Test staging/production
+node scripts/smoke-test.js https://victorious-beach-0d2b6dc00.azurestaticapps.net
+```
+
+**Load Test Suite (`scripts/load-test.js`):**
+- Simulates 50+ concurrent users
+- Measures response times (avg, min, max, P50, P95, P99)
+- Tracks success rates
+- Identifies performance bottlenecks
+- Validates Azure services under load
+
+Usage:
+```bash
+# Test with 50 concurrent users (default)
+npm run test:load https://victorious-beach-0d2b6dc00.azurestaticapps.net
+
+# Test with custom concurrent user count
+node scripts/load-test.js https://victorious-beach-0d2b6dc00.azurestaticapps.net 100
+```
+
+Success criteria:
+- Success rate ≥ 95%
+- Average response time < 2 seconds
+- P95 response time < 3 seconds
+- P99 response time < 5 seconds
+
+**Mobile Device Testing Guide (`scripts/mobile-testing-guide.js`):**
+- Comprehensive checklist for iOS and Android testing
+- Real device testing requirements
+- GPS and location services validation
+- Touch and gesture testing
+- Performance and battery impact testing
+- Remote debugging setup instructions
+
+Usage:
+```bash
+npm run test:mobile-guide
+```
+
+**Production Deployment Checklist (`docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`):**
+- Pre-deployment preparation (code quality, documentation, version control)
+- Staging environment testing procedures
+- Azure services validation (Table Storage, Web PubSub, Static Web Apps, Mapbox, Entra ID)
+- Security verification (HTTPS, headers, authentication, data protection)
+- Performance testing requirements
+- Mobile device testing matrix
+- Deployment steps and verification
+- Post-deployment validation
+- Monitoring setup
+- Rollback procedures
+
+**CI/CD Integration:**
+
+Smoke tests are automatically run after successful deployment in the GitHub Actions workflow:
+
+```yaml
+smoke_tests:
+  needs: build_and_deploy_job
+  runs-on: ubuntu-latest
+  steps:
+    - name: Run smoke tests on staging environment
+      run: node scripts/smoke-test.js $DEPLOYMENT_URL
+    - name: Comment results on PR
+      # Posts summary to PR
+```
+
+**Deployment Workflow:**
+
+1. **Pre-Deployment:**
+   - All tests pass locally
+   - Code review approved
+   - PR merged to main
+
+2. **Automated Deployment:**
+   - Quality checks (lint, test, coverage)
+   - Build and deploy to Azure
+   - Automated smoke tests run
+
+3. **Manual Validation:**
+   - Review smoke test results
+   - Run load tests if significant changes
+   - Test on real mobile devices (iOS/Android)
+   - Verify Azure services operational
+
+4. **Production Monitoring:**
+   - Monitor Application Insights
+   - Track error rates
+   - Monitor performance metrics
+
+5. **Rollback Plan:**
+   - Revert merge commit if critical issues
+   - Redeploy previous version
+   - Fix forward with hotfix branch
+
+**Testing Frequency:**
+
+- **Smoke Tests:** Every deployment (automated)
+- **Load Tests:** Before major releases, after infrastructure changes
+- **Mobile Device Tests:** Before major releases, weekly during active development
+- **Full Checklist:** Before production releases
+
+**Documentation:**
+
+- `docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md` - Complete deployment checklist
+- `scripts/smoke-test.js` - Automated smoke test suite
+- `scripts/load-test.js` - Concurrent user load testing
+- `scripts/mobile-testing-guide.js` - Mobile device testing guide
+
 ---
 
 ## 25. Copilot Agent Instructions
