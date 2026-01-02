@@ -7,6 +7,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider, BrigadeProvider } from './context'
 import { msalConfig, isMsalConfigured, initializeMsalConfig } from './auth/msalConfig'
+import './utils/fontLoader' // Initialize async font loading (CSP-compliant)
 
 // Initialize and validate MSAL configuration
 initializeMsalConfig();
