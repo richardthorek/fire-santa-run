@@ -261,39 +261,7 @@
   </div>
   
   <!-- Progressive Enhancement: Load React App on Demand -->
-  <script type="module">
-    // Only load full React app when user wants to sign in
-    const signinBtn = document.getElementById('signin-btn');
-    let appLoading = false;
-    
-    signinBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      
-      if (appLoading) return;
-      appLoading = true;
-      
-      // Update button state
-      signinBtn.textContent = '⏳ Loading...';
-      signinBtn.disabled = true;
-      
-      // Load the full React application
-      try {
-        // Intentional full page reload to transition from static HTML to React SPA
-        // This is by design - static page has no React, so we navigate to trigger app load
-        window.location.href = '/dashboard';
-      } catch (error) {
-        console.error('Failed to load app:', error);
-        signinBtn.textContent = '❌ Error - Retry';
-        signinBtn.disabled = false;
-        appLoading = false;
-      }
-    });
-    
-    // Check if dev mode and update UI
-    const isDevMode = window.location.search.includes('dev=true');
-    if (isDevMode) {
-      signinBtn.textContent = '🛠️ Dev Mode - Enter';
-    }
-  </script>
+  <!-- External script for CSP compliance (no inline scripts allowed) -->
+  <script src="/landing-signin.js"></script>
 </body>
 </html>
