@@ -1,0 +1,727 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "languageVersion": "2.0",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "13043663327237724874"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "australiaeast",
+      "metadata": {
+        "description": "Azure region for all resources (default: australiaeast)"
+      }
+    },
+    "environment": {
+      "type": "string",
+      "defaultValue": "dev",
+      "allowedValues": [
+        "dev",
+        "prod"
+      ],
+      "metadata": {
+        "description": "Environment name. Controls resource naming and SKU selection."
+      }
+    },
+    "nameSuffix": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 8,
+      "metadata": {
+        "description": "Short unique suffix appended to resource names to ensure global uniqueness (e.g. \"abc123\")"
+      }
+    },
+    "repositoryUrl": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "GitHub repository URL for Static Web Apps CI/CD integration (optional)"
+      }
+    },
+    "branch": {
+      "type": "string",
+      "defaultValue": "main",
+      "metadata": {
+        "description": "GitHub branch to deploy from"
+      }
+    }
+  },
+  "variables": {
+    "resourceGroupName": "[format('rg-santarun-{0}-{1}', parameters('environment'), parameters('nameSuffix'))]",
+    "commonTags": {
+      "application": "fire-santa-run",
+      "environment": "[parameters('environment')]",
+      "managedBy": "bicep"
+    },
+    "swaSkuName": "[if(equals(parameters('environment'), 'prod'), 'Standard', 'Free')]",
+    "staticWebAppName": "[format('santarun-web-{0}-{1}', parameters('environment'), parameters('nameSuffix'))]",
+    "pubSubSkuName": "[if(equals(parameters('environment'), 'prod'), 'Standard_S1', 'Free_F1')]"
+  },
+  "resources": {
+    "resourceGroup": {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('resourceGroupName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('commonTags')]"
+    },
+    "monitoring": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "monitoring",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "nameSuffix": {
+            "value": "[parameters('nameSuffix')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "9442068884045959183"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Azure region for monitoring resources"
+              }
+            },
+            "nameSuffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Suffix appended to resource names for uniqueness"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "variables": {
+            "workspaceName": "[format('santarun-logs-{0}', parameters('nameSuffix'))]",
+            "appInsightsName": "[format('santarun-insights-{0}', parameters('nameSuffix'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2022-10-01",
+              "name": "[variables('workspaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": 30,
+                "features": {
+                  "enableLogAccessUsingOnlyResourcePermissions": true
+                },
+                "workspaceCapping": {
+                  "dailyQuotaGb": "[json('0.5')]"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[variables('appInsightsName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]",
+                "IngestionMode": "LogAnalytics",
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled",
+                "RetentionInDays": 30,
+                "DisableIpMasking": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics Workspace name"
+              },
+              "value": "[variables('workspaceName')]"
+            },
+            "workspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics Workspace resource ID"
+              },
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            },
+            "appInsightsName": {
+              "type": "string",
+              "metadata": {
+                "description": "Application Insights name"
+              },
+              "value": "[variables('appInsightsName')]"
+            },
+            "instrumentationKey": {
+              "type": "string",
+              "metadata": {
+                "description": "Application Insights instrumentation key"
+              },
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').InstrumentationKey]"
+            },
+            "connectionString": {
+              "type": "string",
+              "metadata": {
+                "description": "Application Insights connection string"
+              },
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "resourceGroup"
+      ]
+    },
+    "storage": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "storage",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "nameSuffix": {
+            "value": "[parameters('nameSuffix')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "languageVersion": "2.0",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "13015320298464180147"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Azure region for the storage account"
+              }
+            },
+            "nameSuffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Suffix appended to the storage account name for uniqueness"
+              }
+            },
+            "environment": {
+              "type": "string",
+              "defaultValue": "dev",
+              "allowedValues": [
+                "dev",
+                "prod"
+              ],
+              "metadata": {
+                "description": "Environment name (dev or prod). Dev mode prefixes table names with \"dev\"."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "variables": {
+            "storageAccountName": "[format('santarun{0}', parameters('nameSuffix'))]",
+            "tables": [
+              "brigades",
+              "routes",
+              "waypoints",
+              "trackingsessions",
+              "users",
+              "memberships",
+              "invitations",
+              "verifications"
+            ]
+          },
+          "resources": {
+            "storageAccount": {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-01-01",
+              "name": "[variables('storageAccountName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "minimumTlsVersion": "TLS1_2",
+                "supportsHttpsTrafficOnly": true,
+                "allowBlobPublicAccess": false,
+                "isHnsEnabled": false
+              }
+            },
+            "tableService": {
+              "type": "Microsoft.Storage/storageAccounts/tableServices",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
+              "dependsOn": [
+                "storageAccount"
+              ]
+            },
+            "prodTables": {
+              "copy": {
+                "name": "prodTables",
+                "count": "[length(variables('tables'))]"
+              },
+              "condition": "[equals(parameters('environment'), 'prod')]",
+              "type": "Microsoft.Storage/storageAccounts/tableServices/tables",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', variables('tables')[copyIndex()])]",
+              "dependsOn": [
+                "tableService"
+              ]
+            },
+            "devTables": {
+              "copy": {
+                "name": "devTables",
+                "count": "[length(variables('tables'))]"
+              },
+              "condition": "[equals(parameters('environment'), 'dev')]",
+              "type": "Microsoft.Storage/storageAccounts/tableServices/tables",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', format('dev{0}', variables('tables')[copyIndex()]))]",
+              "dependsOn": [
+                "tableService"
+              ]
+            }
+          },
+          "outputs": {
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account name"
+              },
+              "value": "[variables('storageAccountName')]"
+            },
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account resource ID"
+              },
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+            },
+            "connectionString": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Primary connection string for the storage account"
+              },
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix=core.windows.net', variables('storageAccountName'), listKeys('storageAccount', '2023-01-01').keys[0].value)]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "resourceGroup"
+      ]
+    },
+    "webPubSub": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "webpubsub",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "nameSuffix": {
+            "value": "[parameters('nameSuffix')]"
+          },
+          "sku": {
+            "value": "[variables('pubSubSkuName')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "languageVersion": "2.0",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "10984071713458382728"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Azure region for the Web PubSub instance"
+              }
+            },
+            "nameSuffix": {
+              "type": "string",
+              "metadata": {
+                "description": "Suffix appended to the Web PubSub name for uniqueness"
+              }
+            },
+            "sku": {
+              "type": "string",
+              "defaultValue": "Free_F1",
+              "allowedValues": [
+                "Free_F1",
+                "Standard_S1"
+              ],
+              "metadata": {
+                "description": "SKU for the Web PubSub service"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "variables": {
+            "hubName": "santa-tracking",
+            "webPubSubName": "[format('santarun-pubsub-{0}', parameters('nameSuffix'))]"
+          },
+          "resources": {
+            "webPubSub": {
+              "type": "Microsoft.SignalRService/webPubSub",
+              "apiVersion": "2023-02-01",
+              "name": "[variables('webPubSubName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "[parameters('sku')]",
+                "capacity": "[if(equals(parameters('sku'), 'Free_F1'), 1, 1)]"
+              },
+              "properties": {
+                "disableLocalAuth": false,
+                "disableAadAuth": false,
+                "publicNetworkAccess": "Enabled",
+                "tls": {
+                  "clientCertEnabled": false
+                }
+              }
+            },
+            "webPubSubHub": {
+              "type": "Microsoft.SignalRService/webPubSub/hubs",
+              "apiVersion": "2023-02-01",
+              "name": "[format('{0}/{1}', variables('webPubSubName'), variables('hubName'))]",
+              "properties": {
+                "anonymousConnectPolicy": "allow",
+                "eventHandlers": [],
+                "eventListeners": []
+              },
+              "dependsOn": [
+                "webPubSub"
+              ]
+            }
+          },
+          "outputs": {
+            "webPubSubName": {
+              "type": "string",
+              "metadata": {
+                "description": "Web PubSub instance name"
+              },
+              "value": "[variables('webPubSubName')]"
+            },
+            "webPubSubId": {
+              "type": "string",
+              "metadata": {
+                "description": "Web PubSub resource ID"
+              },
+              "value": "[resourceId('Microsoft.SignalRService/webPubSub', variables('webPubSubName'))]"
+            },
+            "hubName": {
+              "type": "string",
+              "metadata": {
+                "description": "Web PubSub hub name"
+              },
+              "value": "[variables('hubName')]"
+            },
+            "hostname": {
+              "type": "string",
+              "metadata": {
+                "description": "Web PubSub hostname"
+              },
+              "value": "[reference('webPubSub').hostName]"
+            },
+            "connectionString": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Web PubSub connection string (primary key)"
+              },
+              "value": "[listKeys('webPubSub', '2023-02-01').primaryConnectionString]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "resourceGroup"
+      ]
+    },
+    "staticWebApp": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "staticwebapp",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "name": {
+            "value": "[variables('staticWebAppName')]"
+          },
+          "sku": {
+            "value": "[variables('swaSkuName')]"
+          },
+          "repositoryUrl": {
+            "value": "[parameters('repositoryUrl')]"
+          },
+          "branch": {
+            "value": "[parameters('branch')]"
+          },
+          "tags": {
+            "value": "[variables('commonTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "languageVersion": "2.0",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "2308414484908681270"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Azure region for the Static Web App"
+              }
+            },
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Name for the Static Web App"
+              }
+            },
+            "sku": {
+              "type": "string",
+              "defaultValue": "Free",
+              "allowedValues": [
+                "Free",
+                "Standard"
+              ],
+              "metadata": {
+                "description": "SKU for the Static Web App"
+              }
+            },
+            "repositoryUrl": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "GitHub repository URL (e.g. https://github.com/org/repo)"
+              }
+            },
+            "branch": {
+              "type": "string",
+              "defaultValue": "main",
+              "metadata": {
+                "description": "GitHub branch to deploy from"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "resources": {
+            "staticWebApp": {
+              "type": "Microsoft.Web/staticSites",
+              "apiVersion": "2023-01-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "[parameters('sku')]",
+                "tier": "[parameters('sku')]"
+              },
+              "properties": {
+                "repositoryUrl": "[if(not(equals(parameters('repositoryUrl'), '')), parameters('repositoryUrl'), null())]",
+                "branch": "[parameters('branch')]",
+                "buildProperties": {
+                  "appLocation": "/",
+                  "apiLocation": "api",
+                  "outputLocation": "dist"
+                },
+                "stagingEnvironmentPolicy": "Enabled",
+                "allowConfigFileUpdates": true,
+                "enterpriseGradeCdnStatus": "Disabled"
+              }
+            }
+          },
+          "outputs": {
+            "staticWebAppName": {
+              "type": "string",
+              "metadata": {
+                "description": "Static Web App name"
+              },
+              "value": "[parameters('name')]"
+            },
+            "staticWebAppId": {
+              "type": "string",
+              "metadata": {
+                "description": "Static Web App resource ID"
+              },
+              "value": "[resourceId('Microsoft.Web/staticSites', parameters('name'))]"
+            },
+            "defaultHostname": {
+              "type": "string",
+              "metadata": {
+                "description": "Default hostname for the Static Web App"
+              },
+              "value": "[reference('staticWebApp').defaultHostname]"
+            },
+            "deploymentToken": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Deployment API token (used in GitHub Actions)"
+              },
+              "value": "[listSecrets('staticWebApp', '2023-01-01').properties.apiKey]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "resourceGroup"
+      ]
+    }
+  },
+  "outputs": {
+    "resourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource group name"
+      },
+      "value": "[variables('resourceGroupName')]"
+    },
+    "appUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Static Web App URL"
+      },
+      "value": "[format('https://{0}', reference('staticWebApp').outputs.defaultHostname.value)]"
+    },
+    "staticWebAppDeploymentToken": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Static Web App deployment API token (add to GitHub secret AZURE_STATIC_WEB_APPS_API_TOKEN)"
+      },
+      "value": "[listOutputsWithSecureValues('staticWebApp', '2025-04-01').deploymentToken]"
+    },
+    "storageConnectionString": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Azure Table Storage connection string (add to GitHub secret / env var AZURE_STORAGE_CONNECTION_STRING)"
+      },
+      "value": "[listOutputsWithSecureValues('storage', '2025-04-01').connectionString]"
+    },
+    "webPubSubConnectionString": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Azure Web PubSub connection string (add to GitHub secret / env var AZURE_WEBPUBSUB_CONNECTION_STRING)"
+      },
+      "value": "[listOutputsWithSecureValues('webPubSub', '2025-04-01').connectionString]"
+    },
+    "webPubSubHubName": {
+      "type": "string",
+      "metadata": {
+        "description": "Web PubSub hub name (set AZURE_WEBPUBSUB_HUB_NAME env var to this value)"
+      },
+      "value": "[reference('webPubSub').outputs.hubName.value]"
+    },
+    "appInsightsConnectionString": {
+      "type": "string",
+      "metadata": {
+        "description": "Application Insights connection string (for optional frontend/backend instrumentation)"
+      },
+      "value": "[reference('monitoring').outputs.connectionString.value]"
+    }
+  }
+}
