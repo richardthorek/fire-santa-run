@@ -73,6 +73,9 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy to App Service
     environment: copilot
+    env:
+      HAS_PUBLISH_PROFILE: ${{ secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE != '' }}
+      HAS_APP_SERVICE_NAME: ${{ vars.AZURE_APP_SERVICE_NAME != '' }}
     permissions:
       contents: read
       pull-requests: write
@@ -132,16 +135,18 @@ jobs:
 
       # ── Deploy ─────────────────────────────────────────────────────────────
       - name: Deploy to App Service
-        if: secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE != ''
+        if: env.HAS_PUBLISH_PROFILE == 'true' && env.HAS_APP_SERVICE_NAME == 'true'
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ vars.AZURE_APP_SERVICE_NAME }}
           publish-profile: ${{ secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE }}
           package: ./deploy
 
-      - name: Skip deploy (no publish profile configured)
-        if: secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE == ''
+      - name: Skip deploy (missing App Service deployment config)
+        if: env.HAS_PUBLISH_PROFILE != 'true' || env.HAS_APP_SERVICE_NAME != 'true'
         run: |
-          echo "⏭️  Skipping deployment: AZURE_APP_SERVICE_PUBLISH_PROFILE secret is not configured."
-          echo "   To enable deployment, add the secret from the Bicep deployment output."
+          echo "Skipping deployment: App Service deployment configuration is incomplete."
+          echo "Required:"
+          echo "  - Secret AZURE_APP_SERVICE_PUBLISH_PROFILE"
+          echo "  - Variable AZURE_APP_SERVICE_NAME"
           echo "   See infra/README.md for instructions."
