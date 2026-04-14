@@ -1,0 +1,31 @@
+{
+  "name": "fire-santa-run-server",
+  "version": "1.0.0",
+  "description": "Fire Santa Run — Hono HTTP server (App Service)",
+  "main": "dist/main.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "dev": "tsx watch src/main.ts",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.3.2",
+    "@azure/identity": "^4.13.0",
+    "@azure/web-pubsub": "^1.2.0",
+    "@hono/node-server": "^1.19.14",
+    "hono": "^4.12.12",
+    "jsonwebtoken": "^9.0.3",
+    "jwks-rsa": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.0.0",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.0.0",
+    "typescript": "~5.9.3"
+  }
+}
