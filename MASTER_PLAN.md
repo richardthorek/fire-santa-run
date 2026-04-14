@@ -2575,6 +2575,14 @@ const ProtectedRoute = ({ children }) => {
   - [x] Default SVG social preview image created
   - [x] SEO component with dynamic meta tags per page
   - [x] TrackingView includes route-specific social meta tags
+- [x] **Dynamic OG social preview images per route** - ✅ COMPLETE
+  - [x] `GET /api/og-image?routeId={id}&brigadeId={id}` Azure Function endpoint
+  - [x] Server-side SVG generation (1200×630): brigade name, route name, date, festive decorations
+  - [x] Embedded Mapbox Static Images API map thumbnail (when `MAPBOX_TOKEN` configured)
+  - [x] Azure Blob Storage caching (`og-images` container, key: `{brigadeId}/{routeId}.svg`)
+  - [x] `TrackingView` uses dynamic OG image URL in `og:image` / `twitter:image` meta tags
+  - [x] `AZURE_BLOB_STORAGE_CONNECTION_STRING` env var for caching (optional; graceful no-op when absent)
+  - [x] `MAPBOX_TOKEN` server-side env var for map thumbnails (optional; fallback placeholder shown)
 - [x] **Mobile responsive design (fully mobile-first)** - ✅ COMPLETE (Dec 2024)
 - [x] **Full-screen map layouts with floating UI panels** - ✅ COMPLETE (Dec 2024)
   - [x] iOS-inspired floating panels with backdrop blur and shadows

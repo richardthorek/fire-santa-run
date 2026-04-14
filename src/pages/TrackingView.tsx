@@ -283,12 +283,17 @@ export function TrackingView({ routeId }: TrackingViewProps) {
   const seoTitle = `Track Santa - ${route.name}`;
   const seoDescription = `🎅 Track Santa in real-time for ${route.name}! See Santa's location live as the ${route.brigadeId} Rural Fire Service brings Christmas joy on ${route.date}.`;
   const seoUrl = route.shareableLink || `${window.location.origin}/track/${route.id}`;
+  // Dynamic OG image generated server-side with route map, brigade name, and festive branding.
+  // window.location.origin automatically resolves to the correct host (localhost, staging, or
+  // production) so the og:image URL is always environment-agnostic without extra configuration.
+  const ogImageUrl = `${window.location.origin}/api/og-image?routeId=${encodeURIComponent(route.id)}&brigadeId=${encodeURIComponent(route.brigadeId)}`;
 
   return (
     <>
       <SEO
         title={seoTitle}
         description={seoDescription}
+        image={ogImageUrl}
         url={seoUrl}
         type="website"
         twitterCard="summary_large_image"
