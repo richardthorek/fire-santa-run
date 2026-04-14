@@ -7,6 +7,7 @@
 #   ./infra/deploy.sh --env prod             # deploy prod environment
 #   ./infra/deploy.sh --suffix abc123        # override name suffix
 #   ./infra/deploy.sh --env prod --suffix p1 # prod with custom suffix
+#   ./infra/deploy.sh --dry-run              # validate without deploying
 #   ./infra/deploy.sh --help                 # show this help
 
 set -euo pipefail
@@ -16,7 +17,6 @@ set -euo pipefail
 ENVIRONMENT="dev"
 LOCATION="australiaeast"
 NAME_SUFFIX=""
-PARAMS_FILE=""
 DRY_RUN=false
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ─── Argument Parsing ────────────────────────────────────────────────────────
 
 print_help() {
-  cat <<EOF
+  cat <<HELP
 Fire Santa Run — Azure Deployment Script
 
 Usage: ./infra/deploy.sh [OPTIONS]
@@ -37,10 +37,10 @@ Options:
   --help,   -h               Show this help message
 
 Examples:
-  ./infra/deploy.sh                          # Deploy dev environment
-  ./infra/deploy.sh --env prod --suffix p1   # Deploy production
+  ./infra/deploy.sh                          # Deploy dev environment (free F1 tier)
+  ./infra/deploy.sh --env prod --suffix p1   # Deploy production (B1 tier)
   ./infra/deploy.sh --dry-run                # Validate dev template only
-EOF
+HELP
 }
 
 while [[ $# -gt 0 ]]; do
@@ -63,7 +63,6 @@ fi
 
 PARAMS_FILE="${SCRIPT_DIR}/parameters/${ENVIRONMENT}.bicepparam"
 
-# Allow suffix override via CLI; else fall back to value in .bicepparam
 if [[ -n "$NAME_SUFFIX" ]]; then
   if ! [[ "$NAME_SUFFIX" =~ ^[a-z0-9]{3,8}$ ]]; then
     echo "❌ --suffix must be 3–8 lowercase alphanumeric characters (got: '$NAME_SUFFIX')."
@@ -81,17 +80,15 @@ echo "  Environment : $ENVIRONMENT"
 echo "  Location    : $LOCATION"
 [[ -n "$NAME_SUFFIX" ]] && echo "  Name Suffix : $NAME_SUFFIX"
 echo "  Template    : infra/main.bicep"
-echo "  Parameters  : ${PARAMS_FILE#"$SCRIPT_DIR/../"}"
+echo "  Parameters  : ${PARAMS_FILE#"${SCRIPT_DIR}/../"}"
 echo ""
 
-# Check Azure CLI
 if ! command -v az &>/dev/null; then
   echo "❌ Azure CLI is not installed."
   echo "   Install it from: https://docs.microsoft.com/cli/azure/install-azure-cli"
   exit 1
 fi
 
-# Check login
 if ! az account show &>/dev/null; then
   echo "🔐 Not logged in. Running 'az login'..."
   az login
@@ -102,7 +99,6 @@ SUBSCRIPTION_ID=$(az account show --query id --output tsv)
 echo "  Subscription: $SUBSCRIPTION ($SUBSCRIPTION_ID)"
 echo ""
 
-# Confirm before prod deployments
 if [[ "$ENVIRONMENT" == "prod" && "$DRY_RUN" == "false" ]]; then
   read -r -p "⚠️  You are deploying to PRODUCTION. Continue? (y/N) " confirm
   if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
@@ -116,7 +112,6 @@ fi
 
 DEPLOYMENT_NAME="santarun-${ENVIRONMENT}-$(date +%Y%m%d-%H%M%S)"
 
-# Build parameter overrides
 EXTRA_PARAMS=""
 [[ -n "$NAME_SUFFIX" ]] && EXTRA_PARAMS="$EXTRA_PARAMS nameSuffix='$NAME_SUFFIX'"
 [[ -n "$LOCATION" ]] && EXTRA_PARAMS="$EXTRA_PARAMS location='$LOCATION'"
@@ -149,53 +144,107 @@ else
   echo "======================================"
   echo ""
   echo "Resources deployed:"
-  echo "$DEPLOY_OUTPUT" | python3 -c "
+  python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 outputs = data.get('properties', {}).get('outputs', {})
 rg = outputs.get('resourceGroupName', {}).get('value', 'N/A')
 print(f'  Resource Group : {rg}')
+app_name = outputs.get('appServiceName', {}).get('value', 'N/A')
+print(f'  App Service    : {app_name}')
 url = outputs.get('appUrl', {}).get('value', 'N/A')
 print(f'  App URL        : {url}')
 hub = outputs.get('webPubSubHubName', {}).get('value', 'N/A')
 print(f'  PubSub Hub     : {hub}')
-" 2>/dev/null || true
+" <<< "$DEPLOY_OUTPUT" 2>/dev/null || true
   echo ""
+
   echo "======================================"
   echo "  📝 Next Steps — Configure Secrets"
   echo "======================================"
   echo ""
-  echo "The following secrets must be added to your GitHub repository"
-  echo "(Settings > Secrets and variables > Actions):"
+  echo "Add these to GitHub → Settings → Secrets and variables → Actions:"
   echo ""
-
-  # Extract and display connection strings
   python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 outputs = data.get('properties', {}).get('outputs', {})
 
-swa_token = outputs.get('staticWebAppDeploymentToken', {}).get('value', '')
-if swa_token:
-    print('  GitHub Secret: AZURE_STATIC_WEB_APPS_API_TOKEN')
-    print(f'  Value: {swa_token[:20]}... (see deployment output for full value)')
+app_name = outputs.get('appServiceName', {}).get('value', '')
+if app_name:
+    print('  GitHub Variable (not a secret): AZURE_APP_SERVICE_NAME')
+    print(f'  Value: {app_name}')
+    print()
+
+publish_profile = outputs.get('appServicePublishProfile', {}).get('value', '')
+if publish_profile:
+    print('  GitHub Secret: AZURE_APP_SERVICE_PUBLISH_PROFILE')
+    print('  Value: (see deployment output — full XML publish profile)')
     print()
 
 storage_conn = outputs.get('storageConnectionString', {}).get('value', '')
 if storage_conn:
-    print('  GitHub Secret: AZURE_STORAGE_CONNECTION_STRING')
+    print('  App Service App Setting: AZURE_STORAGE_CONNECTION_STRING')
     print(f'  Value: {storage_conn[:60]}...')
     print()
 
 pubsub_conn = outputs.get('webPubSubConnectionString', {}).get('value', '')
 if pubsub_conn:
-    print('  GitHub Secret: AZURE_WEBPUBSUB_CONNECTION_STRING')
+    print('  App Service App Setting: AZURE_WEBPUBSUB_CONNECTION_STRING')
     print(f'  Value: {pubsub_conn[:60]}...')
     print()
 " <<< "$DEPLOY_OUTPUT" 2>/dev/null || true
 
   echo "For full connection string values, run:"
   echo "  az deployment sub show --name '$DEPLOYMENT_NAME' --query 'properties.outputs'"
+  echo ""
+
+  # ── Set App Service application settings ─────────────────────────────────
+  echo "Configuring App Service application settings..."
+  RESOURCE_GROUP=$(python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print(data.get('properties', {}).get('outputs', {}).get('resourceGroupName', {}).get('value', ''))
+" <<< "$DEPLOY_OUTPUT" 2>/dev/null || true)
+
+  APP_NAME=$(python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print(data.get('properties', {}).get('outputs', {}).get('appServiceName', {}).get('value', ''))
+" <<< "$DEPLOY_OUTPUT" 2>/dev/null || true)
+
+  STORAGE_CONN=$(python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print(data.get('properties', {}).get('outputs', {}).get('storageConnectionString', {}).get('value', ''))
+" <<< "$DEPLOY_OUTPUT" 2>/dev/null || true)
+
+  PUBSUB_CONN=$(python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print(data.get('properties', {}).get('outputs', {}).get('webPubSubConnectionString', {}).get('value', ''))
+" <<< "$DEPLOY_OUTPUT" 2>/dev/null || true)
+
+  HUB_NAME=$(python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print(data.get('properties', {}).get('outputs', {}).get('webPubSubHubName', {}).get('value', ''))
+" <<< "$DEPLOY_OUTPUT" 2>/dev/null || true)
+
+  if [[ -n "$RESOURCE_GROUP" && -n "$STORAGE_CONN" ]]; then
+    az webapp config appsettings set \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$APP_NAME" \
+      --settings \
+        "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONN" \
+        "AZURE_WEBPUBSUB_CONNECTION_STRING=$PUBSUB_CONN" \
+        "AZURE_WEBPUBSUB_HUB_NAME=$HUB_NAME" \
+        "DEV_MODE=false" \
+        "NODE_ENV=production" \
+        "PORT=8080" \
+      --output none && echo "✅ App Service settings configured." || echo "⚠️  Could not set app settings automatically. Set them manually in Azure Portal."
+  fi
+
   echo ""
   echo "See infra/README.md for full configuration instructions."
 fi

@@ -17,9 +17,3 @@ param nameSuffix = 'dev001'
 param environment = 'dev'
 
 param location = 'australiaeast'
-
-// Set to your GitHub repo URL to enable automatic CI/CD linking.
-// Leave empty to configure CI/CD manually via the Azure Portal or GitHub Actions token.
-param repositoryUrl = ''
-
-param branch = 'main'

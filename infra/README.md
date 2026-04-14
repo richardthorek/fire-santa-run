@@ -9,14 +9,45 @@ infra/
 ├── main.bicep                  # Root orchestration template (subscription scope)
 ├── deploy.sh                   # One-command deployment script
 ├── modules/
+│   ├── appservice.bicep        # Azure App Service (hosting + API + WebSocket support)
 │   ├── storage.bicep           # Azure Table Storage (data persistence)
-│   ├── webpubsub.bicep         # Azure Web PubSub (real-time WebSockets)
-│   ├── staticwebapp.bicep      # Azure Static Web Apps (hosting + Functions API)
-│   └── monitoring.bicep        # Application Insights + Log Analytics (monitoring)
+│   ├── webpubsub.bicep         # Azure Web PubSub (real-time fan-out)
+│   └── monitoring.bicep        # Application Insights + Log Analytics
 └── parameters/
-    ├── dev.bicepparam           # Development environment parameters
+    ├── dev.bicepparam           # Development environment parameters (free tier)
     └── prod.bicepparam          # Production environment parameters
 ```
+
+---
+
+## Architecture Overview
+
+```
+Browser (React SPA)
+        │ HTTPS
+        ▼
+Azure App Service (Linux)
+   ├── GET /api/*         →  Hono Node.js server (server/)
+   │     ├── /api/routes           Table Storage
+   │     ├── /api/brigades         Table Storage
+   │     ├── /api/negotiate        → Azure Web PubSub token
+   │     └── /api/broadcast        → Azure Web PubSub group
+   │
+   └── GET /*             →  Static React SPA (dist/)
+                                React Router handles client-side routing
+
+Azure Web PubSub (WebSockets)
+   └── Hub: santa-tracking
+         Group: route_{routeId}   →  wss:// to browser (live tracking)
+
+Azure Table Storage
+   └── Stores routes, brigades, memberships, users
+
+Application Insights + Log Analytics
+   └── Request tracing, errors, custom metrics
+```
+
+The Hono server is a clean, framework-native Node.js HTTP server with no adapter wrappers. It serves both the API and the compiled React SPA from a single App Service instance.
 
 ---
 
@@ -24,17 +55,31 @@ infra/
 
 | Service | SKU (Dev) | SKU (Prod) | Free Tier Limits | Why This Service |
 |---|---|---|---|---|
-| **Azure Static Web Apps** | Free | Standard | 100 GB/month bandwidth, custom domains, SSL | Native GitHub Actions CI/CD, serverless API functions (Azure Functions v4), preview environments per PR, global CDN |
-| **Azure Table Storage** | Standard_LRS | Standard_LRS | 5 GB + 20,000 transactions/month free | Low-cost NoSQL with partition/row key model matching the brigade isolation pattern; supports all CRUD operations needed by the app |
-| **Azure Web PubSub** | Free_F1 | Standard_S1 | 20 concurrent connections, 20,000 messages/day | Fully managed WebSocket service, standard WS protocol, group-based fan-out for per-route tracking, integrates with Azure Functions via negotiate endpoint |
-| **Application Insights + Log Analytics** | PerGB2018 | PerGB2018 | 5 GB ingestion/month free, 30-day retention free | Distributed tracing for API functions, real-time metrics, custom queries; Log Analytics workspace enables future alerting |
+| **Azure App Service (Linux)** | Free F1 | Basic B1 | 60 CPU-min/day, 1 GB RAM, no always-on | Native Node.js runtime, native WebSocket support, startup command configurable, standard zip/publish-profile deployment |
+| **Azure Table Storage** | Standard_LRS | Standard_LRS | 5 GB + 20,000 tx/month free | Low-cost NoSQL with partition/row key model matching brigade isolation pattern |
+| **Azure Web PubSub** | Free_F1 | Standard_S1 | 20 concurrent connections, 20K messages/day | Managed WebSocket fan-out for per-route live tracking; standard WS protocol; integrates with the Hono server via negotiate endpoint |
+| **Application Insights + Log Analytics** | PerGB2018 | PerGB2018 | 5 GB ingestion/month free, 30-day retention free | Request tracing, error tracking, custom queries |
 
-### Why Bicep (not Terraform/Pulumi)?
+### Why App Service (not Static Web Apps + Functions)?
 
-- **No additional tooling** — works with the Azure CLI already required for this project.
-- **First-class Azure support** — new Azure features appear in Bicep before Terraform providers.
-- **Compiles to ARM** — portable, auditable, and supported natively in Azure Portal deployment history.
-- **Strong typing + IDE support** — VS Code Bicep extension provides IntelliSense and validation.
+Azure Static Web Apps with Azure Functions was the original prototype approach.
+The switch to App Service is intentional:
+
+| Concern | Static Web Apps + Functions | App Service + Hono |
+|---|---|---|
+| **Backend framework** | Azure Functions SDK (`app.http()` registration) | Hono — standard Node.js HTTP server, no framework lock-in |
+| **WebSocket support** | Requires Azure Web PubSub for any WS fan-out; Functions cannot hold persistent connections | App Service supports native WebSockets on all tiers; Web PubSub still used for managed fan-out |
+| **Cold starts** | Functions cold-start on first request (seconds) | Always-on from B1+; F1 has shared compute with reasonable warm times |
+| **Local development** | Requires `azure-functions-core-tools` (heavy toolchain) | Standard `node server/dist/main.js` — no special tooling |
+| **Deployment unit** | Two separately deployed artifacts (SPA + API zip) | Single deployment root containing both `dist/` and `server/` |
+| **Future extensibility** | Functions model limits persistent connections (SSE, WS) | Full Node.js — add WS server, streaming responses, middleware freely |
+
+### Why Bicep?
+
+- No additional tooling beyond Azure CLI (already required).
+- First-class Azure support — new features appear in Bicep before Terraform providers.
+- Compiles to ARM JSON: portable, auditable, viewable in Azure Portal deployment history.
+- Strong typing with VS Code Bicep extension IntelliSense.
 
 ---
 
@@ -43,16 +88,14 @@ infra/
 1. **Azure CLI** ≥ 2.50 — [Install guide](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
 2. **Bicep CLI** — installed automatically with Azure CLI 2.20+, or run:
    ```bash
-   az bicep install
-   az bicep upgrade
+   az bicep install && az bicep upgrade
    ```
 3. **Azure subscription** — [Free account](https://azure.microsoft.com/free/) includes $200 credit
 
-Verify your setup:
 ```bash
 az --version       # Should show 2.50+
 az bicep version   # Should show 0.20+
-az account show    # Confirm you're logged in to the correct subscription
+az account show    # Confirm logged in to correct subscription
 ```
 
 ---
@@ -60,46 +103,40 @@ az account show    # Confirm you're logged in to the correct subscription
 ## Quick Start (Single Command)
 
 ```bash
-# Deploy development environment (uses free SKUs)
+# Deploy dev environment (uses free F1 tier)
 ./infra/deploy.sh
 
-# Deploy with a custom name suffix (must be 3–8 lowercase alphanumeric chars)
+# Deploy with a custom name suffix (3–8 lowercase alphanumeric chars)
 ./infra/deploy.sh --suffix abc123
 
-# Validate without deploying (dry run)
+# Validate without deploying
 ./infra/deploy.sh --dry-run
 
-# Deploy production environment
+# Deploy production (B1 App Service, Standard Web PubSub)
 ./infra/deploy.sh --env prod --suffix prod1
 ```
 
 The script will:
-1. Check Azure CLI is installed and you are logged in
-2. Show you a deployment summary and ask for confirmation (prod only)
-3. Create the resource group and all resources
-4. Output the connection strings and secrets you need to configure
+1. Verify Azure CLI login
+2. Run the Bicep deployment
+3. Automatically configure App Service application settings (connection strings)
+4. Output the secrets you need to add to GitHub
 
 ---
 
 ## Manual Deployment
 
-If you prefer to run the Azure CLI commands directly:
-
 ```bash
-# Log in
 az login
-
-# (Optional) Select the subscription you want to use
 az account set --subscription "<subscription-name-or-id>"
 
-# Deploy to dev environment
 az deployment sub create \
   --location australiaeast \
   --template-file infra/main.bicep \
   --parameters infra/parameters/dev.bicepparam \
   --name santarun-dev-$(date +%Y%m%d)
 
-# View outputs (connection strings, app URL, etc.)
+# View outputs
 az deployment sub show \
   --name <deployment-name> \
   --query 'properties.outputs'
@@ -107,129 +144,137 @@ az deployment sub show \
 
 ---
 
-## After Deployment — Configure GitHub Secrets
+## After Deployment — Configure Secrets
 
-After deploying, add the following secrets to your GitHub repository  
-(**Settings → Secrets and variables → Actions**):
+### GitHub Actions Secrets (for CI/CD)
 
-| Secret Name | Source | Required |
-|---|---|---|
-| `AZURE_STATIC_WEB_APPS_API_TOKEN` | Bicep output `staticWebAppDeploymentToken` | ✅ Yes |
-| `AZURE_STORAGE_CONNECTION_STRING` | Bicep output `storageConnectionString` | ✅ Yes (production) |
-| `AZURE_WEBPUBSUB_CONNECTION_STRING` | Bicep output `webPubSubConnectionString` | ✅ Yes (production) |
+| Secret | Description |
+|---|---|
+| `AZURE_APP_SERVICE_PUBLISH_PROFILE` | App Service publish profile XML (from Bicep `appServicePublishProfile` output) |
+| `VITE_MAPBOX_TOKEN` | Mapbox API token for frontend maps |
 
-The Static Web Apps API token is used in `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml` and is **required for CI/CD deployment**.
+### App Service Application Settings (set automatically by `deploy.sh`, or via Portal)
 
-To retrieve secrets after deployment:
+| Setting | Value |
+|---|---|
+| `AZURE_STORAGE_CONNECTION_STRING` | From Bicep `storageConnectionString` output |
+| `AZURE_WEBPUBSUB_CONNECTION_STRING` | From Bicep `webPubSubConnectionString` output |
+| `AZURE_WEBPUBSUB_HUB_NAME` | `santa-tracking` |
+| `DEV_MODE` | `false` |
+| `PORT` | `8080` |
+
+To set app settings manually:
 ```bash
-az deployment sub show \
-  --name <deployment-name> \
-  --query 'properties.outputs.storageConnectionString.value' \
-  --output tsv
+az webapp config appsettings set \
+  --resource-group rg-santarun-dev-<suffix> \
+  --name santarun-web-<suffix> \
+  --settings \
+    "AZURE_STORAGE_CONNECTION_STRING=<value>" \
+    "AZURE_WEBPUBSUB_CONNECTION_STRING=<value>" \
+    "AZURE_WEBPUBSUB_HUB_NAME=santa-tracking" \
+    "DEV_MODE=false" "PORT=8080"
 ```
+
+---
+
+## GitHub Actions Variable
+
+Add the App Service name as a **repository variable** (not a secret):
+- **Name:** `AZURE_APP_SERVICE_NAME`
+- **Value:** `santarun-web-<your-suffix>`
+
+(Settings → Secrets and variables → Actions → Variables tab)
 
 ---
 
 ## Verifying WebSocket Support
 
-Azure Web PubSub provides managed WebSocket support. To verify the hub is working:
+Azure App Service has WebSocket support enabled in the Bicep (`webSocketsEnabled: true`).
+The live tracking feature uses Azure Web PubSub for fan-out to multiple viewers.
 
 ```bash
-# Check the resource was created
+# Verify App Service WebSocket setting
+az webapp show \
+  --resource-group rg-santarun-dev-<suffix> \
+  --name santarun-web-<suffix> \
+  --query 'siteConfig.webSocketsEnabled'
+
+# Verify Web PubSub resource
 az webpubsub show \
   --resource-group rg-santarun-dev-<suffix> \
   --name santarun-pubsub-<suffix> \
-  --query '{sku:sku.name,hostName:properties.hostName,status:properties.provisioningState}'
+  --query '{sku:sku.name,status:properties.provisioningState}'
 
-# Test the negotiate endpoint (after app deployment)
-curl https://<your-app>.azurestaticapps.net/api/negotiate?routeId=test-route
+# Test negotiate endpoint (after deployment)
+curl https://santarun-web-<suffix>.azurewebsites.net/api/negotiate?routeId=test-route
 ```
-
-In the browser (once deployed), open the tracking page and check the **Network** tab for a WebSocket connection to `wss://*.webpubsub.azure.com`.
 
 ---
 
 ## Free Tier Limits & Constraints
 
-### Azure Static Web Apps (Free)
-- 100 GB bandwidth/month
-- 2 custom domains
-- No SLA
-- **No** Azure Functions premium features (e.g., VNet integration)
-- Upgrade to **Standard** ($9 USD/month) when enabling Entra External ID authentication
+### App Service F1 (Free)
+- **60 CPU-minutes per day** shared — suitable for development and demos
+- No always-on: app sleeps after 20 minutes of inactivity (cold start of ~10s on wake)
+- No custom domain, no SSL termination at custom domain
+- No deployment slots (preview environments)
+- Upgrade to **B1** (~$18 AUD/month) for always-on, custom domain, and SLA
 
-### Azure Web PubSub (Free_F1)
+### Azure Web PubSub Free_F1
 - **20 concurrent WebSocket connections**
 - **20,000 messages per day**
-- Suitable for development and small-scale testing (≤ 20 simultaneous viewers)
-- No SLA
-- Upgrade to **Standard_S1** ($49 USD/month) for production (1,000 connections)
+- Suitable for development and small-scale testing
+- Upgrade to **Standard_S1** (~$68 AUD/month) for production (1,000 connections)
 
-### Azure Table Storage (Standard_LRS)
-- First 5 GB storage free
-- First 20,000 read/write transactions free per month
+### Azure Table Storage
+- First 5 GB free; first 20,000 transactions/month free
 - Estimated cost for typical brigade usage: **< $0.10 AUD/month**
 
 ### Application Insights + Log Analytics
-- First 5 GB data ingested free per month
-- 30-day retention included
-- Daily cap set to 0.5 GB to prevent unexpected costs during development
+- First 5 GB data free per month
+- Daily cap set to 0.5 GB to prevent unexpected development costs
 
 ---
 
 ## Upgrade Path to Production
 
-When you are ready for production:
+1. Switch to `prod` parameters: `./infra/deploy.sh --env prod --suffix myprod`
+   - App Service: `F1` → `B1` (always-on, custom domain, SSL)
+   - Web PubSub: `Free_F1` → `Standard_S1` (1,000 concurrent connections)
 
-1. **Static Web Apps → Standard** (enables Entra External ID, private endpoints):
-   ```bash
-   ./infra/deploy.sh --env prod --suffix prod1
-   ```
+2. Set custom domain in Azure Portal → App Service → Custom domains
 
-2. **Web PubSub → Standard_S1** (1,000 concurrent connections):
-   The `prod.bicepparam` parameters file already selects `Standard_S1`.
+3. Configure Entra External ID for auth (Phase 7 in MASTER_PLAN.md):
+   - Add `VITE_ENTRA_CLIENT_ID`, `VITE_ENTRA_TENANT_ID`, etc. to GitHub secrets
 
-3. **Storage → Geo-redundant** (for higher durability, optional):
-   Edit `infra/modules/storage.bicep` and change `Standard_LRS` to `Standard_GRS`.
-
-4. **Monitoring → Long retention** (optional):
-   Edit `infra/modules/monitoring.bicep` and increase `retentionInDays` (90 days = additional cost).
+4. Scale up App Service for higher traffic:
+   - `S1` for auto-scaling, deployment slots, and traffic splitting
 
 ---
 
-## Real-Time Architecture
+## Real-Time Architecture (WebSockets)
 
 ```
-Brigade Operator (GPS device)
-        │
-        ▼ HTTP POST /api/broadcast
-Azure Functions API (Static Web Apps)
-        │
-        ▼ WebPubSubServiceClient.sendToGroup()
-Azure Web PubSub Hub: 'santa-tracking'
-  Group: 'route_{routeId}'
-        │
-        ▼ WebSocket push (wss://)
-Public Viewers (tracking page /track/{routeId})
+Navigator device (GPS)
+        │ POST /api/broadcast
+        ▼
+Hono Server (App Service)
+        │ WebPubSubServiceClient.group(route_{id}).sendToAll(message)
+        ▼
+Azure Web PubSub — Hub: santa-tracking
+                   Group: route_{routeId}
+        │ wss:// push
+        ▼
+Public viewer browsers (tracking page)
 ```
 
-The `negotiate` Azure Function generates a client access token, allowing viewers to join a route-specific group and receive live location updates without authentication.
+**Negotiate flow:**
+1. Browser calls `GET /api/negotiate?routeId=abc&role=viewer`
+2. Hono server issues a Web PubSub client access token scoped to `route_abc`
+3. Browser opens native WebSocket to `wss://*.webpubsub.azure.com` using that token
+4. Browser receives location updates pushed by the navigator
 
-**Fallback strategy:** If WebSocket is unavailable (firewalls, old browsers), the app falls back to HTTP long-polling via the `/api/location` endpoint.
-
----
-
-## Notes on Alternative Real-Time Approaches
-
-| Option | Pros | Cons | Recommendation |
-|---|---|---|---|
-| **Azure Web PubSub** ✅ | Fully managed, standard WS, group fan-out, integrates with Functions | Costs $49/month at Standard tier | **Use this** — chosen approach |
-| **Server-Sent Events (SSE)** | Simpler, HTTP/1.1, no WebSocket required | Unidirectional only (server → client) | Good fallback for read-only viewers |
-| **HTTP Long-Polling** | Works everywhere, no WS support needed | Higher latency, more server load | Implemented as fallback |
-| **Azure SignalR Service** | Similar to Web PubSub, supports SignalR clients | Higher complexity, less standard | Not recommended (Web PubSub is simpler) |
-| **Azure App Service WebSockets** | True persistent WS, supports custom logic | Requires always-on server, no serverless | Use for future if full duplex app logic needed |
-
-The current architecture uses Azure Web PubSub as the primary real-time channel because the Static Web Apps + Azure Functions serverless model does not support persistent server-side connections needed by App Service WebSockets.
+**Native WebSocket fallback:** App Service has `webSocketsEnabled: true`. If a future use case requires direct persistent connections to the server (e.g., low-latency two-way messaging), this can be implemented in the Hono server using Node.js `ws` or any standard WebSocket library — no reconfiguration needed.
 
 ---
 
@@ -237,33 +282,28 @@ The current architecture uses Azure Web PubSub as the primary real-time channel 
 
 **"Subscription not found" error:**
 ```bash
-az account list --output table
-az account set --subscription "<id>"
+az account list --output table && az account set --subscription "<id>"
 ```
 
-**"Resource name already taken" error:**
-Change the `nameSuffix` parameter to something unique (globally unique names are required for Storage Accounts and Web PubSub).
+**"Resource name already taken":** Change `nameSuffix` to a unique value.
 
-**WebSocket connection fails in browser:**
-- Ensure `wss://*.webpubsub.azure.com` is allowed in your Content-Security-Policy
-- Check the `staticwebapp.config.json` `connect-src` header includes `wss://*.webpubsub.azure.com`
-- Verify the negotiate endpoint returns a valid client URL
+**App returns 404 on direct URL loads (React Router routes):**
+The Hono server's SPA fallback (`app.get('*', serveStatic(...index.html))`) handles this.
+Confirm the server built correctly: `STATIC_FILES_PATH` env var should point to the `dist/` directory.
 
-**Deployment fails with permissions error:**
-You need at least **Contributor** role on the subscription (or resource group if deploying at RG scope).
+**WebSocket connection fails:**
+- Check that `wss://*.webpubsub.azure.com` is in your Content-Security-Policy `connect-src`
+- Verify `AZURE_WEBPUBSUB_CONNECTION_STRING` is set in App Service application settings
+- Test the negotiate endpoint returns `{ url, role, routeId, groupName }`
 
 ---
 
 ## Clean Up
 
-To delete all resources (and stop all costs):
-
 ```bash
-# Remove the entire resource group
 az group delete \
   --name rg-santarun-dev-<suffix> \
-  --yes \
-  --no-wait
+  --yes --no-wait
 ```
 
-> ⚠️ **Warning:** This permanently deletes all data including Table Storage tables and their contents.
+> ⚠️ This permanently deletes all resources and data.

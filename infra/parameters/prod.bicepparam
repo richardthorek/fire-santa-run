@@ -17,8 +17,3 @@ param nameSuffix = 'prod1'
 param environment = 'prod'
 
 param location = 'australiaeast'
-
-// Set to your GitHub repository URL to enable CI/CD linking via the Static Web Apps resource.
-param repositoryUrl = 'https://github.com/richardthorek/fire-santa-run'
-
-param branch = 'main'

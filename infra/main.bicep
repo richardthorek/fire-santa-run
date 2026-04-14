@@ -1,10 +1,10 @@
 // Fire Santa Run — Azure Infrastructure (Bicep)
-// 
+//
 // Provisions all Azure resources required for the Fire Santa Run application:
-//   • Azure Static Web Apps  — Hosts the React frontend + Azure Functions API
-//   • Azure Table Storage    — NoSQL data persistence (routes, brigades, tracking)
-//   • Azure Web PubSub       — Real-time WebSocket communication for live Santa tracking
-//   • Application Insights   — Basic logging and monitoring (connected to Log Analytics)
+//   • Azure App Service (Linux)  — Runs the Hono Node.js server (API + static SPA)
+//   • Azure Table Storage        — NoSQL data persistence (routes, brigades, tracking)
+//   • Azure Web PubSub           — Real-time WebSocket communication for live Santa tracking
+//   • Application Insights       — Basic logging and monitoring (connected to Log Analytics)
 //
 // Usage:
 //   az deployment sub create \
@@ -30,12 +30,6 @@ param environment string = 'dev'
 @maxLength(8)
 param nameSuffix string
 
-@description('GitHub repository URL for Static Web Apps CI/CD integration (optional)')
-param repositoryUrl string = ''
-
-@description('GitHub branch to deploy from')
-param branch string = 'main'
-
 // ─── Variables ───────────────────────────────────────────────────────────────
 
 var resourceGroupName = 'rg-santarun-${environment}-${nameSuffix}'
@@ -46,16 +40,15 @@ var commonTags = {
   managedBy: 'bicep'
 }
 
-// Static Web Apps SKU: Free tier is sufficient for development.
-// Note: The existing production SWA uses Standard (needed for custom auth providers).
-// Switch to 'Standard' when enabling Entra External ID authentication in production.
-var swaSkuName = environment == 'prod' ? 'Standard' : 'Free'
-var staticWebAppName = 'santarun-web-${environment}-${nameSuffix}'
+// App Service SKU:
+//   dev  → F1 (Free — shared compute, 60 CPU min/day, no always-on)
+//   prod → B1 (Basic — dedicated compute, custom domain, SSL, always-on)
+var appServiceSku = environment == 'prod' ? 'B1' : 'F1'
 
-// Web PubSub SKU: Free_F1 provides 20 concurrent connections and 20K messages/day.
-// Sufficient for development and small-scale testing.
-// Switch to Standard_S1 for production workloads.
-var pubSubSkuName = environment == 'prod' ? 'Standard_S1' : 'Free_F1'
+// Web PubSub SKU:
+//   dev  → Free_F1 (20 concurrent connections, 20K messages/day)
+//   prod → Standard_S1 (1,000 concurrent connections, unlimited messages)
+var pubSubSku = environment == 'prod' ? 'Standard_S1' : 'Free_F1'
 
 // ─── Resource Group ──────────────────────────────────────────────────────────
 
@@ -94,20 +87,18 @@ module webPubSub 'modules/webpubsub.bicep' = {
   params: {
     location: location
     nameSuffix: nameSuffix
-    sku: pubSubSkuName
+    sku: pubSubSku
     tags: commonTags
   }
 }
 
-module staticWebApp 'modules/staticwebapp.bicep' = {
-  name: 'staticwebapp'
+module appService 'modules/appservice.bicep' = {
+  name: 'appservice'
   scope: resourceGroup
   params: {
     location: location
-    name: staticWebAppName
-    sku: swaSkuName
-    repositoryUrl: repositoryUrl
-    branch: branch
+    nameSuffix: nameSuffix
+    sku: appServiceSku
     tags: commonTags
   }
 }
@@ -117,12 +108,15 @@ module staticWebApp 'modules/staticwebapp.bicep' = {
 @description('Resource group name')
 output resourceGroupName string = resourceGroup.name
 
-@description('Static Web App URL')
-output appUrl string = 'https://${staticWebApp.outputs.defaultHostname}'
+@description('App Service name (use as AZURE_APP_SERVICE_NAME GitHub Actions variable)')
+output appServiceName string = appService.outputs.appName
 
-@description('Static Web App deployment API token (add to GitHub secret AZURE_STATIC_WEB_APPS_API_TOKEN)')
+@description('App Service URL')
+output appUrl string = 'https://${appService.outputs.defaultHostname}'
+
+@description('App Service publish profile XML (add to GitHub secret AZURE_APP_SERVICE_PUBLISH_PROFILE)')
 @secure()
-output staticWebAppDeploymentToken string = staticWebApp.outputs.deploymentToken
+output appServicePublishProfile string = appService.outputs.publishProfile
 
 @description('Azure Table Storage connection string (add to GitHub secret / env var AZURE_STORAGE_CONNECTION_STRING)')
 @secure()
@@ -135,5 +129,5 @@ output webPubSubConnectionString string = webPubSub.outputs.connectionString
 @description('Web PubSub hub name (set AZURE_WEBPUBSUB_HUB_NAME env var to this value)')
 output webPubSubHubName string = webPubSub.outputs.hubName
 
-@description('Application Insights connection string (for optional frontend/backend instrumentation)')
+@description('Application Insights connection string (for optional instrumentation)')
 output appInsightsConnectionString string = monitoring.outputs.connectionString
