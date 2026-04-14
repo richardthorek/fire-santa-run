@@ -57,3 +57,13 @@ coverage/
 # Lighthouse reports
 lighthouse-reports/
 lighthouse-report*
+
+# Bicep compiled ARM JSON
+infra/**/*.json
+
+# Hono server build artifacts and dependencies
+server/node_modules
+server/dist
+
+# Deployment package (assembled during CI)
+deploy/
