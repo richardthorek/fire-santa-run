@@ -22,9 +22,10 @@ updates:
       prefix: "chore(deps)"
       include: "scope"
     groups:
-      # Group all non-major updates together to reduce PR noise
-      minor-and-patch:
+      # Group all updates together into a single weekly PR
+      all-updates:
         update-types:
+          - "major"
           - "minor"
           - "patch"
 
@@ -44,9 +45,10 @@ updates:
       prefix: "chore(deps-api)"
       include: "scope"
     groups:
-      # Group all non-major updates together to reduce PR noise
-      minor-and-patch:
+      # Group all updates together into a single weekly PR
+      all-updates:
         update-types:
+          - "major"
           - "minor"
           - "patch"
 
@@ -63,4 +65,11 @@ updates:
       - "github-actions"
     commit-message:
       prefix: "chore(actions)"
+    groups:
+      # Group all actions updates into a single weekly PR
+      all-updates:
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
 
