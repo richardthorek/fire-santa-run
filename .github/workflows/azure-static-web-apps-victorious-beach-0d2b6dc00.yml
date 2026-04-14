@@ -168,7 +168,7 @@ jobs:
       
       - name: Comment smoke test results on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -216,7 +216,7 @@ jobs:
       actions: read
     steps:
       - name: Create Bug Issue
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const runId = context.runId;
