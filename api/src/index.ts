@@ -12,6 +12,7 @@ import './admin-verification';
 import './negotiate';
 import './broadcast';
 import './claim';
+import './og-image';
 
 // Import utils to ensure they are compiled
 import './utils/auth';

@@ -8,7 +8,9 @@
     "AZURE_WEBPUBSUB_CONNECTION_STRING": "",
     "VITE_ENTRA_CLIENT_ID": "",
     "VITE_ENTRA_TENANT_ID": "",
-    "VITE_ENTRA_AUTHORITY": ""
+    "VITE_ENTRA_AUTHORITY": "",
+    "MAPBOX_TOKEN": "",
+    "AZURE_BLOB_STORAGE_CONNECTION_STRING": ""
   },
   "Host": {
     "LocalHttpPort": 7071,
