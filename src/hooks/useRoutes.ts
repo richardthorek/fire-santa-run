@@ -36,7 +36,7 @@ export function useRoutes() {
       let thresholdDays = DEFAULT_ARCHIVE_THRESHOLD_DAYS;
       try {
         const brigade = await storageAdapter.getBrigade(activeBrigadeId);
-        if (brigade?.archiveThresholdDays != null) {
+        if (brigade?.archiveThresholdDays != null && brigade.archiveThresholdDays > 0) {
           thresholdDays = brigade.archiveThresholdDays;
         }
       } catch {

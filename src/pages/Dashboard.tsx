@@ -5,15 +5,23 @@ import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout } from 
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { isApproachingAutoArchive, daysUntilAutoArchive, DEFAULT_ARCHIVE_THRESHOLD_DAYS } from '../utils/routeHelpers';
+import { useBrigade } from '../context';
 import { format } from 'date-fns';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const { routes, isLoading, error, archiveRoute, restoreRoute } = useRoutes();
+  const { brigade } = useBrigade();
   const [filterStatus, setFilterStatus] = useState<RouteStatus | 'all'>('all');
   const [shareModalRoute, setShareModalRoute] = useState<Route | null>(null);
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+
+  // Resolve brigade archive threshold (must be positive, fallback to default)
+  const archiveThreshold =
+    brigade?.archiveThresholdDays != null && brigade.archiveThresholdDays > 0
+      ? brigade.archiveThresholdDays
+      : DEFAULT_ARCHIVE_THRESHOLD_DAYS;
 
   // Non-archived routes (shown in 'all' and other status tabs)
   const activeRoutes = routes.filter(r => r.status !== 'archived');
@@ -33,8 +41,8 @@ export function Dashboard() {
     archived: routes.filter(r => r.status === 'archived').length,
   };
 
-  // Routes approaching auto-archive (within 7 days)
-  const approachingArchive = activeRoutes.filter(r => isApproachingAutoArchive(r, DEFAULT_ARCHIVE_THRESHOLD_DAYS));
+  // Routes approaching auto-archive (within 7 days of threshold)
+  const approachingArchive = activeRoutes.filter(r => isApproachingAutoArchive(r, archiveThreshold));
 
   const handleArchive = async (e: React.MouseEvent, routeId: string) => {
     e.stopPropagation();
@@ -220,41 +228,48 @@ export function Dashboard() {
         borderRadius: 'var(--border-radius-sm)',
         border: '2px solid var(--neutral-200)',
       }} role="tablist">
-        {(['all', 'draft', 'published', 'active', 'completed', 'archived'] as const).map(status => (
-          <button
-            key={status}
-            onClick={() => setFilterStatus(status)}
-            role="tab"
-            aria-selected={filterStatus === status}
-            aria-label={`Show ${status} routes (${statusCounts[status]})`}
-            style={{
-              padding: '0.625rem 1.25rem',
-              border: status === 'archived' && filterStatus !== 'archived' ? '1px dashed var(--neutral-400)' : 'none',
-              borderRadius: 'var(--border-radius-xs)',
-              background: filterStatus === status ? 'white' : 'transparent',
-              color: filterStatus === status ? (status === 'archived' ? '#9E9E9E' : 'var(--fire-red)') : 'var(--neutral-700)',
-              fontWeight: filterStatus === status ? 700 : 500,
-              fontFamily: 'var(--font-body)',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              whiteSpace: 'nowrap',
-              boxShadow: filterStatus === status ? '0 2px 6px rgba(0,0,0,0.1)' : 'none',
-              fontSize: '0.875rem',
-            }}
-            onMouseEnter={(e) => {
-              if (filterStatus !== status) {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.5)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (filterStatus !== status) {
-                e.currentTarget.style.background = 'transparent';
-              }
-            }}
-          >
-            {status === 'all' ? 'All' : status === 'archived' ? '📦 Archived' : status.charAt(0).toUpperCase() + status.slice(1)} ({statusCounts[status]})
-          </button>
-        ))}
+        {(['all', 'draft', 'published', 'active', 'completed', 'archived'] as const).map(status => {
+          const isSelected = filterStatus === status;
+          const isArchived = status === 'archived';
+          const tabBorder = isArchived && !isSelected ? '1px dashed var(--neutral-400)' : 'none';
+          const tabColor = isSelected ? (isArchived ? '#9E9E9E' : 'var(--fire-red)') : 'var(--neutral-700)';
+          const tabLabel = status === 'all' ? 'All' : isArchived ? '📦 Archived' : status.charAt(0).toUpperCase() + status.slice(1);
+          return (
+            <button
+              key={status}
+              onClick={() => setFilterStatus(status)}
+              role="tab"
+              aria-selected={isSelected}
+              aria-label={`Show ${status} routes (${statusCounts[status]})`}
+              style={{
+                padding: '0.625rem 1.25rem',
+                border: tabBorder,
+                borderRadius: 'var(--border-radius-xs)',
+                background: isSelected ? 'white' : 'transparent',
+                color: tabColor,
+                fontWeight: isSelected ? 700 : 500,
+                fontFamily: 'var(--font-body)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                boxShadow: isSelected ? '0 2px 6px rgba(0,0,0,0.1)' : 'none',
+                fontSize: '0.875rem',
+              }}
+              onMouseEnter={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.5)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.background = 'transparent';
+                }
+              }}
+            >
+              {tabLabel} ({statusCounts[status]})
+            </button>
+          );
+        })}
       </nav>
 
       {/* Auto-archive notification banner */}
@@ -276,7 +291,7 @@ export function Dashboard() {
             </strong>
             <span style={{ color: '#BF360C', fontSize: '0.875rem' }}>
               {approachingArchive.length === 1
-                ? `"${approachingArchive[0].name}" will be automatically archived in ${daysUntilAutoArchive(approachingArchive[0], DEFAULT_ARCHIVE_THRESHOLD_DAYS)} day(s).`
+                ? `"${approachingArchive[0].name}" will be automatically archived in ${daysUntilAutoArchive(approachingArchive[0], archiveThreshold)} day(s).`
                 : `${approachingArchive.length} completed routes will be automatically archived soon.`}
               {' '}You can archive them now or restore them later from the Archived tab.
             </span>
