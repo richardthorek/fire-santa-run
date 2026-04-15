@@ -19,7 +19,7 @@ function getNextChristmasEveAt4pm(): { date: string; time: string } {
  * Route helper utilities for ID generation, links, and status management
  */
 
-import type { Route, RouteStatus, Waypoint } from '../types';
+import type { Route, RouteStatus, Waypoint, NavigationSettings, NavigationStep } from '../types';
 
 /**
  * Generate a unique route ID
@@ -264,9 +264,164 @@ export function daysUntilAutoArchive(route: Route, thresholdDays: number = DEFAU
 }
 
 /**
- * Calculate estimated arrival times for waypoints based on route navigation data
+ * Default navigation settings
+ */
+export const DEFAULT_NAVIGATION_SETTINGS: NavigationSettings = {
+  walkingSpeedKmh: 5,        // Average walking speed
+  stopDurationMinutes: 2,    // Time spent at each waypoint
+  transitSpeedKmh: 60,       // Speed for high-speed road segments
+};
+
+/**
+ * Detect if a navigation step is a high-speed transit leg.
+ * A leg is considered high-speed if its average speed is >= 60 km/h.
+ */
+export function isTransitLeg(step: NavigationStep, transitSpeedThresholdKmh: number = 60): boolean {
+  if (step.duration === 0) return false;
+
+  // Calculate average speed for this step in km/h
+  const speedKmh = (step.distance / 1000) / (step.duration / 3600);
+
+  // Consider it a transit leg if speed is at or above threshold
+  return speedKmh >= transitSpeedThresholdKmh;
+}
+
+/**
+ * Calculate duration for a navigation step with custom speeds.
+ * Uses walking speed for normal segments and transit speed for high-speed segments.
+ */
+export function calculateStepDuration(
+  step: NavigationStep,
+  settings: NavigationSettings
+): number {
+  const isHighSpeed = isTransitLeg(step, settings.transitSpeedKmh);
+  const speedKmh = isHighSpeed ? settings.transitSpeedKmh : settings.walkingSpeedKmh;
+  const speedMps = (speedKmh * 1000) / 3600; // Convert km/h to m/s
+
+  return step.distance / speedMps; // Duration in seconds
+}
+
+/**
+ * Calculate estimated arrival times for waypoints based on route navigation data.
+ * Accounts for:
+ * - Configurable walking speed
+ * - Stop duration at each waypoint
+ * - High-speed transit legs (roads >= 60 km/h)
  */
 export function calculateEstimatedArrivals(
+  route: Route,
+  startDateTime: Date,
+  settings?: NavigationSettings
+): Waypoint[] {
+  if (!route.navigationSteps || route.navigationSteps.length === 0 || route.waypoints.length === 0) {
+    return route.waypoints;
+  }
+
+  // Use provided settings or route settings or defaults
+  const navSettings = settings || route.navigationSettings || DEFAULT_NAVIGATION_SETTINGS;
+  const stopDurationSeconds = navSettings.stopDurationMinutes * 60;
+
+  const updatedWaypoints = [...route.waypoints];
+  let cumulativeTime = startDateTime.getTime();
+
+  // Calculate ETA for each waypoint
+  updatedWaypoints.forEach((waypoint, index) => {
+    if (index === 0) {
+      // First waypoint: arrival at start time
+      waypoint.estimatedArrival = new Date(cumulativeTime).toISOString();
+    } else {
+      // Add stop duration at previous waypoint (except before first)
+      if (index > 0) {
+        cumulativeTime += stopDurationSeconds * 1000;
+      }
+
+      // Calculate travel time from previous waypoint to this one
+      // We need to sum the durations of steps between waypoints
+      // For simplicity, we'll distribute the steps evenly across waypoints
+      // A more accurate approach would require Mapbox to tell us which steps correspond to which waypoint leg
+
+      // Simplified approach: divide steps by waypoint segments
+      const totalSteps = route.navigationSteps!.length;
+      const waypointSegments = route.waypoints.length - 1;
+      const stepsPerSegment = totalSteps / waypointSegments;
+
+      const segmentStartIdx = Math.floor((index - 1) * stepsPerSegment);
+      const segmentEndIdx = Math.floor(index * stepsPerSegment);
+
+      // Sum adjusted durations for steps in this segment
+      let segmentDuration = 0;
+      for (let i = segmentStartIdx; i < segmentEndIdx && i < totalSteps; i++) {
+        segmentDuration += calculateStepDuration(route.navigationSteps![i], navSettings);
+      }
+
+      cumulativeTime += segmentDuration * 1000;
+      waypoint.estimatedArrival = new Date(cumulativeTime).toISOString();
+    }
+  });
+
+  return updatedWaypoints;
+}
+
+/**
+ * Calculate ETAs for remaining waypoints during active navigation.
+ * Uses actual current time and position to provide real-time estimates.
+ */
+export function calculateRealTimeETAs(
+  route: Route,
+  currentWaypointIndex: number,
+  currentTime: Date,
+  _currentSpeed?: number, // GPS speed in m/s - reserved for future use
+  settings?: NavigationSettings
+): Waypoint[] {
+  if (!route.navigationSteps || route.navigationSteps.length === 0 || route.waypoints.length === 0) {
+    return route.waypoints;
+  }
+
+  const navSettings = settings || route.navigationSettings || DEFAULT_NAVIGATION_SETTINGS;
+  const stopDurationSeconds = navSettings.stopDurationMinutes * 60;
+
+  const updatedWaypoints = [...route.waypoints];
+  let cumulativeTime = currentTime.getTime();
+
+  updatedWaypoints.forEach((waypoint, index) => {
+    if (index < currentWaypointIndex) {
+      // Already completed - keep existing actual or estimated arrival
+      return;
+    }
+
+    if (index === currentWaypointIndex) {
+      // Next waypoint - calculate based on remaining distance and current speed
+      // This is a simplified calculation; more accurate would use remaining steps
+      waypoint.estimatedArrival = new Date(cumulativeTime).toISOString();
+    } else {
+      // Future waypoints - add stop duration and travel time
+      cumulativeTime += stopDurationSeconds * 1000;
+
+      // Calculate travel time (simplified approach using even distribution)
+      const totalSteps = route.navigationSteps!.length;
+      const waypointSegments = route.waypoints.length - 1;
+      const stepsPerSegment = totalSteps / waypointSegments;
+
+      const segmentStartIdx = Math.floor((index - 1) * stepsPerSegment);
+      const segmentEndIdx = Math.floor(index * stepsPerSegment);
+
+      let segmentDuration = 0;
+      for (let i = segmentStartIdx; i < segmentEndIdx && i < totalSteps; i++) {
+        segmentDuration += calculateStepDuration(route.navigationSteps![i], navSettings);
+      }
+
+      cumulativeTime += segmentDuration * 1000;
+      waypoint.estimatedArrival = new Date(cumulativeTime).toISOString();
+    }
+  });
+
+  return updatedWaypoints;
+}
+
+/**
+ * Calculate estimated arrival times for waypoints based on route navigation data
+ */
+export function calculateEstimatedArrivals_DEPRECATED(
   route: Route,
   startDateTime: Date
 ): Waypoint[] {
@@ -286,7 +441,7 @@ export function calculateEstimatedArrivals(
       const durationToWaypoint = route.navigationSteps!
         .slice(0, index)
         .reduce((sum, step) => sum + step.duration, 0);
-      
+
       const arrivalTime = new Date(currentTime + durationToWaypoint * 1000);
       waypoint.estimatedArrival = arrivalTime.toISOString();
     }

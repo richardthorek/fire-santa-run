@@ -4,7 +4,7 @@ import { useAuth, useBrigade } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
 import { useTemplates } from '../hooks/useTemplates';
 import { MapView, WaypointList, AddressSearch } from '../components';
-import { createNewRoute, generateShareableLink, canPublishRoute, generateWaypointId, generateTemplateId } from '../utils/routeHelpers';
+import { createNewRoute, generateShareableLink, canPublishRoute, generateWaypointId, generateTemplateId, DEFAULT_NAVIGATION_SETTINGS } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
@@ -530,6 +530,116 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           </div>
         </div>
 
+        {/* Navigation Settings */}
+        <details style={{
+          border: '1px solid #e0e0e0',
+          borderRadius: '8px',
+          padding: '1rem',
+          backgroundColor: '#fafafa',
+        }}>
+          <summary style={{
+            cursor: 'pointer',
+            fontWeight: 600,
+            fontSize: '1rem',
+            color: '#616161',
+            userSelect: 'none',
+          }}>
+            ⚙️ Advanced Navigation Settings
+          </summary>
+          <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#616161' }}>
+                Walking Speed (km/h)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="10"
+                step="0.5"
+                value={route.navigationSettings?.walkingSpeedKmh ?? DEFAULT_NAVIGATION_SETTINGS.walkingSpeedKmh}
+                onChange={(e) => updateMetadata({
+                  navigationSettings: {
+                    ...DEFAULT_NAVIGATION_SETTINGS,
+                    ...route.navigationSettings,
+                    walkingSpeedKmh: parseFloat(e.target.value) || DEFAULT_NAVIGATION_SETTINGS.walkingSpeedKmh,
+                  }
+                })}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box',
+                }}
+              />
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#9e9e9e' }}>
+                Average speed for Santa's slow-moving route (default: {DEFAULT_NAVIGATION_SETTINGS.walkingSpeedKmh} km/h)
+              </p>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#616161' }}>
+                Stop Duration (minutes)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="30"
+                step="1"
+                value={route.navigationSettings?.stopDurationMinutes ?? DEFAULT_NAVIGATION_SETTINGS.stopDurationMinutes}
+                onChange={(e) => updateMetadata({
+                  navigationSettings: {
+                    ...DEFAULT_NAVIGATION_SETTINGS,
+                    ...route.navigationSettings,
+                    stopDurationMinutes: parseInt(e.target.value) || DEFAULT_NAVIGATION_SETTINGS.stopDurationMinutes,
+                  }
+                })}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box',
+                }}
+              />
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#9e9e9e' }}>
+                Time spent at each waypoint (default: {DEFAULT_NAVIGATION_SETTINGS.stopDurationMinutes} min)
+              </p>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#616161' }}>
+                Transit Speed (km/h)
+              </label>
+              <input
+                type="number"
+                min="40"
+                max="100"
+                step="5"
+                value={route.navigationSettings?.transitSpeedKmh ?? DEFAULT_NAVIGATION_SETTINGS.transitSpeedKmh}
+                onChange={(e) => updateMetadata({
+                  navigationSettings: {
+                    ...DEFAULT_NAVIGATION_SETTINGS,
+                    ...route.navigationSettings,
+                    transitSpeedKmh: parseInt(e.target.value) || DEFAULT_NAVIGATION_SETTINGS.transitSpeedKmh,
+                  }
+                })}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box',
+                }}
+              />
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#9e9e9e' }}>
+                Speed for high-speed road segments (≥60 km/h, default: {DEFAULT_NAVIGATION_SETTINGS.transitSpeedKmh} km/h)
+              </p>
+            </div>
+          </div>
+        </details>
+
         {/* Address Search */}
         <div>
           <h3 style={{ 
@@ -809,6 +919,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
             onEdit={handleEditWaypoint}
             onDelete={deleteWaypoint}
             editable={true}
+            showETA={!!route.geometry && !!route.navigationSteps}
           />
         </div>
       </div>

@@ -24,6 +24,7 @@ import {
   announceRouteComplete,
 } from '../utils/voice';
 import { getDirections } from '../utils/mapbox';
+import { calculateRealTimeETAs } from '../utils/routeHelpers';
 
 export interface NavigationState {
   isNavigating: boolean;
@@ -229,14 +230,27 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
 
       // Get new route from current position to remaining waypoints
       const newDirections = await getDirections(coordinates);
-      
-      // Update route with new geometry and steps
+
+      // Recalculate ETAs for remaining waypoints based on current time
+      const updatedWaypointsWithETAs = calculateRealTimeETAs(
+        {
+          ...updatedRoute,
+          geometry: newDirections.geometry,
+          navigationSteps: newDirections.steps,
+        },
+        remainingWaypoints.findIndex(wp => !wp.isCompleted),
+        new Date(),
+        position.speed ?? undefined
+      );
+
+      // Update route with new geometry, steps, and ETAs
       setUpdatedRoute(prev => ({
         ...prev,
         geometry: newDirections.geometry,
         navigationSteps: newDirections.steps,
         distance: newDirections.distance,
         estimatedDuration: newDirections.duration,
+        waypoints: updatedWaypointsWithETAs,
       }));
 
       setIsRerouting(false);
@@ -305,6 +319,40 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       rerouteTimeoutRef.current = null;
     }
   }, [isNavigating, position, updatedRoute, voiceEnabled, navigationState, completedWaypointIds, isRerouting, completeWaypoint, reroute, REROUTE_DEBOUNCE_MS]);
+
+  // Periodically update ETAs during navigation (every 30 seconds)
+  useEffect(() => {
+    if (!isNavigating || !position || !updatedRoute.navigationSteps) {
+      return;
+    }
+
+    const updateETAs = () => {
+      const nextWaypoint = findNextWaypoint(updatedRoute.waypoints);
+      if (!nextWaypoint) return;
+
+      const currentWaypointIndex = updatedRoute.waypoints.findIndex(wp => wp.id === nextWaypoint.id);
+
+      // Recalculate ETAs for all remaining waypoints
+      const updatedWaypointsWithETAs = calculateRealTimeETAs(
+        updatedRoute,
+        currentWaypointIndex,
+        new Date(),
+        position.speed ?? undefined
+      );
+
+      setUpdatedRoute(prev => ({
+        ...prev,
+        waypoints: updatedWaypointsWithETAs,
+      }));
+    };
+
+    // Update ETAs every 30 seconds
+    const intervalId = setInterval(updateETAs, 30000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [isNavigating, position, updatedRoute]);
 
   return {
     navigationState,

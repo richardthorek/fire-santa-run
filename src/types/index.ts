@@ -24,6 +24,12 @@ export interface NavigationStep {
   };
 }
 
+export interface NavigationSettings {
+  walkingSpeedKmh: number;        // Average walking speed in km/h (default: 5)
+  stopDurationMinutes: number;    // Time spent at each waypoint in minutes (default: 2)
+  transitSpeedKmh: number;        // Speed for high-speed road segments in km/h (default: 60)
+}
+
 export interface Route {
   id: string;
   brigadeId: string;
@@ -39,6 +45,7 @@ export interface Route {
   distance?: number;              // Total distance in meters
   estimatedDuration?: number;     // Estimated duration in seconds
   actualDuration?: number;        // Actual duration in seconds
+  navigationSettings?: NavigationSettings; // Speed and timing configuration
   createdAt: string;
   createdBy?: string;             // User ID reference (not email)
   publishedAt?: string;
