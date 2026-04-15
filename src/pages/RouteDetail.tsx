@@ -5,6 +5,7 @@ import {
   MapView, 
   RouteStatusBadge, 
   ShareModal, 
+  RoutePreviewModal,
   SEO, 
   LoadingSkeleton
 } from '../components';
@@ -25,6 +26,7 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
@@ -481,6 +483,34 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               🧭 Navigate
             </button>
 
+            {/* Preview Instructions Button */}
+            <button
+              onClick={() => canNavigate
+                ? setPreviewModalOpen(true)
+                : alert('Route must have navigation data. Please edit the route to fetch directions.')
+              }
+              disabled={!canNavigate}
+              style={{
+                padding: '0.875rem 1rem',
+                background: canNavigate
+                  ? `linear-gradient(135deg, ${COLORS.neutral700} 0%, ${COLORS.neutral800} 100%)`
+                  : COLORS.neutral200,
+                color: canNavigate ? 'white' : COLORS.neutral700,
+                border: 'none',
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: canNavigate ? 'pointer' : 'not-allowed',
+                boxShadow: canNavigate ? '0 4px 12px rgba(66, 66, 66, 0.25)' : 'none',
+                transition: 'transform 0.2s',
+                opacity: canNavigate ? 1 : 0.6,
+              }}
+              onMouseEnter={(e) => canNavigate && (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={(e) => canNavigate && (e.currentTarget.style.transform = 'translateY(0)')}
+            >
+              📋 Preview Instructions
+            </button>
+
             {/* Preview Public Link Button */}
             <button
               onClick={() => {
@@ -790,6 +820,15 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
           route={route}
           isOpen={true}
           onClose={() => setShareModalOpen(false)}
+        />
+      )}
+
+      {/* Route Preview (Turn-by-Turn) Modal */}
+      {previewModalOpen && (
+        <RoutePreviewModal
+          route={route}
+          isOpen={true}
+          onClose={() => setPreviewModalOpen(false)}
         />
       )}
 
