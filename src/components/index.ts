@@ -18,6 +18,7 @@ export { RoleBadge } from './RoleBadge';
 export { SkipLink } from './SkipLink';
 export { CountdownTimer } from './CountdownTimer';
 export { ThankYouOverlay } from './ThankYouOverlay';
+export { HighlightedText } from './HighlightedText';
 
 // Convenience export for LoadingSkeleton (for consistency)
 export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';

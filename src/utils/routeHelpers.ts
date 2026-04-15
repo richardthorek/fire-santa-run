@@ -286,11 +286,166 @@ export function calculateEstimatedArrivals(
       const durationToWaypoint = route.navigationSteps!
         .slice(0, index)
         .reduce((sum, step) => sum + step.duration, 0);
-      
+
       const arrivalTime = new Date(currentTime + durationToWaypoint * 1000);
       waypoint.estimatedArrival = arrivalTime.toISOString();
     }
   });
 
   return updatedWaypoints;
+}
+
+/**
+ * Search routes by text query (name, description, waypoint addresses)
+ * Returns true if the route matches the search query
+ */
+export function searchRoutes(route: Route, query: string): boolean {
+  if (!query || query.trim() === '') {
+    return true;
+  }
+
+  const normalizedQuery = query.toLowerCase().trim();
+
+  // Search in route name
+  if (route.name.toLowerCase().includes(normalizedQuery)) {
+    return true;
+  }
+
+  // Search in route description
+  if (route.description && route.description.toLowerCase().includes(normalizedQuery)) {
+    return true;
+  }
+
+  // Search in waypoint addresses
+  const matchingWaypoint = route.waypoints.some(waypoint => {
+    if (waypoint.address && waypoint.address.toLowerCase().includes(normalizedQuery)) {
+      return true;
+    }
+    if (waypoint.name && waypoint.name.toLowerCase().includes(normalizedQuery)) {
+      return true;
+    }
+    return false;
+  });
+
+  return matchingWaypoint;
+}
+
+/**
+ * Filter options for route filtering
+ */
+export interface RouteFilterOptions {
+  dateFrom?: string;
+  dateTo?: string;
+  statuses?: RouteStatus[];
+  minDistance?: number;
+  maxDistance?: number;
+  minStops?: number;
+  maxStops?: number;
+}
+
+/**
+ * Filter routes based on filter options
+ */
+export function filterRoutes(route: Route, filters: RouteFilterOptions): boolean {
+  // Date range filter
+  if (filters.dateFrom && route.date < filters.dateFrom) {
+    return false;
+  }
+  if (filters.dateTo && route.date > filters.dateTo) {
+    return false;
+  }
+
+  // Status filter
+  if (filters.statuses && filters.statuses.length > 0) {
+    if (!filters.statuses.includes(route.status)) {
+      return false;
+    }
+  }
+
+  // Distance filter (route.distance is in meters)
+  if (filters.minDistance !== undefined && route.distance !== undefined) {
+    if (route.distance < filters.minDistance) {
+      return false;
+    }
+  }
+  if (filters.maxDistance !== undefined && route.distance !== undefined) {
+    if (route.distance > filters.maxDistance) {
+      return false;
+    }
+  }
+
+  // Stops filter
+  const stopCount = route.waypoints.length;
+  if (filters.minStops !== undefined && stopCount < filters.minStops) {
+    return false;
+  }
+  if (filters.maxStops !== undefined && stopCount > filters.maxStops) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Sort options for route sorting
+ */
+export type RouteSortField = 'date' | 'name' | 'distance' | 'views' | 'created';
+export type RouteSortOrder = 'asc' | 'desc';
+
+export interface RouteSortOptions {
+  field: RouteSortField;
+  order: RouteSortOrder;
+}
+
+/**
+ * Sort routes based on sort options
+ */
+export function sortRoutes(routes: Route[], sortOptions: RouteSortOptions): Route[] {
+  const { field, order } = sortOptions;
+  const multiplier = order === 'asc' ? 1 : -1;
+
+  return [...routes].sort((a, b) => {
+    let comparison = 0;
+
+    switch (field) {
+      case 'date': {
+        // Sort by date, then by startTime
+        const dateA = `${a.date} ${a.startTime || '00:00'}`;
+        const dateB = `${b.date} ${b.startTime || '00:00'}`;
+        comparison = dateA.localeCompare(dateB);
+        break;
+      }
+
+      case 'name': {
+        comparison = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        break;
+      }
+
+      case 'distance': {
+        const distA = a.distance || 0;
+        const distB = b.distance || 0;
+        comparison = distA - distB;
+        break;
+      }
+
+      case 'views': {
+        const viewsA = a.viewCount || 0;
+        const viewsB = b.viewCount || 0;
+        comparison = viewsA - viewsB;
+        break;
+      }
+
+      case 'created': {
+        const createdA = new Date(a.createdAt).getTime();
+        const createdB = new Date(b.createdAt).getTime();
+        comparison = createdA - createdB;
+        break;
+      }
+
+      default:
+        comparison = 0;
+    }
+
+    return comparison * multiplier;
+  });
 }

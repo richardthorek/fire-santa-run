@@ -18,6 +18,11 @@ import {
   validateRoute,
   createNewRoute,
   duplicateRoute,
+  searchRoutes,
+  filterRoutes,
+  sortRoutes,
+  type RouteFilterOptions,
+  type RouteSortOptions,
 } from '../routeHelpers';
 import type { Route, Waypoint, RouteStatus } from '../../types';
 
@@ -486,6 +491,279 @@ describe('routeHelpers', () => {
 
       expect(baseRoute.name).toBe(originalName);
       expect(baseRoute.status).toBe(originalStatus);
+    });
+  });
+
+  describe('searchRoutes', () => {
+    const testRoute: Route = {
+      id: 'route-1',
+      brigadeId: 'brigade-1',
+      name: 'Christmas Eve Santa Run',
+      description: 'Annual festive route through the suburbs',
+      date: '2024-12-24',
+      startTime: '18:00',
+      status: 'published',
+      waypoints: [
+        {
+          id: 'wp1',
+          coordinates: [151.2093, -33.8688],
+          address: '123 Main Street, Sydney NSW',
+          name: 'Town Hall',
+          order: 0,
+          isCompleted: false,
+        },
+        {
+          id: 'wp2',
+          coordinates: [151.2200, -33.8700],
+          address: '456 Park Avenue, Sydney NSW',
+          name: 'Community Center',
+          order: 1,
+          isCompleted: false,
+        },
+      ],
+      createdAt: '2024-01-01T00:00:00Z',
+    };
+
+    it('should return true when query is empty', () => {
+      expect(searchRoutes(testRoute, '')).toBe(true);
+      expect(searchRoutes(testRoute, '   ')).toBe(true);
+    });
+
+    it('should search by route name (case insensitive)', () => {
+      expect(searchRoutes(testRoute, 'christmas')).toBe(true);
+      expect(searchRoutes(testRoute, 'CHRISTMAS')).toBe(true);
+      expect(searchRoutes(testRoute, 'Santa')).toBe(true);
+      expect(searchRoutes(testRoute, 'holiday')).toBe(false);
+    });
+
+    it('should search by route description', () => {
+      expect(searchRoutes(testRoute, 'festive')).toBe(true);
+      expect(searchRoutes(testRoute, 'suburbs')).toBe(true);
+      expect(searchRoutes(testRoute, 'downtown')).toBe(false);
+    });
+
+    it('should search by waypoint address', () => {
+      expect(searchRoutes(testRoute, 'Main Street')).toBe(true);
+      expect(searchRoutes(testRoute, 'Park Avenue')).toBe(true);
+      expect(searchRoutes(testRoute, 'sydney')).toBe(true);
+      expect(searchRoutes(testRoute, 'Melbourne')).toBe(false);
+    });
+
+    it('should search by waypoint name', () => {
+      expect(searchRoutes(testRoute, 'Town Hall')).toBe(true);
+      expect(searchRoutes(testRoute, 'Community')).toBe(true);
+      expect(searchRoutes(testRoute, 'Library')).toBe(false);
+    });
+  });
+
+  describe('filterRoutes', () => {
+    const testRoute: Route = {
+      id: 'route-1',
+      brigadeId: 'brigade-1',
+      name: 'Test Route',
+      date: '2024-12-24',
+      startTime: '18:00',
+      status: 'published',
+      waypoints: [
+        { id: 'wp1', coordinates: [0, 0], order: 0, isCompleted: false },
+        { id: 'wp2', coordinates: [1, 1], order: 1, isCompleted: false },
+        { id: 'wp3', coordinates: [2, 2], order: 2, isCompleted: false },
+      ],
+      distance: 5000, // 5km in meters
+      createdAt: '2024-01-01T00:00:00Z',
+    };
+
+    it('should return true when no filters applied', () => {
+      expect(filterRoutes(testRoute, {})).toBe(true);
+    });
+
+    it('should filter by date range', () => {
+      expect(filterRoutes(testRoute, { dateFrom: '2024-01-01' })).toBe(true);
+      expect(filterRoutes(testRoute, { dateFrom: '2024-12-25' })).toBe(false);
+      expect(filterRoutes(testRoute, { dateTo: '2024-12-31' })).toBe(true);
+      expect(filterRoutes(testRoute, { dateTo: '2024-12-23' })).toBe(false);
+      expect(filterRoutes(testRoute, { dateFrom: '2024-12-01', dateTo: '2024-12-31' })).toBe(true);
+      expect(filterRoutes(testRoute, { dateFrom: '2025-01-01', dateTo: '2025-12-31' })).toBe(false);
+    });
+
+    it('should filter by status', () => {
+      expect(filterRoutes(testRoute, { statuses: ['published'] })).toBe(true);
+      expect(filterRoutes(testRoute, { statuses: ['draft', 'published'] })).toBe(true);
+      expect(filterRoutes(testRoute, { statuses: ['draft'] })).toBe(false);
+      expect(filterRoutes(testRoute, { statuses: [] })).toBe(true);
+    });
+
+    it('should filter by distance range (in meters)', () => {
+      expect(filterRoutes(testRoute, { minDistance: 1000 })).toBe(true);
+      expect(filterRoutes(testRoute, { minDistance: 10000 })).toBe(false);
+      expect(filterRoutes(testRoute, { maxDistance: 10000 })).toBe(true);
+      expect(filterRoutes(testRoute, { maxDistance: 3000 })).toBe(false);
+      expect(filterRoutes(testRoute, { minDistance: 3000, maxDistance: 7000 })).toBe(true);
+    });
+
+    it('should filter by number of stops', () => {
+      expect(filterRoutes(testRoute, { minStops: 2 })).toBe(true);
+      expect(filterRoutes(testRoute, { minStops: 5 })).toBe(false);
+      expect(filterRoutes(testRoute, { maxStops: 5 })).toBe(true);
+      expect(filterRoutes(testRoute, { maxStops: 2 })).toBe(false);
+      expect(filterRoutes(testRoute, { minStops: 2, maxStops: 4 })).toBe(true);
+    });
+
+    it('should handle routes without distance gracefully', () => {
+      const routeWithoutDistance = { ...testRoute, distance: undefined };
+      // Routes without distance pass distance filters (don't exclude routes with missing data)
+      expect(filterRoutes(routeWithoutDistance, { minDistance: 1000 })).toBe(true);
+      expect(filterRoutes(routeWithoutDistance, {})).toBe(true);
+    });
+
+    it('should apply multiple filters together', () => {
+      const filters: RouteFilterOptions = {
+        dateFrom: '2024-01-01',
+        dateTo: '2024-12-31',
+        statuses: ['published', 'active'],
+        minDistance: 3000,
+        maxDistance: 10000,
+        minStops: 2,
+        maxStops: 5,
+      };
+      expect(filterRoutes(testRoute, filters)).toBe(true);
+    });
+  });
+
+  describe('sortRoutes', () => {
+    const routes: Route[] = [
+      {
+        id: 'route-1',
+        brigadeId: 'brigade-1',
+        name: 'Charlie Route',
+        date: '2024-12-24',
+        startTime: '18:00',
+        status: 'published',
+        waypoints: [{ id: 'wp1', coordinates: [0, 0], order: 0, isCompleted: false }],
+        distance: 5000,
+        viewCount: 100,
+        createdAt: '2024-01-15T00:00:00Z',
+      },
+      {
+        id: 'route-2',
+        brigadeId: 'brigade-1',
+        name: 'Alpha Route',
+        date: '2024-12-25',
+        startTime: '16:00',
+        status: 'draft',
+        waypoints: [{ id: 'wp1', coordinates: [0, 0], order: 0, isCompleted: false }],
+        distance: 10000,
+        viewCount: 50,
+        createdAt: '2024-01-10T00:00:00Z',
+      },
+      {
+        id: 'route-3',
+        brigadeId: 'brigade-1',
+        name: 'Beta Route',
+        date: '2024-12-23',
+        startTime: '20:00',
+        status: 'completed',
+        waypoints: [{ id: 'wp1', coordinates: [0, 0], order: 0, isCompleted: false }],
+        distance: 3000,
+        viewCount: 200,
+        createdAt: '2024-01-20T00:00:00Z',
+      },
+    ];
+
+    it('should sort by date ascending', () => {
+      const sorted = sortRoutes(routes, { field: 'date', order: 'asc' });
+      expect(sorted[0].date).toBe('2024-12-23');
+      expect(sorted[1].date).toBe('2024-12-24');
+      expect(sorted[2].date).toBe('2024-12-25');
+    });
+
+    it('should sort by date descending', () => {
+      const sorted = sortRoutes(routes, { field: 'date', order: 'desc' });
+      expect(sorted[0].date).toBe('2024-12-25');
+      expect(sorted[1].date).toBe('2024-12-24');
+      expect(sorted[2].date).toBe('2024-12-23');
+    });
+
+    it('should sort by name ascending (A-Z)', () => {
+      const sorted = sortRoutes(routes, { field: 'name', order: 'asc' });
+      expect(sorted[0].name).toBe('Alpha Route');
+      expect(sorted[1].name).toBe('Beta Route');
+      expect(sorted[2].name).toBe('Charlie Route');
+    });
+
+    it('should sort by name descending (Z-A)', () => {
+      const sorted = sortRoutes(routes, { field: 'name', order: 'desc' });
+      expect(sorted[0].name).toBe('Charlie Route');
+      expect(sorted[1].name).toBe('Beta Route');
+      expect(sorted[2].name).toBe('Alpha Route');
+    });
+
+    it('should sort by distance ascending', () => {
+      const sorted = sortRoutes(routes, { field: 'distance', order: 'asc' });
+      expect(sorted[0].distance).toBe(3000);
+      expect(sorted[1].distance).toBe(5000);
+      expect(sorted[2].distance).toBe(10000);
+    });
+
+    it('should sort by distance descending', () => {
+      const sorted = sortRoutes(routes, { field: 'distance', order: 'desc' });
+      expect(sorted[0].distance).toBe(10000);
+      expect(sorted[1].distance).toBe(5000);
+      expect(sorted[2].distance).toBe(3000);
+    });
+
+    it('should sort by views ascending', () => {
+      const sorted = sortRoutes(routes, { field: 'views', order: 'asc' });
+      expect(sorted[0].viewCount).toBe(50);
+      expect(sorted[1].viewCount).toBe(100);
+      expect(sorted[2].viewCount).toBe(200);
+    });
+
+    it('should sort by views descending', () => {
+      const sorted = sortRoutes(routes, { field: 'views', order: 'desc' });
+      expect(sorted[0].viewCount).toBe(200);
+      expect(sorted[1].viewCount).toBe(100);
+      expect(sorted[2].viewCount).toBe(50);
+    });
+
+    it('should sort by created date ascending', () => {
+      const sorted = sortRoutes(routes, { field: 'created', order: 'asc' });
+      expect(sorted[0].id).toBe('route-2'); // 2024-01-10
+      expect(sorted[1].id).toBe('route-1'); // 2024-01-15
+      expect(sorted[2].id).toBe('route-3'); // 2024-01-20
+    });
+
+    it('should sort by created date descending', () => {
+      const sorted = sortRoutes(routes, { field: 'created', order: 'desc' });
+      expect(sorted[0].id).toBe('route-3'); // 2024-01-20
+      expect(sorted[1].id).toBe('route-1'); // 2024-01-15
+      expect(sorted[2].id).toBe('route-2'); // 2024-01-10
+    });
+
+    it('should not mutate original array', () => {
+      const originalOrder = routes.map(r => r.id);
+      sortRoutes(routes, { field: 'name', order: 'asc' });
+      expect(routes.map(r => r.id)).toEqual(originalOrder);
+    });
+
+    it('should handle routes without distance gracefully', () => {
+      const routesWithMissingData = [
+        { ...routes[0], distance: undefined },
+        routes[1],
+        { ...routes[2], distance: undefined },
+      ];
+      const sorted = sortRoutes(routesWithMissingData, { field: 'distance', order: 'asc' });
+      expect(sorted).toHaveLength(3);
+    });
+
+    it('should handle routes without viewCount gracefully', () => {
+      const routesWithMissingData = [
+        { ...routes[0], viewCount: undefined },
+        routes[1],
+        { ...routes[2], viewCount: undefined },
+      ];
+      const sorted = sortRoutes(routesWithMissingData, { field: 'views', order: 'desc' });
+      expect(sorted).toHaveLength(3);
     });
   });
 });
