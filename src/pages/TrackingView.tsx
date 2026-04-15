@@ -30,6 +30,11 @@ export function TrackingView({ routeId }: TrackingViewProps) {
 
   const { getRoute } = useRoutes();
 
+  // Reset countdown state when the route changes
+  useEffect(() => {
+    setCountdownComplete(false);
+  }, [routeId]);
+
   // Fetch route data
   useEffect(() => {
     getRoute(routeId)

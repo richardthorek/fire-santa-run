@@ -19,6 +19,11 @@ export interface CountdownTime {
  * @returns         Countdown breakdown and total ms remaining
  */
 export function getCountdownTime(date: string, startTime: string): CountdownTime {
+  // Combining date (YYYY-MM-DD) and time (HH:MM) without a timezone suffix causes
+  // the browser to parse the value as *local* time, which is intentional: brigades
+  // set their start times in local Australian time and viewers in the same region
+  // see the correct countdown. If cross-timezone support is needed in future, the
+  // Route type should carry an explicit IANA timezone identifier.
   const startDateTime = new Date(`${date}T${startTime}`);
   const total = startDateTime.getTime() - Date.now();
 

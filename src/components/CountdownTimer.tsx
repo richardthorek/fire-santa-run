@@ -4,7 +4,7 @@
  * Shown on the public tracking page before Santa's run begins.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getCountdownTime, padCountdownUnit, formatRouteStartDateTime } from '../utils/countdown';
 
 export interface CountdownTimerProps {
@@ -22,6 +22,13 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
   const [countdown, setCountdown] = useState(() => getCountdownTime(startDate, startTime));
   const [completed, setCompleted] = useState(false);
 
+  // Keep a stable ref so the interval tick always calls the latest callback
+  // without needing to restart the interval whenever the prop changes.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
   useEffect(() => {
     // Re-initialise if props change
     setCountdown(getCountdownTime(startDate, startTime));
@@ -34,15 +41,15 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
     const tick = () => {
       const next = getCountdownTime(startDate, startTime);
       setCountdown(next);
-      if (next.total === 0 && !completed) {
+      if (next.total === 0) {
         setCompleted(true);
-        onComplete?.();
+        onCompleteRef.current?.();
       }
     };
 
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [startDate, startTime, completed, onComplete]);
+  }, [startDate, startTime, completed]);
 
   const formattedStart = formatRouteStartDateTime(startDate, startTime);
 
@@ -185,6 +192,7 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
       {onShare && (
         <button
           onClick={onShare}
+          aria-label="Share Santa's route"
           style={{
             padding: '0.625rem 1.5rem',
             background: 'linear-gradient(135deg, var(--santa-red), #B21E1E)',
