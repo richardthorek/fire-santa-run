@@ -179,6 +179,27 @@ export function createNewRoute(brigadeId: string, createdBy?: string): Route {
 }
 
 /**
+ * Duplicate a route, creating a copy with a new ID, modified name, and draft status.
+ * Waypoints are deep-copied with isCompleted reset to false.
+ * Timestamps and sharing metadata from the original are not carried over.
+ */
+export function duplicateRoute(source: Route): Route {
+  return {
+    ...source,
+    id: generateRouteId(),
+    name: `${source.name} - Copy`,
+    status: 'draft',
+    waypoints: source.waypoints.map(wp => ({ ...wp, isCompleted: false, actualArrival: undefined })),
+    createdAt: new Date().toISOString(),
+    publishedAt: undefined,
+    startedAt: undefined,
+    completedAt: undefined,
+    shareableLink: undefined,
+    qrCodeUrl: undefined,
+  };
+}
+
+/**
  * Calculate estimated arrival times for waypoints based on route navigation data
  */
 export function calculateEstimatedArrivals(

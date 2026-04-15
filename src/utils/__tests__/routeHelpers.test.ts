@@ -17,6 +17,7 @@ import {
   getStatusLabel,
   validateRoute,
   createNewRoute,
+  duplicateRoute,
 } from '../routeHelpers';
 import type { Route, Waypoint, RouteStatus } from '../../types';
 
@@ -363,6 +364,128 @@ describe('routeHelpers', () => {
       const route2 = createNewRoute('brigade-1');
 
       expect(route1.id).not.toBe(route2.id);
+    });
+  });
+
+  describe('duplicateRoute', () => {
+    const baseRoute: Route = {
+      id: 'route_111_abc',
+      brigadeId: 'brigade-123',
+      name: 'Test Route',
+      description: 'A description',
+      date: '2024-12-24',
+      startTime: '16:00',
+      status: 'published',
+      waypoints: [
+        {
+          id: 'waypoint_1',
+          coordinates: [151.2093, -33.8688],
+          name: 'Stop 1',
+          order: 0,
+          isCompleted: true,
+          actualArrival: '2024-12-24T16:30:00.000Z',
+        },
+        {
+          id: 'waypoint_2',
+          coordinates: [151.2200, -33.8700],
+          name: 'Stop 2',
+          order: 1,
+          isCompleted: false,
+        },
+      ],
+      createdAt: '2024-01-01T00:00:00.000Z',
+      publishedAt: '2024-01-02T00:00:00.000Z',
+      startedAt: '2024-12-24T16:00:00.000Z',
+      completedAt: '2024-12-24T20:00:00.000Z',
+      shareableLink: 'https://example.com/track/route_111_abc',
+      qrCodeUrl: 'https://example.com/qr/route_111_abc',
+    };
+
+    it('should assign a new unique route ID', () => {
+      const duplicate = duplicateRoute(baseRoute);
+
+      expect(duplicate.id).not.toBe(baseRoute.id);
+      expect(duplicate.id).toMatch(/^route_\d+_[a-z0-9]+$/);
+    });
+
+    it('should append " - Copy" to the route name', () => {
+      const duplicate = duplicateRoute(baseRoute);
+
+      expect(duplicate.name).toBe('Test Route - Copy');
+    });
+
+    it('should set status to draft', () => {
+      const duplicate = duplicateRoute(baseRoute);
+
+      expect(duplicate.status).toBe('draft');
+    });
+
+    it('should copy all waypoints with isCompleted reset to false', () => {
+      const duplicate = duplicateRoute(baseRoute);
+
+      expect(duplicate.waypoints).toHaveLength(2);
+      duplicate.waypoints.forEach(wp => {
+        expect(wp.isCompleted).toBe(false);
+      });
+    });
+
+    it('should clear actualArrival from copied waypoints', () => {
+      const duplicate = duplicateRoute(baseRoute);
+
+      duplicate.waypoints.forEach(wp => {
+        expect(wp.actualArrival).toBeUndefined();
+      });
+    });
+
+    it('should copy waypoint coordinates and metadata', () => {
+      const duplicate = duplicateRoute(baseRoute);
+
+      expect(duplicate.waypoints[0].coordinates).toEqual([151.2093, -33.8688]);
+      expect(duplicate.waypoints[0].name).toBe('Stop 1');
+      expect(duplicate.waypoints[1].coordinates).toEqual([151.2200, -33.8700]);
+    });
+
+    it('should clear publishedAt, startedAt, and completedAt', () => {
+      const duplicate = duplicateRoute(baseRoute);
+
+      expect(duplicate.publishedAt).toBeUndefined();
+      expect(duplicate.startedAt).toBeUndefined();
+      expect(duplicate.completedAt).toBeUndefined();
+    });
+
+    it('should clear shareableLink and qrCodeUrl', () => {
+      const duplicate = duplicateRoute(baseRoute);
+
+      expect(duplicate.shareableLink).toBeUndefined();
+      expect(duplicate.qrCodeUrl).toBeUndefined();
+    });
+
+    it('should set a fresh createdAt timestamp', () => {
+      const before = Date.now();
+      const duplicate = duplicateRoute(baseRoute);
+      const after = Date.now();
+
+      const duplicateTime = new Date(duplicate.createdAt).getTime();
+      expect(duplicateTime).toBeGreaterThanOrEqual(before);
+      expect(duplicateTime).toBeLessThanOrEqual(after);
+    });
+
+    it('should preserve brigadeId, description, date, and other metadata', () => {
+      const duplicate = duplicateRoute(baseRoute);
+
+      expect(duplicate.brigadeId).toBe(baseRoute.brigadeId);
+      expect(duplicate.description).toBe(baseRoute.description);
+      expect(duplicate.date).toBe(baseRoute.date);
+      expect(duplicate.startTime).toBe(baseRoute.startTime);
+    });
+
+    it('should not mutate the original route', () => {
+      const originalName = baseRoute.name;
+      const originalStatus = baseRoute.status;
+      duplicateRoute(baseRoute);
+
+      expect(baseRoute.name).toBe(originalName);
+      expect(baseRoute.status).toBe(originalStatus);
     });
   });
 });
