@@ -16,6 +16,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { Waypoint } from '../types';
 import { sortWaypoints } from '../utils/routeHelpers';
+import { formatETA } from '../utils/navigation';
 
 export interface WaypointListProps {
   waypoints: Waypoint[];
@@ -23,6 +24,7 @@ export interface WaypointListProps {
   onEdit?: (waypoint: Waypoint) => void;
   onDelete?: (waypointId: string) => void;
   editable?: boolean;
+  showETA?: boolean; // New prop to control ETA display
   className?: string;
 }
 
@@ -32,9 +34,10 @@ interface SortableItemProps {
   onEdit?: (waypoint: Waypoint) => void;
   onDelete?: (waypointId: string) => void;
   editable: boolean;
+  showETA: boolean; // Add showETA prop
 }
 
-function SortableItem({ waypoint, index, onEdit, onDelete, editable }: SortableItemProps) {
+function SortableItem({ waypoint, index, onEdit, onDelete, editable, showETA }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -110,6 +113,19 @@ function SortableItem({ waypoint, index, onEdit, onDelete, editable }: SortableI
               {waypoint.address}
             </div>
           )}
+          {showETA && waypoint.estimatedArrival && (
+            <div style={{
+              fontSize: '0.875rem',
+              color: '#29B6F6',
+              fontWeight: 600,
+              marginTop: '0.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem'
+            }}>
+              🕐 ETA: {formatETA(new Date(waypoint.estimatedArrival))}
+            </div>
+          )}
           {waypoint.notes && (
             <div style={{ fontSize: '0.875rem', color: '#9e9e9e', fontStyle: 'italic', marginTop: '0.25rem' }}>
               {waypoint.notes}
@@ -167,6 +183,7 @@ export function WaypointList({
   onEdit,
   onDelete,
   editable = true,
+  showETA = false,
   className = '',
 }: WaypointListProps) {
   const sensors = useSensors(
@@ -230,6 +247,7 @@ export function WaypointList({
               onEdit={onEdit}
               onDelete={onDelete}
               editable={editable}
+              showETA={showETA}
             />
           ))}
         </SortableContext>

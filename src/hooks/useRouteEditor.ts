@@ -8,6 +8,8 @@ import {
   reorderWaypoints,
   sortWaypoints,
   validateRoute,
+  calculateEstimatedArrivals,
+  DEFAULT_NAVIGATION_SETTINGS,
 } from '../utils/routeHelpers';
 
 export interface OptimizationComparison {
@@ -141,12 +143,29 @@ export function useRouteEditor(initialRoute: Route) {
       const coordinates = sortWaypoints(route.waypoints).map(wp => wp.coordinates);
       const result = await getDirections(coordinates);
 
+      // Calculate start date/time for ETA calculation
+      const startDateTime = new Date(`${route.date}T${route.startTime}`);
+
+      // Create temporary route with navigation data to calculate ETAs
+      const tempRoute: Route = {
+        ...route,
+        geometry: result.geometry,
+        navigationSteps: result.steps,
+        distance: result.distance,
+        estimatedDuration: result.duration,
+        navigationSettings: route.navigationSettings || DEFAULT_NAVIGATION_SETTINGS,
+      };
+
+      // Calculate ETAs for waypoints
+      const waypointsWithETAs = calculateEstimatedArrivals(tempRoute, startDateTime);
+
       setRoute(prev => ({
         ...prev,
         geometry: result.geometry,
         navigationSteps: result.steps,
         distance: result.distance,
         estimatedDuration: result.duration,
+        waypoints: waypointsWithETAs,
       }));
 
       return true;
@@ -158,7 +177,7 @@ export function useRouteEditor(initialRoute: Route) {
     } finally {
       setIsOptimizing(false);
     }
-  }, [route.waypoints]);
+  }, [route]);
 
   /**
    * Validate the current route
@@ -203,12 +222,25 @@ export function useRouteEditor(initialRoute: Route) {
       const optimizedCoordinates = optimizedIndices.map(i => coordinates[i]);
       const result = await getDirections(optimizedCoordinates);
 
+      // Calculate ETAs for optimized waypoints
+      const startDateTime = new Date(`${route.date}T${route.startTime}`);
+      const tempRoute: Route = {
+        ...route,
+        waypoints: optimizedWaypoints,
+        geometry: result.geometry,
+        navigationSteps: result.steps,
+        distance: result.distance,
+        estimatedDuration: result.duration,
+        navigationSettings: route.navigationSettings || DEFAULT_NAVIGATION_SETTINGS,
+      };
+      const optimizedWaypointsWithETAs = calculateEstimatedArrivals(tempRoute, startDateTime);
+
       setOptimizationComparison({
         originalDistance: route.distance,
         originalDuration: route.estimatedDuration,
         optimizedDistance: result.distance,
         optimizedDuration: result.duration,
-        optimizedWaypoints,
+        optimizedWaypoints: optimizedWaypointsWithETAs,
         optimizedGeometry: result.geometry,
         optimizedSteps: result.steps,
       });
@@ -222,7 +254,7 @@ export function useRouteEditor(initialRoute: Route) {
     } finally {
       setIsOptimizing(false);
     }
-  }, [route.waypoints, route.distance, route.estimatedDuration]);
+  }, [route]);
 
   /**
    * Apply the pending TSP optimisation: reorder waypoints and update route geometry.

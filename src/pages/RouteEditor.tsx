@@ -809,6 +809,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
             onEdit={handleEditWaypoint}
             onDelete={deleteWaypoint}
             editable={true}
+            showETA={!!route.geometry && !!route.navigationSteps}
           />
         </div>
       </div>
