@@ -94,9 +94,13 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     deleteWaypoint,
     moveWaypoint,
     optimizeRoute,
+    tspOptimizeRoute,
+    acceptOptimization,
+    rejectOptimization,
     validate,
     isOptimizing,
     optimizationError,
+    optimizationComparison,
   } = useRouteEditor(initialRoute || createNewRoute(user?.brigadeId || '', user?.email));
 
   const handleMapClick = useCallback(async (coordinates: [number, number]) => {
@@ -564,8 +568,8 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           </h3>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {/* Plan Route Button */}
-            {route.waypoints.length >= 2 && !route.geometry && (
+            {/* Plan Route Button — only shown when no geometry yet */}
+            {route.waypoints.length >= 2 && !route.geometry && !optimizationComparison && (
               <button
                 onClick={optimizeRoute}
                 disabled={isOptimizing}
@@ -590,6 +594,164 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
               >
                 {isOptimizing ? '🔄 Planning...' : '🗺️ Plan Route'}
               </button>
+            )}
+
+            {/* Optimize Route Order Button — shown when 3+ waypoints */}
+            {route.waypoints.length >= 3 && !optimizationComparison && (
+              <button
+                onClick={tspOptimizeRoute}
+                disabled={isOptimizing}
+                style={{
+                  width: '100%',
+                  padding: '0.875rem 1.5rem',
+                  background: isOptimizing
+                    ? 'linear-gradient(135deg, #9e9e9e 0%, #757575 100%)'
+                    : 'linear-gradient(135deg, #FFA726 0%, #E65100 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  cursor: isOptimizing ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 12px rgba(255, 167, 38, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                {isOptimizing ? '🔄 Optimising...' : '✨ Optimise Route Order'}
+              </button>
+            )}
+
+            {/* Before/after comparison panel */}
+            {optimizationComparison && (
+              <div style={{
+                backgroundColor: '#fffde7',
+                border: '2px solid #FFA726',
+                borderRadius: '12px',
+                padding: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+              }}>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#E65100', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  ✨ Route Order Optimisation
+                </div>
+
+                {/* Comparison rows */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.875rem' }}>
+                  <div style={{
+                    padding: '0.625rem',
+                    backgroundColor: 'white',
+                    borderRadius: '8px',
+                    border: '1px solid #e0e0e0',
+                  }}>
+                    <div style={{ color: '#616161', marginBottom: '0.25rem', fontWeight: 600 }}>Current order</div>
+                    {optimizationComparison.originalDistance !== undefined ? (
+                      <>
+                        <div>🛣️ {formatDistance(optimizationComparison.originalDistance)}</div>
+                        {optimizationComparison.originalDuration !== undefined && (
+                          <div>⏱️ {formatDuration(optimizationComparison.originalDuration)}</div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ color: '#9e9e9e', fontStyle: 'italic' }}>Not yet planned</div>
+                    )}
+                  </div>
+
+                  <div style={{
+                    padding: '0.625rem',
+                    backgroundColor: '#e8f5e9',
+                    borderRadius: '8px',
+                    border: '1px solid #a5d6a7',
+                  }}>
+                    <div style={{ color: '#2e7d32', marginBottom: '0.25rem', fontWeight: 600 }}>Optimised order</div>
+                    <div>🛣️ {formatDistance(optimizationComparison.optimizedDistance)}</div>
+                    <div>⏱️ {formatDuration(optimizationComparison.optimizedDuration)}</div>
+                  </div>
+                </div>
+
+                {/* Savings callout */}
+                {optimizationComparison.originalDistance !== undefined &&
+                  optimizationComparison.optimizedDistance < optimizationComparison.originalDistance && (() => {
+                    const { originalDuration, optimizedDuration } = optimizationComparison;
+                    const durationSaving =
+                      originalDuration !== undefined && originalDuration > optimizedDuration
+                        ? ` / ~${formatDuration(originalDuration - optimizedDuration)}`
+                        : '';
+                    return (
+                      <div style={{ fontSize: '0.875rem', color: '#2e7d32', fontWeight: 600, textAlign: 'center' }}>
+                        🎉 Save ~{formatDistance(optimizationComparison.originalDistance - optimizationComparison.optimizedDistance)}
+                        {durationSaving}
+                      </div>
+                    );
+                  })()
+                }
+
+                {/* New waypoint order preview */}
+                <div style={{ fontSize: '0.8125rem', color: '#616161' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>New stop order:</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                    {optimizationComparison.optimizedWaypoints.map((wp, idx) => (
+                      <span
+                        key={wp.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.2rem',
+                          padding: '0.125rem 0.375rem',
+                          borderRadius: '999px',
+                          backgroundColor: idx === 0 || idx === optimizationComparison.optimizedWaypoints.length - 1
+                            ? '#D32F2F' : '#FFA726',
+                          color: 'white',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {/* Truncated to ~18 chars to fit pill badges in the sidebar */}
+                        {idx + 1}. {(wp.name || wp.address?.split(',')[0] || `Stop ${idx + 1}`).slice(0, 18)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Accept / Reject */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <button
+                    onClick={rejectOptimization}
+                    style={{
+                      padding: '0.625rem',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      background: 'white',
+                      color: '#424242',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    ✖ Keep Current
+                  </button>
+                  <button
+                    onClick={acceptOptimization}
+                    style={{
+                      padding: '0.625rem',
+                      border: 'none',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #43A047 0%, #2e7d32 100%)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: '0.875rem',
+                      boxShadow: '0 2px 8px rgba(67, 160, 71, 0.4)',
+                    }}
+                  >
+                    ✔ Apply Optimised
+                  </button>
+                </div>
+              </div>
             )}
             
             {/* Auto-Zoom Toggle */}
