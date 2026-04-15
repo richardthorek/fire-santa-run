@@ -611,8 +611,8 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                 minWidth: '140px',
                 padding: '0.75rem 1rem',
                 background: 'white',
-                color: COLORS.skyBlue,
-                border: `2px solid ${COLORS.skyBlue}`,
+                color: COLORS.summerGold,
+                border: `2px solid ${COLORS.summerGold}`,
                 borderRadius: FLOATING_PANEL.borderRadius.button,
                 fontSize: '0.875rem',
                 fontWeight: 600,
@@ -622,13 +622,13 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               }}
               onMouseEnter={(e) => {
                 if (!isDuplicating) {
-                  e.currentTarget.style.background = COLORS.skyBlue;
+                  e.currentTarget.style.background = COLORS.summerGold;
                   e.currentTarget.style.color = 'white';
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'white';
-                e.currentTarget.style.color = COLORS.skyBlue;
+                e.currentTarget.style.color = COLORS.summerGold;
               }}
             >
               {isDuplicating ? 'Duplicating...' : '📋 Duplicate'}
