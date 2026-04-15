@@ -17,6 +17,7 @@ export { ProtectedRoute } from './ProtectedRoute';
 export { RoleBadge } from './RoleBadge';
 export { SkipLink } from './SkipLink';
 export { CountdownTimer } from './CountdownTimer';
+export { ThankYouOverlay } from './ThankYouOverlay';
 
 // Convenience export for LoadingSkeleton (for consistency)
 export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';
@@ -37,3 +38,4 @@ export type { ShareModalProps } from './ShareModal';
 export type { SEOProps } from './SEO';
 export type { RoleBadgeProps } from './RoleBadge';
 export type { CountdownTimerProps } from './CountdownTimer';
+export type { ThankYouOverlayProps } from './ThankYouOverlay';
