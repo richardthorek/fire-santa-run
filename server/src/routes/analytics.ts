@@ -116,7 +116,7 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
         queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` }
       });
       for await (const entity of routeEntities) {
-        brigadeId = (entity.partitionKey as string) || '';
+        brigadeId = typeof entity.partitionKey === 'string' ? entity.partitionKey : '';
         break;
       }
     } catch (_error) {
