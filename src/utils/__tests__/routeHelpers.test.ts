@@ -22,7 +22,6 @@ import {
   filterRoutes,
   sortRoutes,
   type RouteFilterOptions,
-  type RouteSortOptions,
 } from '../routeHelpers';
 import type { Route, Waypoint, RouteStatus } from '../../types';
 
