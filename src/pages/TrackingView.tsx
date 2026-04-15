@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useWebPubSub, useRoutes } from '../hooks';
-import { ShareModal, SEO } from '../components';
+import { ShareModal, SEO, CountdownTimer } from '../components';
 import { MAPBOX_CONFIG } from '../config/mapbox';
 import mapboxgl from 'mapbox-gl';
 import type { Route, LocationBroadcast } from '../types';
@@ -22,6 +22,10 @@ export function TrackingView({ routeId }: TrackingViewProps) {
   const [currentLocation, setCurrentLocation] = useState<LocationBroadcast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  // Track which routeId the countdown has completed for, so the "It's time!"
+  // message naturally resets when navigating to a different route — no effect needed.
+  const [completedForRouteId, setCompletedForRouteId] = useState<string | null>(null);
+  const countdownComplete = completedForRouteId === routeId;
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -485,20 +489,44 @@ export function TrackingView({ routeId }: TrackingViewProps) {
               </p>
             )}
           </div>
-        ) : (
+        ) : route.status === 'active' ? (
           <div style={{
             padding: '1rem',
             backgroundColor: 'var(--neutral-100)',
             borderRadius: 'var(--border-radius-xs)',
           }}>
             <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-700)' }}>
-              {route.status === 'active'
-                ? '⏳ Waiting for Santa to start broadcasting...'
-                : route.status === 'completed'
-                ? '🎉 Santa has completed this route!'
-                : '📅 Santa has not started this route yet.'}
+              ⏳ Waiting for Santa to start broadcasting...
             </p>
           </div>
+        ) : route.status === 'completed' ? (
+          <div style={{
+            padding: '1rem',
+            backgroundColor: 'var(--neutral-100)',
+            borderRadius: 'var(--border-radius-xs)',
+          }}>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-700)' }}>
+              🎉 Santa has completed this route!
+            </p>
+          </div>
+        ) : countdownComplete ? (
+          <div style={{
+            padding: '1rem',
+            backgroundColor: 'rgba(67, 160, 71, 0.1)',
+            borderRadius: 'var(--border-radius-xs)',
+            borderLeft: '4px solid var(--christmas-green)',
+          }}>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-700)', fontWeight: 600 }}>
+              🎅 It's time! Santa's run is about to begin — stay tuned!
+            </p>
+          </div>
+        ) : (
+          <CountdownTimer
+            startDate={route.date}
+            startTime={route.startTime}
+            onComplete={() => setCompletedForRouteId(routeId)}
+            onShare={() => setShowShareModal(true)}
+          />
         )}
 
         {connectionError && (
