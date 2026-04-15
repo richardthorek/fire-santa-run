@@ -95,17 +95,21 @@ export function RoutePreviewModal({ route, isOpen, onClose }: RoutePreviewModalP
 
   return (
     <>
-      {/* Print-only styles injected into the document head via a style tag */}
+      {/* Consolidated print styles */}
       <style>{`
         @media print {
-          body > *:not(#route-preview-print-root) {
+          body > *:not(.route-preview-modal-root) {
             display: none !important;
           }
-          #route-preview-print-root {
+          .route-preview-modal-root {
             display: block !important;
           }
           .preview-no-print {
             display: none !important;
+          }
+          .preview-print-only {
+            display: block !important;
+            padding: 1rem 1.5rem;
           }
           .preview-step-row {
             page-break-inside: avoid;
@@ -115,7 +119,7 @@ export function RoutePreviewModal({ route, isOpen, onClose }: RoutePreviewModalP
 
       {/* Backdrop */}
       <div
-        id="route-preview-print-root"
+        className="route-preview-modal-root"
         onClick={handleBackdropClick}
         style={{
           position: 'fixed',
@@ -224,16 +228,11 @@ export function RoutePreviewModal({ route, isOpen, onClose }: RoutePreviewModalP
             </button>
           </div>
 
-          {/* Print-only title (hidden on screen) */}
+          {/* Print-only title (hidden on screen, visible when printing) */}
           <div
             style={{ display: 'none' }}
             className="preview-print-only"
           >
-            <style>{`
-              @media print {
-                .preview-print-only { display: block !important; padding: 1rem 1.5rem; }
-              }
-            `}</style>
             <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem' }}>{route.name}</h2>
             <p style={{ margin: 0, fontSize: '0.875rem', color: COLORS.neutral700 }}>
               Turn-by-Turn Instructions · {steps.length} step{steps.length !== 1 ? 's' : ''} · {formatDistance(totalDistance)}
