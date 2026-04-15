@@ -67,3 +67,42 @@ broadcastRouter.post('/broadcast', async (c) => {
     return c.json({ error: 'Failed to broadcast location', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });
+
+broadcastRouter.post('/broadcast/viewer-count', async (c) => {
+  try {
+    const body = await c.req.json() as { routeId: string; count: number };
+
+    if (!body.routeId) {
+      return c.json({ error: 'Missing required field: routeId' }, 400);
+    }
+
+    if (typeof body.count !== 'number' || body.count < 0) {
+      return c.json({ error: 'Invalid count. Must be a non-negative number' }, 400);
+    }
+
+    const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
+    if (!connectionString) {
+      console.error('AZURE_WEBPUBSUB_CONNECTION_STRING is not configured');
+      return c.json({ error: 'Web PubSub service is not configured' }, 500);
+    }
+
+    const serviceClient = new WebPubSubServiceClient(connectionString, HUB_NAME);
+    const groupName = `route_${body.routeId}`;
+
+    const message = {
+      type: 'viewer-count',
+      routeId: body.routeId,
+      count: body.count,
+      timestamp: Date.now(),
+    };
+
+    const groupClient = serviceClient.group(groupName);
+    await groupClient.sendToAll(message);
+
+    console.log(`Broadcasted viewer count update for route: ${body.routeId}, count: ${body.count}`);
+    return c.json({ success: true, routeId: body.routeId, count: body.count }, 200);
+  } catch (error: any) {
+    console.error('Error broadcasting viewer count:', error);
+    return c.json({ error: 'Failed to broadcast viewer count', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
+  }
+});

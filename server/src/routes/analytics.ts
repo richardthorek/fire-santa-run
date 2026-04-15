@@ -240,6 +240,54 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
 });
 
 /**
+ * GET /analytics/routes/:routeId/viewer-count
+ * Get current live viewer count for a specific route
+ */
+analyticsRouter.get('/routes/:routeId/viewer-count', async (c) => {
+  try {
+    const routeId = c.req.param('routeId');
+    if (!routeId) {
+      return c.json({ error: 'Missing routeId parameter' }, 400);
+    }
+
+    const tableClient = await getTableClient(VIEWER_SESSIONS_TABLE);
+    const sessions = tableClient.listEntities({
+      queryOptions: { filter: `PartitionKey eq '${routeId}'` }
+    });
+
+    // Count sessions that have joined but not left yet (active viewers)
+    let activeCount = 0;
+    const now = Date.now();
+    const SESSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes timeout
+
+    for await (const session of sessions) {
+      const leftAt = session.leftAt as string | undefined;
+      const joinedAt = session.joinedAt as string;
+
+      // If no leftAt, check if session is still recent (within timeout)
+      if (!leftAt) {
+        const joinedTime = new Date(joinedAt).getTime();
+        if (now - joinedTime < SESSION_TIMEOUT_MS) {
+          activeCount++;
+        }
+      }
+    }
+
+    return c.json({
+      routeId,
+      count: activeCount,
+      timestamp: new Date().toISOString()
+    }, 200);
+  } catch (error: any) {
+    console.error('Error fetching viewer count:', error);
+    return c.json({
+      error: 'Failed to fetch viewer count',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }, 500);
+  }
+});
+
+/**
  * GET /analytics/routes/:routeId/sessions
  * Get raw viewer sessions for a specific route (for admin debugging)
  */

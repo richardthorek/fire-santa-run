@@ -228,7 +228,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
   };
 
   // Connect to Web PubSub for real-time updates
-  const { isConnected, isConnecting, error: connectionError } = useWebPubSub({
+  const { isConnected, isConnecting, error: connectionError, viewerCount } = useWebPubSub({
     routeId,
     role: 'viewer',
     onLocationUpdate: handleLocationUpdate,
@@ -335,9 +335,9 @@ export function TrackingView({ routeId }: TrackingViewProps) {
               zIndex: 1000,
             }}
           >
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
               gap: '1rem',
               maxWidth: '1200px',
               margin: '0 auto',
@@ -354,15 +354,46 @@ export function TrackingView({ routeId }: TrackingViewProps) {
                 >
                   {route.name}
                 </h1>
-                <p style={{ 
-                  margin: '0.25rem 0 0', 
-                  fontSize: 'clamp(0.875rem, 2vw, 1rem)', 
+                <p style={{
+                  margin: '0.25rem 0 0',
+                  fontSize: 'clamp(0.875rem, 2vw, 1rem)',
                   opacity: 0.95,
                   fontFamily: 'var(--font-body)',
                 }}>
                   📅 {route.date} • ⏰ {route.startTime}
                 </p>
               </div>
+              {/* Live Viewer Count Badge */}
+              {viewerCount !== null && viewerCount > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderRadius: 'var(--border-radius-sm)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={`${viewerCount} ${viewerCount === 1 ? 'person is' : 'people are'} watching`}
+                >
+                  <span className="live-pulse-dot" style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--rfs-yellow)',
+                    animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                  }} />
+                  <span>LIVE</span>
+                  <span style={{ opacity: 0.8 }}>•</span>
+                  <span>{viewerCount} watching</span>
+                </div>
+              )}
               <button
                 onClick={() => setShowShareModal(true)}
                 style={{
@@ -390,18 +421,18 @@ export function TrackingView({ routeId }: TrackingViewProps) {
               >
                 🔗 Share
               </button>
-              <div 
-                className="live-pulse" 
+              <div
+                className="live-pulse"
                 style={{
-                  backgroundColor: isConnected ? 'var(--rfs-yellow)' : 
-                                   isConnecting ? 'var(--summer-gold)' : 
+                  backgroundColor: isConnected ? 'var(--rfs-yellow)' :
+                                   isConnecting ? 'var(--summer-gold)' :
                                    'var(--fire-red)',
                 }}
                 title={
-                  isConnected ? 'Connected - Live Tracking Active' : 
-                  isConnecting ? 'Connecting...' : 
+                  isConnected ? 'Connected - Live Tracking Active' :
+                  isConnecting ? 'Connecting...' :
                   'Disconnected'
-                } 
+                }
               />
             </div>
           </div>
