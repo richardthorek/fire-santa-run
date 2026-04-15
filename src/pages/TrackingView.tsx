@@ -5,11 +5,13 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { useWebPubSub, useRoutes } from '../hooks';
+import { useWebPubSub, useRoutes, useReverseGeocode } from '../hooks';
 import { ShareModal, SEO, CountdownTimer, ThankYouOverlay } from '../components';
 import { MAPBOX_CONFIG } from '../config/mapbox';
 import mapboxgl from 'mapbox-gl';
 import type { Route, LocationBroadcast } from '../types';
+import { formatDistance } from '../utils/mapbox';
+import { calculateDistance } from '../utils/navigation';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 export interface TrackingViewProps {
@@ -233,6 +235,9 @@ export function TrackingView({ routeId }: TrackingViewProps) {
     role: 'viewer',
     onLocationUpdate: handleLocationUpdate,
   });
+
+  // Reverse-geocode Santa's current position to get street name / suburb
+  const { street, suburb } = useReverseGeocode(currentLocation?.location ?? null);
 
   // Loading state
   if (loading) {
@@ -507,30 +512,58 @@ export function TrackingView({ routeId }: TrackingViewProps) {
             </div>
 
             {currentLocation ? (
-              <div style={{
-                padding: '1rem',
-                backgroundColor: 'rgba(255, 230, 0, 0.1)',
-                borderRadius: 'var(--border-radius-xs)',
-                borderLeft: '4px solid var(--rfs-yellow)',
-              }}>
-                <p style={{ 
-                  margin: 0, 
-                  fontSize: '1rem', 
-                  color: 'var(--neutral-900)',
-                  fontWeight: 600,
-                }}>
-                  🎅 Santa is on the way!
-                </p>
-                {currentLocation.nextWaypointEta && (
-                  <p style={{ 
-                    margin: '0.5rem 0 0', 
-                    fontSize: '0.875rem', 
-                    color: 'var(--neutral-700)',
+              (() => {
+                // Build the location label: prefer street name, fall back to distance from next stop.
+                const nextIncomplete = route.waypoints.find((w) => !w.isCompleted);
+                const distanceToNext = nextIncomplete
+                  ? calculateDistance(currentLocation.location, nextIncomplete.coordinates)
+                  : null;
+
+                let locationLabel: string;
+                if (street) {
+                  locationLabel = `🎅 Santa is currently on ${street}`;
+                } else if (distanceToNext !== null) {
+                  locationLabel = `🎅 Santa is ${formatDistance(distanceToNext)} from next stop`;
+                } else {
+                  locationLabel = '🎅 Santa is on the way!';
+                }
+
+                return (
+                  <div style={{
+                    padding: '1rem',
+                    backgroundColor: 'rgba(255, 230, 0, 0.1)',
+                    borderRadius: 'var(--border-radius-xs)',
+                    borderLeft: '4px solid var(--rfs-yellow)',
                   }}>
-                    ⏱️ ETA to next stop: <strong>{currentLocation.nextWaypointEta}</strong>
-                  </p>
-                )}
-              </div>
+                    <p style={{ 
+                      margin: 0, 
+                      fontSize: '1rem', 
+                      color: 'var(--neutral-900)',
+                      fontWeight: 600,
+                    }}>
+                      {locationLabel}
+                    </p>
+                    {suburb && (
+                      <p style={{
+                        margin: '0.25rem 0 0',
+                        fontSize: '0.875rem',
+                        color: 'var(--neutral-700)',
+                      }}>
+                        📍 {suburb}
+                      </p>
+                    )}
+                    {currentLocation.nextWaypointEta && (
+                      <p style={{ 
+                        margin: '0.5rem 0 0', 
+                        fontSize: '0.875rem', 
+                        color: 'var(--neutral-700)',
+                      }}>
+                        ⏱️ ETA to next stop: <strong>{currentLocation.nextWaypointEta}</strong>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()
             ) : route.status === 'active' ? (
               <div style={{
                 padding: '1rem',
