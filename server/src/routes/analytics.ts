@@ -5,6 +5,11 @@ import { getTableClient, isDevMode } from '../utils/storage.js';
 const VIEWER_SESSIONS_TABLE = isDevMode ? 'devviewersessions' : 'viewersessions';
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
+/** Escape single quotes in OData filter values to prevent injection. */
+function escapeODataValue(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
 interface ViewerSession {
   id: string;
   routeId: string;
@@ -103,19 +108,25 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
     const viewerSessionsClient = await getTableClient(VIEWER_SESSIONS_TABLE);
     const routesClient = await getTableClient(ROUTES_TABLE);
 
-    // Get route details to verify it exists and get brigadeId
+    // Get route details to verify it exists and get brigadeId.
+    // Routes use brigadeId as partitionKey, so scan by rowKey to find it.
     let brigadeId = '';
     try {
-      const routeEntity = await routesClient.getEntity('', routeId);
-      brigadeId = (routeEntity as any).brigadeId || '';
+      const routeEntities = routesClient.listEntities({
+        queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` }
+      });
+      for await (const entity of routeEntities) {
+        brigadeId = typeof entity.partitionKey === 'string' ? entity.partitionKey : '';
+        break;
+      }
     } catch (_error) {
-      // If route not found, try to get sessions anyway but set empty brigadeId
-      console.warn(`Route ${routeId} not found in routes table, continuing with analytics`);
+      // If lookup fails, continue with empty brigadeId
+      console.warn(`Could not determine brigadeId for route ${routeId}, continuing with analytics`);
     }
 
     // Get all viewer sessions for this route
     const sessions = viewerSessionsClient.listEntities({
-      queryOptions: { filter: `PartitionKey eq '${routeId}'` }
+      queryOptions: { filter: `PartitionKey eq '${escapeODataValue(routeId)}'` }
     });
 
     const sessionList: ViewerSession[] = [];
@@ -252,7 +263,7 @@ analyticsRouter.get('/routes/:routeId/viewer-count', async (c) => {
 
     const tableClient = await getTableClient(VIEWER_SESSIONS_TABLE);
     const sessions = tableClient.listEntities({
-      queryOptions: { filter: `PartitionKey eq '${routeId}'` }
+      queryOptions: { filter: `PartitionKey eq '${escapeODataValue(routeId)}'` }
     });
 
     // Count sessions that have joined but not left yet (active viewers)
@@ -300,7 +311,7 @@ analyticsRouter.get('/routes/:routeId/sessions', async (c) => {
 
     const tableClient = await getTableClient(VIEWER_SESSIONS_TABLE);
     const sessions = tableClient.listEntities({
-      queryOptions: { filter: `PartitionKey eq '${routeId}'` }
+      queryOptions: { filter: `PartitionKey eq '${escapeODataValue(routeId)}'` }
     });
 
     const sessionList: ViewerSession[] = [];

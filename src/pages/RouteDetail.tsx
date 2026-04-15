@@ -136,8 +136,14 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
     
     setRoute(updatedRoute);
     
-    // Save to storage (this would need to be implemented in useRoutes)
-    // For now, just update local state
+    try {
+      await saveRoute(updatedRoute);
+    } catch (err) {
+      console.error('Failed to save route status change:', err);
+      alert('Failed to update route status. Please try again.');
+      // Revert local state on error
+      setRoute(route);
+    }
   };
 
   if (isLoading) {
