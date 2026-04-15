@@ -142,11 +142,11 @@ jobs:
           publish-profile: ${{ secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE }}
           package: ./deploy
 
-      - name: Skip deploy (missing App Service deployment config)
+      - name: Fail if deployment config is missing
         if: env.HAS_PUBLISH_PROFILE != 'true' || env.HAS_APP_SERVICE_NAME != 'true'
         run: |
-          echo "Skipping deployment: App Service deployment configuration is incomplete."
-          echo "Required:"
-          echo "  - Secret AZURE_APP_SERVICE_PUBLISH_PROFILE"
-          echo "  - Variable AZURE_APP_SERVICE_NAME"
-          echo "   See infra/README.md for instructions."
+          echo "::error::Deployment configuration is incomplete. The following must be set in the 'copilot' GitHub environment:"
+          echo "  - Secret:   AZURE_APP_SERVICE_PUBLISH_PROFILE"
+          echo "  - Variable: AZURE_APP_SERVICE_NAME"
+          echo "See infra/README.md for setup instructions."
+          exit 1
