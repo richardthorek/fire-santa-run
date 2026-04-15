@@ -30,7 +30,7 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
   }, [onComplete]);
 
   useEffect(() => {
-    // Re-initialise if props change
+    // Re-initialize if props change
     setCountdown(getCountdownTime(startDate, startTime));
     setCompleted(false);
   }, [startDate, startTime]);

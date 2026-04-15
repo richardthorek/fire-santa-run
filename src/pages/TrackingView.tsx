@@ -519,7 +519,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
             borderLeft: '4px solid var(--christmas-green)',
           }}>
             <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-700)', fontWeight: 600 }}>
-              🎅 It&apos;s time! Santa&apos;s run is about to begin — stay tuned!
+              🎅 It's time! Santa's run is about to begin — stay tuned!
             </p>
           </div>
         ) : (
