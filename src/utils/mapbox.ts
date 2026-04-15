@@ -91,6 +91,62 @@ export async function reverseGeocode(coordinates: [number, number]): Promise<str
   return data.features[0]?.place_name || `${coordinates[1].toFixed(4)}, ${coordinates[0].toFixed(4)}`;
 }
 
+export interface ReverseGeocodeResult {
+  street: string | null;
+  suburb: string | null;
+  fullAddress: string;
+}
+
+/**
+ * Reverse geocode coordinates to get structured address details (street + suburb).
+ * Uses the `address` type filter to get the most precise street-level result.
+ */
+export async function reverseGeocodeDetailed(
+  coordinates: [number, number],
+): Promise<ReverseGeocodeResult> {
+  if (!MAPBOX_TOKEN) {
+    throw new Error('Mapbox token not configured');
+  }
+
+  const params = new URLSearchParams({
+    access_token: MAPBOX_TOKEN,
+    types: 'address',
+    limit: '1',
+  });
+
+  const response = await fetch(
+    `${GEOCODING_API}/${coordinates[0]},${coordinates[1]}.json?${params}`,
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to reverse geocode');
+  }
+
+  const data = await response.json();
+  const feature = data.features?.[0];
+
+  if (!feature) {
+    return { street: null, suburb: null, fullAddress: '' };
+  }
+
+  const street = (feature.text as string) || null;
+
+  // Extract suburb from context: prefer locality, fall back to place (city/town)
+  let suburb: string | null = null;
+  if (Array.isArray(feature.context)) {
+    const localityItem = (feature.context as Array<{ id: string; text: string }>).find(
+      (c) => c.id.startsWith('locality.') || c.id.startsWith('place.'),
+    );
+    suburb = localityItem?.text ?? null;
+  }
+
+  return {
+    street,
+    suburb,
+    fullAddress: (feature.place_name as string) || '',
+  };
+}
+
 /**
  * Get optimized route with turn-by-turn navigation from Mapbox Directions API
  */

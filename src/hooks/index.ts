@@ -6,3 +6,4 @@ export { useWebPubSub } from './useWebPubSub';
 export { useLocationBroadcast } from './useLocationBroadcast';
 export { useUserProfile } from './useUserProfile';
 export { useTemplates } from './useTemplates';
+export { useReverseGeocode } from './useReverseGeocode';
