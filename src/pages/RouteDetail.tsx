@@ -10,6 +10,7 @@ import {
 } from '../components';
 import type { Route } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
+import { duplicateRoute } from '../utils/routeHelpers';
 import { format } from 'date-fns';
 import { COLORS, FLOATING_PANEL, Z_INDEX } from '../utils/constants';
 
@@ -19,13 +20,14 @@ export interface RouteDetailProps {
 
 export function RouteDetail({ routeId }: RouteDetailProps) {
   const navigate = useNavigate();
-  const { getRoute, deleteRoute } = useRoutes();
+  const { getRoute, deleteRoute, saveRoute } = useRoutes();
   const [route, setRoute] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
 
   useEffect(() => {
@@ -60,6 +62,21 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
       console.error('Failed to delete route:', err);
       alert('Failed to delete route. Please try again.');
       setIsDeleting(false);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (!route) return;
+
+    setIsDuplicating(true);
+    try {
+      const copy = duplicateRoute(route);
+      await saveRoute(copy);
+      navigate(`/routes/${copy.id}`);
+    } catch (err) {
+      console.error('Failed to duplicate route:', err);
+      alert('Failed to duplicate route. Please try again.');
+      setIsDuplicating(false);
     }
   };
 
@@ -584,6 +601,38 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                 ✅ End Tracking
               </button>
             )}
+
+            {/* Duplicate Button */}
+            <button
+              onClick={handleDuplicate}
+              disabled={isDuplicating}
+              style={{
+                flex: 1,
+                minWidth: '140px',
+                padding: '0.75rem 1rem',
+                background: 'white',
+                color: COLORS.skyBlue,
+                border: `2px solid ${COLORS.skyBlue}`,
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: isDuplicating ? 'not-allowed' : 'pointer',
+                opacity: isDuplicating ? 0.5 : 1,
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                if (!isDuplicating) {
+                  e.currentTarget.style.background = COLORS.skyBlue;
+                  e.currentTarget.style.color = 'white';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'white';
+                e.currentTarget.style.color = COLORS.skyBlue;
+              }}
+            >
+              {isDuplicating ? 'Duplicating...' : '📋 Duplicate'}
+            </button>
 
             {/* Delete Button */}
             <button
