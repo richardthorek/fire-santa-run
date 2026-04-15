@@ -24,9 +24,9 @@ interface UseWebPubSubOptions {
   shareSource?: string; // Track how viewer found the route (e.g., 'qr', 'direct', 'social')
 }
 
-// Generate a unique session ID for each viewer session
+// Generate a unique session ID for each viewer session using cryptographically secure randomness
 function generateSessionId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  return crypto.randomUUID();
 }
 
 export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, shareSource }: UseWebPubSubOptions) {
