@@ -1,4 +1,4 @@
-import type { Route } from '../types';
+import type { Route, RouteTemplate } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
 import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
@@ -207,6 +207,63 @@ export class HttpStorageAdapter implements IStorageAdapter {
     });
     if (!response.ok && response.status !== 404) {
       throw new Error(`Failed to delete route: ${response.statusText}`);
+    }
+  }
+
+  // Templates
+  async getTemplates(brigadeId: string): Promise<RouteTemplate[]> {
+    const response = await fetch(`${this.apiBaseUrl}/templates?brigadeId=${encodeURIComponent(brigadeId)}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch templates: ${response.statusText}`);
+    }
+    return await response.json();
+  }
+
+  async getTemplate(brigadeId: string, templateId: string): Promise<RouteTemplate | null> {
+    const response = await fetch(`${this.apiBaseUrl}/templates/${encodeURIComponent(templateId)}?brigadeId=${encodeURIComponent(brigadeId)}`);
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Failed to fetch template: ${response.statusText}`);
+    }
+    return await response.json();
+  }
+
+  async saveTemplate(brigadeId: string, template: RouteTemplate): Promise<void> {
+    const existingTemplate = await this.getTemplate(brigadeId, template.id);
+
+    if (existingTemplate) {
+      const authHeaders = await this.getAuthHeaders();
+      const response = await fetch(`${this.apiBaseUrl}/templates/${encodeURIComponent(template.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify(template),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to update template: ${response.statusText}`);
+      }
+    } else {
+      const authHeaders = await this.getAuthHeaders();
+      const response = await fetch(`${this.apiBaseUrl}/templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify(template),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to create template: ${response.statusText}`);
+      }
+    }
+  }
+
+  async deleteTemplate(brigadeId: string, templateId: string): Promise<void> {
+    const authHeaders = await this.getAuthHeaders();
+    const response = await fetch(`${this.apiBaseUrl}/templates/${encodeURIComponent(templateId)}?brigadeId=${encodeURIComponent(brigadeId)}`, {
+      method: 'DELETE',
+      headers: { ...authHeaders },
+    });
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`Failed to delete template: ${response.statusText}`);
     }
   }
 

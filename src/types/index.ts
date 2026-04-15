@@ -49,6 +49,21 @@ export interface Route {
   viewCount?: number;
 }
 
+export interface RouteTemplate {
+  id: string;
+  brigadeId: string;
+  name: string;
+  description?: string;
+  /** Waypoints without timing/completion data — coordinates and names only */
+  waypoints: Array<Pick<Waypoint, 'id' | 'coordinates' | 'address' | 'name' | 'order' | 'notes'>>;
+  /** Human-readable category for display grouping */
+  category?: string;
+  /** Whether this template ships with the app (cannot be deleted by users) */
+  isBuiltIn?: boolean;
+  createdAt: string;
+  createdBy?: string;
+}
+
 export interface LiveLocation {
   coordinates: [number, number];
   timestamp: number;

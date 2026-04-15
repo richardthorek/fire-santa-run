@@ -36,6 +36,13 @@ export function generateWaypointId(): string {
 }
 
 /**
+ * Generate a unique template ID
+ */
+export function generateTemplateId(): string {
+  return `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
  * Generate shareable tracking link for a route
  */
 export function generateShareableLink(routeId: string): string {

@@ -1,4 +1,4 @@
-import type { Route } from '../types';
+import type { Route, RouteTemplate } from '../types';
 import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
 import type { MemberInvitation } from '../types/invitation';
@@ -70,6 +70,12 @@ export interface IStorageAdapter {
   getRoutes(brigadeId: string): Promise<Route[]>;
   getRoute(brigadeId: string, routeId: string): Promise<Route | null>;
   deleteRoute(brigadeId: string, routeId: string): Promise<void>;
+
+  // Route template operations
+  saveTemplate(brigadeId: string, template: RouteTemplate): Promise<void>;
+  getTemplates(brigadeId: string): Promise<RouteTemplate[]>;
+  getTemplate(brigadeId: string, templateId: string): Promise<RouteTemplate | null>;
+  deleteTemplate(brigadeId: string, templateId: string): Promise<void>;
   
   // Brigade operations
   getBrigade(brigadeId: string): Promise<Brigade | null>;

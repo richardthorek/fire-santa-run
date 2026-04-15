@@ -2,14 +2,15 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useBrigade } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
+import { useTemplates } from '../hooks/useTemplates';
 import { MapView, WaypointList, AddressSearch } from '../components';
-import { createNewRoute, generateShareableLink, canPublishRoute } from '../utils/routeHelpers';
+import { createNewRoute, generateShareableLink, canPublishRoute, generateWaypointId, generateTemplateId } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
 import { getDefaultMapCenter } from '../utils/mapCenter';
 import { DEFAULT_CENTER } from '../config/mapbox';
-import type { Route, Waypoint } from '../types';
+import type { Route, RouteTemplate, Waypoint } from '../types';
 
 export interface RouteEditorProps {
   routeId?: string;
@@ -21,9 +22,11 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   const { user } = useAuth();
   const { brigade } = useBrigade();
   const { saveRoute, getRoute } = useRoutes();
+  const { saveTemplate } = useTemplates();
   const [initialRoute, setInitialRoute] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(routeId ? true : false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showWaypointModal, setShowWaypointModal] = useState(false);
   const [editingWaypoint, setEditingWaypoint] = useState<Waypoint | null>(null);
@@ -164,6 +167,44 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     }
   }, [route, validate, saveRoute, navigate]);
 
+  const handleSaveAsTemplate = useCallback(async () => {
+    if (!route.name.trim()) {
+      setSaveError('Please enter a route name before saving as a template.');
+      return;
+    }
+    if (!user?.brigadeId) return;
+
+    setIsSavingTemplate(true);
+    setSaveError(null);
+
+    try {
+      const template: RouteTemplate = {
+        id: generateTemplateId(),
+        brigadeId: user.brigadeId,
+        name: route.name,
+        description: route.description,
+        category: 'My Templates',
+        isBuiltIn: false,
+        waypoints: route.waypoints.map(wp => ({
+          id: generateWaypointId(),
+          coordinates: wp.coordinates,
+          address: wp.address,
+          name: wp.name,
+          order: wp.order,
+          notes: wp.notes,
+        })),
+        createdAt: new Date().toISOString(),
+        createdBy: user.email,
+      };
+      await saveTemplate(template);
+      navigate('/templates');
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save template');
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  }, [route, user, saveTemplate, navigate]);
+
   if (isLoading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -271,6 +312,25 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
               }}
             >
               Cancel
+            </button>
+            <button
+              onClick={handleSaveAsTemplate}
+              disabled={isSavingTemplate || !route.name.trim()}
+              title={route.name.trim() ? 'Save as a reusable template' : 'Enter a route name first'}
+              style={{
+                padding: '0.5rem 1rem',
+                border: `1px solid ${COLORS.skyBlue}`,
+                borderRadius: '8px',
+                background: 'white',
+                color: COLORS.skyBlue,
+                cursor: (isSavingTemplate || !route.name.trim()) ? 'not-allowed' : 'pointer',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                opacity: !route.name.trim() ? 0.5 : 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isSavingTemplate ? 'Saving...' : '📋 Save as Template'}
             </button>
             <button
               onClick={() => handleSave(false)}
