@@ -109,6 +109,12 @@ az account show    # Confirm logged in to correct subscription
 # Deploy with a custom name suffix (3–8 lowercase alphanumeric chars)
 ./infra/deploy.sh --suffix abc123
 
+# Deploy in another region (useful when F1 quota is exhausted in current region)
+./infra/deploy.sh --suffix dev020 --location australiasoutheast
+
+# Bind existing CIAM directory resource in target RG (optional)
+./infra/deploy.sh --suffix dev020 --ciam-directory brigadesantarun.onmicrosoft.com
+
 # Validate without deploying
 ./infra/deploy.sh --dry-run
 
@@ -219,6 +225,7 @@ curl https://santarun-web-<suffix>.azurewebsites.net/api/negotiate?routeId=test-
 - No custom domain, no SSL termination at custom domain
 - No deployment slots (preview environments)
 - Upgrade to **B1** (~$18 AUD/month) for always-on, custom domain, and SLA
+- F1 quotas are region-scoped and subscription-scoped; if you hit `QuotaExceeded`, deploy to another region or scale to B1
 
 ### Azure Web PubSub Free_F1
 - **20 concurrent WebSocket connections**
@@ -307,3 +314,15 @@ az group delete \
 ```
 
 > ⚠️ This permanently deletes all resources and data.
+
+### CIAM Directory Lifecycle Note
+
+If an External Configuration Tenant (`Microsoft.AzureActiveDirectory/ciamDirectories`) is in `Deleting` state, Azure blocks move/rebind operations from that RG.
+
+- Do not force CIAM binding during this state.
+- Keep `ciamDirectoryName` empty for deployments until the resource is healthy in the target RG.
+- Verify status with:
+
+```bash
+az resource list --query "[?type=='Microsoft.AzureActiveDirectory/ciamDirectories'].{name:name,rg:resourceGroup,state:properties.provisioningState}" -o table
+```

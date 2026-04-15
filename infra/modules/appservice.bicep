@@ -25,6 +25,9 @@ param nodeVersion string = 'NODE|22-lts'
 @description('Resource tags')
 param tags object = {}
 
+@description('Optional Application Insights connection string to inject into App Service settings')
+param appInsightsConnectionString string = ''
+
 var planName = 'santarun-plan-${nameSuffix}'
 var appName = 'santarun-web-${nameSuffix}'
 
@@ -65,6 +68,15 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
       http20Enabled: true
     }
     clientAffinityEnabled: false
+  }
+}
+
+resource appSettings 'Microsoft.Web/sites/config@2023-01-01' = if (!empty(appInsightsConnectionString)) {
+  parent: webApp
+  name: 'appsettings'
+  properties: {
+    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsConnectionString
+    ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
   }
 }
 

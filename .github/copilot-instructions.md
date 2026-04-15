@@ -26,7 +26,8 @@ React + TypeScript web application for Australian Rural Fire Service brigades to
 - React 19 + TypeScript
 - Vite build system
 - Mapbox GL JS for mapping and navigation (Directions API)
-- Azure Static Web Apps (hosting + serverless API)
+- Azure App Service (Linux) for production hosting
+- Bicep IaC (`infra/`) for infrastructure provisioning
 - Azure Table Storage (data persistence)
 - Azure Web PubSub (real-time tracking)
 - Microsoft Entra External ID (authentication)
@@ -45,7 +46,9 @@ fire-santa-run/
 │   ├── storage/         # Storage adapters (localStorage, Azure)
 │   ├── types/           # TypeScript interfaces and types
 │   └── styles/          # Global styles and CSS
-├── api/                 # Azure Functions (serverless API)
+├── api/                 # Azure Functions (legacy/local dev API path)
+├── server/              # Hono backend used for App Service runtime
+├── infra/               # Bicep IaC + deployment scripts
 ├── public/              # Static assets
 ├── docs/                # ALL Additional documentation
 ├── MASTER_PLAN.md      # 📋 SINGLE SOURCE OF TRUTH
@@ -184,7 +187,7 @@ if (isDevMode) {
 6. Run `npm run dev` (this now builds the Functions app before starting both servers)
 7. Access at `http://localhost:5173`
 
-**Important for Functions code:** The Azure Functions app runs from the compiled `api/dist` output. After backend code changes, a rebuild is required before `func start` picks them up. Use `npm run build:api` (or just `npm run dev`, which builds first) rather than only restarting `func start`.
+**Important:** Local dev currently uses the Functions path (`api/`) while production deploy uses App Service + Hono (`server/`). Keep realtime/auth/storage behavior aligned across both codepaths when making backend changes.
 
 ### Common Development Tasks
 
@@ -227,7 +230,9 @@ if (isDevMode) {
 
 ### GitHub Actions Workflow Guidelines
 
-**Current Architecture:** Single unified CI/CD pipeline (`.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml`)
+**Current Architecture:**
+- App Service deploy pipeline: `.github/workflows/deploy-app-service.yml`
+- Legacy quality-only pipeline (no SWA deploy): `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml`
 
 **Core Principle:** Maintain workflow efficiency by avoiding redundant builds and enforcing quality gates before deployment.
 
@@ -273,11 +278,11 @@ New task: [describe task]
 - **Reference:** MASTER_PLAN.md Sections 3, 3a for route planning and navigation
 
 ### Azure Services
-- **Static Web Apps:** Hosting + serverless API functions
+- **App Service (Linux):** Production hosting for SPA + Hono backend
 - **Table Storage:** NoSQL data persistence with partition/row key model
 - **Web PubSub:** Real-time WebSocket communication for live tracking
 - **Entra External ID:** OAuth 2.0 authentication (Phase 7)
-- **Reference:** MASTER_PLAN.md Sections 7, 8, 15, 22 for complete setup
+- **Reference:** `infra/README.md`, `docs/SECRETS_MANAGEMENT.md`, and `MASTER_PLAN.md`
 
 ### Real-Time Architecture
 - **Brigade Operator:** Broadcasts GPS location via Azure Web PubSub
@@ -323,7 +328,7 @@ New task: [describe task]
 ### External Documentation
 - Mapbox GL JS: https://docs.mapbox.com/mapbox-gl-js/
 - Mapbox Directions API: https://docs.mapbox.com/api/navigation/directions/
-- Azure Static Web Apps: https://learn.microsoft.com/en-us/azure/static-web-apps/
+- Azure App Service: https://learn.microsoft.com/en-us/azure/app-service/
 - Azure Table Storage SDK: https://learn.microsoft.com/en-us/javascript/api/@azure/data-tables/
 - Azure Web PubSub: https://learn.microsoft.com/en-us/azure/azure-web-pubsub/
 - React Router v6: https://reactrouter.com/

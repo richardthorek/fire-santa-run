@@ -17,6 +17,7 @@ set -euo pipefail
 ENVIRONMENT="dev"
 LOCATION="australiaeast"
 NAME_SUFFIX=""
+CIAM_DIRECTORY_NAME=""
 DRY_RUN=false
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,12 +34,15 @@ Options:
   --env,    -e  <dev|prod>   Environment to deploy (default: dev)
   --suffix, -s  <string>     3–8 char alphanumeric suffix for unique resource names
   --location    <region>     Azure region (default: australiaeast)
+  --ciam-directory <name>    Optional existing CIAM directory resource name in target RG
   --dry-run                  Validate the template without deploying
   --help,   -h               Show this help message
 
 Examples:
   ./infra/deploy.sh                          # Deploy dev environment (free F1 tier)
   ./infra/deploy.sh --env prod --suffix p1   # Deploy production (B1 tier)
+  ./infra/deploy.sh --suffix dev020 --location australiasoutheast
+  ./infra/deploy.sh --suffix dev020 --ciam-directory brigadesantarun.onmicrosoft.com
   ./infra/deploy.sh --dry-run                # Validate dev template only
 HELP
 }
@@ -48,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     --env|-e)     ENVIRONMENT="$2"; shift 2 ;;
     --suffix|-s)  NAME_SUFFIX="$2"; shift 2 ;;
     --location)   LOCATION="$2"; shift 2 ;;
+    --ciam-directory) CIAM_DIRECTORY_NAME="$2"; shift 2 ;;
     --dry-run)    DRY_RUN=true; shift ;;
     --help|-h)    print_help; exit 0 ;;
     *) echo "❌ Unknown option: $1"; print_help; exit 1 ;;
@@ -115,6 +120,7 @@ DEPLOYMENT_NAME="santarun-${ENVIRONMENT}-$(date +%Y%m%d-%H%M%S)"
 EXTRA_PARAM_ARGS=()
 [[ -n "$NAME_SUFFIX" ]] && EXTRA_PARAM_ARGS+=("nameSuffix=$NAME_SUFFIX")
 [[ -n "$LOCATION" ]] && EXTRA_PARAM_ARGS+=("location=$LOCATION")
+[[ -n "$CIAM_DIRECTORY_NAME" ]] && EXTRA_PARAM_ARGS+=("ciamDirectoryName=$CIAM_DIRECTORY_NAME")
 
 if [[ "$DRY_RUN" == "true" ]]; then
   echo "🔍 Validating Bicep template (dry run)..."

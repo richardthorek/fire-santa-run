@@ -103,6 +103,7 @@ module appService 'modules/appservice.bicep' = {
     nameSuffix: nameSuffix
     sku: appServiceSku
     tags: commonTags
+    appInsightsConnectionString: monitoring.outputs.connectionString
   }
 }
 

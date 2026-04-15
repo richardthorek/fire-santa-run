@@ -3,6 +3,14 @@
 ## Executive Summary
 A web application for Australian Rural Fire Service (RFS) brigades to plan, publish, and track Santa runs. Each brigade gets authenticated access via Microsoft Entra External ID to create multiple routes over time, generate shareable links with QR codes, and enable real-time public tracking. The application runs on Azure Static Web Apps with Azure Table Storage for persistence and Azure Web PubSub for real-time communication. Brigade operators receive turn-by-turn navigation powered by Mapbox Directions API while broadcasting their location as "Santa" to the public.
 
+### Deployment Model Update (Apr 2026)
+- Primary production hosting is now **Azure App Service (Linux)** serving SPA + Hono backend.
+- Infrastructure provisioning is managed via **Bicep** in `infra/` (root template: `infra/main.bicep`).
+- Primary deployment workflow is `.github/workflows/deploy-app-service.yml`.
+- `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml` is retained for quality checks and branch protection, not SWA deployment.
+- Web PubSub hub default is `santa_tracking` (underscore; aligns with Azure hub naming rules).
+- CIAM/External ID directory resources may be referenced from Bicep as existing resources; avoid hard dependencies while resource lifecycle is unstable (e.g., `Deleting`).
+
 ---
 
 ## Visual Design & Brand Identity

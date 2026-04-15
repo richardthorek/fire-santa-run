@@ -2,6 +2,8 @@
 
 A real-time Santa tracking web application for Australian Rural Fire Service (RFS) brigades to plan, publish, and track Santa runs through their communities.
 
+> Deployment model update (Apr 2026): Production hosting now uses Azure App Service (Linux) with Bicep IaC in `infra/`. The legacy Azure Static Web Apps workflow has been reduced to quality checks only.
+
 ## Overview
 
 This application enables RFS brigades to:
@@ -137,7 +139,7 @@ VITE_ENTRA_TENANT_ID=your_tenant_id
 
 # Azure Web PubSub (real-time tracking)
 AZURE_WEBPUBSUB_CONNECTION_STRING=your_connection_string
-AZURE_WEBPUBSUB_HUB_NAME=santa-tracking
+AZURE_WEBPUBSUB_HUB_NAME=santa_tracking
 ```
 
 See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup instructions.
@@ -178,7 +180,7 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 - **Real-time:** Azure Web PubSub (WebSocket with HTTP fallback)
 - **Storage:** LocalStorage (dev) or Azure Table Storage (production)
 - **Authentication:** Microsoft Entra External ID (production)
-- **Hosting:** Azure Static Web Apps with Azure Functions API
+- **Hosting:** Azure App Service (Linux) + Hono server (`server/`)
 - **QR Codes:** qrcode.react
 - **Meta Tags:** React 19 Native Metadata (automatic hoisting to `<head>`)
 
@@ -248,10 +250,15 @@ npm run build  # (builds and type checks)
 ```
 fire-santa-run/
 ├── .github/
-│   ├── workflows/          # CI/CD pipelines (Azure Static Web Apps)
+│   ├── workflows/          # CI/CD pipelines (quality + App Service deploy)
 │   └── copilot-instructions.md
 ├── api/                    # Azure Functions (serverless API)
 │   └── src/                # API function implementations
+├── server/                 # Hono backend for App Service runtime
+│   └── src/
+├── infra/                  # Bicep IaC and deployment script
+│   ├── main.bicep
+│   └── deploy.sh
 ├── docs/                   # Documentation
 │   ├── AZURE_SETUP.md
 │   ├── DEV_MODE.md
@@ -268,30 +275,34 @@ fire-santa-run/
 │   ├── context/            # React Context providers
 │   ├── hooks/              # Custom React hooks
 │   └── services/           # API service layer
-├── staticwebapp.config.json # Azure Static Web Apps configuration
+├── staticwebapp.config.json # Legacy SWA config (not primary production deploy target)
 ├── MASTER_PLAN.md          # Complete architecture plan
 └── README.md               # This file
 ```
 
 ## Deployment
 
-The application is deployed to **Azure Static Web Apps** with automatic CI/CD via GitHub Actions.
+The application is deployed to **Azure App Service** with infrastructure provisioned by **Bicep** (`infra/main.bicep`) and CI/CD via GitHub Actions.
 
 ### Automatic Deployment
 
 Deployment happens automatically when code is pushed to the repository:
 - **Production:** Merges to `main` branch deploy to production
-- **Preview:** Pull requests create preview environments
-- **Configuration:** See `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml`
+- **Pull Requests:** Quality checks and test coverage run
+- **Configuration:**
+  - `.github/workflows/deploy-app-service.yml` (App Service build/deploy)
+  - `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml` (quality gate only)
 
-### Azure Static Web Apps Setup
+### App Service + IaC Setup
 
-1. **Create Azure Static Web App** in Azure Portal
-2. **Link to GitHub repository** during creation (auto-configures CI/CD)
-3. **Configure environment variables** in Azure Portal:
-   - Navigate to Configuration > Application settings
-   - Add required secrets (see below)
-4. **Automatic deployment** triggers on push to main
+1. Provision infra with Bicep:
+  - `./infra/deploy.sh --env dev --suffix <unique> --location <region>`
+2. Configure GitHub environment (`copilot`) secrets and variables:
+  - Secret: `AZURE_APP_SERVICE_PUBLISH_PROFILE`
+  - Variable: `AZURE_APP_SERVICE_NAME`
+  - Build secret: `VITE_MAPBOX_TOKEN`
+3. Push to `main` (or manually run workflow dispatch) to deploy.
+4. Optional: set Entra External ID values for production auth flows.
 
 ### Manual Build (for testing)
 
@@ -300,7 +311,7 @@ Deployment happens automatically when code is pushed to the repository:
 npm run build
 
 # The dist/ folder contains the static assets
-# The api/ folder contains Azure Functions
+# The dist/ folder contains SPA assets; App Service runtime serves via server/
 ```
 
 See deployment documentation in [MASTER_PLAN.md](./MASTER_PLAN.md#deployment--hosting) for detailed instructions.
@@ -327,8 +338,8 @@ See [Azure Setup Guide](./docs/AZURE_SETUP.md) for detailed instructions.
 
 The repository includes automated CI/CD workflows:
 
-1. **`azure-static-web-apps-*.yml`** - Builds, tests, and deploys to Azure Static Web Apps
-2. **`test-coverage.yml`** - Runs test coverage reports
+1. **`deploy-app-service.yml`** - Primary build + deploy workflow for Azure App Service
+2. **`azure-static-web-apps-victorious-beach-0d2b6dc00.yml`** - Legacy quality checks workflow (no SWA deploy)
 
 ### Required GitHub Secrets
 
@@ -341,8 +352,9 @@ Configure in Repository Settings > Secrets and variables > Actions > Environment
 - `VITE_ENTRA_AUTHORITY` - Microsoft Entra authority URL
 - `VITE_ENTRA_REDIRECT_URI` - OAuth redirect URI
 
-**Deployment token (auto-configured):**
-- `AZURE_STATIC_WEB_APPS_API_TOKEN_*` - Automatically added by Azure when linking repository
+**App Service deployment config (required for deploy step):**
+- `AZURE_APP_SERVICE_PUBLISH_PROFILE` (environment secret)
+- `AZURE_APP_SERVICE_NAME` (environment variable)
 
 **Runtime secrets (configured in Azure Portal):**
 - Azure Storage connection strings
@@ -350,10 +362,19 @@ Configure in Repository Settings > Secrets and variables > Actions > Environment
 
 See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for complete setup.
 
+### CIAM (External ID) Resource Note
+
+The External Configuration Tenant resource (`Microsoft.AzureActiveDirectory/ciamDirectories`) is lifecycle-sensitive and may be temporarily unavailable for move/rebind operations while in `Deleting` state.
+
+- Deployments should not hard-depend on CIAM binding during this state.
+- Use the optional IaC parameter only when the resource is healthy in the target RG.
+- For current migration status, verify with:
+  - `az resource list --query "[?type=='Microsoft.AzureActiveDirectory/ciamDirectories']" -o table`
+
 ## Cost Estimates
 
 ### Free Tier Setup (Development)
-- **Hosting:** Azure Static Web Apps Free Tier (100 GB bandwidth/month)
+- **Hosting:** Azure App Service F1 (region/quota dependent)
 - **Mapbox:** 50k map loads/month free
 - **Azure Web PubSub:** Free tier (20 connections, 20K messages/day)
 - **Azure Table Storage:** $0.05 AUD/month
@@ -361,12 +382,12 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for complete setup.
 - **Total: ~$0.05 AUD/month**
 
 ### Production Setup (100 brigades)
-- **Hosting:** Azure Static Web Apps Standard $9 USD/month
+- **Hosting:** Azure App Service B1 (recommended baseline)
 - **Mapbox:** $0-50 USD/month (depending on usage)
 - **Azure Web PubSub:** $49 USD/month (Standard tier, 1000 connections)
 - **Azure Table Storage:** ~$0.50 AUD/month
 - **Entra External ID:** Free (up to 50K MAU)
-- **Total: ~$58-108 USD/month**
+- **Total:** depends on App Service SKU and traffic profile
 
 See cost breakdown in [MASTER_PLAN.md](./MASTER_PLAN.md#cost-management--resource-planning).
 

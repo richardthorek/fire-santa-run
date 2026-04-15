@@ -1,5 +1,7 @@
 # Secrets Management Guide
 
+> Deployment model update (Apr 2026): primary deployment target is Azure App Service provisioned via Bicep (`infra/`).
+
 This guide explains how to properly manage secrets and API keys for the Fire Santa Run application.
 
 ## Table of Contents
@@ -73,7 +75,7 @@ This guide explains how to properly manage secrets and API keys for the Fire San
 
 **Secrets needed:**
 - `AZURE_WEBPUBSUB_CONNECTION_STRING` - Full connection string from Keys section
-- `AZURE_WEBPUBSUB_HUB_NAME` - Hub name (optional, defaults to 'santa-tracking')
+- `AZURE_WEBPUBSUB_HUB_NAME` - Hub name (optional, defaults to `santa_tracking`)
 
 **Free Tier:** 20 concurrent connections, 20,000 messages/day (perfect for development)
 
@@ -137,7 +139,7 @@ VITE_AZURE_STORAGE_ACCOUNT_NAME=santarun
 
 # Azure Web PubSub (Optional for local dev - use BroadcastChannel API instead)
 AZURE_WEBPUBSUB_CONNECTION_STRING=Endpoint=https://...webpubsub.azure.com;AccessKey=...;Version=1.0;
-AZURE_WEBPUBSUB_HUB_NAME=santa-tracking
+AZURE_WEBPUBSUB_HUB_NAME=santa_tracking
 ```
 
 ### Step 3: Verify Setup
@@ -193,7 +195,7 @@ Name: AZURE_WEBPUBSUB_CONNECTION_STRING
 Value: Endpoint=https://...webpubsub.azure.com;AccessKey=...;Version=1.0;
 
 Name: AZURE_WEBPUBSUB_HUB_NAME
-Value: santa-tracking
+Value: santa_tracking
 ```
 
 #### Deployment (If using Vercel)
@@ -219,33 +221,31 @@ GitHub Actions will now have access to these secrets. Check workflow runs:
 
 ## Deployment Setup
 
-### Azure Static Web Apps Deployment
+### Azure App Service Deployment
 
-The repository includes an Azure Static Web Apps CI/CD workflow that automatically deploys the application when changes are pushed to the `main` branch.
+The repository includes an App Service CI/CD workflow that deploys when changes are pushed to `main` (or via workflow dispatch).
 
 #### Prerequisites
 1. Azure subscription
-2. Azure Static Web Apps resource created
-3. Deployment token from Azure Portal
+2. Infrastructure deployed with `./infra/deploy.sh` (or equivalent Bicep deployment)
+3. App Service publish profile XML from Azure CLI/Portal
 
 #### Setup Steps
 
-1. **Create Azure Static Web Apps resource:**
-   - Go to [Azure Portal](https://portal.azure.com/)
-   - Create a new Static Web App
-   - Connect to your GitHub repository
-   - Azure will create the workflow file automatically
+1. **Deploy infrastructure via IaC:**
+   - Run `./infra/deploy.sh --env dev --suffix <unique> --location <region>`
+   - Note outputs: app name, resource group, web URL
 
-2. **Add required GitHub environment secrets:**
+2. **Add required GitHub environment secrets/variables:**
 
    This repository uses a GitHub **environment** called "copilot" for deployment secrets.
 
    Navigate to your repository's **Settings** → **Environments** → **copilot** → **Environment secrets** and add:
 
    ```
-   Name: VITE_MAPBOX_TOKEN
-   Value: pk.your_mapbox_token_here
-   Description: Required for Mapbox maps and geocoding
+   Secret: VITE_MAPBOX_TOKEN
+   Secret: AZURE_APP_SERVICE_PUBLISH_PROFILE
+   Variable: AZURE_APP_SERVICE_NAME
    ```
 
    **Note:** If the "copilot" environment doesn't exist yet, create it first:
@@ -267,18 +267,21 @@ The repository includes an Azure Static Web Apps CI/CD workflow that automatical
 
 4. **Verify workflow:**
    - Go to **Actions** tab in your repository
-   - Check the latest "Azure Static Web Apps CI/CD" workflow run
+   - Check the latest "Deploy to Azure App Service" workflow run
    - Ensure it completes successfully
 
-#### Environment Variables in Azure Static Web Apps
+#### Environment Variables in App Service
 
-The workflow is configured to pass the following environment variables during build:
+Set runtime values in App Service > Configuration > Application settings:
 
-- `VITE_DEV_MODE`: Set to `'false'` for production builds
-- `VITE_MAPBOX_TOKEN`: From GitHub secret
-- `VITE_APP_NAME`: Set to `'Fire Santa Run'`
+- `AZURE_STORAGE_CONNECTION_STRING`
+- `AZURE_WEBPUBSUB_CONNECTION_STRING`
+- `AZURE_WEBPUBSUB_HUB_NAME` (default `santa_tracking`)
+- `DEV_MODE=false`
+- `NODE_ENV=production`
+- `PORT=8080`
 
-Additional environment variables can be added in the workflow file's `env` section under the "Build And Deploy" step.
+Build-time values (e.g. `VITE_MAPBOX_TOKEN`) remain in GitHub environment secrets.
 
 #### Troubleshooting
 
@@ -292,6 +295,10 @@ Additional environment variables can be added in the workflow file's `env` secti
 - Verify the workflow job specifies `environment: copilot`
 - Check that the "copilot" environment exists in Settings → Environments
 - Ensure the secret is added to the environment, not as a repository-level secret
+
+**Deploy step is skipped:**
+- Ensure `AZURE_APP_SERVICE_PUBLISH_PROFILE` secret exists in `copilot` environment
+- Ensure `AZURE_APP_SERVICE_NAME` variable exists in `copilot` environment
 
 **Deployment succeeds but app doesn't work:**
 - Check that production environment variables are set correctly
@@ -566,7 +573,7 @@ VITE_AZURE_STORAGE_ACCOUNT_NAME=santarun
 
 # Real-time (Production)
 AZURE_WEBPUBSUB_CONNECTION_STRING=Endpoint=https://...webpubsub.azure.com;AccessKey=...;Version=1.0;
-AZURE_WEBPUBSUB_HUB_NAME=santa-tracking
+AZURE_WEBPUBSUB_HUB_NAME=santa_tracking
 
 # Deployment (Optional)
 VERCEL_TOKEN=xxx

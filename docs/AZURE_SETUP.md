@@ -2,6 +2,8 @@
 
 This guide provides step-by-step instructions for setting up Azure Table Storage for the Fire Santa Run application.
 
+> Scope note (Apr 2026): this document is storage-focused. Full infrastructure deployment (App Service + Storage + Web PubSub + monitoring) is now managed by Bicep in `infra/` via `./infra/deploy.sh`.
+
 ## Prerequisites
 
 - Azure account ([Create free account](https://azure.microsoft.com/free/))
@@ -24,6 +26,12 @@ This will open a browser window for authentication.
 cd scripts
 chmod +x setup-azure-storage.sh
 ./setup-azure-storage.sh
+```
+
+For full environment provisioning instead of storage-only setup, run from repository root:
+
+```bash
+./infra/deploy.sh --env dev --suffix <unique> --location <region>
 ```
 
 The script will:
