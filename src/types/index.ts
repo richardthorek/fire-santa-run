@@ -47,6 +47,7 @@ export interface Route {
   shareableLink?: string;
   qrCodeUrl?: string;
   viewCount?: number;
+  archivedAt?: string;
 }
 
 export interface RouteTemplate {

@@ -62,6 +62,9 @@ export interface Brigade {
   
   /** Last updated timestamp */
   updatedAt: string;
+
+  /** Number of days after completion before a route is auto-archived (default: 90) */
+  archiveThresholdDays?: number;
 }
 
 export interface IStorageAdapter {
