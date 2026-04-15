@@ -19,6 +19,7 @@ export { SkipLink } from './SkipLink';
 export { CountdownTimer } from './CountdownTimer';
 export { ThankYouOverlay } from './ThankYouOverlay';
 export { HighlightedText } from './HighlightedText';
+export { RoutePreviewModal } from './RoutePreviewModal';
 
 // Convenience export for LoadingSkeleton (for consistency)
 export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';
@@ -40,3 +41,4 @@ export type { SEOProps } from './SEO';
 export type { RoleBadgeProps } from './RoleBadge';
 export type { CountdownTimerProps } from './CountdownTimer';
 export type { ThankYouOverlayProps } from './ThankYouOverlay';
+export type { RoutePreviewModalProps } from './RoutePreviewModal';
