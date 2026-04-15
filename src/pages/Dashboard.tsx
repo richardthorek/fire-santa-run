@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '../hooks';
-import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout } from '../components';
+import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
-import { isApproachingAutoArchive, daysUntilAutoArchive, DEFAULT_ARCHIVE_THRESHOLD_DAYS } from '../utils/routeHelpers';
+import {
+  isApproachingAutoArchive,
+  daysUntilAutoArchive,
+  DEFAULT_ARCHIVE_THRESHOLD_DAYS,
+  searchRoutes,
+  filterRoutes,
+  sortRoutes,
+  type RouteFilterOptions,
+  type RouteSortOptions,
+} from '../utils/routeHelpers';
 import { useBrigade } from '../context';
 import { format } from 'date-fns';
 
@@ -17,6 +26,15 @@ export function Dashboard() {
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
 
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<RouteFilterOptions>({});
+  const [sortOptions, setSortOptions] = useState<RouteSortOptions>({
+    field: 'date',
+    order: 'desc',
+  });
+
   // Resolve brigade archive threshold (must be positive, fallback to default)
   const archiveThreshold =
     brigade?.archiveThresholdDays != null && brigade.archiveThresholdDays > 0
@@ -26,11 +44,26 @@ export function Dashboard() {
   // Non-archived routes (shown in 'all' and other status tabs)
   const activeRoutes = routes.filter(r => r.status !== 'archived');
 
-  const filteredRoutes = filterStatus === 'all'
-    ? activeRoutes
-    : filterStatus === 'archived'
-    ? routes.filter(r => r.status === 'archived')
-    : routes.filter(r => r.status === filterStatus);
+  // Apply search, filter, and sort with useMemo for performance
+  const filteredRoutes = useMemo(() => {
+    // Start with base routes based on status filter
+    let filtered = filterStatus === 'all'
+      ? activeRoutes
+      : filterStatus === 'archived'
+      ? routes.filter(r => r.status === 'archived')
+      : routes.filter(r => r.status === filterStatus);
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(route => searchRoutes(route, searchQuery));
+    }
+
+    // Apply advanced filters
+    filtered = filtered.filter(route => filterRoutes(route, filters));
+
+    // Apply sorting
+    return sortRoutes(filtered, sortOptions);
+  }, [routes, activeRoutes, filterStatus, searchQuery, filters, sortOptions]);
 
   const statusCounts = {
     all: activeRoutes.length,
@@ -67,6 +100,23 @@ export function Dashboard() {
       setRestoringId(null);
     }
   };
+
+  // Debounced search handler for performance
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery('');
+    setFilters({});
+    setSortOptions({ field: 'date', order: 'desc' });
+  }, []);
+
+  const hasActiveFilters = searchQuery.trim() !== '' ||
+    Object.keys(filters).some(key => {
+      const value = filters[key as keyof RouteFilterOptions];
+      return value !== undefined && (Array.isArray(value) ? value.length > 0 : true);
+    });
 
   if (isLoading) {
     return (
@@ -215,6 +265,278 @@ export function Dashboard() {
           <span aria-hidden="true">🗂️</span> Templates
         </a>
         </div>
+      </div>
+
+      {/* Search and Filter Bar */}
+      <div style={{
+        marginBottom: '1.5rem',
+        backgroundColor: 'white',
+        padding: '1rem',
+        borderRadius: 'var(--border-radius-sm)',
+        border: '2px solid var(--neutral-200)',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+      }}>
+        {/* Search Input and Sort */}
+        <div style={{
+          display: 'flex',
+          gap: '0.75rem',
+          marginBottom: showFilters ? '1rem' : '0',
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ flex: 1, minWidth: '250px', position: 'relative' }}>
+            <input
+              type="search"
+              placeholder="🔍 Search routes by name, description, or address..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              aria-label="Search routes"
+              style={{
+                width: '100%',
+                padding: '0.75rem 2.5rem 0.75rem 1rem',
+                border: '2px solid var(--neutral-300)',
+                borderRadius: 'var(--border-radius-xs)',
+                fontSize: '1rem',
+                fontFamily: 'var(--font-body)',
+                transition: 'all 0.2s',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'var(--fire-red)';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(211, 47, 47, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'var(--neutral-300)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                style={{
+                  position: 'absolute',
+                  right: '0.5rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1.25rem',
+                  color: 'var(--neutral-700)',
+                  padding: '0.25rem',
+                }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <select
+              value={`${sortOptions.field}-${sortOptions.order}`}
+              onChange={(e) => {
+                const [field, order] = e.target.value.split('-') as [typeof sortOptions.field, typeof sortOptions.order];
+                setSortOptions({ field, order });
+              }}
+              aria-label="Sort routes"
+              style={{
+                padding: '0.75rem 1rem',
+                border: '2px solid var(--neutral-300)',
+                borderRadius: 'var(--border-radius-xs)',
+                fontSize: '0.875rem',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                backgroundColor: 'white',
+              }}
+            >
+              <option value="date-desc">📅 Newest First</option>
+              <option value="date-asc">📅 Oldest First</option>
+              <option value="name-asc">🔤 Name A-Z</option>
+              <option value="name-desc">🔤 Name Z-A</option>
+              <option value="distance-asc">📏 Shortest First</option>
+              <option value="distance-desc">📏 Longest First</option>
+              <option value="views-desc">👁️ Most Views</option>
+              <option value="views-asc">👁️ Least Views</option>
+            </select>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              aria-label={showFilters ? 'Hide filters' : 'Show filters'}
+              style={{
+                padding: '0.75rem 1rem',
+                border: `2px solid ${showFilters ? 'var(--fire-red)' : 'var(--neutral-300)'}`,
+                borderRadius: 'var(--border-radius-xs)',
+                fontSize: '0.875rem',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                backgroundColor: showFilters ? 'var(--fire-red-light)' : 'white',
+                color: showFilters ? 'white' : 'var(--neutral-700)',
+              }}
+            >
+              🔧 Filters {showFilters ? '▼' : '▶'}
+            </button>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                aria-label="Clear all filters"
+                style={{
+                  padding: '0.75rem 1rem',
+                  border: '2px solid var(--summer-gold)',
+                  borderRadius: 'var(--border-radius-xs)',
+                  fontSize: '0.875rem',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  backgroundColor: 'white',
+                  color: 'var(--summer-gold)',
+                }}
+              >
+                ✕ Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Advanced Filters */}
+        {showFilters && (
+          <div style={{
+            padding: '1rem',
+            backgroundColor: 'var(--neutral-50)',
+            borderRadius: 'var(--border-radius-xs)',
+            border: '1px solid var(--neutral-200)',
+          }}>
+            <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              {/* Date Range */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--neutral-700)' }}>
+                  Date From
+                </label>
+                <input
+                  type="date"
+                  value={filters.dateFrom || ''}
+                  onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value || undefined })}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    border: '1px solid var(--neutral-300)',
+                    borderRadius: 'var(--border-radius-xs)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--neutral-700)' }}>
+                  Date To
+                </label>
+                <input
+                  type="date"
+                  value={filters.dateTo || ''}
+                  onChange={(e) => setFilters({ ...filters, dateTo: e.target.value || undefined })}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    border: '1px solid var(--neutral-300)',
+                    borderRadius: 'var(--border-radius-xs)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+              </div>
+
+              {/* Distance Range */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--neutral-700)' }}>
+                  Min Distance (km)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="Any"
+                  value={filters.minDistance ? (filters.minDistance / 1000).toFixed(1) : ''}
+                  onChange={(e) => setFilters({
+                    ...filters,
+                    minDistance: e.target.value ? parseFloat(e.target.value) * 1000 : undefined
+                  })}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    border: '1px solid var(--neutral-300)',
+                    borderRadius: 'var(--border-radius-xs)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--neutral-700)' }}>
+                  Max Distance (km)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="Any"
+                  value={filters.maxDistance ? (filters.maxDistance / 1000).toFixed(1) : ''}
+                  onChange={(e) => setFilters({
+                    ...filters,
+                    maxDistance: e.target.value ? parseFloat(e.target.value) * 1000 : undefined
+                  })}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    border: '1px solid var(--neutral-300)',
+                    borderRadius: 'var(--border-radius-xs)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+              </div>
+
+              {/* Stops Range */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--neutral-700)' }}>
+                  Min Stops
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Any"
+                  value={filters.minStops || ''}
+                  onChange={(e) => setFilters({
+                    ...filters,
+                    minStops: e.target.value ? parseInt(e.target.value) : undefined
+                  })}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    border: '1px solid var(--neutral-300)',
+                    borderRadius: 'var(--border-radius-xs)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--neutral-700)' }}>
+                  Max Stops
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Any"
+                  value={filters.maxStops || ''}
+                  onChange={(e) => setFilters({
+                    ...filters,
+                    maxStops: e.target.value ? parseInt(e.target.value) : undefined
+                  })}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    border: '1px solid var(--neutral-300)',
+                    borderRadius: 'var(--border-radius-xs)',
+                    fontSize: '0.875rem',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Status Filter Tabs */}
@@ -428,7 +750,7 @@ export function Dashboard() {
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
                 <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#212121', flex: 1 }}>
-                  {route.name}
+                  <HighlightedText text={route.name} query={searchQuery} />
                 </h3>
                 <RouteStatusBadge status={route.status} />
               </div>
@@ -436,7 +758,7 @@ export function Dashboard() {
               {/* Description */}
               {route.description && (
                 <p style={{ margin: '0 0 1rem 0', color: '#616161', fontSize: '0.875rem' }}>
-                  {route.description}
+                  <HighlightedText text={route.description} query={searchQuery} />
                 </p>
               )}
 
