@@ -10,6 +10,7 @@ import type { Route, RouteTemplate } from '../types';
 
 /**
  * Apply a template to produce a new draft Route, ready to save.
+ * Waypoint IDs are regenerated so each applied route instance has globally unique IDs.
  */
 function applyTemplate(template: RouteTemplate, brigadeId: string, createdBy?: string): Route {
   const base = createNewRoute(brigadeId, createdBy);

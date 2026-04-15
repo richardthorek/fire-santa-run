@@ -4,7 +4,7 @@ import { useAuth, useBrigade } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
 import { useTemplates } from '../hooks/useTemplates';
 import { MapView, WaypointList, AddressSearch } from '../components';
-import { createNewRoute, generateShareableLink, canPublishRoute, generateWaypointId } from '../utils/routeHelpers';
+import { createNewRoute, generateShareableLink, canPublishRoute, generateWaypointId, generateTemplateId } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
@@ -179,7 +179,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
 
     try {
       const template: RouteTemplate = {
-        id: `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: generateTemplateId(),
         brigadeId: user.brigadeId,
         name: route.name,
         description: route.description,
@@ -192,7 +192,6 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           name: wp.name,
           order: wp.order,
           notes: wp.notes,
-          isCompleted: false,
         })),
         createdAt: new Date().toISOString(),
         createdBy: user.email,

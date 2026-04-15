@@ -55,7 +55,7 @@ export interface RouteTemplate {
   name: string;
   description?: string;
   /** Waypoints without timing/completion data — coordinates and names only */
-  waypoints: Array<Pick<Waypoint, 'id' | 'coordinates' | 'address' | 'name' | 'order' | 'notes' | 'isCompleted'>>;
+  waypoints: Array<Pick<Waypoint, 'id' | 'coordinates' | 'address' | 'name' | 'order' | 'notes'>>;
   /** Human-readable category for display grouping */
   category?: string;
   /** Whether this template ships with the app (cannot be deleted by users) */

@@ -4,6 +4,11 @@ import type { RouteTemplate } from '../types';
  * Built-in route templates that ship with the app.
  * These are seeded into a brigade's template library the first time
  * templates are loaded and when they are not already present.
+ *
+ * Built-in templates have empty waypoints arrays by design: they describe a
+ * route *pattern* (suburban loop, rural circuit, etc.) rather than specific
+ * locations. Applying a template opens the route editor so the user can add
+ * their own locally-relevant waypoints.
  */
 export const BUILT_IN_TEMPLATES: Omit<RouteTemplate, 'brigadeId' | 'createdAt'>[] = [
   {
