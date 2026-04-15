@@ -91,6 +91,59 @@ export interface LocationBroadcast {
   nextWaypointEta?: string;
 }
 
+export interface ViewerSession {
+  id: string;
+  routeId: string;
+  sessionId: string;
+  joinedAt: string;
+  leftAt?: string;
+  viewDuration?: number; // Duration in seconds
+  userAgent?: string;
+  ipAddress?: string;
+  location?: {
+    city?: string;
+    region?: string;
+    country?: string;
+    coordinates?: [number, number];
+  };
+  shareSource?: string; // e.g., 'direct', 'qr', 'social', 'email'
+}
+
+export interface RouteAnalytics {
+  routeId: string;
+  brigadeId: string;
+  totalViews: number;
+  uniqueViewers: number;
+  peakConcurrentViewers: number;
+  averageViewDuration: number; // In seconds
+  totalViewDuration: number; // In seconds
+  viewersBySource: Record<string, number>; // { 'direct': 10, 'qr': 5, etc. }
+  viewersByLocation: Array<{
+    city?: string;
+    region?: string;
+    country: string;
+    count: number;
+    coordinates?: [number, number];
+  }>;
+  viewsOverTime: Array<{
+    timestamp: string;
+    count: number;
+  }>;
+  lastUpdated: string;
+}
+
+export interface ViewerEventType {
+  type: 'join' | 'leave';
+  sessionId: string;
+  routeId: string;
+  timestamp: string;
+  metadata?: {
+    userAgent?: string;
+    shareSource?: string;
+    location?: ViewerSession['location'];
+  };
+}
+
 // GeoJSON types for TypeScript
 // Using namespace for better type organization and avoiding conflicts
 // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -99,7 +152,7 @@ export namespace GeoJSON {
     type: 'LineString';
     coordinates: [number, number][];
   }
-  
+
   export interface Point {
     type: 'Point';
     coordinates: [number, number];
