@@ -5,6 +5,11 @@ import { getTableClient, isDevMode } from '../utils/storage.js';
 const VIEWER_SESSIONS_TABLE = isDevMode ? 'devviewersessions' : 'viewersessions';
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
+/** Escape single quotes in OData filter values to prevent injection. */
+function escapeODataValue(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
 interface ViewerSession {
   id: string;
   routeId: string;
@@ -108,7 +113,7 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
     let brigadeId = '';
     try {
       const routeEntities = routesClient.listEntities({
-        queryOptions: { filter: `RowKey eq '${routeId}'` }
+        queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` }
       });
       for await (const entity of routeEntities) {
         brigadeId = (entity.partitionKey as string) || '';
@@ -121,7 +126,7 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
 
     // Get all viewer sessions for this route
     const sessions = viewerSessionsClient.listEntities({
-      queryOptions: { filter: `PartitionKey eq '${routeId}'` }
+      queryOptions: { filter: `PartitionKey eq '${escapeODataValue(routeId)}'` }
     });
 
     const sessionList: ViewerSession[] = [];
@@ -258,7 +263,7 @@ analyticsRouter.get('/routes/:routeId/viewer-count', async (c) => {
 
     const tableClient = await getTableClient(VIEWER_SESSIONS_TABLE);
     const sessions = tableClient.listEntities({
-      queryOptions: { filter: `PartitionKey eq '${routeId}'` }
+      queryOptions: { filter: `PartitionKey eq '${escapeODataValue(routeId)}'` }
     });
 
     // Count sessions that have joined but not left yet (active viewers)
@@ -306,7 +311,7 @@ analyticsRouter.get('/routes/:routeId/sessions', async (c) => {
 
     const tableClient = await getTableClient(VIEWER_SESSIONS_TABLE);
     const sessions = tableClient.listEntities({
-      queryOptions: { filter: `PartitionKey eq '${routeId}'` }
+      queryOptions: { filter: `PartitionKey eq '${escapeODataValue(routeId)}'` }
     });
 
     const sessionList: ViewerSession[] = [];
