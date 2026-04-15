@@ -163,6 +163,64 @@ export async function getDirections(
 }
 
 /**
+ * Calculate the haversine distance in metres between two [lng, lat] coordinates.
+ */
+function haversineDistance(a: [number, number], b: [number, number]): number {
+  const R = 6_371_000; // Earth radius in metres
+  const toRad = (deg: number) => deg * (Math.PI / 180);
+  const dLat = toRad(b[1] - a[1]);
+  const dLon = toRad(b[0] - a[0]);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+/**
+ * Nearest-neighbour TSP heuristic.
+ *
+ * Returns the indices of the input `coordinates` array in the optimised visit
+ * order.  The **first and last coordinates are always kept in place** (start
+ * and end preserved); only the intermediate stops are reordered.
+ *
+ * Example: [A, B, C, D] with optimal middle order C→B returns [0, 2, 1, 3].
+ */
+export function nearestNeighborTsp(coordinates: [number, number][]): number[] {
+  const n = coordinates.length;
+  if (n <= 2) return coordinates.map((_, i) => i);
+
+  // Middle indices only — first (0) and last (n-1) are fixed
+  const unvisited = new Set(Array.from({ length: n - 2 }, (_, i) => i + 1));
+  const path: number[] = [0];
+  let current = 0;
+
+  while (unvisited.size > 0) {
+    let nearestDist = Infinity;
+    let nearest = -1;
+
+    for (const idx of unvisited) {
+      const d = haversineDistance(coordinates[current], coordinates[idx]);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearest = idx;
+      }
+    }
+
+    if (nearest === -1) {
+      // Should not happen while unvisited is non-empty, but guard defensively
+      throw new Error('nearestNeighborTsp: failed to find a nearest neighbour');
+    }
+
+    path.push(nearest);
+    unvisited.delete(nearest);
+    current = nearest;
+  }
+
+  path.push(n - 1); // always finish at the last waypoint
+  return path;
+}
+
+/**
  * Format distance in human-readable format
  */
 export function formatDistance(meters: number): string {
