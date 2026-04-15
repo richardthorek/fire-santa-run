@@ -30,6 +30,9 @@ param environment string = 'dev'
 @maxLength(8)
 param nameSuffix string
 
+@description('Optional existing CIAM directory resource name in this resource group (e.g. brigadesantarun.onmicrosoft.com). Leave empty to skip CIAM binding.')
+param ciamDirectoryName string = ''
+
 // ─── Variables ───────────────────────────────────────────────────────────────
 
 var resourceGroupName = 'rg-santarun-${environment}-${nameSuffix}'
@@ -103,6 +106,11 @@ module appService 'modules/appservice.bicep' = {
   }
 }
 
+resource ciamDirectory 'Microsoft.AzureActiveDirectory/ciamDirectories@2025-08-01-preview' existing = if (!empty(ciamDirectoryName)) {
+  scope: resourceGroup
+  name: ciamDirectoryName
+}
+
 // ─── Outputs ─────────────────────────────────────────────────────────────────
 
 @description('Resource group name')
@@ -113,10 +121,6 @@ output appServiceName string = appService.outputs.appName
 
 @description('App Service URL')
 output appUrl string = 'https://${appService.outputs.defaultHostname}'
-
-@description('App Service publish profile XML (add to GitHub secret AZURE_APP_SERVICE_PUBLISH_PROFILE)')
-@secure()
-output appServicePublishProfile string = appService.outputs.publishProfile
 
 @description('Azure Table Storage connection string (add to GitHub secret / env var AZURE_STORAGE_CONNECTION_STRING)')
 @secure()
@@ -131,3 +135,9 @@ output webPubSubHubName string = webPubSub.outputs.hubName
 
 @description('Application Insights connection string (for optional instrumentation)')
 output appInsightsConnectionString string = monitoring.outputs.connectionString
+
+@description('CIAM tenant ID (if ciamDirectoryName provided)')
+output ciamTenantId string = ciamDirectory.?properties.?tenantId ?? ''
+
+@description('CIAM tenant domain (if ciamDirectoryName provided)')
+output ciamDomainName string = ciamDirectory.?properties.?domainName ?? ''

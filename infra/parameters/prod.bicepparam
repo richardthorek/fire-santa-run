@@ -17,3 +17,5 @@ param nameSuffix = 'prod1'
 param environment = 'prod'
 
 param location = 'australiaeast'
+
+param ciamDirectoryName = ''

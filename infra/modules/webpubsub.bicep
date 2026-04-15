@@ -16,7 +16,7 @@ param sku string = 'Free_F1'
 param tags object = {}
 
 // Hub name must match AZURE_WEBPUBSUB_HUB_NAME used by the application
-var hubName = 'santa-tracking'
+var hubName = 'santa_tracking'
 var webPubSubName = 'santarun-pubsub-${nameSuffix}'
 
 resource webPubSub 'Microsoft.SignalRService/webPubSub@2023-02-01' = {

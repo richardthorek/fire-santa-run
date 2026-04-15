@@ -14,7 +14,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
 
-const HUB_NAME = 'santa-tracking';
+const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 
 export async function negotiate(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {

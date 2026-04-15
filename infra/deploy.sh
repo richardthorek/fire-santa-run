@@ -112,9 +112,9 @@ fi
 
 DEPLOYMENT_NAME="santarun-${ENVIRONMENT}-$(date +%Y%m%d-%H%M%S)"
 
-EXTRA_PARAMS=""
-[[ -n "$NAME_SUFFIX" ]] && EXTRA_PARAMS="$EXTRA_PARAMS nameSuffix='$NAME_SUFFIX'"
-[[ -n "$LOCATION" ]] && EXTRA_PARAMS="$EXTRA_PARAMS location='$LOCATION'"
+EXTRA_PARAM_ARGS=()
+[[ -n "$NAME_SUFFIX" ]] && EXTRA_PARAM_ARGS+=("nameSuffix=$NAME_SUFFIX")
+[[ -n "$LOCATION" ]] && EXTRA_PARAM_ARGS+=("location=$LOCATION")
 
 if [[ "$DRY_RUN" == "true" ]]; then
   echo "🔍 Validating Bicep template (dry run)..."
@@ -123,7 +123,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
     --name "$DEPLOYMENT_NAME" \
     --template-file "${SCRIPT_DIR}/main.bicep" \
     --parameters "$PARAMS_FILE" \
-    ${EXTRA_PARAMS:+--parameters $EXTRA_PARAMS} \
+    --parameters "${EXTRA_PARAM_ARGS[@]}" \
     --output table
   echo ""
   echo "✅ Template is valid."
@@ -135,7 +135,7 @@ else
     --name "$DEPLOYMENT_NAME" \
     --template-file "${SCRIPT_DIR}/main.bicep" \
     --parameters "$PARAMS_FILE" \
-    ${EXTRA_PARAMS:+--parameters $EXTRA_PARAMS} \
+    --parameters "${EXTRA_PARAM_ARGS[@]}" \
     --output json)
 
   echo ""
@@ -176,11 +176,10 @@ if app_name:
     print(f'  Value: {app_name}')
     print()
 
-publish_profile = outputs.get('appServicePublishProfile', {}).get('value', '')
-if publish_profile:
-    print('  GitHub Secret: AZURE_APP_SERVICE_PUBLISH_PROFILE')
-    print('  Value: (see deployment output — full XML publish profile)')
-    print()
+print('  GitHub Secret: AZURE_APP_SERVICE_PUBLISH_PROFILE')
+print('  Value: retrieve using:')
+print('    az webapp deployment list-publishing-profiles --resource-group <rg> --name <app> --xml')
+print()
 
 storage_conn = outputs.get('storageConnectionString', {}).get('value', '')
 if storage_conn:
@@ -230,6 +229,18 @@ import json, sys
 data = json.load(sys.stdin)
 print(data.get('properties', {}).get('outputs', {}).get('webPubSubHubName', {}).get('value', ''))
 " <<< "$DEPLOY_OUTPUT" 2>/dev/null || true)
+
+  PUBLISH_PROFILE=$(az webapp deployment list-publishing-profiles \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$APP_NAME" \
+    --xml 2>/dev/null || true)
+
+  if [[ -n "$PUBLISH_PROFILE" ]]; then
+    echo "✅ Publish profile retrieved. Add to GitHub secret AZURE_APP_SERVICE_PUBLISH_PROFILE."
+  else
+    echo "⚠️  Could not retrieve publish profile automatically. You can fetch it later with:"
+    echo "   az webapp deployment list-publishing-profiles --resource-group '$RESOURCE_GROUP' --name '$APP_NAME' --xml"
+  fi
 
   if [[ -n "$RESOURCE_GROUP" && -n "$STORAGE_CONN" ]]; then
     az webapp config appsettings set \

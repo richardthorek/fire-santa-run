@@ -76,7 +76,3 @@ output appId string = webApp.id
 
 @description('Default hostname for the App Service')
 output defaultHostname string = webApp.properties.defaultHostName
-
-@description('App Service publish profile (used for GitHub Actions deployment)')
-@secure()
-output publishProfile string = webApp.listPublishingProfileXml()

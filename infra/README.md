@@ -37,7 +37,7 @@ Azure App Service (Linux)
                                 React Router handles client-side routing
 
 Azure Web PubSub (WebSockets)
-   └── Hub: santa-tracking
+   └── Hub: santa_tracking
          Group: route_{routeId}   →  wss:// to browser (live tracking)
 
 Azure Table Storage
@@ -150,7 +150,7 @@ az deployment sub show \
 
 | Secret | Description |
 |---|---|
-| `AZURE_APP_SERVICE_PUBLISH_PROFILE` | App Service publish profile XML (from Bicep `appServicePublishProfile` output) |
+| `AZURE_APP_SERVICE_PUBLISH_PROFILE` | App Service publish profile XML (from `az webapp deployment list-publishing-profiles --xml`) |
 | `VITE_MAPBOX_TOKEN` | Mapbox API token for frontend maps |
 
 ### App Service Application Settings (set automatically by `deploy.sh`, or via Portal)
@@ -159,7 +159,7 @@ az deployment sub show \
 |---|---|
 | `AZURE_STORAGE_CONNECTION_STRING` | From Bicep `storageConnectionString` output |
 | `AZURE_WEBPUBSUB_CONNECTION_STRING` | From Bicep `webPubSubConnectionString` output |
-| `AZURE_WEBPUBSUB_HUB_NAME` | `santa-tracking` |
+| `AZURE_WEBPUBSUB_HUB_NAME` | `santa_tracking` |
 | `DEV_MODE` | `false` |
 | `PORT` | `8080` |
 
@@ -171,7 +171,7 @@ az webapp config appsettings set \
   --settings \
     "AZURE_STORAGE_CONNECTION_STRING=<value>" \
     "AZURE_WEBPUBSUB_CONNECTION_STRING=<value>" \
-    "AZURE_WEBPUBSUB_HUB_NAME=santa-tracking" \
+   "AZURE_WEBPUBSUB_HUB_NAME=santa_tracking" \
     "DEV_MODE=false" "PORT=8080"
 ```
 
@@ -261,7 +261,7 @@ Navigator device (GPS)
 Hono Server (App Service)
         │ WebPubSubServiceClient.group(route_{id}).sendToAll(message)
         ▼
-Azure Web PubSub — Hub: santa-tracking
+Azure Web PubSub — Hub: santa_tracking
                    Group: route_{routeId}
         │ wss:// push
         ▼
