@@ -20,7 +20,7 @@ export interface RouteDetailProps {
 
 export function RouteDetail({ routeId }: RouteDetailProps) {
   const navigate = useNavigate();
-  const { getRoute, deleteRoute, saveRoute } = useRoutes();
+  const { getRoute, deleteRoute, saveRoute, archiveRoute, restoreRoute } = useRoutes();
   const [route, setRoute] = useState<Route | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -28,6 +28,8 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
 
   useEffect(() => {
@@ -77,6 +79,35 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
       console.error('Failed to duplicate route:', err);
       alert('Failed to duplicate route. Please try again.');
       setIsDuplicating(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!route) return;
+    setIsArchiving(true);
+    try {
+      await archiveRoute(route.id);
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Failed to archive route:', err);
+      alert('Failed to archive route. Please try again.');
+      setIsArchiving(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!route) return;
+    setIsRestoring(true);
+    try {
+      await restoreRoute(route.id);
+      // Reload route to reflect updated status
+      const updated = await getRoute(routeId);
+      setRoute(updated);
+    } catch (err) {
+      console.error('Failed to restore route:', err);
+      alert('Failed to restore route. Please try again.');
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -394,6 +425,9 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                 {route.completedAt && (
                   <div>✅ Completed: {format(new Date(route.completedAt), 'MMM dd, h:mm a')}</div>
                 )}
+                {route.archivedAt && (
+                  <div>📦 Archived: {format(new Date(route.archivedAt), 'MMM dd, h:mm a')}</div>
+                )}
               </div>
             </div>
           </div>
@@ -599,6 +633,65 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 ✅ End Tracking
+              </button>
+            )}
+
+            {/* Archive button for completed routes */}
+            {route.status === 'completed' && (
+              <button
+                onClick={handleArchive}
+                disabled={isArchiving}
+                style={{
+                  flex: 1,
+                  minWidth: '140px',
+                  padding: '0.75rem 1rem',
+                  background: 'white',
+                  color: COLORS.neutral700,
+                  border: `2px solid #9E9E9E`,
+                  borderRadius: FLOATING_PANEL.borderRadius.button,
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: isArchiving ? 'not-allowed' : 'pointer',
+                  opacity: isArchiving ? 0.5 : 1,
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isArchiving) {
+                    e.currentTarget.style.background = COLORS.neutral200;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'white';
+                }}
+              >
+                {isArchiving ? 'Archiving...' : '📦 Archive'}
+              </button>
+            )}
+
+            {/* Restore button for archived routes */}
+            {route.status === 'archived' && (
+              <button
+                onClick={handleRestore}
+                disabled={isRestoring}
+                style={{
+                  flex: 1,
+                  minWidth: '140px',
+                  padding: '0.75rem 1rem',
+                  background: `linear-gradient(135deg, ${COLORS.christmasGreen} 0%, ${COLORS.eucalyptusGreen} 100%)`,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: FLOATING_PANEL.borderRadius.button,
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: isRestoring ? 'not-allowed' : 'pointer',
+                  opacity: isRestoring ? 0.5 : 1,
+                  boxShadow: '0 4px 12px rgba(67, 160, 71, 0.3)',
+                  transition: 'transform 0.2s',
+                }}
+                onMouseEnter={(e) => !isRestoring && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+              >
+                {isRestoring ? 'Restoring...' : '♻️ Restore from Archive'}
               </button>
             )}
 

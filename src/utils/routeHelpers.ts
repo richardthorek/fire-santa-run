@@ -201,9 +201,66 @@ export function duplicateRoute(source: Route): Route {
     publishedAt: undefined,
     startedAt: undefined,
     completedAt: undefined,
+    archivedAt: undefined,
     shareableLink: undefined,
     qrCodeUrl: undefined,
   };
+}
+
+/** Default number of days after completion before a route is auto-archived */
+export const DEFAULT_ARCHIVE_THRESHOLD_DAYS = 90;
+
+/**
+ * Archive a completed route
+ */
+export function archiveRoute(route: Route): Route {
+  return {
+    ...route,
+    status: 'archived',
+    archivedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Restore an archived route back to completed status
+ */
+export function restoreRoute(route: Route): Route {
+  return {
+    ...route,
+    status: 'completed',
+    archivedAt: undefined,
+  };
+}
+
+/**
+ * Check if a completed route is eligible for auto-archive based on threshold days
+ */
+export function isEligibleForAutoArchive(route: Route, thresholdDays: number = DEFAULT_ARCHIVE_THRESHOLD_DAYS): boolean {
+  if (route.status !== 'completed') return false;
+  const completedDate = route.completedAt ? new Date(route.completedAt) : new Date(route.createdAt);
+  const daysSinceCompletion = (Date.now() - completedDate.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceCompletion >= thresholdDays;
+}
+
+/**
+ * Check if a completed route is within the notification window before auto-archive.
+ * Returns true if within 7 days of the archive threshold.
+ */
+export function isApproachingAutoArchive(route: Route, thresholdDays: number = DEFAULT_ARCHIVE_THRESHOLD_DAYS): boolean {
+  if (route.status !== 'completed') return false;
+  const completedDate = route.completedAt ? new Date(route.completedAt) : new Date(route.createdAt);
+  const daysSinceCompletion = (Date.now() - completedDate.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceCompletion >= (thresholdDays - 7) && daysSinceCompletion < thresholdDays;
+}
+
+/**
+ * Get the number of days until auto-archive for a completed route
+ */
+export function daysUntilAutoArchive(route: Route, thresholdDays: number = DEFAULT_ARCHIVE_THRESHOLD_DAYS): number {
+  if (route.status !== 'completed') return -1;
+  const completedDate = route.completedAt ? new Date(route.completedAt) : new Date(route.createdAt);
+  const daysSinceCompletion = (Date.now() - completedDate.getTime()) / (1000 * 60 * 60 * 24);
+  return Math.max(0, Math.ceil(thresholdDays - daysSinceCompletion));
 }
 
 /**

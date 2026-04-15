@@ -3,6 +3,7 @@ import { storageAdapter } from '../storage';
 import type { Route } from '../types';
 import { useAuth } from '../context';
 import { useUserProfile } from './useUserProfile';
+import { archiveRoute, restoreRoute, isEligibleForAutoArchive, DEFAULT_ARCHIVE_THRESHOLD_DAYS } from '../utils/routeHelpers';
 
 /**
  * Custom hook for managing routes with the current brigade.
@@ -30,7 +31,29 @@ export function useRoutes() {
 
     try {
       const loadedRoutes = await storageAdapter.getRoutes(activeBrigadeId);
-      setRoutes(loadedRoutes);
+
+      // Auto-archive: fetch brigade settings to get threshold, then archive eligible routes
+      let thresholdDays = DEFAULT_ARCHIVE_THRESHOLD_DAYS;
+      try {
+        const brigade = await storageAdapter.getBrigade(activeBrigadeId);
+        if (brigade?.archiveThresholdDays != null) {
+          thresholdDays = brigade.archiveThresholdDays;
+        }
+      } catch {
+        // ignore; use default threshold
+      }
+
+      const routesToAutoArchive = loadedRoutes.filter(r => isEligibleForAutoArchive(r, thresholdDays));
+      if (routesToAutoArchive.length > 0) {
+        await Promise.all(
+          routesToAutoArchive.map(r => storageAdapter.saveRoute(activeBrigadeId, archiveRoute(r)))
+        );
+        // Reload after auto-archiving
+        const updatedRoutes = await storageAdapter.getRoutes(activeBrigadeId);
+        setRoutes(updatedRoutes);
+      } else {
+        setRoutes(loadedRoutes);
+      }
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to load routes');
       setError(error);
@@ -95,6 +118,42 @@ export function useRoutes() {
     }
   }, [user, memberships]);
 
+  const archiveRouteById = useCallback(async (routeId: string) => {
+    const brigadeIdToUse = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
+    if (!brigadeIdToUse) {
+      throw new Error('User must be authenticated with a brigade to archive routes');
+    }
+
+    try {
+      const route = await storageAdapter.getRoute(brigadeIdToUse, routeId);
+      if (!route) throw new Error('Route not found');
+      await storageAdapter.saveRoute(brigadeIdToUse, archiveRoute(route));
+      await loadRoutes();
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to archive route');
+      setError(error);
+      throw error;
+    }
+  }, [user, memberships, loadRoutes]);
+
+  const restoreRouteById = useCallback(async (routeId: string) => {
+    const brigadeIdToUse = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
+    if (!brigadeIdToUse) {
+      throw new Error('User must be authenticated with a brigade to restore routes');
+    }
+
+    try {
+      const route = await storageAdapter.getRoute(brigadeIdToUse, routeId);
+      if (!route) throw new Error('Route not found');
+      await storageAdapter.saveRoute(brigadeIdToUse, restoreRoute(route));
+      await loadRoutes();
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to restore route');
+      setError(error);
+      throw error;
+    }
+  }, [user, memberships, loadRoutes]);
+
   return {
     routes,
     isLoading,
@@ -102,6 +161,8 @@ export function useRoutes() {
     saveRoute,
     deleteRoute,
     getRoute,
+    archiveRoute: archiveRouteById,
+    restoreRoute: restoreRouteById,
     refreshRoutes: loadRoutes,
   };
 }

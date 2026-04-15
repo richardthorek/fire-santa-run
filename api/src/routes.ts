@@ -75,6 +75,7 @@ function entityToRoute(entity: any) {
     shareableLink: entity.shareableLink,
     qrCodeUrl: entity.qrCodeUrl,
     viewCount: entity.viewCount || 0,
+    archivedAt: entity.archivedAt || undefined,
   };
   return route;
 }
@@ -104,6 +105,7 @@ function routeToEntity(route: any) {
     shareableLink: route.shareableLink || '',
     qrCodeUrl: route.qrCodeUrl || '',
     viewCount: route.viewCount || 0,
+    archivedAt: route.archivedAt || '',
   };
 }
 

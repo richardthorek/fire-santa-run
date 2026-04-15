@@ -4,24 +4,60 @@ import { useRoutes } from '../hooks';
 import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
+import { isApproachingAutoArchive, daysUntilAutoArchive, DEFAULT_ARCHIVE_THRESHOLD_DAYS } from '../utils/routeHelpers';
 import { format } from 'date-fns';
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { routes, isLoading, error } = useRoutes();
+  const { routes, isLoading, error, archiveRoute, restoreRoute } = useRoutes();
   const [filterStatus, setFilterStatus] = useState<RouteStatus | 'all'>('all');
   const [shareModalRoute, setShareModalRoute] = useState<Route | null>(null);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
-  const filteredRoutes = filterStatus === 'all' 
-    ? routes 
+  // Non-archived routes (shown in 'all' and other status tabs)
+  const activeRoutes = routes.filter(r => r.status !== 'archived');
+
+  const filteredRoutes = filterStatus === 'all'
+    ? activeRoutes
+    : filterStatus === 'archived'
+    ? routes.filter(r => r.status === 'archived')
     : routes.filter(r => r.status === filterStatus);
 
   const statusCounts = {
-    all: routes.length,
+    all: activeRoutes.length,
     draft: routes.filter(r => r.status === 'draft').length,
     published: routes.filter(r => r.status === 'published').length,
     active: routes.filter(r => r.status === 'active').length,
     completed: routes.filter(r => r.status === 'completed').length,
+    archived: routes.filter(r => r.status === 'archived').length,
+  };
+
+  // Routes approaching auto-archive (within 7 days)
+  const approachingArchive = activeRoutes.filter(r => isApproachingAutoArchive(r, DEFAULT_ARCHIVE_THRESHOLD_DAYS));
+
+  const handleArchive = async (e: React.MouseEvent, routeId: string) => {
+    e.stopPropagation();
+    setArchivingId(routeId);
+    try {
+      await archiveRoute(routeId);
+    } catch {
+      alert('Failed to archive route. Please try again.');
+    } finally {
+      setArchivingId(null);
+    }
+  };
+
+  const handleRestore = async (e: React.MouseEvent, routeId: string) => {
+    e.stopPropagation();
+    setRestoringId(routeId);
+    try {
+      await restoreRoute(routeId);
+    } catch {
+      alert('Failed to restore route. Please try again.');
+    } finally {
+      setRestoringId(null);
+    }
   };
 
   if (isLoading) {
@@ -184,7 +220,7 @@ export function Dashboard() {
         borderRadius: 'var(--border-radius-sm)',
         border: '2px solid var(--neutral-200)',
       }} role="tablist">
-        {(['all', 'draft', 'published', 'active', 'completed'] as const).map(status => (
+        {(['all', 'draft', 'published', 'active', 'completed', 'archived'] as const).map(status => (
           <button
             key={status}
             onClick={() => setFilterStatus(status)}
@@ -193,10 +229,10 @@ export function Dashboard() {
             aria-label={`Show ${status} routes (${statusCounts[status]})`}
             style={{
               padding: '0.625rem 1.25rem',
-              border: 'none',
+              border: status === 'archived' && filterStatus !== 'archived' ? '1px dashed var(--neutral-400)' : 'none',
               borderRadius: 'var(--border-radius-xs)',
               background: filterStatus === status ? 'white' : 'transparent',
-              color: filterStatus === status ? 'var(--fire-red)' : 'var(--neutral-700)',
+              color: filterStatus === status ? (status === 'archived' ? '#9E9E9E' : 'var(--fire-red)') : 'var(--neutral-700)',
               fontWeight: filterStatus === status ? 700 : 500,
               fontFamily: 'var(--font-body)',
               cursor: 'pointer',
@@ -216,10 +252,37 @@ export function Dashboard() {
               }
             }}
           >
-            {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)} ({statusCounts[status]})
+            {status === 'all' ? 'All' : status === 'archived' ? '📦 Archived' : status.charAt(0).toUpperCase() + status.slice(1)} ({statusCounts[status]})
           </button>
         ))}
       </nav>
+
+      {/* Auto-archive notification banner */}
+      {approachingArchive.length > 0 && filterStatus !== 'archived' && (
+        <div role="alert" style={{
+          marginBottom: '1.5rem',
+          padding: '1rem 1.25rem',
+          backgroundColor: '#FFF8E1',
+          border: '2px solid #FFB300',
+          borderRadius: 'var(--border-radius-sm)',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '0.75rem',
+        }}>
+          <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>⏳</span>
+          <div>
+            <strong style={{ color: '#E65100', display: 'block', marginBottom: '0.25rem' }}>
+              Auto-archive reminder
+            </strong>
+            <span style={{ color: '#BF360C', fontSize: '0.875rem' }}>
+              {approachingArchive.length === 1
+                ? `"${approachingArchive[0].name}" will be automatically archived in ${daysUntilAutoArchive(approachingArchive[0], DEFAULT_ARCHIVE_THRESHOLD_DAYS)} day(s).`
+                : `${approachingArchive.length} completed routes will be automatically archived soon.`}
+              {' '}You can archive them now or restore them later from the Archived tab.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Routes List */}
       {filteredRoutes.length === 0 ? (
@@ -266,17 +329,21 @@ export function Dashboard() {
             opacity: 0.3,
           }}>🌟</div>
           
-          <div aria-hidden="true" style={{ fontSize: '64px', marginBottom: '1rem' }}>🎄</div>
+          <div aria-hidden="true" style={{ fontSize: '64px', marginBottom: '1rem' }}>{filterStatus === 'archived' ? '📦' : '🎄'}</div>
           <h2 style={{ 
             marginBottom: '0.5rem', 
             color: 'var(--fire-red)',
             fontFamily: 'var(--font-heading)',
           }}>
-            {filterStatus === 'all' ? 'No routes yet' : `No ${filterStatus} routes`}
+            {filterStatus === 'all' ? 'No routes yet' : filterStatus === 'archived' ? 'No archived routes' : `No ${filterStatus} routes`}
           </h2>
           <p style={{ color: 'var(--neutral-700)', marginBottom: '1.5rem' }}>
-            Create your first Santa run route to get started! <span role="img" aria-label="Santa">🎅</span>
+            {filterStatus === 'archived'
+              ? 'Completed routes that have been archived will appear here.'
+              : <>Create your first Santa run route to get started! <span role="img" aria-label="Santa">🎅</span></>
+            }
           </p>
+          {filterStatus !== 'archived' && (
           <a
             href="/routes/new"
             aria-label="Create your first route"
@@ -303,6 +370,7 @@ export function Dashboard() {
           >
             Create First Route
           </a>
+          )}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))' }}>
@@ -398,96 +466,143 @@ export function Dashboard() {
               </div>
 
               {/* Actions */}
-              <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                {/* Show navigation button if route has navigation data */}
-                {route.geometry && route.navigationSteps && route.navigationSteps.length > 0 ? (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/routes/${route.id}/navigate`);
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '0.5rem',
-                        border: 'none',
-                        borderRadius: '8px',
-                        background: 'linear-gradient(135deg, #29B6F6 0%, #0288D1 100%)',
-                        color: 'white',
-                        cursor: 'pointer',
-                        fontSize: '0.875rem',
-                        fontWeight: 600,
-                      }}
-                    >
-                      🧭 Navigate
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/routes/${route.id}/edit`);
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '0.5rem',
-                        border: '2px solid var(--fire-red)',
-                        borderRadius: '8px',
-                        background: 'white',
-                        color: 'var(--fire-red)',
-                        cursor: 'pointer',
-                        fontSize: '0.875rem',
-                        fontWeight: 600,
-                      }}
-                    >
-                      ✏️ Edit
-                    </button>
-                  </>
-                ) : (
+              <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {route.status === 'archived' ? (
+                  /* Archived route actions */
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/routes/${route.id}/edit`);
-                    }}
+                    onClick={(e) => handleRestore(e, route.id)}
+                    disabled={restoringId === route.id}
+                    aria-label={`Restore ${route.name} from archive`}
                     style={{
                       flex: 1,
                       padding: '0.5rem',
-                      border: '2px solid var(--fire-red)',
+                      border: '2px solid #43A047',
                       borderRadius: '8px',
                       background: 'white',
-                      color: 'var(--fire-red)',
-                      cursor: 'pointer',
+                      color: '#43A047',
+                      cursor: restoringId === route.id ? 'not-allowed' : 'pointer',
                       fontSize: '0.875rem',
                       fontWeight: 600,
+                      opacity: restoringId === route.id ? 0.5 : 1,
                     }}
                   >
-                    ✏️ Edit
+                    {restoringId === route.id ? 'Restoring...' : '♻️ Restore'}
                   </button>
+                ) : (
+                  <>
+                    {/* Show navigation button if route has navigation data */}
+                    {route.geometry && route.navigationSteps && route.navigationSteps.length > 0 ? (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/routes/${route.id}/navigate`);
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '0.5rem',
+                            border: 'none',
+                            borderRadius: '8px',
+                            background: 'linear-gradient(135deg, #29B6F6 0%, #0288D1 100%)',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          🧭 Navigate
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/routes/${route.id}/edit`);
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '0.5rem',
+                            border: '2px solid var(--fire-red)',
+                            borderRadius: '8px',
+                            background: 'white',
+                            color: 'var(--fire-red)',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/routes/${route.id}/edit`);
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '0.5rem',
+                          border: '2px solid var(--fire-red)',
+                          borderRadius: '8px',
+                          background: 'white',
+                          color: 'var(--fire-red)',
+                          cursor: 'pointer',
+                          fontSize: '0.875rem',
+                          fontWeight: 600,
+                        }}
+                      >
+                        ✏️ Edit
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Only allow sharing for published, active, or completed routes
+                        if (route.status === 'published' || route.status === 'active' || route.status === 'completed') {
+                          setShareModalRoute(route);
+                        } else {
+                          alert('Route must be published before sharing');
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem',
+                        border: '2px solid var(--summer-gold)',
+                        borderRadius: '8px',
+                        background: 'white',
+                        color: 'var(--summer-gold)',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: 600,
+                        opacity: (route.status === 'published' || route.status === 'active' || route.status === 'completed') ? 1 : 0.5,
+                      }}
+                      disabled={route.status === 'draft'}
+                    >
+                      🔗 Share
+                    </button>
+                    {/* Archive button for completed routes */}
+                    {route.status === 'completed' && (
+                      <button
+                        onClick={(e) => handleArchive(e, route.id)}
+                        disabled={archivingId === route.id}
+                        aria-label={`Archive ${route.name}`}
+                        style={{
+                          flex: 1,
+                          padding: '0.5rem',
+                          border: '2px solid #9E9E9E',
+                          borderRadius: '8px',
+                          background: 'white',
+                          color: '#9E9E9E',
+                          cursor: archivingId === route.id ? 'not-allowed' : 'pointer',
+                          fontSize: '0.875rem',
+                          fontWeight: 600,
+                          opacity: archivingId === route.id ? 0.5 : 1,
+                        }}
+                      >
+                        {archivingId === route.id ? 'Archiving...' : '📦 Archive'}
+                      </button>
+                    )}
+                  </>
                 )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Only allow sharing for published, active, or completed routes
-                    if (route.status === 'published' || route.status === 'active' || route.status === 'completed') {
-                      setShareModalRoute(route);
-                    } else {
-                      alert('Route must be published before sharing');
-                    }
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '0.5rem',
-                    border: '2px solid var(--summer-gold)',
-                    borderRadius: '8px',
-                    background: 'white',
-                    color: 'var(--summer-gold)',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                    opacity: (route.status === 'published' || route.status === 'active' || route.status === 'completed') ? 1 : 0.5,
-                  }}
-                  disabled={route.status === 'draft'}
-                >
-                  🔗 Share
-                </button>
               </div>
             </div>
           ))}
