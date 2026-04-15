@@ -43,7 +43,9 @@
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.1",
     "recharts": "^3.8.1",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "vite-plugin-pwa": "^1.2.0",
+    "workbox-window": "^7.4.0"
   },
   "devDependencies": {
     "@axe-core/react": "^4.11.1",

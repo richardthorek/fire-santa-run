@@ -2622,10 +2622,17 @@ const ProtectedRoute = ({ children }) => {
   - [x] React.lazy for route-based code splitting
   - [x] Suspense boundaries with loading fallbacks
   - [x] Bundle size reduced with chunking (split into 2 main chunks)
-- [x] **PWA manifest and service worker (optional)** - ✅ PARTIAL (Dec 2024)
+- [x] **PWA manifest and service worker (optional)** - ✅ COMPLETE (Apr 2026)
   - [x] PWA manifest.json created
   - [x] Theme color and icons configured
-  - [ ] Service worker for offline support (deferred to future phase)
+  - [x] Service worker for offline support (vite-plugin-pwa + Workbox, Issue #133)
+    - [x] Precaching for app shell (JS, CSS, HTML, images via `injectManifest`)
+    - [x] Cache-first strategy for static assets, images, and fonts
+    - [x] Network-first strategy for API routes with 10s timeout and cache fallback
+    - [x] Background sync queue for location updates (`location-updates-queue`, 24h retention)
+    - [x] SPA navigation fallback to `index.html`
+    - [x] Offline fallback page (`public/offline.html`)
+    - [x] `useServiceWorker` hook for registration, update detection, and one-click update banner
 
 #### Phase 6a: Pre-Authentication Data Schema Updates (NEW - Week 6)
 **🔧 Data Model Preparation for Authentication** ✅ **COMPLETED**

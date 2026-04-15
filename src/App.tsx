@@ -1,10 +1,10 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { type CSSProperties, useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
 import './App.css';
 import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
 import { initializeMockData } from './utils/mockData';
-import { useRoutes } from './hooks';
+import { useRoutes, useServiceWorker } from './hooks';
 import { ProtectedRoute } from './components';
 import type { Route as RouteType } from './types';
 
@@ -36,11 +36,40 @@ function PageLoader() {
   );
 }
 
+const updateBannerStyle: CSSProperties = {
+  position: 'fixed',
+  bottom: '1rem',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  backgroundColor: '#212121',
+  color: 'white',
+  padding: '0.75rem 1.25rem',
+  borderRadius: '12px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.75rem',
+  zIndex: 10000,
+  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+  fontSize: '0.875rem',
+};
+
+const updateButtonStyle: CSSProperties = {
+  padding: '0.4rem 0.9rem',
+  background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
+  color: 'white',
+  border: 'none',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontWeight: 600,
+  fontSize: '0.875rem',
+};
+
 function App() {
   const [initialized, setInitialized] = useState(false);
   const { user, isLoading: authLoading } = useAuth();
   const { brigade, isLoading: brigadeLoading } = useBrigade();
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+  const { isUpdateAvailable, applyUpdate } = useServiceWorker();
 
   // Initialize mock data in dev mode
   useEffect(() => {
@@ -69,6 +98,16 @@ function App() {
 
   return (
     <BrowserRouter>
+      {/* Service Worker Update Banner */}
+      {isUpdateAvailable && (
+        <div style={updateBannerStyle}>
+          <span>🎁 A new version is available!</span>
+          <button onClick={applyUpdate} style={updateButtonStyle}>
+            Update
+          </button>
+        </div>
+      )}
+
       {/* Dev Mode Indicator */}
       {isDevMode && (
         <div style={{
