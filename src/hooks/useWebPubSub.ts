@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebPubSubClient } from '@azure/web-pubsub-client';
-import type { LocationBroadcast } from '../types';
+import type { LocationBroadcast, ViewerCountMessage } from '../types';
 
 const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -15,6 +15,7 @@ interface WebPubSubConnectionState {
   isConnected: boolean;
   isConnecting: boolean;
   error: string | null;
+  viewerCount: number | null;
 }
 
 interface UseWebPubSubOptions {
@@ -34,6 +35,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     isConnected: false,
     isConnecting: false,
     error: null,
+    viewerCount: null,
   });
 
   const clientRef = useRef<WebPubSubClient | null>(null);
@@ -42,9 +44,28 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
   const reconnectAttemptsRef = useRef(0);
   const sessionIdRef = useRef<string>(generateSessionId());
   const sessionStartTimeRef = useRef<number>(Date.now());
+  const viewerCountIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY_MS = 3000;
+  const VIEWER_COUNT_POLL_INTERVAL_MS = 10000; // 10 seconds
+
+  /**
+   * Fetch current viewer count from API
+   */
+  const fetchViewerCount = useCallback(async () => {
+    if (role !== 'viewer') return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/analytics/routes/${routeId}/viewer-count`);
+      if (response.ok) {
+        const data = await response.json();
+        setState(prev => ({ ...prev, viewerCount: data.count }));
+      }
+    } catch (error) {
+      console.error('[ViewerCount] Failed to fetch viewer count:', error);
+    }
+  }, [routeId, role]);
 
   /**
    * Log viewer session join event
@@ -113,17 +134,32 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
         const channel = new BroadcastChannel(channelName);
 
         channel.onmessage = (event) => {
-          if (onLocationUpdate && event.data) {
-            onLocationUpdate(event.data as LocationBroadcast);
+          if (event.data) {
+            const data = event.data;
+            // Handle viewer count messages
+            if (data.type === 'viewer-count') {
+              const viewerCountMsg = data as ViewerCountMessage;
+              setState(prev => ({ ...prev, viewerCount: viewerCountMsg.count }));
+            }
+            // Handle location updates
+            else if (onLocationUpdate) {
+              onLocationUpdate(data as LocationBroadcast);
+            }
           }
         };
 
         broadcastChannelRef.current = channel;
-        setState({ isConnected: true, isConnecting: false, error: null });
+        setState(prev => ({ ...prev, isConnected: true, isConnecting: false, error: null }));
         console.log(`[Dev Mode] Connected to BroadcastChannel: ${channelName}`);
 
         // Log viewer join
         await logViewerJoin();
+
+        // Start polling viewer count in dev mode
+        if (role === 'viewer') {
+          fetchViewerCount();
+          viewerCountIntervalRef.current = setInterval(fetchViewerCount, VIEWER_COUNT_POLL_INTERVAL_MS);
+        }
       } else {
         // Production mode: Use Azure Web PubSub
         const negotiateUrl = `${API_BASE_URL}/negotiate?routeId=${encodeURIComponent(routeId)}&role=${role}`;
@@ -140,30 +176,52 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
 
         // Handle incoming messages
         client.on('group-message', (event) => {
-          if (onLocationUpdate && event.message.data) {
-            onLocationUpdate(event.message.data as LocationBroadcast);
+          if (event.message.data) {
+            const data = event.message.data;
+            // Handle viewer count messages
+            if (typeof data === 'object' && data !== null && 'type' in data && data.type === 'viewer-count') {
+              const viewerCountMsg = data as ViewerCountMessage;
+              setState(prev => ({ ...prev, viewerCount: viewerCountMsg.count }));
+              console.log(`[Production] Received viewer count: ${viewerCountMsg.count}`);
+            }
+            // Handle location updates
+            else if (onLocationUpdate) {
+              onLocationUpdate(data as LocationBroadcast);
+            }
           }
         });
 
         // Handle connection lifecycle
         client.on('connected', () => {
-          setState({ isConnected: true, isConnecting: false, error: null });
+          setState(prev => ({ ...prev, isConnected: true, isConnecting: false, error: null }));
           reconnectAttemptsRef.current = 0;
           console.log(`[Production] Connected to Web PubSub for route: ${routeId}`);
 
           // Log viewer join
           logViewerJoin();
+
+          // Start polling viewer count in production
+          if (role === 'viewer') {
+            fetchViewerCount();
+            viewerCountIntervalRef.current = setInterval(fetchViewerCount, VIEWER_COUNT_POLL_INTERVAL_MS);
+          }
         });
 
         client.on('disconnected', (event) => {
-          setState({ isConnected: false, isConnecting: false, error: null });
+          setState(prev => ({ ...prev, isConnected: false, isConnecting: false }));
           console.log('[Production] Disconnected from Web PubSub:', event.message);
+
+          // Clear viewer count polling on disconnect
+          if (viewerCountIntervalRef.current) {
+            clearInterval(viewerCountIntervalRef.current);
+            viewerCountIntervalRef.current = null;
+          }
 
           // Attempt to reconnect
           if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
             reconnectAttemptsRef.current++;
             console.log(`[Production] Reconnecting attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS}...`);
-            
+
             reconnectTimeoutRef.current = setTimeout(() => {
               connect();
             }, RECONNECT_DELAY_MS);
@@ -182,9 +240,10 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
         isConnected: false,
         isConnecting: false,
         error: error instanceof Error ? error.message : 'Failed to connect',
+        viewerCount: null,
       });
     }
-  }, [routeId, role, onLocationUpdate, logViewerJoin]);
+  }, [routeId, role, onLocationUpdate, logViewerJoin, fetchViewerCount]);
 
   /**
    * Disconnect from Web PubSub or BroadcastChannel
@@ -199,6 +258,12 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       reconnectTimeoutRef.current = null;
     }
 
+    // Clear viewer count polling interval
+    if (viewerCountIntervalRef.current) {
+      clearInterval(viewerCountIntervalRef.current);
+      viewerCountIntervalRef.current = null;
+    }
+
     // Close Web PubSub client
     if (clientRef.current) {
       clientRef.current.stop();
@@ -211,7 +276,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       broadcastChannelRef.current = null;
     }
 
-    setState({ isConnected: false, isConnecting: false, error: null });
+    setState({ isConnected: false, isConnecting: false, error: null, viewerCount: null });
   }, [logViewerLeave]);
 
   /**

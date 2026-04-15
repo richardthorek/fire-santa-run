@@ -91,6 +91,13 @@ export interface LocationBroadcast {
   nextWaypointEta?: string;
 }
 
+export interface ViewerCountMessage {
+  routeId: string;
+  count: number;
+  timestamp: number;
+  type: 'viewer-count';
+}
+
 export interface ViewerSession {
   id: string;
   routeId: string;
