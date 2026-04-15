@@ -10,6 +10,7 @@ import { rfsStationsRouter } from './routes/rfs-stations.js';
 import { verificationRouter } from './routes/verification.js';
 import { adminVerificationRouter } from './routes/admin-verification.js';
 import { claimRouter } from './routes/claim.js';
+import { analyticsRouter } from './routes/analytics.js';
 
 export function createApp() {
   const app = new Hono();
@@ -34,6 +35,7 @@ export function createApp() {
   app.route('/api', rfsStationsRouter);
   app.route('/api/verification', verificationRouter);
   app.route('/api/site-admin/verification', adminVerificationRouter);
+  app.route('/api/analytics', analyticsRouter);
 
   return app;
 }

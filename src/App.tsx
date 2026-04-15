@@ -22,6 +22,7 @@ const InvitationAcceptancePage = lazy(() => import('./pages').then(m => ({ defau
 const LogoutPage = lazy(() => import('./pages').then(m => ({ default: m.LogoutPage })));
 const CallbackPage = lazy(() => import('./pages').then(m => ({ default: m.CallbackPage })));
 const TemplateLibrary = lazy(() => import('./pages').then(m => ({ default: m.TemplateLibrary })));
+const AnalyticsDashboard = lazy(() => import('./pages').then(m => ({ default: m.AnalyticsDashboard })));
 
 // Loading component
 function PageLoader() {
@@ -151,7 +152,12 @@ function App() {
                 <RouteDetailWrapper />
               </ProtectedRoute>
             } />
-            
+            <Route path="/routes/:routeId/analytics" element={
+              <ProtectedRoute>
+                <AnalyticsDashboard />
+              </ProtectedRoute>
+            } />
+
             {/* Public Routes - No authentication required */}
             
             {/* 404 */}

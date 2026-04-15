@@ -555,6 +555,32 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
             >
               🔗 Share
             </button>
+
+            {/* Analytics Button */}
+            <button
+              onClick={() => navigate(`/routes/${route.id}/analytics`)}
+              style={{
+                padding: '0.875rem 1rem',
+                background: 'white',
+                color: COLORS.neutral900,
+                border: `2px solid ${COLORS.neutral300}`,
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = COLORS.skyBlue;
+                e.currentTarget.style.color = COLORS.skyBlue;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = COLORS.neutral300;
+                e.currentTarget.style.color = COLORS.neutral900;
+              }}
+            >
+              📊 Analytics
+            </button>
           </div>
 
           {/* Secondary Actions Row */}

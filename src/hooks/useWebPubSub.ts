@@ -21,9 +21,15 @@ interface UseWebPubSubOptions {
   routeId: string;
   role?: 'viewer' | 'broadcaster';
   onLocationUpdate?: (location: LocationBroadcast) => void;
+  shareSource?: string; // Track how viewer found the route (e.g., 'qr', 'direct', 'social')
 }
 
-export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: UseWebPubSubOptions) {
+// Generate a unique session ID for each viewer session using cryptographically secure randomness
+function generateSessionId(): string {
+  return crypto.randomUUID();
+}
+
+export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, shareSource }: UseWebPubSubOptions) {
   const [state, setState] = useState<WebPubSubConnectionState>({
     isConnected: false,
     isConnecting: false,
@@ -34,9 +40,60 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: Use
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const sessionIdRef = useRef<string>(generateSessionId());
+  const sessionStartTimeRef = useRef<number>(Date.now());
 
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY_MS = 3000;
+
+  /**
+   * Log viewer session join event
+   */
+  const logViewerJoin = useCallback(async () => {
+    if (role !== 'viewer') return;
+
+    try {
+      await fetch(`${API_BASE_URL}/analytics/viewer-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          routeId,
+          sessionId: sessionIdRef.current,
+          joinedAt: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          shareSource: shareSource || 'direct',
+        }),
+      });
+      console.log('[Analytics] Viewer session join logged:', sessionIdRef.current);
+    } catch (error) {
+      console.error('[Analytics] Failed to log viewer join:', error);
+    }
+  }, [routeId, role, shareSource]);
+
+  /**
+   * Log viewer session leave event
+   */
+  const logViewerLeave = useCallback(async () => {
+    if (role !== 'viewer') return;
+
+    const viewDuration = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
+
+    try {
+      await fetch(`${API_BASE_URL}/analytics/viewer-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          routeId,
+          sessionId: sessionIdRef.current,
+          leftAt: new Date().toISOString(),
+          viewDuration,
+        }),
+      });
+      console.log('[Analytics] Viewer session leave logged:', sessionIdRef.current, 'Duration:', viewDuration, 'seconds');
+    } catch (error) {
+      console.error('[Analytics] Failed to log viewer leave:', error);
+    }
+  }, [routeId, role]);
 
   /**
    * Connect to Web PubSub or BroadcastChannel
@@ -64,6 +121,9 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: Use
         broadcastChannelRef.current = channel;
         setState({ isConnected: true, isConnecting: false, error: null });
         console.log(`[Dev Mode] Connected to BroadcastChannel: ${channelName}`);
+
+        // Log viewer join
+        await logViewerJoin();
       } else {
         // Production mode: Use Azure Web PubSub
         const negotiateUrl = `${API_BASE_URL}/negotiate?routeId=${encodeURIComponent(routeId)}&role=${role}`;
@@ -90,6 +150,9 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: Use
           setState({ isConnected: true, isConnecting: false, error: null });
           reconnectAttemptsRef.current = 0;
           console.log(`[Production] Connected to Web PubSub for route: ${routeId}`);
+
+          // Log viewer join
+          logViewerJoin();
         });
 
         client.on('disconnected', (event) => {
@@ -121,12 +184,15 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: Use
         error: error instanceof Error ? error.message : 'Failed to connect',
       });
     }
-  }, [routeId, role, onLocationUpdate]);
+  }, [routeId, role, onLocationUpdate, logViewerJoin]);
 
   /**
    * Disconnect from Web PubSub or BroadcastChannel
    */
   const disconnect = useCallback(() => {
+    // Log viewer leave before disconnecting
+    logViewerLeave();
+
     // Clear reconnect timeout
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -146,7 +212,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: Use
     }
 
     setState({ isConnected: false, isConnecting: false, error: null });
-  }, []);
+  }, [logViewerLeave]);
 
   /**
    * Send location update (broadcaster only)
@@ -191,7 +257,15 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate }: Use
   useEffect(() => {
     connect();
 
+    // Handle page unload to log viewer leave
+    const handleBeforeUnload = () => {
+      logViewerLeave();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

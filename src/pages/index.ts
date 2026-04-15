@@ -10,6 +10,7 @@ export { InvitationAcceptancePage } from './InvitationAcceptancePage';
 export { LandingPage } from './LandingPage';
 export { LoginPage, LogoutPage, CallbackPage } from './auth';
 export { TemplateLibrary } from './TemplateLibrary';
+export { AnalyticsDashboard } from './AnalyticsDashboard';
 
 export type { RouteEditorProps } from './RouteEditor';
 export type { NavigationViewProps } from './NavigationView';
