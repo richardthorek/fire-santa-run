@@ -1,4 +1,4 @@
-import type { Route } from '../types';
+import type { Route, RouteTemplate } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
 import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
@@ -11,7 +11,7 @@ import type { AdminVerificationRequest } from '../types/verification';
  * Data is stored in browser localStorage with brigade namespacing.
  */
 export class LocalStorageAdapter implements IStorageAdapter {
-  private getStorageKey(brigadeId: string, type: 'routes' | 'brigade'): string {
+  private getStorageKey(brigadeId: string, type: 'routes' | 'brigade' | 'templates'): string {
     return `santa_${brigadeId}_${type}`;
   }
 
@@ -49,6 +49,39 @@ export class LocalStorageAdapter implements IStorageAdapter {
     const filtered = routes.filter(r => r.id !== routeId);
     
     const key = this.getStorageKey(brigadeId, 'routes');
+    localStorage.setItem(key, JSON.stringify(filtered));
+  }
+
+  // Template operations
+  async saveTemplate(brigadeId: string, template: RouteTemplate): Promise<void> {
+    const templates = await this.getTemplates(brigadeId);
+    const existingIndex = templates.findIndex(t => t.id === template.id);
+
+    if (existingIndex >= 0) {
+      templates[existingIndex] = template;
+    } else {
+      templates.push(template);
+    }
+
+    const key = this.getStorageKey(brigadeId, 'templates');
+    localStorage.setItem(key, JSON.stringify(templates));
+  }
+
+  async getTemplates(brigadeId: string): Promise<RouteTemplate[]> {
+    const key = this.getStorageKey(brigadeId, 'templates');
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  async getTemplate(brigadeId: string, templateId: string): Promise<RouteTemplate | null> {
+    const templates = await this.getTemplates(brigadeId);
+    return templates.find(t => t.id === templateId) || null;
+  }
+
+  async deleteTemplate(brigadeId: string, templateId: string): Promise<void> {
+    const templates = await this.getTemplates(brigadeId);
+    const filtered = templates.filter(t => t.id !== templateId);
+    const key = this.getStorageKey(brigadeId, 'templates');
     localStorage.setItem(key, JSON.stringify(filtered));
   }
 

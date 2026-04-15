@@ -21,6 +21,7 @@ const MemberManagementPage = lazy(() => import('./pages').then(m => ({ default: 
 const InvitationAcceptancePage = lazy(() => import('./pages').then(m => ({ default: m.InvitationAcceptancePage })));
 const LogoutPage = lazy(() => import('./pages').then(m => ({ default: m.LogoutPage })));
 const CallbackPage = lazy(() => import('./pages').then(m => ({ default: m.CallbackPage })));
+const TemplateLibrary = lazy(() => import('./pages').then(m => ({ default: m.TemplateLibrary })));
 
 // Loading component
 function PageLoader() {
@@ -123,6 +124,11 @@ function App() {
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/templates" element={
+              <ProtectedRoute>
+                <TemplateLibrary />
               </ProtectedRoute>
             } />
             <Route path="/routes/new" element={

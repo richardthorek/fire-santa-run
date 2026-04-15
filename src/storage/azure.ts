@@ -1,5 +1,5 @@
 import { TableClient } from '@azure/data-tables';
-import type { Route } from '../types';
+import type { Route, RouteTemplate } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
 import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
@@ -21,6 +21,7 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
   private membershipsClient: TableClient;
   private invitationsClient: TableClient;
   private verificationsClient: TableClient;
+  private templatesClient: TableClient;
   
   /**
    * Creates an Azure Table Storage adapter.
@@ -38,6 +39,7 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
     const membershipsTableName = tablePrefix ? `${tablePrefix}memberships` : 'memberships';
     const invitationsTableName = tablePrefix ? `${tablePrefix}invitations` : 'invitations';
     const verificationsTableName = tablePrefix ? `${tablePrefix}verifications` : 'verifications';
+    const templatesTableName = tablePrefix ? `${tablePrefix}templates` : 'templates';
     
     this.routesClient = TableClient.fromConnectionString(connectionString, routesTableName);
     this.brigadesClient = TableClient.fromConnectionString(connectionString, brigadesTableName);
@@ -45,6 +47,7 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
     this.membershipsClient = TableClient.fromConnectionString(connectionString, membershipsTableName);
     this.invitationsClient = TableClient.fromConnectionString(connectionString, invitationsTableName);
     this.verificationsClient = TableClient.fromConnectionString(connectionString, verificationsTableName);
+    this.templatesClient = TableClient.fromConnectionString(connectionString, templatesTableName);
     
     // Ensure tables exist (creates if not exists)
     this.initializeTables().catch(err => {
@@ -59,7 +62,8 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
       this.usersClient,
       this.membershipsClient,
       this.invitationsClient,
-      this.verificationsClient
+      this.verificationsClient,
+      this.templatesClient,
     ];
     
     for (const client of clients) {
@@ -137,6 +141,78 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
       }
       console.error('Failed to delete route from Azure Table Storage:', error);
       throw new Error('Failed to delete route');
+    }
+  }
+
+  // Template operations
+  async saveTemplate(brigadeId: string, template: RouteTemplate): Promise<void> {
+    const entity = {
+      partitionKey: brigadeId,
+      rowKey: template.id,
+      ...template,
+      waypoints: JSON.stringify(template.waypoints),
+    };
+
+    try {
+      await this.templatesClient.upsertEntity(entity, 'Replace');
+    } catch (error) {
+      console.error('Failed to save template to Azure Table Storage:', error);
+      throw new Error('Failed to save template');
+    }
+  }
+
+  async getTemplates(brigadeId: string): Promise<RouteTemplate[]> {
+    try {
+      const templates: RouteTemplate[] = [];
+      const entities = this.templatesClient.listEntities({
+        queryOptions: { filter: `PartitionKey eq '${brigadeId}'` },
+      });
+
+      for await (const entity of entities) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { partitionKey, rowKey, timestamp, etag, waypoints, ...rest } = entity;
+        templates.push({
+          ...(rest as unknown as RouteTemplate),
+          waypoints: waypoints ? JSON.parse(waypoints as string) : [],
+        });
+      }
+
+      return templates;
+    } catch (error) {
+      console.error('Failed to get templates from Azure Table Storage:', error);
+      return [];
+    }
+  }
+
+  async getTemplate(brigadeId: string, templateId: string): Promise<RouteTemplate | null> {
+    try {
+      const entity = await this.templatesClient.getEntity(brigadeId, templateId);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { partitionKey, rowKey, timestamp, etag, waypoints, ...rest } = entity;
+      return {
+        ...(rest as unknown as RouteTemplate),
+        waypoints: waypoints ? JSON.parse(waypoints as string) : [],
+      };
+    } catch (error: unknown) {
+      const err = error as { statusCode?: number };
+      if (err.statusCode === 404) {
+        return null;
+      }
+      console.error('Failed to get template from Azure Table Storage:', error);
+      throw new Error('Failed to get template');
+    }
+  }
+
+  async deleteTemplate(brigadeId: string, templateId: string): Promise<void> {
+    try {
+      await this.templatesClient.deleteEntity(brigadeId, templateId);
+    } catch (error: unknown) {
+      const err = error as { statusCode?: number };
+      if (err.statusCode === 404) {
+        return;
+      }
+      console.error('Failed to delete template from Azure Table Storage:', error);
+      throw new Error('Failed to delete template');
     }
   }
 

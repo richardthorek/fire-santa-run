@@ -115,6 +115,7 @@ export function Dashboard() {
             Plan and manage your Christmas Eve routes <span role="img" aria-label="sparkles">✨</span>
           </p>
         </div>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
         <a
           href="/routes/new"
           aria-label="Create new Santa Run route"
@@ -142,6 +143,34 @@ export function Dashboard() {
         >
           <span aria-hidden="true">➕</span> Create New Route
         </a>
+        <a
+          href="/templates"
+          aria-label="Browse route template library"
+          style={{
+            padding: '0.875rem 1.25rem',
+            background: 'white',
+            color: 'var(--fire-red)',
+            textDecoration: 'none',
+            borderRadius: 'var(--border-radius-sm)',
+            fontWeight: 600,
+            fontFamily: 'var(--font-body)',
+            border: '2px solid var(--fire-red)',
+            transition: 'all 0.3s ease',
+            display: 'inline-block',
+            fontSize: '1rem',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--fire-red)';
+            e.currentTarget.style.color = 'white';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'white';
+            e.currentTarget.style.color = 'var(--fire-red)';
+          }}
+        >
+          <span aria-hidden="true">🗂️</span> Templates
+        </a>
+        </div>
       </div>
 
       {/* Status Filter Tabs */}
