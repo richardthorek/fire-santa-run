@@ -4,7 +4,7 @@
  * Shown on the public tracking page before Santa's run begins.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import { getCountdownTime, padCountdownUnit, formatRouteStartDateTime } from '../utils/countdown';
 
 export interface CountdownTimerProps {
@@ -19,37 +19,32 @@ export interface CountdownTimerProps {
 }
 
 export function CountdownTimer({ startDate, startTime, onComplete, onShare }: CountdownTimerProps) {
-  const [countdown, setCountdown] = useState(() => getCountdownTime(startDate, startTime));
-  const [completed, setCompleted] = useState(false);
+  // Tick counter — incremented by setInterval to trigger re-renders.
+  // Using useReducer so dispatch is stable and the interval only restarts
+  // when startDate/startTime change, not on every render.
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
-  // Keep a stable ref so the interval tick always calls the latest callback
-  // without needing to restart the interval whenever the prop changes.
+  // Keep a stable ref so the completion callback can be invoked without
+  // restarting the interval whenever the prop changes.
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
 
-  useEffect(() => {
-    // Re-initialize if props change
-    setCountdown(getCountdownTime(startDate, startTime));
-    setCompleted(false);
-  }, [startDate, startTime]);
+  // Countdown is derived on every render — no stored state needed.
+  const countdown = getCountdownTime(startDate, startTime);
+  const isComplete = countdown.total === 0;
 
   useEffect(() => {
-    if (completed) return;
-
-    const tick = () => {
-      const next = getCountdownTime(startDate, startTime);
-      setCountdown(next);
-      if (next.total === 0) {
-        setCompleted(true);
-        onCompleteRef.current?.();
-      }
-    };
-
-    const id = setInterval(tick, 1000);
+    if (isComplete) {
+      onCompleteRef.current?.();
+      return;
+    }
+    // Tick every second; forceUpdate is stable so this only restarts
+    // when the route date/time or completion status changes.
+    const id = setInterval(forceUpdate, 1000);
     return () => clearInterval(id);
-  }, [startDate, startTime, completed]);
+  }, [isComplete, startDate, startTime, forceUpdate]);
 
   const formattedStart = formatRouteStartDateTime(startDate, startTime);
 

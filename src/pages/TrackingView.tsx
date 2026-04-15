@@ -22,18 +22,16 @@ export function TrackingView({ routeId }: TrackingViewProps) {
   const [currentLocation, setCurrentLocation] = useState<LocationBroadcast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [countdownComplete, setCountdownComplete] = useState(false);
+  // Track which routeId the countdown has completed for, so the "It's time!"
+  // message naturally resets when navigating to a different route — no effect needed.
+  const [completedForRouteId, setCompletedForRouteId] = useState<string | null>(null);
+  const countdownComplete = completedForRouteId === routeId;
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const santaMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
   const { getRoute } = useRoutes();
-
-  // Reset countdown state when the route changes
-  useEffect(() => {
-    setCountdownComplete(false);
-  }, [routeId]);
 
   // Fetch route data
   useEffect(() => {
@@ -526,7 +524,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
           <CountdownTimer
             startDate={route.date}
             startTime={route.startTime}
-            onComplete={() => setCountdownComplete(true)}
+            onComplete={() => setCompletedForRouteId(routeId)}
             onShare={() => setShowShareModal(true)}
           />
         )}
