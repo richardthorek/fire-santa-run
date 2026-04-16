@@ -7,7 +7,10 @@
 //   - Supports native WebSockets (if needed in future; currently Azure Web PubSub handles fan-out)
 //
 // Free tier (F1):  Shared compute, 60 min/day CPU, no custom domain, no SLA — dev/staging only
+//                  Application Insights auto-instrumentation agent is DISABLED on F1 to prevent
+//                  background monitoring tasks from exhausting the daily CPU quota when idle.
 // Basic tier (B1): Dedicated compute, custom domains, SSL, always-on — production minimum
+//                  Application Insights auto-instrumentation agent is ENABLED for full telemetry.
 
 @description('Azure region for the App Service resources')
 param location string = resourceGroup().location
@@ -71,13 +74,22 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
   }
 }
 
+// App Service settings — Application Insights connection string is always injected when provided.
+// The auto-instrumentation agent (ApplicationInsightsAgent_EXTENSION_VERSION) is only enabled for
+// non-Free tiers because the agent runs continuous background monitoring tasks (heartbeats,
+// performance counters, dependency tracking) that consume CPU even with zero user traffic.
+// On F1 (60 CPU-minutes/day shared compute) this background agent can exhaust the entire daily
+// quota before any real user requests are served.  On paid tiers (B1+) the agent is safe to enable.
 resource appSettings 'Microsoft.Web/sites/config@2023-01-01' = if (!empty(appInsightsConnectionString)) {
   parent: webApp
   name: 'appsettings'
-  properties: {
-    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsConnectionString
-    ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
-  }
+  properties: union(
+    {
+      APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsConnectionString
+    },
+    // Enable auto-instrumentation agent only on paid tiers — not on Free (F1)
+    sku != 'F1' ? { ApplicationInsightsAgent_EXTENSION_VERSION: '~3' } : {}
+  )
 }
 
 @description('App Service name')
