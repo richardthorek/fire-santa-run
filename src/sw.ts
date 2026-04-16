@@ -2,7 +2,7 @@
 
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL, matchPrecache } from 'workbox-precaching';
 import { registerRoute, NavigationRoute, setCatchHandler } from 'workbox-routing';
-import { CacheFirst, NetworkFirst } from 'workbox-strategies';
+import { CacheFirst, NetworkFirst, NetworkOnly } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { BackgroundSyncPlugin } from 'workbox-background-sync';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
@@ -18,6 +18,22 @@ const locationSyncPlugin = new BackgroundSyncPlugin('location-updates-queue', {
   maxRetentionTime: 24 * 60, // Retain for 24 hours (in minutes)
 });
 
+// Background sync plugin for location broadcasts - shorter retention as stale data is less useful
+const broadcastSyncPlugin = new BackgroundSyncPlugin('location-broadcast-queue', {
+  maxRetentionTime: 2 * 60, // Retain for 2 hours (in minutes)
+});
+
+// Location broadcast route - NetworkOnly with BackgroundSync (queue when offline, retry when online)
+registerRoute(
+  ({ url, request }) =>
+    (url.pathname === '/api/broadcast' || url.pathname.endsWith('/api/broadcast')) &&
+    request.method === 'POST',
+  new NetworkOnly({
+    plugins: [broadcastSyncPlugin],
+  }),
+  'POST'
+);
+
 // Location update routes - Network First with Background Sync fallback
 registerRoute(
   ({ url, request }) =>
@@ -32,6 +48,23 @@ registerRoute(
     ],
   }),
   'POST'
+);
+
+// Mapbox map tiles and API - Cache First for offline navigation
+// Tiles are large but expire after 30 days; 1000 entries supports a typical
+// Santa run route across multiple zoom levels and surrounding streets.
+registerRoute(
+  ({ url }) => url.origin === 'https://api.mapbox.com',
+  new CacheFirst({
+    cacheName: 'mapbox-tiles',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({
+        maxEntries: 1000,
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+      }),
+    ],
+  })
 );
 
 // General API routes - Network First with cache fallback
