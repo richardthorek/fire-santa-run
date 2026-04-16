@@ -20,6 +20,7 @@ export { CountdownTimer } from './CountdownTimer';
 export { ThankYouOverlay } from './ThankYouOverlay';
 export { HighlightedText } from './HighlightedText';
 export { RoutePreviewModal } from './RoutePreviewModal';
+export { OfflineBanner } from './OfflineBanner';
 
 // Convenience export for LoadingSkeleton (for consistency)
 export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';

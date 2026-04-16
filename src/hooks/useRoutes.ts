@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { storageAdapter } from '../storage';
+import { cacheRoutes, getCachedRoutes } from '../storage/offlineCache';
 import type { Route } from '../types';
 import { useAuth } from '../context';
 import { useUserProfile } from './useUserProfile';
@@ -15,6 +16,7 @@ export function useRoutes() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isFromCache, setIsFromCache] = useState(false);
 
   // Determine active brigadeId: prefer auth user's brigadeId, fallback to first active membership
   const activeBrigadeId = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
@@ -50,11 +52,22 @@ export function useRoutes() {
         );
         // Reload after auto-archiving
         const updatedRoutes = await storageAdapter.getRoutes(activeBrigadeId);
+        await cacheRoutes(activeBrigadeId, updatedRoutes);
         setRoutes(updatedRoutes);
       } else {
+        await cacheRoutes(activeBrigadeId, loadedRoutes);
         setRoutes(loadedRoutes);
       }
+      setIsFromCache(false);
     } catch (err) {
+      // On any fetch failure (network error, server error), try to serve
+      // cached data so routes remain viewable offline.
+      const cachedRoutes = await getCachedRoutes(activeBrigadeId);
+      if (cachedRoutes) {
+        setRoutes(cachedRoutes);
+        setIsFromCache(true);
+        return;
+      }
       const error = err instanceof Error ? err : new Error('Failed to load routes');
       setError(error);
       console.error('Error loading routes:', error);
@@ -66,6 +79,17 @@ export function useRoutes() {
   useEffect(() => {
     loadRoutes();
   }, [loadRoutes]);
+
+  // Re-sync routes when the device comes back online
+  useEffect(() => {
+    const handleOnline = () => {
+      if (activeBrigadeId) {
+        loadRoutes();
+      }
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [activeBrigadeId, loadRoutes]);
 
   const saveRoute = useCallback(async (route: Route) => {
     const brigadeIdToUse = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
@@ -158,6 +182,7 @@ export function useRoutes() {
     routes,
     isLoading,
     error,
+    isFromCache,
     saveRoute,
     deleteRoute,
     getRoute,
