@@ -1,0 +1,75 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E53935;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B71C1C;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="flameGrad" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF6F00;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFA726;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFEE58;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="hatGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#EF5350;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#C62828;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Full bleed background (maskable icons use full square) -->
+  <rect width="512" height="512" fill="url(#bgGrad)"/>
+
+  <!-- Content scaled down ~20% to stay within safe zone (40% padding) -->
+  <!-- Safe zone: 80px inset on each side for 512px icon -->
+  <g transform="translate(80,80) scale(0.6875)">
+    <!-- Main flame body -->
+    <path d="M 256 390 
+             C 190 390 150 345 150 295 
+             C 150 255 175 230 175 230 
+             C 175 260 195 275 195 275 
+             C 185 240 195 205 220 185 
+             C 215 210 230 225 230 225 
+             C 230 195 248 165 256 145 
+             C 264 165 282 195 282 225 
+             C 282 225 297 210 292 185 
+             C 317 205 327 240 317 275 
+             C 317 275 337 260 337 230 
+             C 337 230 362 255 362 295 
+             C 362 345 322 390 256 390 Z"
+          fill="url(#flameGrad)" />
+
+    <!-- Inner flame highlight -->
+    <path d="M 256 365
+             C 225 365 200 340 200 312
+             C 200 290 215 272 215 272
+             C 215 288 228 296 228 296
+             C 222 278 229 260 242 248
+             C 240 262 250 272 250 272
+             C 250 255 256 238 256 228
+             C 256 238 262 255 262 272
+             C 262 272 272 262 270 248
+             C 283 260 290 278 284 296
+             C 284 296 297 288 297 272
+             C 297 272 312 290 312 312
+             C 312 340 287 365 256 365 Z"
+          fill="#FFF176" opacity="0.7" />
+
+    <!-- Santa hat brim -->
+    <ellipse cx="256" cy="148" rx="52" ry="16" fill="white"/>
+    
+    <!-- Santa hat body -->
+    <path d="M 204 148 L 256 62 L 308 148 Z" fill="url(#hatGrad)"/>
+    
+    <!-- Santa hat pom-pom -->
+    <circle cx="256" cy="58" r="18" fill="white"/>
+
+    <!-- Stars -->
+    <g transform="translate(95,95)" opacity="0.85">
+      <polygon points="12,0 15,9 24,9 17,14 20,23 12,18 4,23 7,14 0,9 9,9" 
+               fill="#FFA726" transform="scale(0.8)"/>
+    </g>
+    <g transform="translate(385,95)" opacity="0.85">
+      <polygon points="12,0 15,9 24,9 17,14 20,23 12,18 4,23 7,14 0,9 9,9" 
+               fill="#FFA726" transform="scale(0.8)"/>
+    </g>
+  </g>
+</svg>
