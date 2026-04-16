@@ -60,7 +60,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   const { isSupported: wakeLockSupported } = useWakeLock(navigationState.isNavigating);
 
   // Broadcast location updates for real-time tracking
-  useLocationBroadcast({
+  const { isOnline } = useLocationBroadcast({
     routeId: route.id,
     position,
     routeProgress: {
@@ -243,6 +243,37 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
         userPosition={position}
         completedWaypointIds={navigationState.completedWaypointIds}
       />
+
+      {/* Offline Banner — shown whenever the device loses internet connectivity.
+          Map tiles served from cache and location broadcasts are queued
+          by the service worker for replay when the connection returns. */}
+      {!isOnline && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: 'rgba(66, 66, 66, 0.95)',
+            backdropFilter: 'blur(8px)',
+            color: 'white',
+            padding: '0.5rem 1rem',
+            textAlign: 'center',
+            fontSize: '0.875rem',
+            fontWeight: 500,
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+          }}
+        >
+          <span aria-hidden="true">📶</span>
+          Offline — navigation continues; location updates will sync when reconnected
+        </div>
+      )}
 
       {/* Floating Navigation Header */}
       <NavigationHeader

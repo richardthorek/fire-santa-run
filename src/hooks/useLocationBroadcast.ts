@@ -2,10 +2,15 @@
  * useLocationBroadcast hook
  * Broadcasts GPS location updates from the navigator device
  * Throttles updates to 5 second intervals
+ *
+ * When the device is offline, broadcast attempts are still made so the
+ * service worker BackgroundSync plugin can queue and replay them once
+ * the connection is restored.
  */
 
 import { useEffect, useRef } from 'react';
 import { useWebPubSub } from './useWebPubSub';
+import { useNetworkStatus } from './useNetworkStatus';
 import type { RouteProgress, LocationBroadcast } from '../types';
 import type { GeolocationCoordinates } from './useGeolocation';
 
@@ -33,8 +38,17 @@ export function useLocationBroadcast({
     role: 'broadcaster',
   });
 
+  const { isOnline } = useNetworkStatus();
+
   useEffect(() => {
-    if (!isNavigating || !position || !isConnected) {
+    // Always require an active navigation session and a known position.
+    // We intentionally do NOT gate on `isConnected` here: in production
+    // mode the broadcast is a plain HTTP POST to /api/broadcast, so the
+    // service worker can queue it via BackgroundSync when the device is
+    // offline and replay it once connectivity is restored. In dev mode
+    // `sendLocation` checks for BroadcastChannel availability internally
+    // and is a no-op if the channel has not been opened yet.
+    if (!isNavigating || !position) {
       return;
     }
 
@@ -57,11 +71,12 @@ export function useLocationBroadcast({
       nextWaypointEta,
     };
 
-    // Send location update
+    // Send location update (service worker queues when offline in production)
     sendLocation(broadcast);
-  }, [isNavigating, position, isConnected, routeId, routeProgress, nextWaypointEta, sendLocation]);
+  }, [isNavigating, position, routeId, routeProgress, nextWaypointEta, sendLocation]);
 
   return {
     isConnected,
+    isOnline,
   };
 }
