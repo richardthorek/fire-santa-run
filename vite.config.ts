@@ -1,5 +1,6 @@
 import { defineConfig, type ConfigEnv, type UserConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig(( env: ConfigEnv ): UserConfig => {
@@ -7,7 +8,29 @@ export default defineConfig(( env: ConfigEnv ): UserConfig => {
   const isDev = mode === 'development' || process.env.VITE_DEV_MODE === 'true';
 
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      VitePWA({
+        // Use injectManifest so we can write a fully custom service worker
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
+        // We manage manifest.json in public/ manually
+        manifest: false,
+        injectManifest: {
+          // Precache all JS, CSS, HTML, common image/font formats
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          // Raise the per-file size limit to accommodate the Mapbox bundle (~1.7 MB gzipped).
+          // The default Workbox limit is 2 MB; mapbox-gl routinely exceeds this.
+          // All other chunks are well below 500 KB.
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
+        },
+        // Service worker is only active in production builds
+        devOptions: {
+          enabled: false,
+        },
+      }),
+    ],
     server: isDev
       ? {
           proxy: {
