@@ -23,7 +23,14 @@ export interface UseGeolocationOptions {
   timeout?: number;
   maximumAge?: number;
   watch?: boolean; // If true, continuously track position
+  /** When true, switches to battery-efficient 30 s interval polling while the
+   *  page is hidden (minimised) and resumes continuous watchPosition when the
+   *  page is visible again. Has no effect unless watch is also true. */
+  backgroundTracking?: boolean;
 }
+
+/** Interval (ms) used for battery-efficient background polling. */
+export const BACKGROUND_TRACKING_INTERVAL_MS = 30_000;
 
 export function useGeolocation(options: UseGeolocationOptions = {}) {
   const {
@@ -31,6 +38,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     timeout = 10000,
     maximumAge = 0,
     watch = false,
+    backgroundTracking = false,
   } = options;
 
   const [position, setPosition] = useState<GeolocationCoordinates | null>(null);
@@ -38,6 +46,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
   const [isLoading, setIsLoading] = useState(true);
   const [permission, setPermission] = useState<PermissionState | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const backgroundIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Check geolocation permission status
   useEffect(() => {
@@ -128,6 +137,10 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
+    if (backgroundIntervalRef.current !== null) {
+      clearInterval(backgroundIntervalRef.current);
+      backgroundIntervalRef.current = null;
+    }
   }, []);
 
   // Start/stop watching based on watch option
@@ -143,6 +156,46 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       stopWatching();
     };
   }, [watch, startWatching, stopWatching]);
+
+  // Background tracking: switch to interval-based polling when page is hidden
+  useEffect(() => {
+    if (!watch || !backgroundTracking) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Page minimised — stop continuous watch and switch to 30 s intervals
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
+        if (backgroundIntervalRef.current === null) {
+          backgroundIntervalRef.current = setInterval(() => {
+            navigator.geolocation.getCurrentPosition(
+              handleSuccess,
+              handleError,
+              { enableHighAccuracy: false, timeout, maximumAge: 0 }
+            );
+          }, BACKGROUND_TRACKING_INTERVAL_MS);
+        }
+      } else {
+        // Page visible again — stop interval and resume continuous watch
+        if (backgroundIntervalRef.current !== null) {
+          clearInterval(backgroundIntervalRef.current);
+          backgroundIntervalRef.current = null;
+        }
+        startWatching();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (backgroundIntervalRef.current !== null) {
+        clearInterval(backgroundIntervalRef.current);
+        backgroundIntervalRef.current = null;
+      }
+    };
+  }, [watch, backgroundTracking, timeout, handleSuccess, handleError, startWatching]);
 
   // Get initial position if not watching
   useEffect(() => {

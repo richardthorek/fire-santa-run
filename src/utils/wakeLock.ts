@@ -18,7 +18,8 @@ class WakeLockService {
   }
 
   /**
-   * Request a wake lock to keep screen awake
+   * Request a wake lock to keep screen awake.
+   * Returns true if the lock was successfully acquired.
    */
   async request(): Promise<boolean> {
     if (!this.isSupported) {
@@ -28,7 +29,6 @@ class WakeLockService {
     try {
       this.wakeLock = await navigator.wakeLock.request('screen');
       
-      // Re-request wake lock when page becomes visible again
       this.wakeLock.addEventListener('release', () => {
         if (import.meta.env.DEV) {
           console.log('Wake lock released');
@@ -76,40 +76,56 @@ const wakeLockService = new WakeLockService();
 export { wakeLockService };
 
 /**
- * React hook for managing wake lock
+ * React hook for managing wake lock.
+ *
+ * When `enabled` is true the wake lock is acquired (if supported) and
+ * automatically re-acquired whenever the page becomes visible again (e.g.
+ * after the screen was briefly locked by the OS).
+ *
+ * Returns reactive `isActive` and `isSupported` flags that can be used to
+ * drive UI indicators and "Keep Screen On" toggles.
  */
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function useWakeLock(enabled: boolean) {
+  const [isActive, setIsActive] = useState(false);
   const requestedRef = useRef(false);
 
   useEffect(() => {
     if (enabled && !requestedRef.current) {
-      wakeLockService.request();
+      wakeLockService.request().then((success) => {
+        setIsActive(success);
+      });
       requestedRef.current = true;
 
-      // Re-request when page becomes visible (e.g., after screen lock)
+      // Re-acquire when page becomes visible (OS released the lock while hidden)
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible' && enabled) {
-          wakeLockService.request();
+          wakeLockService.request().then((success) => {
+            setIsActive(success);
+          });
+        } else {
+          // Wake lock is automatically released by the browser when the page
+          // is hidden; reflect that in the reactive state.
+          setIsActive(false);
         }
       };
 
       document.addEventListener('visibilitychange', handleVisibilityChange);
 
       return () => {
-        wakeLockService.release();
+        wakeLockService.release().then(() => setIsActive(false));
         requestedRef.current = false;
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     } else if (!enabled && requestedRef.current) {
-      wakeLockService.release();
+      wakeLockService.release().then(() => setIsActive(false));
       requestedRef.current = false;
     }
   }, [enabled]);
 
   return {
     isSupported: wakeLockService.supported(),
-    isActive: wakeLockService.isActive(),
+    isActive,
   };
 }
