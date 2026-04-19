@@ -38,6 +38,8 @@ export interface NavigationState {
   isOffRoute: boolean;
   isRerouting: boolean;
   completedWaypointIds: string[];
+  showOffRouteBanner: boolean;
+  rerouteCount: number;
 }
 
 export interface UseNavigationOptions {
@@ -58,15 +60,14 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
   const [isRerouting, setIsRerouting] = useState(false);
   const [completedWaypointIds, setCompletedWaypointIds] = useState<string[]>([]);
   const [updatedRoute, setUpdatedRoute] = useState<Route>(route);
+  const [showOffRouteBanner, setShowOffRouteBanner] = useState(false);
+  const [rerouteCount, setRerouteCount] = useState(0);
   
   const lastAnnouncedStepRef = useRef<number>(-1);
   const lastAnnouncedWaypointRef = useRef<string | null>(null);
   const hasAnnouncedOffRouteRef = useRef(false);
   const rerouteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const waypointCompletionQueueRef = useRef<Set<string>>(new Set());
-
-  // Constants
-  const REROUTE_DEBOUNCE_MS = 2000;
 
   // Configure voice settings
   useEffect(() => {
@@ -91,6 +92,8 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
         isOffRoute: false,
         isRerouting,
         completedWaypointIds,
+        showOffRouteBanner: false,
+        rerouteCount,
       };
     }
 
@@ -134,8 +137,10 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       isOffRoute: offRoute,
       isRerouting,
       completedWaypointIds,
+      showOffRouteBanner,
+      rerouteCount,
     };
-  }, [isNavigating, position, updatedRoute, isRerouting, completedWaypointIds]);
+  }, [isNavigating, position, updatedRoute, isRerouting, completedWaypointIds, showOffRouteBanner, rerouteCount]);
 
   // Start navigation
   const startNavigation = useCallback(() => {
@@ -155,7 +160,18 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
   // Stop navigation
   const stopNavigation = useCallback(() => {
     setIsNavigating(false);
+    setShowOffRouteBanner(false);
     voiceService.cancel();
+    if (rerouteTimeoutRef.current) {
+      clearTimeout(rerouteTimeoutRef.current);
+      rerouteTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Dismiss the off-route banner without rerouting
+  const dismissOffRouteBanner = useCallback(() => {
+    setShowOffRouteBanner(false);
+    hasAnnouncedOffRouteRef.current = false;
     if (rerouteTimeoutRef.current) {
       clearTimeout(rerouteTimeoutRef.current);
       rerouteTimeoutRef.current = null;
@@ -212,10 +228,11 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     if (!position || !navigationState.nextWaypoint || isRerouting) return;
 
     setIsRerouting(true);
+    setShowOffRouteBanner(false);
     
     try {
       // Announce rerouting
-      if (voiceEnabled && !hasAnnouncedOffRouteRef.current) {
+      if (voiceEnabled) {
         voiceService.speak(announceOffRoute(), 'high').catch(() => {
           // Ignore voice errors
         });
@@ -253,6 +270,9 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
         estimatedDuration: newDirections.duration,
         waypoints: updatedWaypointsWithETAs,
       }));
+
+      // Increment reroute count and log event
+      setRerouteCount(prev => prev + 1);
 
       setIsRerouting(false);
       hasAnnouncedOffRouteRef.current = false;
@@ -307,19 +327,19 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       }
     }
 
-    // Trigger rerouting if off route and not already rerouting (with debounce)
+    // Show off-route banner when off route (instead of auto-rerouting)
+    // Auto-dismiss banner when back on route
     if (offRoute && !isRerouting) {
+      setShowOffRouteBanner(true);
+    } else if (!offRoute) {
+      setShowOffRouteBanner(false);
+      hasAnnouncedOffRouteRef.current = false;
       if (rerouteTimeoutRef.current) {
         clearTimeout(rerouteTimeoutRef.current);
+        rerouteTimeoutRef.current = null;
       }
-      rerouteTimeoutRef.current = setTimeout(() => {
-        reroute();
-      }, REROUTE_DEBOUNCE_MS);
-    } else if (!offRoute && rerouteTimeoutRef.current) {
-      clearTimeout(rerouteTimeoutRef.current);
-      rerouteTimeoutRef.current = null;
     }
-  }, [isNavigating, position, updatedRoute, voiceEnabled, navigationState, completedWaypointIds, isRerouting, completeWaypoint, reroute, REROUTE_DEBOUNCE_MS]);
+  }, [isNavigating, position, updatedRoute, voiceEnabled, navigationState, completedWaypointIds, isRerouting, completeWaypoint, reroute]);
 
   // Periodically update ETAs during navigation (every 30 seconds)
   useEffect(() => {
@@ -366,5 +386,6 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     completeWaypoint,
     skipToNextWaypoint,
     reroute,
+    dismissOffRouteBanner,
   };
 }

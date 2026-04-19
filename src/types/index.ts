@@ -55,6 +55,7 @@ export interface Route {
   qrCodeUrl?: string;
   viewCount?: number;
   archivedAt?: string;
+  rerouteCount?: number;
 }
 
 export interface RouteTemplate {

@@ -77,8 +77,16 @@ export function NavigationHeader({
             <div style={{ fontSize: '0.875rem', opacity: 0.9, marginBottom: '0.25rem' }}>
               Off Route
             </div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
-              Calculating new route...
+            <div
+              style={{
+                fontSize: '1.25rem',
+                fontWeight: 'bold',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {instruction || 'Continue on route'}
             </div>
           </>
         ) : (

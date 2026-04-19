@@ -21,6 +21,7 @@ export interface NavigationPanelProps {
   completedWaypoints: number;
   totalWaypoints: number;
   waypoints: Waypoint[];
+  rerouteCount?: number;
 }
 
 export function NavigationPanel({
@@ -35,6 +36,7 @@ export function NavigationPanel({
   completedWaypoints,
   totalWaypoints,
   waypoints,
+  rerouteCount = 0,
 }: NavigationPanelProps) {
   // Find waypoint after next - memoized to avoid recalculation on every render
   const waypointAfterNext = useMemo(
@@ -72,9 +74,19 @@ export function NavigationPanel({
           <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#616161' }}>
             Route Progress
           </span>
-          <span style={{ fontSize: '0.875rem', color: '#616161' }}>
-            {completedWaypoints} / {totalWaypoints} stops
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {rerouteCount > 0 && (
+              <span
+                title={`Rerouted ${rerouteCount} time${rerouteCount === 1 ? '' : 's'}`}
+                style={{ fontSize: '0.75rem', color: '#FF7043', fontWeight: 600 }}
+              >
+                🔄 {rerouteCount} reroute{rerouteCount === 1 ? '' : 's'}
+              </span>
+            )}
+            <span style={{ fontSize: '0.875rem', color: '#616161' }}>
+              {completedWaypoints} / {totalWaypoints} stops
+            </span>
+          </div>
         </div>
         <ProgressBar progress={routeProgress} height={8} />
       </div>
