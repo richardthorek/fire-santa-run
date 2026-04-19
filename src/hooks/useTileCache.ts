@@ -57,6 +57,9 @@ export function useTileCache(route: Route | null): TileCacheState {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Ref mirrors isCaching so the downloadTiles callback can guard against
+  // concurrent invocations without taking isCaching as a dependency.
+  const isCachingRef = useRef(false);
 
   // Check cached status on mount and whenever the route changes
   useEffect(() => {
@@ -74,7 +77,7 @@ export function useTileCache(route: Route | null): TileCacheState {
   }, []);
 
   const downloadTiles = useCallback(async () => {
-    if (!route || isCaching) return;
+    if (!route || isCachingRef.current) return;
 
     const waypoints = route.waypoints;
     if (waypoints.length === 0) return;
@@ -85,6 +88,7 @@ export function useTileCache(route: Route | null): TileCacheState {
       return;
     }
 
+    isCachingRef.current = true;
     setIsCaching(true);
     setError(null);
     setDownloaded(0);
@@ -125,11 +129,12 @@ export function useTileCache(route: Route | null): TileCacheState {
       }
     } finally {
       if (!abort.signal.aborted) {
+        isCachingRef.current = false;
         setIsCaching(false);
         abortRef.current = null;
       }
     }
-  }, [route, isCaching]);
+  }, [route]);
 
   const clearTileCache = useCallback(async () => {
     if (!route?.id) return;

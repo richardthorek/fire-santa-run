@@ -194,7 +194,10 @@ self.addEventListener('message', (event) => {
             if (existing) continue;
 
             const response = await fetch(rawUrl, { credentials: 'omit' });
-            if (response.ok || response.type === 'opaque') {
+            // Cache transparent OK responses and opaque no-cors responses.
+            // Opaque responses (response.type === 'opaque') always have ok=false,
+            // so check type first.
+            if (response.type === 'opaque' || response.ok) {
               await cache.put(cacheKey, response);
             }
           } catch {

@@ -196,6 +196,9 @@ export function getTileUrlsForRoute(
 // Pre-fetch / download
 // ---------------------------------------------------------------------------
 
+/** Number of tile requests to fire in parallel (respects browser connection limits). */
+const FETCH_CONCURRENCY = 10;
+
 /**
  * Pre-fetch all tile URLs so the service worker caches them for offline use.
  *
@@ -203,13 +206,16 @@ export function getTileUrlsForRoute(
  * `api.mapbox.com`. If the tile is already cached the request is served
  * from cache (fast); if not, it's fetched from the network and stored.
  *
+ * Requests are issued in batches of FETCH_CONCURRENCY to maximise throughput
+ * while respecting the browser's concurrent connection limit.
+ *
  * @param urls       - Tile URLs to download (from getTileUrlsForRoute)
- * @param onProgress - Optional callback receiving (downloadedCount, totalCount)
+ * @param onProgress - Optional callback receiving the count of completed requests (success + failed)
  * @param signal     - Optional AbortSignal to cancel the download
  */
 export async function prefetchTiles(
   urls: string[],
-  onProgress?: (downloaded: number, total: number) => void,
+  onProgress?: (completed: number, total: number) => void,
   signal?: AbortSignal
 ): Promise<{ downloaded: number; failed: number }> {
   let downloaded = 0;
@@ -218,14 +224,20 @@ export async function prefetchTiles(
 
   onProgress?.(0, total);
 
-  for (const url of urls) {
+  for (let i = 0; i < urls.length; i += FETCH_CONCURRENCY) {
     if (signal?.aborted) break;
 
-    try {
-      await fetch(url, { credentials: 'omit' });
-      downloaded++;
-    } catch {
-      failed++;
+    const batch = urls.slice(i, i + FETCH_CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map((url) => fetch(url, { credentials: 'omit' }))
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        downloaded++;
+      } else {
+        failed++;
+      }
     }
 
     onProgress?.(downloaded + failed, total);
