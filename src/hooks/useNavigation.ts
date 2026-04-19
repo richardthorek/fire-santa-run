@@ -329,15 +329,20 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
 
     // Show off-route banner when off route (instead of auto-rerouting)
     // Auto-dismiss banner when back on route
+    // Use queueMicrotask to defer state updates to avoid synchronous setState in effect
     if (offRoute && !isRerouting) {
-      setShowOffRouteBanner(true);
+      queueMicrotask(() => {
+        setShowOffRouteBanner(true);
+      });
     } else if (!offRoute) {
-      setShowOffRouteBanner(false);
       hasAnnouncedOffRouteRef.current = false;
       if (rerouteTimeoutRef.current) {
         clearTimeout(rerouteTimeoutRef.current);
         rerouteTimeoutRef.current = null;
       }
+      queueMicrotask(() => {
+        setShowOffRouteBanner(false);
+      });
     }
   }, [isNavigating, position, updatedRoute, voiceEnabled, navigationState, completedWaypointIds, isRerouting, completeWaypoint, reroute]);
 
