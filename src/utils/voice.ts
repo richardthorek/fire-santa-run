@@ -161,26 +161,23 @@ class VoiceInstructionService {
 
   /** Process queued instructions sequentially. */
   private async _processQueue(): Promise<void> {
-    if (this.queue.length === 0) {
-      this.isProcessingQueue = false;
-      this.onSpeakEndCallback?.();
-      return;
-    }
-
     this.isProcessingQueue = true;
-    const item = this.queue.shift()!;
 
-    this.onSpeakStartCallback?.(item.text);
+    while (this.queue.length > 0) {
+      const item = this.queue.shift()!;
 
-    try {
-      await this._speakNow(item.text);
-      item.resolve();
-    } catch (error) {
-      item.reject(error);
+      this.onSpeakStartCallback?.(item.text);
+
+      try {
+        await this._speakNow(item.text);
+        item.resolve();
+      } catch (error) {
+        item.reject(error);
+      }
     }
 
-    // Recurse to handle next item
-    this._processQueue();
+    this.isProcessingQueue = false;
+    this.onSpeakEndCallback?.();
   }
 
   /** Resolve and remove all pending queue items without speaking them. */
@@ -230,17 +227,19 @@ class VoiceInstructionService {
 
   /**
    * Register a callback invoked when the service begins speaking an utterance.
+   * Pass `null` to unregister.
    * Useful for triggering audio ducking on media players.
    */
-  onSpeakStart(callback: (text: string) => void) {
+  onSpeakStart(callback: ((text: string) => void) | null) {
     this.onSpeakStartCallback = callback;
   }
 
   /**
    * Register a callback invoked when speech ends and the queue is empty.
+   * Pass `null` to unregister.
    * Useful for releasing audio ducking after the last instruction.
    */
-  onSpeakEnd(callback: () => void) {
+  onSpeakEnd(callback: (() => void) | null) {
     this.onSpeakEndCallback = callback;
   }
 }

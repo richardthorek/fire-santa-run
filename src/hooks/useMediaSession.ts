@@ -135,9 +135,9 @@ export function useMediaSession({
     voiceService.onSpeakEnd(handleSpeakEnd);
 
     return () => {
-      // Clear callbacks when the effect is cleaned up
-      voiceService.onSpeakStart(() => {});
-      voiceService.onSpeakEnd(() => {});
+      // Pass null to unregister; avoids leaving stale closures in the service
+      voiceService.onSpeakStart(null);
+      voiceService.onSpeakEnd(null);
     };
   }, [isNavigating, isSupported, voiceEnabled]);
 
