@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { uiPreferences } from '../utils/uiPreferences';
 
 /** Browser-specific event type for the install prompt */
 interface BeforeInstallPromptEvent extends Event {
@@ -63,13 +64,9 @@ function detectStandalone(): boolean {
  * Check whether the install banner is currently snoozed (dismissed by user).
  */
 function checkDismissed(): boolean {
-  try {
-    const stored = localStorage.getItem(DISMISS_STORAGE_KEY);
-    if (!stored) return false;
-    return Date.now() < parseInt(stored, 10);
-  } catch {
-    return false;
-  }
+  const stored = uiPreferences.get(DISMISS_STORAGE_KEY);
+  if (!stored) return false;
+  return Date.now() < parseInt(stored, 10);
 }
 
 /**
@@ -153,11 +150,7 @@ export function useInstallPrompt() {
    */
   const dismiss = useCallback(() => {
     const until = Date.now() + DISMISS_DURATION_MS;
-    try {
-      localStorage.setItem(DISMISS_STORAGE_KEY, String(until));
-    } catch {
-      // localStorage not available — just hide in-memory
-    }
+    uiPreferences.set(DISMISS_STORAGE_KEY, String(until));
     setState((prev) => ({ ...prev, isDismissed: true }));
     logInstallEvent('pwa.install_banner_dismissed');
   }, []);
