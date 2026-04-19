@@ -339,6 +339,14 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               </div>
               <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>Date</div>
             </div>
+            {route.rerouteCount != null && route.rerouteCount > 0 && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontWeight: 600, color: '#FF7043', fontSize: '1.25rem' }}>
+                  {route.rerouteCount}
+                </div>
+                <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>Reroutes</div>
+              </div>
+            )}
           </div>
         </div>
 
