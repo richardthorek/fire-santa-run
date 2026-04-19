@@ -9,3 +9,5 @@ export { useTemplates } from './useTemplates';
 export { useReverseGeocode } from './useReverseGeocode';
 export { useServiceWorker } from './useServiceWorker';
 export { useNetworkStatus } from './useNetworkStatus';
+export { useInstallPrompt } from './useInstallPrompt';
+export type { InstallPromptState } from './useInstallPrompt';
