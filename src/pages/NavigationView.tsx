@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigation, useRoutes, useLocationBroadcast } from '../hooks';
+import { useNavigation, useRoutes, useLocationBroadcast, useMediaSession } from '../hooks';
 import { useWakeLock } from '../utils/wakeLock';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { NavigationMap } from '../components/NavigationMap';
@@ -123,6 +123,16 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
 
   // Get current step for header
   const currentStep = updatedRoute.navigationSteps?.[navigationState.currentStepIndex];
+
+  // Lock-screen media controls and audio ducking
+  useMediaSession({
+    route,
+    currentInstruction: currentStep?.instruction || navigationState.currentInstruction,
+    voiceEnabled,
+    onToggleVoice: () => setVoiceEnabled(v => !v),
+    onNextWaypoint: handleSkipToNext,
+    isNavigating: navigationState.isNavigating,
+  });
 
   // Handle location errors
   if (locationError) {

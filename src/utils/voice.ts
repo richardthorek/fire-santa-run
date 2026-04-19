@@ -19,11 +19,24 @@ const DEFAULT_SETTINGS: VoiceSettings = {
   language: 'en-AU',
 };
 
+interface QueuedInstruction {
+  text: string;
+  priority: 'low' | 'high';
+  resolve: () => void;
+  reject: (error: unknown) => void;
+}
+
 class VoiceInstructionService {
   private synthesis: SpeechSynthesis | null = null;
   private settings: VoiceSettings = DEFAULT_SETTINGS;
-  private currentUtterance: SpeechSynthesisUtterance | null = null;
   private voice: SpeechSynthesisVoice | null = null;
+  /** Internal queue of pending voice instructions. */
+  private queue: QueuedInstruction[] = [];
+  private isProcessingQueue = false;
+  /** Callback invoked whenever speech starts (with the text being spoken). */
+  private onSpeakStartCallback: ((text: string) => void) | null = null;
+  /** Callback invoked whenever speech ends or the queue is drained. */
+  private onSpeakEndCallback: (() => void) | null = null;
 
   constructor() {
     if ('speechSynthesis' in window) {
@@ -74,7 +87,12 @@ class VoiceInstructionService {
   }
 
   /**
-   * Speak text with current settings
+   * Speak text with current settings.
+   *
+   * - `'high'` priority: clears the queue and cancels any current speech, then
+   *   speaks immediately.
+   * - `'low'` priority: appended to the internal queue and spoken in order.
+   *   Duplicate instructions already in the queue are silently dropped.
    */
   speak(text: string, priority: 'low' | 'high' = 'low'): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -83,9 +101,33 @@ class VoiceInstructionService {
         return;
       }
 
-      // Cancel current speech if high priority
-      if (priority === 'high' && this.currentUtterance) {
+      if (priority === 'high') {
+        // Drain queue and cancel current speech before speaking
+        this._drainQueue();
         this.cancel();
+        this.queue.push({ text, priority, resolve, reject });
+      } else {
+        // Deduplicate: skip if the same text is already waiting
+        const alreadyQueued = this.queue.some(item => item.text === text);
+        if (alreadyQueued) {
+          resolve();
+          return;
+        }
+        this.queue.push({ text, priority, resolve, reject });
+      }
+
+      if (!this.isProcessingQueue) {
+        this._processQueue();
+      }
+    });
+  }
+
+  /** Immediately speak a single utterance without touching the queue. */
+  private _speakNow(text: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.synthesis) {
+        resolve();
+        return;
       }
 
       const utterance = new SpeechSynthesisUtterance(text);
@@ -93,18 +135,16 @@ class VoiceInstructionService {
       utterance.pitch = this.settings.pitch;
       utterance.volume = this.settings.volume;
       utterance.lang = this.settings.language;
-      
+
       if (this.voice) {
         utterance.voice = this.voice;
       }
 
       utterance.onend = () => {
-        this.currentUtterance = null;
         resolve();
       };
 
       utterance.onerror = (event) => {
-        this.currentUtterance = null;
         // Don't treat "interrupted" as an error - it's expected when canceling speech
         if (event.error === 'interrupted' || event.error === 'canceled') {
           console.log('Speech synthesis interrupted/canceled');
@@ -115,19 +155,52 @@ class VoiceInstructionService {
         }
       };
 
-      this.currentUtterance = utterance;
       this.synthesis.speak(utterance);
     });
   }
 
+  /** Process queued instructions sequentially. */
+  private async _processQueue(): Promise<void> {
+    if (this.queue.length === 0) {
+      this.isProcessingQueue = false;
+      this.onSpeakEndCallback?.();
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    const item = this.queue.shift()!;
+
+    this.onSpeakStartCallback?.(item.text);
+
+    try {
+      await this._speakNow(item.text);
+      item.resolve();
+    } catch (error) {
+      item.reject(error);
+    }
+
+    // Recurse to handle next item
+    this._processQueue();
+  }
+
+  /** Resolve and remove all pending queue items without speaking them. */
+  private _drainQueue() {
+    for (const item of this.queue) {
+      item.resolve();
+    }
+    this.queue = [];
+  }
+
   /**
-   * Cancel current speech
+   * Cancel current speech and drain the queue.
    */
   cancel() {
+    this._drainQueue();
     if (this.synthesis) {
       this.synthesis.cancel();
-      this.currentUtterance = null;
     }
+    this.isProcessingQueue = false;
+    this.onSpeakEndCallback?.();
   }
 
   /**
@@ -153,6 +226,22 @@ class VoiceInstructionService {
    */
   isSpeaking(): boolean {
     return this.synthesis?.speaking || false;
+  }
+
+  /**
+   * Register a callback invoked when the service begins speaking an utterance.
+   * Useful for triggering audio ducking on media players.
+   */
+  onSpeakStart(callback: (text: string) => void) {
+    this.onSpeakStartCallback = callback;
+  }
+
+  /**
+   * Register a callback invoked when speech ends and the queue is empty.
+   * Useful for releasing audio ducking after the last instruction.
+   */
+  onSpeakEnd(callback: () => void) {
+    this.onSpeakEndCallback = callback;
   }
 }
 
