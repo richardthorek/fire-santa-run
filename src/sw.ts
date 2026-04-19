@@ -10,18 +10,24 @@ import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 declare const self: ServiceWorkerGlobalScope;
 
 /**
+ * Normalise a Mapbox tile URL by removing the rotating `sku` query parameter.
+ * Mapbox appends `sku` for billing attribution; stripping it ensures the same
+ * tile always resolves to the same cache entry across requests.
+ * Used by both the CacheFirst cache-key plugin and the PRECACHE_TILES handler.
+ */
+function stripMapboxSku(url: string): string {
+  const parsed = new URL(url);
+  parsed.searchParams.delete('sku');
+  return parsed.toString();
+}
+
+/**
  * Workbox cache-key plugin that strips the `sku` query parameter from Mapbox
- * tile URLs before they are used as cache keys. Mapbox appends a rotating
- * `sku` value for billing attribution; stripping it ensures that the same
- * map tile is always resolved to the same cache entry regardless of the
- * random `sku` suffix present in the original request URL.
+ * tile URLs before they are used as cache keys.
  */
 const stripMapboxSkuPlugin = {
-  cacheKeyWillBeUsed: async ({ request }: { request: Request }): Promise<string> => {
-    const url = new URL(request.url);
-    url.searchParams.delete('sku');
-    return url.toString();
-  },
+  cacheKeyWillBeUsed: async ({ request }: { request: Request }): Promise<string> =>
+    stripMapboxSku(request.url),
 };
 
 // Precache app shell (manifest injected by vite-plugin-pwa at build time)
@@ -185,9 +191,7 @@ self.addEventListener('message', (event) => {
         const cache = await caches.open('mapbox-tiles');
         for (const rawUrl of urls) {
           try {
-            const url = new URL(rawUrl);
-            url.searchParams.delete('sku');
-            const cacheKey = url.toString();
+            const cacheKey = stripMapboxSku(rawUrl);
 
             // Skip tiles that are already cached
             const existing = await cache.match(cacheKey);

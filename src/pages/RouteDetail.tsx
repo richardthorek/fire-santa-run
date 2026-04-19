@@ -810,9 +810,9 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                   padding: '0.75rem 1rem',
                   background: isCached
                     ? 'white'
-                    : `linear-gradient(135deg, #01579B 0%, #0277BD 100%)`,
-                  color: isCached ? '#01579B' : 'white',
-                  border: `2px solid ${isCached ? '#01579B' : 'transparent'}`,
+                    : `linear-gradient(135deg, ${COLORS.deepNavyBlue} 0%, ${COLORS.oceanBlue} 100%)`,
+                  color: isCached ? COLORS.deepNavyBlue : 'white',
+                  border: `2px solid ${isCached ? COLORS.deepNavyBlue : 'transparent'}`,
                   borderRadius: FLOATING_PANEL.borderRadius.button,
                   fontSize: '0.875rem',
                   fontWeight: 600,
