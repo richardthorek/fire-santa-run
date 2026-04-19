@@ -8,6 +8,15 @@
  *   Before replaying, duplicate actions for the same route are collapsed so
  *   that only the most-recent mutation per resource is applied.
  *
+ * Error handling:
+ *   - If an individual action fails, the hook continues processing the remaining
+ *     actions rather than aborting the whole sync.
+ *   - Failed actions increment their `retryCount`; once `MAX_RETRY_COUNT` is
+ *     reached the action is permanently dropped from the queue to prevent it from
+ *     blocking future syncs.
+ *   - `lastSyncError` is set to the most recent failure message. Use `clearError`
+ *     to dismiss it (e.g., after the user has read it or triggered a retry).
+ *
  * Usage:
  *   const { pendingCount, isSyncing, lastSyncError } = useSyncQueue();
  */
@@ -30,6 +39,13 @@ export type { SyncAction };
 export { enqueueAction };
 
 const MAX_RETRY_COUNT = 3;
+
+/**
+ * Milliseconds to wait after a network reconnection event before attempting
+ * to drain the queue. This brief pause allows the OS/browser network stack
+ * to fully stabilise before making outbound API calls.
+ */
+const RECONNECT_DELAY_MS = 500;
 
 export interface SyncQueueState {
   /** Number of actions currently waiting in the queue. */
@@ -132,8 +148,7 @@ export function useSyncQueue(): SyncQueueState {
     isOnlineRef.current = isOnline;
 
     if (isOnline && wasOffline) {
-      // Short delay to allow the network stack to stabilise.
-      const timer = setTimeout(() => processQueue(), 500);
+      const timer = setTimeout(() => processQueue(), RECONNECT_DELAY_MS);
       return () => clearTimeout(timer);
     }
   }, [isOnline, processQueue]);

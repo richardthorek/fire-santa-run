@@ -15,6 +15,10 @@
 import { useSyncQueue } from '../hooks/useSyncQueue';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count !== 1 ? 's' : ''}`;
+}
+
 export function SyncStatusBanner() {
   const { pendingCount, isSyncing, lastSyncError, syncComplete, processQueue, clearError } =
     useSyncQueue();
@@ -30,7 +34,7 @@ export function SyncStatusBanner() {
         style={bannerStyle('#1565C0', '#E3F2FD', '#1565C0')}
       >
         <span style={spinnerStyle} aria-hidden="true" />
-        <span>Syncing {pendingCount} change{pendingCount !== 1 ? 's' : ''}…</span>
+        <span>Syncing {plural(pendingCount, 'change')}…</span>
       </div>
     );
   }
@@ -85,12 +89,12 @@ export function SyncStatusBanner() {
       <div
         role="status"
         aria-live="polite"
-        aria-label={`${pendingCount} change${pendingCount !== 1 ? 's' : ''} queued for sync`}
+        aria-label={`${plural(pendingCount, 'change')} queued for sync`}
         style={bannerStyle('#E65100', '#FFF3E0', '#E65100')}
       >
         <span role="img" aria-hidden="true">📋</span>
         <span>
-          {pendingCount} change{pendingCount !== 1 ? 's' : ''} queued — will sync when back online
+          {plural(pendingCount, 'change')} queued — will sync when back online
         </span>
       </div>
     );

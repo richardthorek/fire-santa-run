@@ -213,9 +213,14 @@ function getRouteId(action: SyncAction): string {
 /**
  * Apply last-write-wins deduplication to a list of pending actions.
  *
- * For each unique `(type, brigadeId, routeId)` tuple only the action with
- * the highest `timestamp` is kept. If a `delete-route` and a `save-route`
- * target the same route, the one with the later timestamp wins.
+ * For each unique `(brigadeId, routeId)` tuple only the action with the
+ * highest `timestamp` is kept. If a `delete-route` and a `save-route` target
+ * the same route, the one with the later timestamp wins.
+ *
+ * The returned array is sorted ascending by `timestamp` so that the replay
+ * order mirrors the original write order — e.g. saving route A before saving
+ * route B is preserved even after deduplication collapses multiple saves of
+ * the same route.
  */
 export function deduplicateActions(actions: SyncAction[]): SyncAction[] {
   const winners = new Map<string, SyncAction>();
