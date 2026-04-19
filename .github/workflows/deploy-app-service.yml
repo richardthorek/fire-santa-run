@@ -73,6 +73,12 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy to App Service
     environment: copilot
+    # Prevent concurrent deployments to the same App Service, which cause 409 Conflict
+    # errors from Azure's OneDeploy. New deployments queue rather than cancel in-progress
+    # ones to ensure every commit is deployed in order.
+    concurrency:
+      group: deploy-app-service-${{ github.ref }}
+      cancel-in-progress: false
     env:
       HAS_PUBLISH_PROFILE: ${{ secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE != '' }}
       HAS_APP_SERVICE_NAME: ${{ vars.AZURE_APP_SERVICE_NAME != '' }}
@@ -134,13 +140,72 @@ jobs:
           cd deploy/server && npm ci --omit=dev
 
       # ── Deploy ─────────────────────────────────────────────────────────────
-      - name: Deploy to App Service
+      # Retry up to 3 times with a 30-second delay between attempts to handle
+      # transient Azure OneDeploy 409 Conflict errors (e.g. App Service
+      # internal lock contention from a concurrent slot-swap or restart).
+      - name: Deploy to App Service (attempt 1)
+        id: deploy_attempt_1
         if: env.HAS_PUBLISH_PROFILE == 'true' && env.HAS_APP_SERVICE_NAME == 'true'
+        continue-on-error: true
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ vars.AZURE_APP_SERVICE_NAME }}
           publish-profile: ${{ secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE }}
           package: ./deploy
+
+      - name: Wait before retry (attempt 2)
+        if: >
+          env.HAS_PUBLISH_PROFILE == 'true' &&
+          env.HAS_APP_SERVICE_NAME == 'true' &&
+          steps.deploy_attempt_1.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy to App Service (attempt 2)
+        id: deploy_attempt_2
+        if: >
+          env.HAS_PUBLISH_PROFILE == 'true' &&
+          env.HAS_APP_SERVICE_NAME == 'true' &&
+          steps.deploy_attempt_1.outcome == 'failure'
+        continue-on-error: true
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE }}
+          package: ./deploy
+
+      - name: Wait before retry (attempt 3)
+        if: >
+          env.HAS_PUBLISH_PROFILE == 'true' &&
+          env.HAS_APP_SERVICE_NAME == 'true' &&
+          steps.deploy_attempt_2.outcome == 'failure'
+        run: sleep 60
+
+      - name: Deploy to App Service (attempt 3)
+        id: deploy_attempt_3
+        if: >
+          env.HAS_PUBLISH_PROFILE == 'true' &&
+          env.HAS_APP_SERVICE_NAME == 'true' &&
+          steps.deploy_attempt_2.outcome == 'failure'
+        continue-on-error: true
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE }}
+          package: ./deploy
+
+      - name: Fail after all deployment attempts exhausted
+        if: >
+          env.HAS_PUBLISH_PROFILE == 'true' &&
+          env.HAS_APP_SERVICE_NAME == 'true' &&
+          steps.deploy_attempt_1.outcome == 'failure' &&
+          steps.deploy_attempt_2.outcome == 'failure' &&
+          steps.deploy_attempt_3.outcome == 'failure'
+        run: |
+          echo "::error::All 3 deployment attempts failed. The App Service may be unavailable or locked."
+          echo "  Attempt 1: ${{ steps.deploy_attempt_1.outcome }}"
+          echo "  Attempt 2: ${{ steps.deploy_attempt_2.outcome }}"
+          echo "  Attempt 3: ${{ steps.deploy_attempt_3.outcome }}"
+          exit 1
 
       - name: Fail if deployment config is missing
         if: env.HAS_PUBLISH_PROFILE != 'true' || env.HAS_APP_SERVICE_NAME != 'true'

@@ -6,6 +6,7 @@ import { storageAdapter } from './storage';
 import { initializeMockData } from './utils/mockData';
 import { useRoutes, useServiceWorker } from './hooks';
 import { ProtectedRoute } from './components';
+import { InstallBanner } from './components';
 import type { Route as RouteType } from './types';
 
 // Lazy load pages for code splitting
@@ -107,6 +108,9 @@ function App() {
           </button>
         </div>
       )}
+
+      {/* PWA Install Banner */}
+      <InstallBanner />
 
       {/* Dev Mode Indicator */}
       {isDevMode && (
