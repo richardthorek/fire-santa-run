@@ -335,13 +335,13 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
         setShowOffRouteBanner(true);
       });
     } else if (!offRoute) {
-      hasAnnouncedOffRouteRef.current = false;
-      if (rerouteTimeoutRef.current) {
-        clearTimeout(rerouteTimeoutRef.current);
-        rerouteTimeoutRef.current = null;
-      }
       queueMicrotask(() => {
         setShowOffRouteBanner(false);
+        hasAnnouncedOffRouteRef.current = false;
+        if (rerouteTimeoutRef.current) {
+          clearTimeout(rerouteTimeoutRef.current);
+          rerouteTimeoutRef.current = null;
+        }
       });
     }
   }, [isNavigating, position, updatedRoute, voiceEnabled, navigationState, completedWaypointIds, isRerouting, completeWaypoint, reroute]);
