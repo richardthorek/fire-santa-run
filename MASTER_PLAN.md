@@ -2623,7 +2623,21 @@ const ProtectedRoute = ({ children }) => {
   - [x] Suspense boundaries with loading fallbacks
   - [x] Bundle size reduced with chunking (split into 2 main chunks)
 - [x] **PWA manifest and service worker (optional)** - ✅ COMPLETE (Apr 2026)
-  - [x] PWA manifest.json created
+  - [x] PWA manifest.json created with full installability metadata (Issue #136)
+    - name, short_name, description, start_url, scope, display: standalone
+    - theme_color: #D32F2F, background_color: #D32F2F, lang: en-AU, orientation: portrait-primary
+    - 9 icon entries: PNG sizes 48–512px (any + maskable), SVG fallback
+    - Shortcuts: "Track Santa" quick action
+  - [x] Fire Santa Run branded app icon created (public/icon.svg)
+    - Design: flame + Santa hat on fire-red gradient background
+    - Rounded corners (rx/ry 96px ≈ 18.75% — standard app icon corner radius)
+    - Generates well at all sizes from 48px to 512px
+  - [x] All icon sizes generated as PNG: 48, 72, 96, 144, 192, 512px (public/icon-*.png)
+  - [x] Maskable icon variant (public/icon-maskable.svg + PNG) with safe zone padding
+  - [x] Apple touch icon at 180×180 (public/apple-touch-icon.png)
+  - [x] iOS PWA meta tags in index.html (apple-mobile-web-app-capable, status-bar-style, title)
+  - [x] iOS splash screens generated for 11 device sizes — iPhone SE through iPad Pro 12.9" (public/splash/)
+  - [x] Browser favicon updated from Vite placeholder to branded icon.svg
   - [x] Theme color and icons configured
   - [x] Service worker for offline support (vite-plugin-pwa + Workbox, Issue #133)
     - [x] Precaching for app shell (JS, CSS, HTML, images via `injectManifest`)
