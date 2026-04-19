@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '../hooks';
+import { useTileCache } from '../hooks/useTileCache';
 import { 
   MapView, 
   RouteStatusBadge, 
@@ -33,6 +34,8 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
   const [isArchiving, setIsArchiving] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const { isCached, isCaching, downloaded, total, error: tileError, downloadTiles, clearTileCache } =
+    useTileCache(route);
 
   useEffect(() => {
     const loadRoute = async () => {
@@ -788,6 +791,75 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
             >
               {isDuplicating ? 'Duplicating...' : '📋 Duplicate'}
             </button>
+
+            {/* Download for Offline Use Button — only shown when route has waypoints */}
+            {route.waypoints.length > 0 && (
+              <button
+                onClick={isCached ? clearTileCache : downloadTiles}
+                disabled={isCaching}
+                aria-label={
+                  isCaching
+                    ? `Downloading map tiles: ${downloaded} of ${total}`
+                    : isCached
+                    ? 'Map tiles cached — tap to clear'
+                    : 'Download map tiles for offline use'
+                }
+                style={{
+                  flex: 1,
+                  minWidth: '140px',
+                  padding: '0.75rem 1rem',
+                  background: isCached
+                    ? 'white'
+                    : `linear-gradient(135deg, ${COLORS.deepNavyBlue} 0%, ${COLORS.oceanBlue} 100%)`,
+                  color: isCached ? COLORS.deepNavyBlue : 'white',
+                  border: `2px solid ${isCached ? COLORS.deepNavyBlue : 'transparent'}`,
+                  borderRadius: FLOATING_PANEL.borderRadius.button,
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: isCaching ? 'not-allowed' : 'pointer',
+                  opacity: isCaching ? 0.8 : 1,
+                  transition: 'all 0.2s',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Progress bar fill */}
+                {isCaching && total > 0 && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'rgba(255,255,255,0.25)',
+                      width: `${Math.round((downloaded / total) * 100)}%`,
+                      transition: 'width 0.2s',
+                    }}
+                  />
+                )}
+                <span style={{ position: 'relative' }}>
+                  {isCaching
+                    ? `⬇️ ${total > 0 ? Math.round((downloaded / total) * 100) : 0}%`
+                    : isCached
+                    ? '✅ Offline Ready'
+                    : '⬇️ Save Offline'}
+                </span>
+              </button>
+            )}
+
+            {/* Offline tile error message */}
+            {tileError && (
+              <div
+                role="alert"
+                style={{
+                  flexBasis: '100%',
+                  fontSize: '0.75rem',
+                  color: COLORS.fireRed,
+                  padding: '0.25rem 0',
+                }}
+              >
+                ⚠️ {tileError}
+              </div>
+            )}
 
             {/* Delete Button */}
             <button

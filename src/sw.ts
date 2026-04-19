@@ -9,6 +9,27 @@ import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
 declare const self: ServiceWorkerGlobalScope;
 
+/**
+ * Normalise a Mapbox tile URL by removing the rotating `sku` query parameter.
+ * Mapbox appends `sku` for billing attribution; stripping it ensures the same
+ * tile always resolves to the same cache entry across requests.
+ * Used by both the CacheFirst cache-key plugin and the PRECACHE_TILES handler.
+ */
+function stripMapboxSku(url: string): string {
+  const parsed = new URL(url);
+  parsed.searchParams.delete('sku');
+  return parsed.toString();
+}
+
+/**
+ * Workbox cache-key plugin that strips the `sku` query parameter from Mapbox
+ * tile URLs before they are used as cache keys.
+ */
+const stripMapboxSkuPlugin = {
+  cacheKeyWillBeUsed: async ({ request }: { request: Request }): Promise<string> =>
+    stripMapboxSku(request.url),
+};
+
 // Precache app shell (manifest injected by vite-plugin-pwa at build time)
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
@@ -53,11 +74,14 @@ registerRoute(
 // Mapbox map tiles and API - Cache First for offline navigation
 // Tiles are large but expire after 30 days; 1000 entries supports a typical
 // Santa run route across multiple zoom levels and surrounding streets.
+// The stripMapboxSkuPlugin normalises cache keys by removing the rotating
+// `sku` parameter so pre-cached tiles are always matched on subsequent loads.
 registerRoute(
   ({ url }) => url.origin === 'https://api.mapbox.com',
   new CacheFirst({
     cacheName: 'mapbox-tiles',
     plugins: [
+      stripMapboxSkuPlugin,
       new CacheableResponsePlugin({ statuses: [0, 200] }),
       new ExpirationPlugin({
         maxEntries: 1000,
@@ -153,5 +177,38 @@ setCatchHandler(async ({ request }) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+
+  if (event.data && event.data.type === 'PRECACHE_TILES') {
+    // Pre-cache a list of tile URLs sent from the app. Tiles are stored in
+    // the same `mapbox-tiles` Cache Storage entry used by the CacheFirst
+    // strategy so they are served offline without any additional plumbing.
+    const { urls } = event.data as { urls: string[] };
+    if (!Array.isArray(urls) || urls.length === 0) return;
+
+    event.waitUntil(
+      (async () => {
+        const cache = await caches.open('mapbox-tiles');
+        for (const rawUrl of urls) {
+          try {
+            const cacheKey = stripMapboxSku(rawUrl);
+
+            // Skip tiles that are already cached
+            const existing = await cache.match(cacheKey);
+            if (existing) continue;
+
+            const response = await fetch(rawUrl, { credentials: 'omit' });
+            // Cache transparent OK responses and opaque no-cors responses.
+            // Opaque responses (response.type === 'opaque') always have ok=false,
+            // so check type first.
+            if (response.type === 'opaque' || response.ok) {
+              await cache.put(cacheKey, response);
+            }
+          } catch {
+            // Individual tile failures are silent; the app tracks progress
+          }
+        }
+      })()
+    );
   }
 });

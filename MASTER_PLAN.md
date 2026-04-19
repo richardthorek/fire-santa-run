@@ -2647,6 +2647,14 @@ const ProtectedRoute = ({ children }) => {
     - [x] SPA navigation fallback to `index.html`
     - [x] Offline fallback page (`public/offline.html`)
     - [x] `useServiceWorker` hook for registration, update detection, and one-click update banner
+    - [x] `sku` query parameter stripped from Mapbox tile cache keys (prevents cache misses)
+    - [x] `PRECACHE_TILES` service worker message handler for explicit tile pre-caching
+  - [x] Offline map tile caching (Issue #139)
+    - [x] `src/utils/tileCaching.ts` — tile math, URL generation, and download logic (zoom 10–14)
+    - [x] `src/storage/tileCacheStorage.ts` — IndexedDB metadata tracking per route
+    - [x] `src/hooks/useTileCache.ts` — React hook for download state and progress
+    - [x] "Save Offline" / "Offline Ready" button in RouteDetail with inline progress bar
+    - [x] MAX_TILES cap (2,000) to prevent excessive storage use
 
 #### Phase 6a: Pre-Authentication Data Schema Updates (NEW - Week 6)
 **🔧 Data Model Preparation for Authentication** ✅ **COMPLETED**
