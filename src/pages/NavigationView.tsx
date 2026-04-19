@@ -9,6 +9,7 @@ import { useWakeLock } from '../utils/wakeLock';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { NavigationMap } from '../components/NavigationMap';
 import { NavigationPanel } from '../components/NavigationPanel';
+import { OffRouteBanner } from '../components/OffRouteBanner';
 import { isNearWaypoint } from '../utils/navigation';
 import type { Route } from '../types';
 
@@ -34,16 +35,19 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     stopNavigation,
     completeWaypoint,
     skipToNextWaypoint,
+    reroute,
+    dismissOffRouteBanner,
   } = useNavigation({
     route,
-    onRouteComplete: async () => {
-      // Mark route as completed
+    onRouteComplete: async (finalRerouteCount) => {
+      // Mark route as completed, saving the reroute count for summary display
       // eslint-disable-next-line react-hooks/purity
       const now = Date.now(); // Capture timestamp once
       const completedRoute = {
         ...updatedRoute,
         status: 'completed' as const,
         completedAt: new Date().toISOString(),
+        rerouteCount: finalRerouteCount,
         actualDuration: updatedRoute.startedAt 
           ? Math.floor((now - new Date(updatedRoute.startedAt).getTime()) / 1000)
           : undefined,
@@ -288,6 +292,14 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
         isRerouting={navigationState.isRerouting}
       />
 
+      {/* Off-Route Banner — shown when driver is >100m from route */}
+      <OffRouteBanner
+        isVisible={navigationState.showOffRouteBanner}
+        isRerouting={navigationState.isRerouting}
+        onReroute={reroute}
+        onDismiss={dismissOffRouteBanner}
+      />
+
       {/* Voice Toggle Button */}
       <button
         onClick={() => setVoiceEnabled(!voiceEnabled)}
@@ -379,6 +391,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
         completedWaypoints={navigationState.completedWaypointIds.length}
         totalWaypoints={route.waypoints.length}
         waypoints={route.waypoints}
+        rerouteCount={navigationState.rerouteCount}
       />
     </div>
   );
