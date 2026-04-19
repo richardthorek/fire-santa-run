@@ -13,3 +13,5 @@ export { useSyncQueue } from './useSyncQueue';
 export type { SyncQueueState } from './useSyncQueue';
 export { useInstallPrompt } from './useInstallPrompt';
 export type { InstallPromptState } from './useInstallPrompt';
+export { useTileCache } from './useTileCache';
+export type { TileCacheState } from './useTileCache';
