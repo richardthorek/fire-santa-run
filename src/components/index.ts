@@ -21,6 +21,7 @@ export { ThankYouOverlay } from './ThankYouOverlay';
 export { HighlightedText } from './HighlightedText';
 export { RoutePreviewModal } from './RoutePreviewModal';
 export { OfflineBanner } from './OfflineBanner';
+export { SyncStatusBanner } from './SyncStatusBanner';
 
 // Convenience export for LoadingSkeleton (for consistency)
 export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';

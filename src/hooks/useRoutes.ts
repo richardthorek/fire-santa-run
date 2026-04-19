@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { storageAdapter } from '../storage';
 import { cacheRoutes, getCachedRoutes } from '../storage/offlineCache';
+import { enqueueAction } from '../storage/syncQueue';
 import type { Route } from '../types';
 import { useAuth } from '../context';
 import { useUserProfile } from './useUserProfile';
@@ -97,14 +98,29 @@ export function useRoutes() {
       throw new Error('User must be authenticated with a brigade to save routes');
     }
 
+    // Ensure route has brigadeId set
+    if (!route.brigadeId) {
+      route.brigadeId = brigadeIdToUse;
+    }
+
     try {
-      // Ensure route has brigadeId set
-      if (!route.brigadeId) {
-        route.brigadeId = brigadeIdToUse;
-      }
       await storageAdapter.saveRoute(brigadeIdToUse, route);
       await loadRoutes();
     } catch (err) {
+      // If offline, queue the action and optimistically update local state.
+      if (!navigator.onLine) {
+        await enqueueAction({ type: 'save-route', brigadeId: brigadeIdToUse, payload: route });
+        setRoutes(prev => {
+          const idx = prev.findIndex(r => r.id === route.id);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = route;
+            return updated;
+          }
+          return [route, ...prev];
+        });
+        return;
+      }
       const error = err instanceof Error ? err : new Error('Failed to save route');
       setError(error);
       throw error;
@@ -121,6 +137,12 @@ export function useRoutes() {
       await storageAdapter.deleteRoute(brigadeIdToUse, routeId);
       await loadRoutes();
     } catch (err) {
+      // If offline, queue the deletion and optimistically remove from local state.
+      if (!navigator.onLine) {
+        await enqueueAction({ type: 'delete-route', brigadeId: brigadeIdToUse, payload: { routeId } });
+        setRoutes(prev => prev.filter(r => r.id !== routeId));
+        return;
+      }
       const error = err instanceof Error ? err : new Error('Failed to delete route');
       setError(error);
       throw error;

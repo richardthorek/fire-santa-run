@@ -8,6 +8,7 @@
 import type { ReactNode } from 'react';
 import { AppHeader } from './AppHeader';
 import { OfflineBanner } from './OfflineBanner';
+import { SyncStatusBanner } from './SyncStatusBanner';
 import { SkipLink } from './SkipLink';
 
 export interface AppLayoutProps {
@@ -27,6 +28,7 @@ export function AppLayout({ children, showHeader = true }: AppLayoutProps) {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%' }}>
       <SkipLink />
       <OfflineBanner />
+      <SyncStatusBanner />
       {showHeader && <AppHeader />}
       <main id="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
         {children}
