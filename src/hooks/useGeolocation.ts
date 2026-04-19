@@ -173,7 +173,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
             navigator.geolocation.getCurrentPosition(
               handleSuccess,
               handleError,
-              { enableHighAccuracy: false, timeout, maximumAge: BACKGROUND_TRACKING_INTERVAL_MS }
+              { enableHighAccuracy: false, timeout, maximumAge: 0 }
             );
           }, BACKGROUND_TRACKING_INTERVAL_MS);
         }

@@ -100,7 +100,7 @@ export function useWakeLock(enabled: boolean) {
 
       // Re-acquire when page becomes visible (OS released the lock while hidden)
       const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible') {
+        if (document.visibilityState === 'visible' && enabled) {
           wakeLockService.request().then((success) => {
             setIsActive(success);
           });

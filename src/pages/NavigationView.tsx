@@ -58,7 +58,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   });
 
   // Keep screen awake during navigation (only when user has enabled the toggle)
-  const { isSupported: wakeLockSupported, isActive: wakeLockActive } = useWakeLock(
+  const { isSupported: wakeLockSupported } = useWakeLock(
     navigationState.isNavigating && keepScreenOn
   );
 
@@ -326,7 +326,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
             height: '48px',
             borderRadius: '50%',
             border: 'none',
-            backgroundColor: keepScreenOn && wakeLockActive
+            backgroundColor: keepScreenOn
               ? 'rgba(251, 192, 45, 0.95)'
               : 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(10px)',
