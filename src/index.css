@@ -276,6 +276,11 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
+/* Spinner animation for sync status indicator */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ===== BUTTON STYLE SYSTEM ===== */
 /* Consistent, reusable button styles following design hierarchy */
 
