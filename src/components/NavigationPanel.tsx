@@ -77,7 +77,7 @@ export function NavigationPanel({
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {rerouteCount > 0 && (
               <span
-                title={`Rerouted ${rerouteCount} time${rerouteCount === 1 ? '' : 's'}`}
+                title={`${rerouteCount} reroute${rerouteCount === 1 ? '' : 's'} during this run`}
                 style={{ fontSize: '0.75rem', color: '#FF7043', fontWeight: 600 }}
               >
                 🔄 {rerouteCount} reroute{rerouteCount === 1 ? '' : 's'}

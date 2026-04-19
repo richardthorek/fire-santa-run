@@ -3,7 +3,7 @@
  * Main turn-by-turn navigation interface for brigade operators
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigation, useRoutes, useLocationBroadcast } from '../hooks';
 import { useWakeLock } from '../utils/wakeLock';
 import { NavigationHeader } from '../components/NavigationHeader';
@@ -25,9 +25,6 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   const [hasStarted, setHasStarted] = useState(false);
   const { saveRoute } = useRoutes();
 
-  // Track reroute count via ref so it's always current in callbacks
-  const rerouteCountRef = useRef(0);
-
   const {
     navigationState,
     position,
@@ -42,15 +39,15 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     dismissOffRouteBanner,
   } = useNavigation({
     route,
-    onRouteComplete: async () => {
-      // Mark route as completed
+    onRouteComplete: async (finalRerouteCount) => {
+      // Mark route as completed, saving the reroute count for summary display
       // eslint-disable-next-line react-hooks/purity
       const now = Date.now(); // Capture timestamp once
       const completedRoute = {
         ...updatedRoute,
         status: 'completed' as const,
         completedAt: new Date().toISOString(),
-        rerouteCount: rerouteCountRef.current,
+        rerouteCount: finalRerouteCount,
         actualDuration: updatedRoute.startedAt 
           ? Math.floor((now - new Date(updatedRoute.startedAt).getTime()) / 1000)
           : undefined,
@@ -63,11 +60,6 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     },
     voiceEnabled,
   });
-
-  // Keep rerouteCountRef in sync with the latest value from navigationState
-  useEffect(() => {
-    rerouteCountRef.current = navigationState.rerouteCount;
-  }, [navigationState.rerouteCount]);
 
   // Keep screen awake during navigation (only when user has enabled the toggle)
   const { isSupported: wakeLockSupported } = useWakeLock(

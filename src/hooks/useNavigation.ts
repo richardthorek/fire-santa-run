@@ -44,7 +44,7 @@ export interface NavigationState {
 
 export interface UseNavigationOptions {
   route: Route;
-  onRouteComplete?: () => void;
+  onRouteComplete?: (rerouteCount: number) => void;
   onWaypointComplete?: (waypoint: Waypoint) => void;
   voiceEnabled?: boolean;
 }
@@ -210,10 +210,10 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
         });
       }
       if (onRouteComplete) {
-        onRouteComplete();
+        onRouteComplete(rerouteCount);
       }
     }
-  }, [updatedRoute, onWaypointComplete, onRouteComplete, voiceEnabled]);
+  }, [updatedRoute, onWaypointComplete, onRouteComplete, voiceEnabled, rerouteCount]);
 
   // Skip to next waypoint manually (complete current without proximity check)
   const skipToNextWaypoint = useCallback(() => {
