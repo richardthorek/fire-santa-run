@@ -50,7 +50,8 @@ export interface UseNavigationOptions {
 export function useNavigation({ route, onRouteComplete, onWaypointComplete, voiceEnabled = true }: UseNavigationOptions) {
   const { position, error: locationError, permission } = useGeolocation({ 
     watch: true, 
-    enableHighAccuracy: true 
+    enableHighAccuracy: true,
+    backgroundTracking: true,
   });
 
   const [isNavigating, setIsNavigating] = useState(false);

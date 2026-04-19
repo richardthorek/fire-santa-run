@@ -20,6 +20,7 @@ export interface NavigationViewProps {
 
 export function NavigationView({ route, onComplete, onExit }: NavigationViewProps) {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [keepScreenOn, setKeepScreenOn] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
   const { saveRoute } = useRoutes();
 
@@ -56,8 +57,10 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     voiceEnabled,
   });
 
-  // Keep screen awake during navigation
-  const { isSupported: wakeLockSupported } = useWakeLock(navigationState.isNavigating);
+  // Keep screen awake during navigation (only when user has enabled the toggle)
+  const { isSupported: wakeLockSupported, isActive: wakeLockActive } = useWakeLock(
+    navigationState.isNavigating && keepScreenOn
+  );
 
   // Broadcast location updates for real-time tracking
   const { isOnline } = useLocationBroadcast({
@@ -311,7 +314,38 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
         {voiceEnabled ? '🔊' : '🔇'}
       </button>
 
-      {/* Wake Lock Indicator */}
+      {/* Keep Screen On Toggle (only shown when Wake Lock API is supported) */}
+      {wakeLockSupported && (
+        <button
+          onClick={() => setKeepScreenOn(!keepScreenOn)}
+          style={{
+            position: 'absolute',
+            top: '7rem',
+            left: '4.5rem',
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            border: 'none',
+            backgroundColor: keepScreenOn && wakeLockActive
+              ? 'rgba(251, 192, 45, 0.95)'
+              : 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            cursor: 'pointer',
+            fontSize: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999,
+          }}
+          aria-label={keepScreenOn ? 'Disable keep screen on' : 'Enable keep screen on'}
+          aria-pressed={keepScreenOn}
+        >
+          {keepScreenOn ? '☀️' : '🌙'}
+        </button>
+      )}
+
+      {/* Wake Lock unsupported warning */}
       {!wakeLockSupported && (
         <div
           style={{
