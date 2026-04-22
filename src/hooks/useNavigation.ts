@@ -60,7 +60,6 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
   const [isRerouting, setIsRerouting] = useState(false);
   const [completedWaypointIds, setCompletedWaypointIds] = useState<string[]>([]);
   const [updatedRoute, setUpdatedRoute] = useState<Route>(route);
-  const [showOffRouteBanner, setShowOffRouteBanner] = useState(false);
   const [rerouteCount, setRerouteCount] = useState(0);
   
   const lastAnnouncedStepRef = useRef<number>(-1);
@@ -137,10 +136,10 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       isOffRoute: offRoute,
       isRerouting,
       completedWaypointIds,
-      showOffRouteBanner,
+      showOffRouteBanner: offRoute && !isRerouting,
       rerouteCount,
     };
-  }, [isNavigating, position, updatedRoute, isRerouting, completedWaypointIds, showOffRouteBanner, rerouteCount]);
+  }, [isNavigating, position, updatedRoute, isRerouting, completedWaypointIds, rerouteCount]);
 
   // Start navigation
   const startNavigation = useCallback(() => {
@@ -160,7 +159,6 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
   // Stop navigation
   const stopNavigation = useCallback(() => {
     setIsNavigating(false);
-    setShowOffRouteBanner(false);
     voiceService.cancel();
     if (rerouteTimeoutRef.current) {
       clearTimeout(rerouteTimeoutRef.current);
@@ -170,7 +168,6 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
 
   // Dismiss the off-route banner without rerouting
   const dismissOffRouteBanner = useCallback(() => {
-    setShowOffRouteBanner(false);
     hasAnnouncedOffRouteRef.current = false;
     if (rerouteTimeoutRef.current) {
       clearTimeout(rerouteTimeoutRef.current);
@@ -228,7 +225,6 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     if (!position || !navigationState.nextWaypoint || isRerouting) return;
 
     setIsRerouting(true);
-    setShowOffRouteBanner(false);
     
     try {
       // Announce rerouting
@@ -328,11 +324,9 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     }
 
     // Show off-route banner when off route (instead of auto-rerouting)
-    // Auto-dismiss banner when back on route
-    if (offRoute && !isRerouting) {
-      setShowOffRouteBanner(true);
-    } else if (!offRoute) {
-      setShowOffRouteBanner(false);
+    // hasAnnouncedOffRouteRef tracks whether an announcement has been made;
+    // reset it when the user is back on route.
+    if (!offRoute) {
       hasAnnouncedOffRouteRef.current = false;
       if (rerouteTimeoutRef.current) {
         clearTimeout(rerouteTimeoutRef.current);
