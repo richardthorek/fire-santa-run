@@ -15,3 +15,5 @@ export { useInstallPrompt } from './useInstallPrompt';
 export type { InstallPromptState } from './useInstallPrompt';
 export { useTileCache } from './useTileCache';
 export type { TileCacheState } from './useTileCache';
+export { useMediaSession } from './useMediaSession';
+export type { UseMediaSessionOptions } from './useMediaSession';
