@@ -6,8 +6,13 @@ import { PublicClientApplication, EventType } from '@azure/msal-browser'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider, BrigadeProvider } from './context'
+import { ErrorBoundary } from './components'
+import { installGlobalErrorHandlers } from './utils/errorLogger'
 import { msalConfig, isMsalConfigured, initializeMsalConfig } from './auth/msalConfig'
 import './utils/fontLoader' // Initialize async font loading (CSP-compliant)
+
+// Capture uncaught errors and unhandled promise rejections app-wide.
+installGlobalErrorHandlers();
 
 // Initialize and validate MSAL configuration
 initializeMsalConfig();
@@ -80,13 +85,15 @@ async function initializeApp() {
   }
 
   createRoot(rootElement).render(
-    <MsalProvider instance={msalInstance}>
-      <AuthProvider>
-        <BrigadeProvider>
-          <App />
-        </BrigadeProvider>
-      </AuthProvider>
-    </MsalProvider>,
+    <ErrorBoundary fullScreen>
+      <MsalProvider instance={msalInstance}>
+        <AuthProvider>
+          <BrigadeProvider>
+            <App />
+          </BrigadeProvider>
+        </AuthProvider>
+      </MsalProvider>
+    </ErrorBoundary>,
   );
 
   // Remove the loading screen after React has mounted

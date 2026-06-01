@@ -24,6 +24,8 @@ export { RoutePreviewModal } from './RoutePreviewModal';
 export { OfflineBanner } from './OfflineBanner';
 export { SyncStatusBanner } from './SyncStatusBanner';
 export { InstallBanner } from './InstallBanner';
+export { ErrorBoundary } from './ErrorBoundary';
+export type { ErrorBoundaryProps } from './ErrorBoundary';
 
 // Convenience export for LoadingSkeleton (for consistency)
 export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';

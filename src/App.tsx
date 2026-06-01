@@ -7,6 +7,7 @@ import { initializeMockData } from './utils/mockData';
 import { useRoutes, useServiceWorker } from './hooks';
 import { ProtectedRoute } from './components';
 import { InstallBanner } from './components';
+import { ErrorBoundary } from './components';
 import type { Route as RouteType } from './types';
 
 // Lazy load pages for code splitting
@@ -133,6 +134,7 @@ function App() {
       
       {/* Main Routes */}
       <div style={{ paddingTop: isDevMode ? '2.5rem' : 0, height: '100%', width: '100%' }}>
+        <ErrorBoundary label="page">
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public Routes */}
@@ -207,6 +209,7 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </div>
     </BrowserRouter>
   );
@@ -257,15 +260,17 @@ function NavigationViewWrapper() {
   }
 
   return (
-    <NavigationView
-      route={route}
-      onExit={() => {
-        navigate('/dashboard');
-      }}
-      onComplete={() => {
-        navigate('/dashboard');
-      }}
-    />
+    <ErrorBoundary label="navigation view">
+      <NavigationView
+        route={route}
+        onExit={() => {
+          navigate('/dashboard');
+        }}
+        onComplete={() => {
+          navigate('/dashboard');
+        }}
+      />
+    </ErrorBoundary>
   );
 }
 
@@ -281,8 +286,12 @@ function RouteDetailWrapper() {
 function TrackingViewWrapper() {
   const pathSegments = window.location.pathname.split('/');
   const routeId = pathSegments[pathSegments.length - 1]; // /track/:id
-  
-  return <TrackingView routeId={routeId} />;
+
+  return (
+    <ErrorBoundary label="Santa tracker">
+      <TrackingView routeId={routeId} />
+    </ErrorBoundary>
+  );
 }
 
 // 404 Page

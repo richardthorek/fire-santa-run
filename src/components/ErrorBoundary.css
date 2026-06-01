@@ -1,0 +1,110 @@
+/**
+ * ErrorBoundary fallback styles.
+ * Uses the design tokens from src/index.css — no hardcoded brand hex.
+ */
+
+.error-boundary {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+
+/* Full-screen variant for the top-level (app-wide) boundary. */
+.error-boundary--fullscreen {
+  min-height: 100vh;
+}
+
+.error-boundary__card {
+  max-width: 32rem;
+  width: 100%;
+  background: var(--candy-white);
+  border-radius: var(--border-radius);
+  box-shadow: var(--ui-shadow-emphasis);
+  padding: 2rem 1.5rem;
+}
+
+.error-boundary__emoji {
+  font-size: 3.5rem;
+  line-height: 1;
+  margin-bottom: 0.75rem;
+}
+
+.error-boundary__title {
+  font-family: var(--font-heading);
+  color: var(--fire-red);
+  font-size: 1.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.error-boundary__message {
+  font-family: var(--font-body);
+  color: var(--neutral-800);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0 0 1.5rem;
+}
+
+.error-boundary__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.error-boundary__button {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.65rem 1.4rem;
+  border-radius: var(--border-radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.error-boundary__button:active {
+  transform: translateY(1px);
+}
+
+.error-boundary__button:focus-visible {
+  outline: 3px solid var(--summer-gold-dark);
+  outline-offset: 2px;
+}
+
+.error-boundary__button--primary {
+  background: linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%);
+  color: var(--candy-white);
+  box-shadow: var(--ui-shadow);
+}
+
+.error-boundary__button--secondary {
+  background: var(--neutral-100);
+  color: var(--neutral-900);
+}
+
+/* Developer-only error detail; hidden visual noise kept compact. */
+.error-boundary__details {
+  margin-top: 1.5rem;
+  text-align: left;
+  background: var(--neutral-100);
+  border-radius: var(--border-radius-xs);
+  padding: 0.75rem 1rem;
+}
+
+.error-boundary__details summary {
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--neutral-700);
+}
+
+.error-boundary__details pre {
+  margin: 0.5rem 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+  color: var(--neutral-800);
+}
