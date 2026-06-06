@@ -58,3 +58,36 @@ export function categorizeBrigadeRoutes(routes: Route[]): CategorizedRoutes {
 export function hasPublicRoutes(routes: Route[]): boolean {
   return routes.some((r) => PUBLIC_STATUSES.has(r.status));
 }
+
+/**
+ * Sanitise a user-provided link URL for use in an <a href>. Returns the
+ * normalised URL only when it resolves to http(s); otherwise undefined. This
+ * blocks dangerous schemes such as `javascript:` and `data:` that would
+ * otherwise allow DOM-based XSS, since React does not sanitise href/src values.
+ */
+export function safeHttpUrl(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value, window.location.origin);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Sanitise a user-provided image URL for use in an <img src>. Allows http(s)
+ * and `data:image/...` (brigade logos may be stored as base64 data URLs);
+ * rejects `javascript:` and any other scheme.
+ */
+export function safeImageSrc(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value, window.location.origin);
+    if (url.protocol === 'http:' || url.protocol === 'https:') return url.href;
+    if (url.protocol === 'data:' && /^data:image\//i.test(value.trim())) return value;
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}

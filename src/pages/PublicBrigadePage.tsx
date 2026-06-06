@@ -13,7 +13,7 @@ import { Link, useParams } from 'react-router-dom';
 import { storageAdapter } from '../storage';
 import type { Brigade } from '../storage/types';
 import type { Route } from '../types';
-import { categorizeBrigadeRoutes } from '../utils/publicBrigade';
+import { categorizeBrigadeRoutes, safeHttpUrl, safeImageSrc } from '../utils/publicBrigade';
 import { RouteStatusBadge, SEO } from '../components';
 import './PublicBrigadePage.css';
 
@@ -155,6 +155,9 @@ export function PublicBrigadePage() {
     ? ({ '--brigade-accent': brigade.themeColor } as CSSProperties)
     : undefined;
   const contact = brigade.contact ?? {};
+  // Sanitise user-provided URLs before they reach href/src DOM sinks.
+  const logoSrc = safeImageSrc(brigade.logo);
+  const websiteUrl = safeHttpUrl(contact.website);
 
   return (
     <div className="pbp">
@@ -165,8 +168,8 @@ export function PublicBrigadePage() {
       />
       <div className="pbp__container">
         <header className="pbp__header" style={accentStyle}>
-          {brigade.logo ? (
-            <img className="pbp__logo" src={brigade.logo} alt={`${brigade.name} logo`} />
+          {logoSrc ? (
+            <img className="pbp__logo" src={logoSrc} alt={`${brigade.name} logo`} />
           ) : (
             <div className="pbp__logo pbp__logo--placeholder" aria-hidden="true">
               🚒
@@ -187,8 +190,8 @@ export function PublicBrigadePage() {
             </span>
 
             <div className="pbp__contact">
-              {contact.website && (
-                <a href={contact.website} target="_blank" rel="noopener noreferrer">
+              {websiteUrl && (
+                <a href={websiteUrl} target="_blank" rel="noopener noreferrer">
                   🌐 Website
                 </a>
               )}
