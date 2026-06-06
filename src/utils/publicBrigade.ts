@@ -59,10 +59,6 @@ export function hasPublicRoutes(routes: Route[]): boolean {
   return routes.some((r) => PUBLIC_STATUSES.has(r.status));
 }
 
-// Matches a string that begins with an http(s):// scheme. Used for <img src>,
-// where the data:image branch is handled separately.
-const HTTP_URL_PREFIX = /^https?:\/\//i;
-
 /**
  * Sanitise a user-provided link URL for use in an <a href>. Parses the value as
  * an absolute URL and returns the normalised `href` only when the scheme is
@@ -87,17 +83,32 @@ export function safeHttpUrl(value?: string | null): string | undefined {
 }
 
 /**
- * Sanitise a user-provided image URL for use in an <img src>. Allows absolute
- * http(s) URLs and raster `data:image/...` URLs (brigade logos may be stored as
- * base64). Excludes `data:image/svg+xml` (SVG can embed script) and every other
- * scheme.
+ * Sanitise a user-provided image URL for use in an <img src>. Parses the value
+ * with `URL` (no base, so `window.location` is never read) and returns the
+ * normalised `href` only for http(s) or raster `data:image/...` URLs. Excludes
+ * `data:image/svg+xml` (SVG can embed script) and every other scheme.
+ *
+ * Like safeHttpUrl, parsing via `URL` is the canonical safe-URL barrier: the
+ * protocol allowlist blocks `javascript:`, and `URL.href` percent-encodes HTML
+ * meta-characters.
  */
 export function safeImageSrc(value?: string | null): string | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
-  if (HTTP_URL_PREFIX.test(trimmed)) return trimmed;
-  if (/^data:image\//i.test(trimmed) && !/^data:image\/svg/i.test(trimmed)) {
-    return trimmed;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return url.href;
+    }
+    if (
+      url.protocol === 'data:' &&
+      /^data:image\//i.test(trimmed) &&
+      !/^data:image\/svg/i.test(trimmed)
+    ) {
+      return url.href;
+    }
+  } catch {
+    // Not an absolute, parseable URL.
   }
   return undefined;
 }
