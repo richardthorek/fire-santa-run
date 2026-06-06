@@ -83,6 +83,8 @@ export interface IStorageAdapter {
   // Brigade operations
   getBrigade(brigadeId: string): Promise<Brigade | null>;
   getBrigadeByRFSId(rfsStationId: string): Promise<Brigade | null>;
+  /** Look up a brigade by its public URL slug (for /brigade/:slug). */
+  getBrigadeBySlug(slug: string): Promise<Brigade | null>;
   saveBrigade(brigade: Brigade): Promise<void>;
   
   // User operations

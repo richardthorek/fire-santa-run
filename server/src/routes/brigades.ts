@@ -88,6 +88,41 @@ brigadesRouter.get('/rfs/:rfsStationId', async (c) => {
   }
 });
 
+// Public-safe projection for the unauthenticated /brigade/:slug page — omits
+// member emails, allowed domains, and admin user IDs.
+function toPublicBrigade(entity: any) {
+  const b = entityToBrigade(entity);
+  return {
+    id: b.id,
+    slug: b.slug,
+    name: b.name,
+    location: b.location,
+    rfsStationId: b.rfsStationId,
+    logo: b.logo,
+    themeColor: b.themeColor,
+    contact: b.contact,
+    isClaimed: b.isClaimed,
+    createdAt: b.createdAt,
+  };
+}
+
+// Public lookup by slug. Registered before /:id so "by-slug" is not captured
+// as an :id. Returns only public-safe fields.
+brigadesRouter.get('/by-slug/:slug', async (c) => {
+  try {
+    const slug = c.req.param('slug');
+    const client = await getTableClient(BRIGADES_TABLE);
+    const entities = client.listEntities({ queryOptions: { filter: `slug eq '${escapeODataValue(slug)}'` } });
+    for await (const entity of entities) {
+      return c.json(toPublicBrigade(entity));
+    }
+    return c.json({ error: 'Brigade not found' }, 404);
+  } catch (error) {
+    console.error('Error fetching brigade by slug:', error);
+    return c.json({ error: 'Failed to fetch brigade by slug' }, 500);
+  }
+});
+
 brigadesRouter.get('/:id', async (c) => {
   try {
     const brigadeId = c.req.param('id');

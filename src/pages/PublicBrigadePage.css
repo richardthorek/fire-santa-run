@@ -1,0 +1,202 @@
+/* Public brigade profile page (/brigade/:slug). Token-based styling. */
+
+.pbp {
+  min-height: 100vh;
+  background: var(--neutral-50);
+  color: var(--neutral-900);
+  font-family: var(--font-body);
+}
+
+.pbp__container {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+/* Header / hero */
+.pbp__header {
+  background: var(--candy-white);
+  border-radius: var(--border-radius);
+  box-shadow: var(--ui-shadow-soft);
+  padding: 1.75rem;
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+  border-top: 6px solid var(--brigade-accent, var(--fire-red));
+}
+
+.pbp__logo {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--border-radius-sm);
+  object-fit: cover;
+  background: var(--neutral-100);
+  flex-shrink: 0;
+}
+
+.pbp__logo--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.75rem;
+}
+
+.pbp__heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.pbp__name {
+  font-family: var(--font-heading);
+  font-size: 1.75rem;
+  margin: 0 0 0.25rem;
+  color: var(--neutral-900);
+}
+
+.pbp__location {
+  margin: 0;
+  color: var(--neutral-700);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pbp__badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.pbp__badge--unclaimed {
+  background: var(--sand-light);
+  color: var(--summer-gold-darker);
+}
+
+.pbp__badge--claimed {
+  background: rgba(67, 160, 71, 0.12);
+  color: var(--christmas-green);
+}
+
+/* Contact + actions */
+.pbp__contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.pbp__contact a,
+.pbp__claim {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--border-radius-sm);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.pbp__contact a {
+  background: var(--neutral-100);
+  color: var(--neutral-900);
+}
+
+.pbp__claim {
+  background: linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%);
+  color: var(--candy-white);
+  box-shadow: var(--ui-shadow);
+  border: none;
+  cursor: pointer;
+}
+
+.pbp__claim:focus-visible,
+.pbp__contact a:focus-visible {
+  outline: 3px solid var(--summer-gold-dark);
+  outline-offset: 2px;
+}
+
+/* Sections */
+.pbp__section {
+  margin-top: 1.75rem;
+}
+
+.pbp__section-title {
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  margin: 0 0 0.75rem;
+}
+
+.pbp__routes {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+}
+
+.pbp__route {
+  display: block;
+  background: var(--candy-white);
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--ui-shadow-soft);
+  padding: 1rem;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.pbp__route:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ui-shadow-emphasis);
+}
+
+.pbp__route:focus-visible {
+  outline: 3px solid var(--summer-gold-dark);
+  outline-offset: 2px;
+}
+
+.pbp__route-name {
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+}
+
+.pbp__route-meta {
+  color: var(--neutral-700);
+  font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* States */
+.pbp__state {
+  text-align: center;
+  padding: 4rem 1.5rem;
+}
+
+.pbp__state-emoji {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+}
+
+.pbp__empty {
+  color: var(--neutral-700);
+  background: var(--candy-white);
+  border-radius: var(--border-radius-sm);
+  padding: 1.25rem;
+  text-align: center;
+}
+
+@media (max-width: 30rem) {
+  .pbp__header {
+    flex-direction: column;
+    text-align: center;
+    align-items: center;
+  }
+  .pbp__contact {
+    justify-content: center;
+  }
+}

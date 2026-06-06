@@ -16,6 +16,7 @@ const Dashboard = lazy(() => import('./pages').then(m => ({ default: m.Dashboard
 const RouteEditor = lazy(() => import('./pages').then(m => ({ default: m.RouteEditor })));
 const NavigationView = lazy(() => import('./pages').then(m => ({ default: m.NavigationView })));
 const TrackingView = lazy(() => import('./pages').then(m => ({ default: m.TrackingView })));
+const PublicBrigadePage = lazy(() => import('./pages').then(m => ({ default: m.PublicBrigadePage })));
 const RouteDetail = lazy(() => import('./pages').then(m => ({ default: m.RouteDetail })));
 const ProfilePage = lazy(() => import('./pages').then(m => ({ default: m.ProfilePage })));
 const BrigadeClaimingPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeClaimingPage })));
@@ -140,6 +141,11 @@ function App() {
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/track/:id" element={<TrackingViewWrapper />} />
+            <Route path="/brigade/:slug" element={
+              <ErrorBoundary label="brigade page">
+                <PublicBrigadePage />
+              </ErrorBoundary>
+            } />
             
             {/* Authentication Routes */}
             <Route path="/login" element={<Navigate to={`/${window.location.search}`} replace />} />

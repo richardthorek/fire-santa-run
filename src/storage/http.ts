@@ -298,6 +298,17 @@ export class HttpStorageAdapter implements IStorageAdapter {
     return await this.parseJsonResponse(response);
   }
 
+  async getBrigadeBySlug(slug: string): Promise<Brigade | null> {
+    const response = await fetch(`${this.apiBaseUrl}/brigades/by-slug/${encodeURIComponent(slug)}`);
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Failed to fetch brigade by slug: ${response.statusText}`);
+    }
+    return await this.parseJsonResponse(response);
+  }
+
   async saveBrigade(brigade: Brigade): Promise<void> {
     const existingBrigade = await this.getBrigade(brigade.id);
     

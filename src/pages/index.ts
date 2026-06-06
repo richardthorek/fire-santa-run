@@ -2,6 +2,7 @@ export { Dashboard } from './Dashboard';
 export { RouteEditor } from './RouteEditor';
 export { NavigationView } from './NavigationView';
 export { TrackingView } from './TrackingView';
+export { PublicBrigadePage } from './PublicBrigadePage';
 export { RouteDetail } from './RouteDetail';
 export { ProfilePage } from './ProfilePage';
 export { BrigadeClaimingPage } from './BrigadeClaimingPage';

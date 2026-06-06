@@ -286,6 +286,46 @@ app.http('brigades-get-by-rfs', {
   }
 });
 
+// Public-safe projection for the unauthenticated /brigade/:slug page.
+function toPublicBrigade(entity: any) {
+  const b = entityToBrigade(entity);
+  return {
+    id: b.id,
+    slug: b.slug,
+    name: b.name,
+    location: b.location,
+    rfsStationId: b.rfsStationId,
+    logo: b.logo,
+    themeColor: b.themeColor,
+    contact: b.contact,
+    isClaimed: b.isClaimed,
+    createdAt: b.createdAt,
+  };
+}
+
+app.http('brigades-get-by-slug', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'brigades/by-slug/{slug}',
+  handler: async (request, context) => {
+    try {
+      const slug = request.params.slug;
+      if (!slug) {
+        return { status: 400, jsonBody: { error: 'Missing required parameter: slug' } };
+      }
+      const client = await resolveBrigadesClient();
+      const entities = client.listEntities({ queryOptions: { filter: `slug eq '${slug.replace(/'/g, "''")}'` } });
+      for await (const entity of entities) {
+        return { status: 200, jsonBody: toPublicBrigade(entity) };
+      }
+      return { status: 404, jsonBody: { error: 'Brigade not found' } };
+    } catch (error: any) {
+      context.error('Error fetching brigade by slug:', error);
+      return { status: 500, jsonBody: { error: 'Failed to fetch brigade by slug' } };
+    }
+  }
+});
+
 app.http('brigades-get', {
   methods: ['GET'],
   authLevel: 'anonymous',

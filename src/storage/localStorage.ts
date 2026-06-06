@@ -110,6 +110,23 @@ export class LocalStorageAdapter implements IStorageAdapter {
     return null;
   }
 
+  async getBrigadeBySlug(slug: string): Promise<Brigade | null> {
+    // localStorage has no indexes; iterate brigade keys (efficient query in Azure).
+    const brigadeKeys = Object.keys(localStorage).filter(k => k.includes('_brigade'));
+
+    for (const key of brigadeKeys) {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const brigade: Brigade = JSON.parse(stored);
+        if (brigade.slug === slug) {
+          return brigade;
+        }
+      }
+    }
+
+    return null;
+  }
+
   async saveBrigade(brigade: Brigade): Promise<void> {
     const key = this.getStorageKey(brigade.id, 'brigade');
     localStorage.setItem(key, JSON.stringify(brigade));
