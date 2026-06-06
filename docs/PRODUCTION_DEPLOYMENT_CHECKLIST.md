@@ -40,6 +40,27 @@ This comprehensive checklist ensures all critical steps are completed before and
 - [ ] Deployment guide reviewed and updated
 - [ ] Changelog updated with release notes
 
+### Environment Configuration Validation
+
+Startup validators fail fast on bad config: the client (`src/config/env.ts`) shows
+a fatal-config screen instead of a blank page; the server
+(`server/src/utils/configValidation.ts`) refuses to start without storage.
+
+Required for production (`VITE_DEV_MODE=false` / `DEV_MODE=false`):
+
+| Variable | Side | Severity if missing |
+| --- | --- | --- |
+| `VITE_MAPBOX_TOKEN` (public `pk.` token) | client (build) | **fatal** — maps/geocoding/directions broken |
+| `VITE_ENTRA_CLIENT_ID` / `VITE_ENTRA_TENANT_ID` / `VITE_ENTRA_AUTHORITY` | client (build) | **fatal** — auth cannot initialise |
+| `VITE_ENTRA_REDIRECT_URI` | client (build) | warning — falls back to `origin/auth/callback` |
+| `AZURE_STORAGE_CONNECTION_STRING` | server (App Service) | **fatal** — no data persistence |
+| `AZURE_WEBPUBSUB_CONNECTION_STRING` | server (App Service) | warning — no live broadcasting |
+
+- [ ] All variables above set for the target environment (see `.env.example`)
+- [ ] `VITE_ENTRA_AUTHORITY` is tenant-specific (no `/common`, no `/oauth2/.../authorize`)
+- [ ] Mapbox token is a public `pk.` token with URL restrictions (never an `sk.` secret)
+- [ ] Verified the app boots cleanly (no fatal-config screen, no `[config] FATAL` logs)
+
 ### Version Control
 
 - [ ] All changes committed to feature branch

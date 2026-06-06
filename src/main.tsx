@@ -8,14 +8,12 @@ import App from './App.tsx'
 import { AuthProvider, BrigadeProvider } from './context'
 import { ErrorBoundary } from './components'
 import { installGlobalErrorHandlers } from './utils/errorLogger'
-import { msalConfig, isMsalConfigured, initializeMsalConfig } from './auth/msalConfig'
+import { validateClientEnv, EnvironmentConfigError } from './config/env'
+import { msalConfig, isMsalConfigured } from './auth/msalConfig'
 import './utils/fontLoader' // Initialize async font loading (CSP-compliant)
 
 // Capture uncaught errors and unhandled promise rejections app-wide.
 installGlobalErrorHandlers();
-
-// Initialize and validate MSAL configuration
-initializeMsalConfig();
 
 // Create MSAL instance
 // In dev mode or when MSAL is not configured, we create a minimal instance
@@ -39,10 +37,53 @@ const msalInstance = isMsalConfigured()
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (window as any).__msalInstance = msalInstance;
 
+/**
+ * Render a minimal, dependency-free fatal-configuration screen directly into
+ * #root. Used when environment validation fails in production so operators see
+ * a clear message instead of a blank white page.
+ */
+function renderFatalConfigError(error: unknown): void {
+  const problems =
+    error instanceof EnvironmentConfigError
+      ? error.problems
+      : [error instanceof Error ? error.message : String(error)];
+
+  const rootElement = document.getElementById('root');
+  if (rootElement) {
+    rootElement.innerHTML = `
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;font-family:system-ui,sans-serif;background:#FAFAFA;color:#212121;">
+        <div style="max-width:34rem;width:100%;background:#fff;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.2);padding:2rem;">
+          <div style="font-size:3rem;margin-bottom:0.5rem;">🎅🔧</div>
+          <h1 style="color:#D32F2F;font-size:1.4rem;margin:0 0 0.75rem;">Configuration problem</h1>
+          <p style="margin:0 0 1rem;line-height:1.6;">Fire Santa Run can't start because some required settings are missing or invalid:</p>
+          <ul style="margin:0 0 1rem;padding-left:1.25rem;line-height:1.6;">
+            ${problems.map((p) => `<li>${p.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string))}</li>`).join('')}
+          </ul>
+          <p style="margin:0;color:#616161;font-size:0.9rem;">See <code>.env.example</code> and <code>docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md</code>.</p>
+        </div>
+      </div>`;
+  }
+
+  try {
+    document.getElementById('msal-loading')?.remove();
+  } catch {
+    /* no-op */
+  }
+}
+
 // Initialize MSAL and render app
 // CRITICAL: We must wait for handleRedirectPromise() to complete BEFORE rendering React
 // This prevents race conditions on iOS Safari where the app renders before auth completes
 async function initializeApp() {
+  // Fail fast on invalid configuration with a clear, user-visible message.
+  try {
+    validateClientEnv();
+  } catch (error) {
+    console.error('[env] Fatal configuration error:', error);
+    renderFatalConfigError(error);
+    return;
+  }
+
   if (isMsalConfigured()) {
     try {
       // Initialize MSAL instance
