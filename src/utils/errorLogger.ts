@@ -63,3 +63,67 @@ export function installGlobalErrorHandlers(): void {
     logClientError(error, { source: 'unhandledrejection' });
   });
 }
+
+/**
+ * Decide whether a given error report should be sent, based on a sample rate
+ * in [0, 1]. Exposed for testing. 1 = always, 0 = never.
+ */
+export function shouldSample(sampleRate: number, random: number = Math.random()): boolean {
+  if (sampleRate >= 1) return true;
+  if (sampleRate <= 0) return false;
+  return random < sampleRate;
+}
+
+/**
+ * Install a best-effort reporter that forwards client errors to the backend
+ * sink (`POST /api/client-errors`), where App Service / App Insights captures
+ * them. Safe to call once at startup.
+ *
+ * Guards against feedback loops: a failure inside the reporter is swallowed and
+ * never re-reported, so a flaky network can't amplify into an error storm.
+ */
+export function installClientErrorReporter(options?: {
+  endpoint?: string;
+  sampleRate?: number;
+}): void {
+  if (typeof window === 'undefined') return;
+
+  const endpoint = options?.endpoint ?? '/api/client-errors';
+  const sampleRate = options?.sampleRate ?? 1;
+
+  // Preserve any existing subscriber (e.g. a test or future App Insights hook).
+  const existing = window.__onClientError;
+  let reporting = false;
+
+  window.__onClientError = (error, context) => {
+    existing?.(error, context);
+
+    // Never report while already inside a report (loop guard).
+    if (reporting) return;
+    if (!shouldSample(sampleRate)) return;
+
+    reporting = true;
+    try {
+      const payload = JSON.stringify({
+        message: error.message,
+        stack: error.stack,
+        source: context.source,
+        url: window.location.href,
+        userAgent: navigator.userAgent,
+      });
+      // keepalive lets the request survive a page unload after a fatal error.
+      void fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {
+        /* swallow — reporting failures must never re-trigger reporting */
+      });
+    } catch {
+      /* never throw from the reporter */
+    } finally {
+      reporting = false;
+    }
+  };
+}

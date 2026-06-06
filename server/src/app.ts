@@ -11,12 +11,15 @@ import { verificationRouter } from './routes/verification.js';
 import { adminVerificationRouter } from './routes/admin-verification.js';
 import { claimRouter } from './routes/claim.js';
 import { analyticsRouter } from './routes/analytics.js';
+import { healthRouter } from './routes/health.js';
+import { telemetryRouter } from './routes/telemetry.js';
 
 export function createApp() {
   const app = new Hono();
 
-  // Health check
-  app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
+  // Health, readiness, and client telemetry ingestion.
+  app.route('/api', healthRouter);
+  app.route('/api', telemetryRouter);
 
   // API routes
   app.route('/api/brigades', brigadesRouter);

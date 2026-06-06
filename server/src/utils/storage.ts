@@ -15,6 +15,32 @@ const serviceClient = STORAGE_CONNECTION_STRING
   : null;
 
 /**
+ * Lightweight reachability probe for readiness checks. Lists at most one table
+ * to confirm the account is reachable. Never throws.
+ */
+export async function pingStorage(): Promise<StorageHealth> {
+  if (!serviceClient) {
+    return { configured: false, ok: false, error: 'connection string not configured' };
+  }
+  try {
+    const page = serviceClient.listTables().byPage({ maxPageSize: 1 });
+    await page.next();
+    return { configured: true, ok: true };
+  } catch (error) {
+    return { configured: true, ok: false, error: (error as Error).message };
+  }
+}
+
+export interface StorageHealth {
+  /** Whether a connection string is present. */
+  configured: boolean;
+  /** Whether the storage account responded to a lightweight request. */
+  ok: boolean;
+  /** Error detail when `ok` is false. */
+  error?: string;
+}
+
+/**
  * Get a TableClient and auto-create the table if it does not exist.
  */
 export async function getTableClient(tableName: string): Promise<TableClient> {

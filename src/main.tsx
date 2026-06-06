@@ -7,13 +7,18 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider, BrigadeProvider } from './context'
 import { ErrorBoundary } from './components'
-import { installGlobalErrorHandlers } from './utils/errorLogger'
-import { validateClientEnv, EnvironmentConfigError } from './config/env'
+import { installGlobalErrorHandlers, installClientErrorReporter } from './utils/errorLogger'
+import { validateClientEnv, EnvironmentConfigError, isProductionMode } from './config/env'
 import { msalConfig, isMsalConfigured } from './auth/msalConfig'
 import './utils/fontLoader' // Initialize async font loading (CSP-compliant)
 
 // Capture uncaught errors and unhandled promise rejections app-wide.
 installGlobalErrorHandlers();
+
+// In production, forward client errors to the backend sink for monitoring.
+if (isProductionMode()) {
+  installClientErrorReporter();
+}
 
 // Create MSAL instance
 // In dev mode or when MSAL is not configured, we create a minimal instance

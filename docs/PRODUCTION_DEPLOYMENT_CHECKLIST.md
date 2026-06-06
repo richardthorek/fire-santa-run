@@ -438,16 +438,28 @@ Required for production (`VITE_DEV_MODE=false` / `DEV_MODE=false`):
 
 ### Health Checks
 
-- [ ] `/api/health` endpoint (if created) returning 200
-- [ ] Uptime monitoring configured (Azure Monitor, external)
+Endpoints (implemented in both `server/` and `api/`):
+
+| Endpoint | Purpose | Healthy response |
+| --- | --- | --- |
+| `GET /api/health` | **Liveness** — cheap, no external calls. Point availability tests here. | `200 { status: "ok", version, uptimeSeconds }` |
+| `GET /api/ready` | **Readiness** — probes Table Storage + reports Web PubSub config. | `200 { status: "ready" }`, or `503 { status: "not_ready" }` when storage is unreachable |
+
+- [ ] Azure Monitor availability test targets `GET /api/health` (not `/ready`, to avoid storage cost on every probe)
+- [ ] App Service health-check path set to `/api/health`
+- [ ] Alert when `/api/ready` returns 503 (storage down)
 - [ ] SSL certificate expiration monitoring
 - [ ] Domain expiration monitoring (if custom domain)
 
 ### Error Tracking
 
-- [ ] Error logs monitored (Azure Static Web Apps logs)
-- [ ] API function errors logged
-- [ ] Client-side errors captured (if error tracking service used)
+Client errors are forwarded to `POST /api/client-errors` (production only, via
+`installClientErrorReporter`) and logged server-side as `[client-error] {...}`
+single-line JSON, captured by App Service / Application Insights.
+
+- [ ] Log query / alert on `[client-error]` and `[config] FATAL` log lines
+- [ ] API function errors logged and reviewed
+- [ ] Client-side error volume dashboard (App Insights)
 - [ ] Weekly error review scheduled
 
 ---
