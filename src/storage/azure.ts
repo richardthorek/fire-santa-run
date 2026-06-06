@@ -216,6 +216,21 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
     }
   }
 
+  async getBrigades(): Promise<Brigade[]> {
+    try {
+      const brigades: Brigade[] = [];
+      for await (const entity of this.brigadesClient.listEntities()) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { partitionKey, rowKey, timestamp, etag, ...brigadeData } = entity;
+        brigades.push(brigadeData as unknown as Brigade);
+      }
+      return brigades;
+    } catch (error) {
+      console.error('Failed to list brigades from Azure Table Storage:', error);
+      throw new Error('Failed to list brigades');
+    }
+  }
+
   async getBrigade(brigadeId: string): Promise<Brigade | null> {
     try {
       const entity = await this.brigadesClient.getEntity('brigades', brigadeId);

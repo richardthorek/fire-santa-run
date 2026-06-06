@@ -13,6 +13,8 @@ export interface NavigationPanelProps {
   nextWaypoint: Waypoint | null;
   distanceToWaypoint: number;
   eta: string | null;
+  /** Minutes ahead (positive) or behind (negative) schedule. Null until first waypoint is completed. */
+  scheduleVarianceMinutes?: number | null;
   routeProgress: number;
   canCompleteWaypoint: boolean;
   onCompleteWaypoint: () => void;
@@ -28,6 +30,7 @@ export function NavigationPanel({
   nextWaypoint,
   distanceToWaypoint,
   eta,
+  scheduleVarianceMinutes = null,
   routeProgress,
   canCompleteWaypoint,
   onCompleteWaypoint,
@@ -75,6 +78,27 @@ export function NavigationPanel({
             Route Progress
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {scheduleVarianceMinutes !== null && (
+              <span
+                title={
+                  scheduleVarianceMinutes >= 0
+                    ? `${scheduleVarianceMinutes} min ahead of schedule`
+                    : `${Math.abs(scheduleVarianceMinutes)} min behind schedule`
+                }
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  color: scheduleVarianceMinutes >= 0 ? '#43A047' : '#D32F2F',
+                  backgroundColor: scheduleVarianceMinutes >= 0 ? '#E8F5E9' : '#FFEBEE',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                }}
+              >
+                {scheduleVarianceMinutes >= 0 ? '▲' : '▼'}{' '}
+                {Math.abs(scheduleVarianceMinutes)} min{' '}
+                {scheduleVarianceMinutes >= 0 ? 'ahead' : 'behind'}
+              </span>
+            )}
             {rerouteCount > 0 && (
               <span
                 title={`${rerouteCount} reroute${rerouteCount === 1 ? '' : 's'} during this run`}

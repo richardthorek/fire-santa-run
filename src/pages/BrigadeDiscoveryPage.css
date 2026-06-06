@@ -1,0 +1,305 @@
+/* Brigade Discovery Page — /brigades */
+
+/* Screen-reader only utility used in this page */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.bdp {
+  min-height: 100vh;
+  background: var(--neutral-50, #fafafa);
+}
+
+/* Hero */
+.bdp__hero {
+  background: linear-gradient(135deg, var(--fire-red, #d32f2f) 0%, #b71c1c 100%);
+  color: white;
+  padding: 3rem 1rem 2.5rem;
+  text-align: center;
+}
+
+.bdp__hero-inner {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.bdp__hero-emoji {
+  font-size: 3rem;
+  line-height: 1;
+  margin-bottom: 0.75rem;
+}
+
+.bdp__hero-title {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  font-weight: 800;
+  margin: 0 0 0.5rem;
+}
+
+.bdp__hero-desc {
+  font-size: 1.0625rem;
+  opacity: 0.9;
+  margin: 0 0 1.5rem;
+}
+
+.bdp__search-wrap {
+  position: relative;
+}
+
+.bdp__search {
+  width: 100%;
+  padding: 0.875rem 1.25rem;
+  border: none;
+  border-radius: var(--border-radius-lg, 12px);
+  font-size: 1rem;
+  font-family: var(--font-body, 'Nunito', sans-serif);
+  color: var(--neutral-900, #212121);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+}
+
+.bdp__search:focus {
+  outline: 3px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+
+/* Content */
+.bdp__content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+
+/* Filters */
+.bdp__filters {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.25rem;
+  background: white;
+  border-radius: var(--border-radius-lg, 12px);
+  box-shadow: var(--ui-shadow-sm, 0 1px 3px rgba(0,0,0,0.08));
+}
+
+.bdp__filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bdp__filter-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--neutral-700, #616161);
+}
+
+.bdp__select {
+  padding: 0.4rem 0.75rem;
+  border: 1.5px solid var(--neutral-200, #e0e0e0);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-family: var(--font-body, 'Nunito', sans-serif);
+  color: var(--neutral-900, #212121);
+  background: white;
+  cursor: pointer;
+}
+
+.bdp__select:focus {
+  outline: none;
+  border-color: var(--fire-red, #d32f2f);
+}
+
+.bdp__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--neutral-700, #616161);
+  cursor: pointer;
+  user-select: none;
+}
+
+.bdp__toggle input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--fire-red, #d32f2f);
+}
+
+/* Result count */
+.bdp__result-count {
+  font-size: 0.875rem;
+  color: var(--neutral-600, #757575);
+  margin: 0 0 1rem;
+}
+
+/* States and loading */
+.bdp__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--neutral-600, #757575);
+}
+
+.bdp__state-emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+/* Card grid */
+.bdp__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.bdp__card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: var(--border-radius-lg, 12px);
+  box-shadow: var(--ui-shadow-sm, 0 1px 3px rgba(0,0,0,0.08));
+  text-decoration: none;
+  color: inherit;
+  border: 2px solid transparent;
+  transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s;
+  position: relative;
+}
+
+.bdp__card:hover,
+.bdp__card:focus-visible {
+  border-color: var(--fire-red, #d32f2f);
+  box-shadow: 0 4px 16px rgba(211, 47, 47, 0.15);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.bdp__card-logo {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--neutral-100, #f5f5f5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 1.75rem;
+  border: 2px solid var(--neutral-200, #e0e0e0);
+}
+
+.bdp__card-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bdp__card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.bdp__card-name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--neutral-900, #212121);
+  margin: 0 0 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bdp__card-location {
+  font-size: 0.8125rem;
+  color: var(--neutral-600, #757575);
+  margin: 0 0 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bdp__state-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fire-red, #d32f2f);
+  background: #FFEBEE;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.bdp__unclaimed-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--neutral-600, #757575);
+  background: var(--neutral-100, #f5f5f5);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--neutral-200, #e0e0e0);
+}
+
+/* Claim CTA */
+.bdp__claim-cta {
+  text-align: center;
+  padding: 2rem 1rem;
+  background: white;
+  border-radius: var(--border-radius-lg, 12px);
+  box-shadow: var(--ui-shadow-sm, 0 1px 3px rgba(0,0,0,0.08));
+  border: 2px dashed var(--neutral-200, #e0e0e0);
+}
+
+.bdp__claim-cta p {
+  color: var(--neutral-600, #757575);
+  margin: 0 0 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.bdp__claim-link {
+  display: inline-block;
+  padding: 0.625rem 1.5rem;
+  background: linear-gradient(135deg, var(--fire-red, #d32f2f) 0%, #b71c1c 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  border-radius: var(--border-radius, 8px);
+  text-decoration: none;
+  transition: filter 0.18s, transform 0.18s;
+}
+
+.bdp__claim-link:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 480px) {
+  .bdp__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bdp__filters {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}

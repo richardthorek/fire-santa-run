@@ -22,6 +22,7 @@ const ProfilePage = lazy(() => import('./pages').then(m => ({ default: m.Profile
 const BrigadeClaimingPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeClaimingPage })));
 const MemberManagementPage = lazy(() => import('./pages').then(m => ({ default: m.MemberManagementPage })));
 const BrigadeSettingsPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeSettingsPage })));
+const BrigadeDiscoveryPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeDiscoveryPage })));
 const InvitationAcceptancePage = lazy(() => import('./pages').then(m => ({ default: m.InvitationAcceptancePage })));
 const LogoutPage = lazy(() => import('./pages').then(m => ({ default: m.LogoutPage })));
 const CallbackPage = lazy(() => import('./pages').then(m => ({ default: m.CallbackPage })));
@@ -147,6 +148,7 @@ function App() {
                 <PublicBrigadePage />
               </ErrorBoundary>
             } />
+            <Route path="/brigades" element={<BrigadeDiscoveryPage />} />
             
             {/* Authentication Routes */}
             <Route path="/login" element={<Navigate to={`/${window.location.search}`} replace />} />

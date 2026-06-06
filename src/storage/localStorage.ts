@@ -85,6 +85,25 @@ export class LocalStorageAdapter implements IStorageAdapter {
     localStorage.setItem(key, JSON.stringify(filtered));
   }
 
+  async getBrigades(): Promise<Brigade[]> {
+    // Collect all brigade records stored under any brigadeId key
+    const brigades: Brigade[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.endsWith(':brigade')) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
+            brigades.push(JSON.parse(stored) as Brigade);
+          } catch {
+            // Skip malformed entries
+          }
+        }
+      }
+    }
+    return brigades;
+  }
+
   async getBrigade(brigadeId: string): Promise<Brigade | null> {
     const key = this.getStorageKey(brigadeId, 'brigade');
     const stored = localStorage.getItem(key);

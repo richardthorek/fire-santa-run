@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 import { SEO } from '../components';
 import { COLORS } from '../utils/constants';
@@ -216,6 +216,17 @@ export function LandingPage() {
                 opacity: 0.9,
               }}>
                 Use a government provided email (e.g. .gov.au) to avoid secondary verification as a Fire Brigade member.              </p>
+
+              {/* Brigade discovery link */}
+              <p style={{ marginTop: '1.25rem', marginBottom: 0, fontSize: '0.9rem', opacity: 0.95 }}>
+                Looking for your local brigade?{' '}
+                <Link
+                  to="/brigades"
+                  style={{ color: 'white', fontWeight: 700, textDecoration: 'underline' }}
+                >
+                  Browse all brigades →
+                </Link>
+              </p>
             </div>
           </div>
         </section>

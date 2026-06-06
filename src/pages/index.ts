@@ -8,6 +8,7 @@ export { ProfilePage } from './ProfilePage';
 export { BrigadeClaimingPage } from './BrigadeClaimingPage';
 export { MemberManagementPage } from './MemberManagementPage';
 export { BrigadeSettingsPage } from './BrigadeSettingsPage';
+export { BrigadeDiscoveryPage } from './BrigadeDiscoveryPage';
 export { InvitationAcceptancePage } from './InvitationAcceptancePage';
 export { LandingPage } from './LandingPage';
 export { LoginPage, LogoutPage, CallbackPage } from './auth';

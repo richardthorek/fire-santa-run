@@ -1,0 +1,174 @@
+/* OnboardingChecklist — getting-started banner for new brigade admins */
+
+.onb {
+  background: linear-gradient(135deg, #fff8e1 0%, #fff3cd 100%);
+  border: 2px solid var(--summer-gold, #ffa726);
+  border-radius: var(--border-radius-lg, 12px);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--ui-shadow-sm, 0 1px 3px rgba(0,0,0,0.08));
+}
+
+.onb__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+
+.onb__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.onb__emoji {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.onb__title {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--neutral-900, #212121);
+  margin: 0 0 0.1rem;
+}
+
+.onb__subtitle {
+  font-size: 0.8125rem;
+  color: var(--neutral-700, #616161);
+  margin: 0;
+}
+
+.onb__dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: var(--neutral-500, #9e9e9e);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+
+.onb__dismiss:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--neutral-800, #424242);
+}
+
+/* Progress bar */
+.onb__progress-bar {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.onb__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--summer-gold, #ffa726) 0%, #fb8c00 100%);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* Steps */
+.onb__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.onb__step {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.9375rem;
+}
+
+.onb__step--done .onb__step-label {
+  color: var(--neutral-500, #9e9e9e);
+  text-decoration: line-through;
+}
+
+.onb__step-icon {
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.onb__step-label {
+  flex: 1;
+  color: var(--neutral-800, #424242);
+}
+
+.onb__step-cta {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--fire-red, #d32f2f);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.onb__step-cta:hover {
+  text-decoration: underline;
+}
+
+/* All-done banner */
+.onb__all-done {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 167, 38, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.onb__all-done p {
+  flex: 1;
+  font-size: 0.9375rem;
+  color: var(--neutral-700, #616161);
+  margin: 0;
+}
+
+.onb__btn {
+  padding: 0.5rem 1.125rem;
+  background: linear-gradient(135deg, var(--summer-gold, #ffa726) 0%, #fb8c00 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 0.875rem;
+  border: none;
+  border-radius: var(--border-radius, 8px);
+  cursor: pointer;
+  font-family: var(--font-body, 'Nunito', sans-serif);
+  transition: filter 0.15s;
+  white-space: nowrap;
+}
+
+.onb__btn:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 480px) {
+  .onb__step {
+    flex-wrap: wrap;
+  }
+
+  .onb__step-cta {
+    margin-left: calc(1.125rem + 0.625rem);
+  }
+
+  .onb__all-done {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

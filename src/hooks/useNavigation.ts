@@ -34,6 +34,8 @@ export interface NavigationState {
   nextWaypoint: Waypoint | null;
   distanceToNextWaypoint: number;
   etaToNextWaypoint: string | null;
+  /** Minutes ahead (positive) or behind (negative) the planned schedule. Null until a waypoint with both estimatedArrival and actualArrival exists. */
+  scheduleVarianceMinutes: number | null;
   routeProgress: number;
   isOffRoute: boolean;
   isRerouting: boolean;
@@ -87,6 +89,7 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
         nextWaypoint: null,
         distanceToNextWaypoint: 0,
         etaToNextWaypoint: null,
+        scheduleVarianceMinutes: null,
         routeProgress: 0,
         isOffRoute: false,
         isRerouting,
@@ -124,6 +127,19 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     // Check if off route
     const offRoute = isOffRoute(userLocation, updatedRoute.geometry, 100);
 
+    // Schedule variance: compare estimatedArrival vs actualArrival for the last
+    // completed waypoint that has both timestamps set. Positive = arrived early.
+    const completedWithTimes = updatedRoute.waypoints.filter(
+      (wp) => wp.isCompleted && wp.estimatedArrival && wp.actualArrival,
+    );
+    let scheduleVarianceMinutes: number | null = null;
+    if (completedWithTimes.length > 0) {
+      const last = completedWithTimes[completedWithTimes.length - 1];
+      const estimatedMs = new Date(last.estimatedArrival!).getTime();
+      const actualMs = new Date(last.actualArrival!).getTime();
+      scheduleVarianceMinutes = Math.round((estimatedMs - actualMs) / 60_000);
+    }
+
     return {
       isNavigating,
       currentStepIndex: stepIndex,
@@ -132,6 +148,7 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       nextWaypoint,
       distanceToNextWaypoint,
       etaToNextWaypoint: eta ? formatETA(eta) : null,
+      scheduleVarianceMinutes,
       routeProgress: progress,
       isOffRoute: offRoute,
       isRerouting,
