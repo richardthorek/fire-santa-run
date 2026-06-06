@@ -59,25 +59,31 @@ export function hasPublicRoutes(routes: Route[]): boolean {
   return routes.some((r) => PUBLIC_STATUSES.has(r.status));
 }
 
-// Matches a string that begins with an http(s):// scheme. An anchored,
-// scheme-prefix test like this is a recognised URL sanitiser: anything starting
-// with `https://` is a navigable web URL and cannot be a `javascript:`/`data:`
-// payload. Leading junk (e.g. `java\tscript:`) fails the anchor and is rejected.
+// Matches a string that begins with an http(s):// scheme. Used for <img src>,
+// where the data:image branch is handled separately.
 const HTTP_URL_PREFIX = /^https?:\/\//i;
 
 /**
- * Sanitise a user-provided link URL for use in an <a href>. Returns the URL
- * only when it is an absolute http(s) URL; otherwise undefined. Blocks
- * `javascript:`, `data:`, and other dangerous schemes that React does not
- * sanitise.
+ * Sanitise a user-provided link URL for use in an <a href>. Parses the value as
+ * an absolute URL and returns the normalised `href` only when the scheme is
+ * http(s); otherwise undefined.
+ *
+ * Parsing via `URL` (with no base, so `window.location` is never read) is the
+ * canonical safe-URL barrier: the protocol allowlist blocks `javascript:` /
+ * `data:` schemes, and `URL.href` percent-encodes any HTML meta-characters so
+ * they cannot break out of the href attribute.
  */
 export function safeHttpUrl(value?: string | null): string | undefined {
   if (!value) return undefined;
-  const trimmed = value.trim();
-  if (!HTTP_URL_PREFIX.test(trimmed)) return undefined;
-  // Percent-encode so any HTML meta-characters in the URL cannot break out of
-  // the href attribute. The scheme check above already blocks javascript:/data:.
-  return encodeURI(trimmed);
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return url.href;
+    }
+  } catch {
+    // Not an absolute, parseable URL.
+  }
+  return undefined;
 }
 
 /**
