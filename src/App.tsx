@@ -21,6 +21,7 @@ const RouteDetail = lazy(() => import('./pages').then(m => ({ default: m.RouteDe
 const ProfilePage = lazy(() => import('./pages').then(m => ({ default: m.ProfilePage })));
 const BrigadeClaimingPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeClaimingPage })));
 const MemberManagementPage = lazy(() => import('./pages').then(m => ({ default: m.MemberManagementPage })));
+const BrigadeSettingsPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeSettingsPage })));
 const InvitationAcceptancePage = lazy(() => import('./pages').then(m => ({ default: m.InvitationAcceptancePage })));
 const LogoutPage = lazy(() => import('./pages').then(m => ({ default: m.LogoutPage })));
 const CallbackPage = lazy(() => import('./pages').then(m => ({ default: m.CallbackPage })));
@@ -171,6 +172,11 @@ function App() {
             <Route path="/dashboard/:brigadeId/members" element={
               <ProtectedRoute>
                 <MemberManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/:brigadeId/settings" element={
+              <ProtectedRoute>
+                <BrigadeSettingsPage />
               </ProtectedRoute>
             } />
             <Route path="/dashboard" element={

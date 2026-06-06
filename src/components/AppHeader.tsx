@@ -257,6 +257,14 @@ export function AppHeader({ show = true }: AppHeaderProps) {
                     onClick={() => setMenuOpen(false)}
                   />
                 )}
+                {brigade && (
+                  <MenuLink
+                    to={`/dashboard/${brigade.id}/settings`}
+                    icon="⚙️"
+                    label="Brigade Settings"
+                    onClick={() => setMenuOpen(false)}
+                  />
+                )}
                 <MenuLink
                   to="/brigades/claim"
                   icon="🚒"
