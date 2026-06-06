@@ -1,9 +1,18 @@
 # Dependabot version updates configuration for Fire Santa Run
 # This file configures automated dependency updates for:
-# - npm packages (root application and API)
+# - npm packages (root application, API, and server)
 # - GitHub Actions workflows
-# 
-# See documentation: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Grouping strategy: every ecosystem/directory groups BOTH version updates and
+# security updates into a single PR (two groups with different `applies-to`),
+# so Dependabot raises at most one version PR + one security PR per directory
+# instead of one PR per dependency.
+#
+# Note: Dependabot cannot combine multiple package-ecosystems/directories into a
+# single PR — grouping is scoped per ecosystem+directory. The npm root, /api,
+# and /server each produce their own grouped PR(s).
+#
+# See: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
@@ -22,12 +31,14 @@ updates:
       prefix: "chore(deps)"
       include: "scope"
     groups:
-      # Group all updates together into a single weekly PR
       all-updates:
-        update-types:
-          - "major"
-          - "minor"
-          - "patch"
+        applies-to: version-updates
+        patterns:
+          - "*"
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   # Azure Functions API npm dependencies
   - package-ecosystem: "npm"
@@ -45,12 +56,39 @@ updates:
       prefix: "chore(deps-api)"
       include: "scope"
     groups:
-      # Group all updates together into a single weekly PR
       all-updates:
-        update-types:
-          - "major"
-          - "minor"
-          - "patch"
+        applies-to: version-updates
+        patterns:
+          - "*"
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # Hono server npm dependencies (App Service runtime)
+  - package-ecosystem: "npm"
+    directory: "/server"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
+      - "server"
+    commit-message:
+      prefix: "chore(deps-server)"
+      include: "scope"
+    groups:
+      all-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   # GitHub Actions workflows
   - package-ecosystem: "github-actions"
@@ -66,10 +104,11 @@ updates:
     commit-message:
       prefix: "chore(actions)"
     groups:
-      # Group all actions updates into a single weekly PR
       all-updates:
-        update-types:
-          - "major"
-          - "minor"
-          - "patch"
-
+        applies-to: version-updates
+        patterns:
+          - "*"
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
