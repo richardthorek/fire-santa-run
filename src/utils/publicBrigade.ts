@@ -74,7 +74,10 @@ const HTTP_URL_PREFIX = /^https?:\/\//i;
 export function safeHttpUrl(value?: string | null): string | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
-  return HTTP_URL_PREFIX.test(trimmed) ? trimmed : undefined;
+  if (!HTTP_URL_PREFIX.test(trimmed)) return undefined;
+  // Percent-encode so any HTML meta-characters in the URL cannot break out of
+  // the href attribute. The scheme check above already blocks javascript:/data:.
+  return encodeURI(trimmed);
 }
 
 /**

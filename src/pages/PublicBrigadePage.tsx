@@ -195,8 +195,12 @@ export function PublicBrigadePage() {
                   🌐 Website
                 </a>
               )}
-              {contact.email && <a href={`mailto:${contact.email}`}>✉️ Email</a>}
-              {contact.phone && <a href={`tel:${contact.phone}`}>📞 Call</a>}
+              {contact.email && (
+                <a href={`mailto:${encodeURIComponent(contact.email)}`}>✉️ Email</a>
+              )}
+              {contact.phone && (
+                <a href={`tel:${encodeURIComponent(contact.phone)}`}>📞 Call</a>
+              )}
               {!brigade.isClaimed && (
                 <Link className="pbp__claim" to="/brigades/claim">
                   🔑 Claim this brigade

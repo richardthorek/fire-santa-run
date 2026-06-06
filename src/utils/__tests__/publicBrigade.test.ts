@@ -67,6 +67,12 @@ describe('safeHttpUrl', () => {
     expect(safeHttpUrl('http://example.com/')).toBe('http://example.com/');
   });
 
+  it('percent-encodes HTML meta-characters in the URL', () => {
+    expect(safeHttpUrl('https://example.com/"><img>')).toBe(
+      'https://example.com/%22%3E%3Cimg%3E',
+    );
+  });
+
   it('rejects javascript: and other dangerous schemes', () => {
     expect(safeHttpUrl('javascript:alert(1)')).toBeUndefined();
     // Browsers ignore whitespace/control chars inside the scheme.
