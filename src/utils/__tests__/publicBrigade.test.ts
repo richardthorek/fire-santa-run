@@ -95,9 +95,11 @@ describe('safeImageSrc', () => {
     expect(safeImageSrc(dataUrl)).toBe(dataUrl);
   });
 
-  it('rejects javascript: and non-image data URLs', () => {
+  it('rejects javascript:, non-image data URLs, and SVG data URLs', () => {
     expect(safeImageSrc('javascript:alert(1)')).toBeUndefined();
     expect(safeImageSrc('data:text/html,<script>alert(1)</script>')).toBeUndefined();
+    // SVG data URLs can embed script — excluded.
+    expect(safeImageSrc('data:image/svg+xml,<svg onload="alert(1)"/>')).toBeUndefined();
   });
 });
 

@@ -59,35 +59,36 @@ export function hasPublicRoutes(routes: Route[]): boolean {
   return routes.some((r) => PUBLIC_STATUSES.has(r.status));
 }
 
+// Matches a string that begins with an http(s):// scheme. An anchored,
+// scheme-prefix test like this is a recognised URL sanitiser: anything starting
+// with `https://` is a navigable web URL and cannot be a `javascript:`/`data:`
+// payload. Leading junk (e.g. `java\tscript:`) fails the anchor and is rejected.
+const HTTP_URL_PREFIX = /^https?:\/\//i;
+
 /**
- * Sanitise a user-provided link URL for use in an <a href>. Returns the
- * normalised URL only when it resolves to http(s); otherwise undefined. This
- * blocks dangerous schemes such as `javascript:` and `data:` that would
- * otherwise allow DOM-based XSS, since React does not sanitise href/src values.
+ * Sanitise a user-provided link URL for use in an <a href>. Returns the URL
+ * only when it is an absolute http(s) URL; otherwise undefined. Blocks
+ * `javascript:`, `data:`, and other dangerous schemes that React does not
+ * sanitise.
  */
 export function safeHttpUrl(value?: string | null): string | undefined {
   if (!value) return undefined;
-  try {
-    const url = new URL(value, window.location.origin);
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : undefined;
-  } catch {
-    return undefined;
-  }
+  const trimmed = value.trim();
+  return HTTP_URL_PREFIX.test(trimmed) ? trimmed : undefined;
 }
 
 /**
- * Sanitise a user-provided image URL for use in an <img src>. Allows http(s)
- * and `data:image/...` (brigade logos may be stored as base64 data URLs);
- * rejects `javascript:` and any other scheme.
+ * Sanitise a user-provided image URL for use in an <img src>. Allows absolute
+ * http(s) URLs and raster `data:image/...` URLs (brigade logos may be stored as
+ * base64). Excludes `data:image/svg+xml` (SVG can embed script) and every other
+ * scheme.
  */
 export function safeImageSrc(value?: string | null): string | undefined {
   if (!value) return undefined;
-  try {
-    const url = new URL(value, window.location.origin);
-    if (url.protocol === 'http:' || url.protocol === 'https:') return url.href;
-    if (url.protocol === 'data:' && /^data:image\//i.test(value.trim())) return value;
-    return undefined;
-  } catch {
-    return undefined;
+  const trimmed = value.trim();
+  if (HTTP_URL_PREFIX.test(trimmed)) return trimmed;
+  if (/^data:image\//i.test(trimmed) && !/^data:image\/svg/i.test(trimmed)) {
+    return trimmed;
   }
+  return undefined;
 }
