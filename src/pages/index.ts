@@ -14,6 +14,9 @@ export { LandingPage } from './LandingPage';
 export { LoginPage, LogoutPage, CallbackPage } from './auth';
 export { TemplateLibrary } from './TemplateLibrary';
 export { AnalyticsDashboard } from './AnalyticsDashboard';
+export { PrivacyPolicyPage } from './PrivacyPolicyPage';
+export { TermsPage } from './TermsPage';
+export { HelpPage } from './HelpPage';
 
 export type { RouteEditorProps } from './RouteEditor';
 export type { NavigationViewProps } from './NavigationView';

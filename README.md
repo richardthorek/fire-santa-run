@@ -159,8 +159,8 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 - 🤖 **[GitHub Copilot Instructions](./.github/copilot-instructions.md)** - Guidelines for AI-assisted development
 
 ### For Developers
-- **Current Status:** Release 1 complete (15/15 core features ✅)
-- **Next Release:** Release 2.1 (January 2025) - Social previews, analytics, route optimization
+- **Current Status:** Preparing **v1.0 public launch** (target July 2026). Releases 1–3.2 shipped: route planning, turn-by-turn navigation, public real-time tracking, PWA/offline, analytics, route optimisation, templates, social previews, production Entra auth, brigade claiming/membership. Launch hardening in progress — public brigade pages & discovery, logo/branding, onboarding, ETA schedule indicator, E2E suite, security review (see launch epic #345).
+- **Launch docs:** [Brigade Admin Onboarding](./docs/BRIGADE_ADMIN_ONBOARDING.md) · [Security Review](./docs/SECURITY_REVIEW_LAUNCH.md) · [Privacy](/privacy) · [Terms](/terms)
 - Architecture overview and data models in [MASTER_PLAN.md](./MASTER_PLAN.md)
 - Implementation phases documented in [docs/RELEASE_1_SUMMARY.md](./docs/RELEASE_1_SUMMARY.md)
 - TypeScript interfaces in `src/types/`

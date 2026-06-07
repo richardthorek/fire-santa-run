@@ -1,0 +1,124 @@
+/* Shared styles for static content pages (privacy, terms, help) */
+
+.static-page {
+  min-height: 100vh;
+  background: var(--neutral-50, #fafafa);
+  padding: 2rem 1rem 4rem;
+}
+
+.static-page__container {
+  max-width: 760px;
+  margin: 0 auto;
+  background: white;
+  border-radius: var(--border-radius-lg, 12px);
+  box-shadow: var(--ui-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.08));
+  padding: 2rem 2.25rem 2.5rem;
+}
+
+.static-page__back {
+  display: inline-block;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--fire-red, #d32f2f);
+  text-decoration: none;
+}
+
+.static-page__back:hover {
+  text-decoration: underline;
+}
+
+.static-page__title {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  font-weight: 800;
+  color: var(--neutral-900, #212121);
+  margin: 0 0 0.35rem;
+}
+
+.static-page__updated {
+  font-size: 0.8125rem;
+  color: var(--neutral-600, #757575);
+  margin: 0 0 1.75rem;
+}
+
+.static-page__container h2 {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--neutral-900, #212121);
+  margin: 1.75rem 0 0.6rem;
+}
+
+.static-page__container h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--neutral-800, #424242);
+  margin: 1.25rem 0 0.4rem;
+}
+
+.static-page__container p,
+.static-page__container li {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--neutral-800, #424242);
+}
+
+.static-page__container ul {
+  padding-left: 1.4rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.static-page__container li {
+  margin-bottom: 0.35rem;
+}
+
+.static-page__container a {
+  color: var(--fire-red, #d32f2f);
+  font-weight: 600;
+}
+
+.static-page__intro {
+  font-size: 1rem;
+  color: var(--neutral-700, #616161);
+}
+
+/* Help page step cards */
+.help-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.help-step {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  background: var(--neutral-50, #fafafa);
+  border-radius: var(--border-radius, 8px);
+  border-left: 4px solid var(--summer-gold, #ffa726);
+}
+
+.help-step__num {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--fire-red, #d32f2f) 0%, #b71c1c 100%);
+  color: white;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.help-step__body h3 {
+  margin: 0.15rem 0 0.3rem;
+}
+
+.help-step__body p {
+  margin: 0;
+}

@@ -28,6 +28,9 @@ const LogoutPage = lazy(() => import('./pages').then(m => ({ default: m.LogoutPa
 const CallbackPage = lazy(() => import('./pages').then(m => ({ default: m.CallbackPage })));
 const TemplateLibrary = lazy(() => import('./pages').then(m => ({ default: m.TemplateLibrary })));
 const AnalyticsDashboard = lazy(() => import('./pages').then(m => ({ default: m.AnalyticsDashboard })));
+const PrivacyPolicyPage = lazy(() => import('./pages').then(m => ({ default: m.PrivacyPolicyPage })));
+const TermsPage = lazy(() => import('./pages').then(m => ({ default: m.TermsPage })));
+const HelpPage = lazy(() => import('./pages').then(m => ({ default: m.HelpPage })));
 
 // Loading component
 function PageLoader() {
@@ -149,6 +152,9 @@ function App() {
               </ErrorBoundary>
             } />
             <Route path="/brigades" element={<BrigadeDiscoveryPage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/help" element={<HelpPage />} />
             
             {/* Authentication Routes */}
             <Route path="/login" element={<Navigate to={`/${window.location.search}`} replace />} />

@@ -326,6 +326,27 @@ app.http('brigades-get-by-slug', {
   }
 });
 
+// GET /api/brigades/public — sanitised list for the public discovery page.
+app.http('brigades-get-public', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'brigades/public',
+  handler: async (request, context) => {
+    try {
+      const client = await resolveBrigadesClient();
+      const entities = client.listEntities();
+      const brigades = [];
+      for await (const entity of entities) {
+        brigades.push(toPublicBrigade(entity));
+      }
+      return { status: 200, jsonBody: brigades };
+    } catch (error) {
+      context.error('Error fetching public brigades:', error);
+      return { status: 500, jsonBody: { error: 'Failed to fetch brigades' } };
+    }
+  }
+});
+
 app.http('brigades-get', {
   methods: ['GET'],
   authLevel: 'anonymous',

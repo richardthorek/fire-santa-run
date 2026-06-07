@@ -6,6 +6,11 @@ Topic map for `docs/`. `MASTER_PLAN.md` (repo root) is the single source of trut
 - [DEV_MODE.md](DEV_MODE.md) — local dev mode (`VITE_DEV_MODE`), localStorage, no-auth flow
 - [MANUAL_TESTING_CHECKLIST.md](MANUAL_TESTING_CHECKLIST.md) — manual QA checklist
 
+## Launch (v1.0)
+- [BRIGADE_ADMIN_ONBOARDING.md](BRIGADE_ADMIN_ONBOARDING.md) — admin getting-started guide (claim → invite → route → share → go live)
+- [SECURITY_REVIEW_LAUNCH.md](SECURITY_REVIEW_LAUNCH.md) — pre-launch security review & sign-off (#342)
+- E2E tests: `e2e/` (Playwright) — `npm run test:e2e`
+
 ## Authentication & membership
 - [API_AUTHENTICATION.md](API_AUTHENTICATION.md) — API auth model
 - [AUTHENTICATION_BUSINESS_RULES.md](AUTHENTICATION_BUSINESS_RULES.md) — business rules for auth

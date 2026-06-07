@@ -269,7 +269,9 @@ export class HttpStorageAdapter implements IStorageAdapter {
 
   // Brigades
   async getBrigades(): Promise<Brigade[]> {
-    const response = await fetch(`${this.apiBaseUrl}/brigades`);
+    // Use the sanitised public projection — this powers the public discovery
+    // page and must not leak member emails, allowed domains, or admin user IDs.
+    const response = await fetch(`${this.apiBaseUrl}/brigades/public`);
     if (!response.ok) {
       throw new Error(`Failed to fetch brigades: ${response.statusText}`);
     }

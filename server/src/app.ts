@@ -14,8 +14,28 @@ import { analyticsRouter } from './routes/analytics.js';
 import { healthRouter } from './routes/health.js';
 import { telemetryRouter } from './routes/telemetry.js';
 
+const isDevMode = process.env.DEV_MODE === 'true';
+const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || 'https://firesantarun.com.au';
+
 export function createApp() {
   const app = new Hono();
+
+  // Security headers on every response
+  app.use('*', async (c, next) => {
+    await next();
+    c.res.headers.set('X-Content-Type-Options', 'nosniff');
+    c.res.headers.set('X-Frame-Options', 'DENY');
+    c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    c.res.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
+    // Only enforce strict CORS in production; dev uses Vite's proxy
+    if (!isDevMode) {
+      const origin = c.req.header('origin');
+      if (origin === ALLOWED_ORIGIN) {
+        c.res.headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+        c.res.headers.set('Vary', 'Origin');
+      }
+    }
+  });
 
   // Health, readiness, and client telemetry ingestion.
   app.route('/api', healthRouter);
