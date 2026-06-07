@@ -89,7 +89,7 @@ jobs:
         run: npm run test:e2e
         env:
           VITE_DEV_MODE: 'true'
-          VITE_MAPBOX_TOKEN: 'test-token'
+          VITE_MAPBOX_TOKEN: 'pk.e2e-dummy-token'
           CI: 'true'
 
       - name: Upload Playwright report

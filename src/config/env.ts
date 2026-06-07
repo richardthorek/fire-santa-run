@@ -51,9 +51,15 @@ function checkMapboxToken(problems: string[], isProd: boolean): void {
   }
 
   if (!token.startsWith('pk.')) {
-    problems.push(
-      'VITE_MAPBOX_TOKEN does not look like a public token (it should start with "pk."). Do not use a secret "sk." token in the browser.',
-    );
+    const message =
+      'VITE_MAPBOX_TOKEN does not look like a public token (it should start with "pk."). Do not use a secret "sk." token in the browser.';
+    // Keep dev zero-config: a non-pk placeholder is tolerated locally/in tests
+    // (maps simply won't fully work) rather than bricking the app.
+    if (isProd) {
+      problems.push(message);
+    } else {
+      console.warn(`[env] ${message} (dev mode: continuing)`);
+    }
   }
 }
 

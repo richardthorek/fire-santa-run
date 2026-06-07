@@ -30,6 +30,15 @@ describe('validateClientEnv (development mode)', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(() => validateClientEnv()).not.toThrow();
   });
+
+  it('does not throw with a non-pk test token (dev stays zero-config)', () => {
+    // Regression: a non-"pk." token (e.g. the E2E "test-token") must NOT brick
+    // the app in dev mode — it should warn and continue, not throw a fatal screen.
+    vi.stubEnv('VITE_DEV_MODE', 'true');
+    vi.stubEnv('VITE_MAPBOX_TOKEN', 'test-token');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(() => validateClientEnv()).not.toThrow();
+  });
 });
 
 describe('validateClientEnv (production mode)', () => {

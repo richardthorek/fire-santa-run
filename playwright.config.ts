@@ -45,7 +45,9 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       VITE_DEV_MODE: 'true',
-      VITE_MAPBOX_TOKEN: process.env.VITE_MAPBOX_TOKEN || 'test-token',
+      // pk.-prefixed dummy keeps the client env validator happy; dev mode
+      // bypasses real Mapbox calls anyway.
+      VITE_MAPBOX_TOKEN: process.env.VITE_MAPBOX_TOKEN || 'pk.e2e-dummy-token',
     },
   },
 });
