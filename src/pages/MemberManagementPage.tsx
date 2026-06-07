@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { storageAdapter } from '../storage';
@@ -210,6 +210,28 @@ export function MemberManagementPage() {
                 {brigade.name}
               </p>
             </div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {hasManagePermission && (
+              <Link
+                to={`/dashboard/${brigadeId}/settings`}
+                style={{
+                  padding: '0.875rem 1.5rem',
+                  background: 'white',
+                  color: COLORS.primary,
+                  border: `2px solid ${COLORS.primary}`,
+                  borderRadius: '12px',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  textDecoration: 'none',
+                }}
+              >
+                ⚙️ Brigade Settings
+              </Link>
+            )}
             {hasInvitePermission && (
               <button
                 onClick={() => setShowInviteModal(true)}
@@ -231,6 +253,7 @@ export function MemberManagementPage() {
                 ✉️ Invite Member
               </button>
             )}
+            </div>
           </div>
 
           {/* Pending Approvals Section (Admin Only) */}

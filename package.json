@@ -18,7 +18,9 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:a11y": "vitest run --testNamePattern=\"a11y\"",
+    "test:a11y": "vitest run src/__tests__/accessibility.test.ts src/__tests__/AppHeader.a11y.test.tsx src/__tests__/LaunchPages.a11y.test.tsx",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "test:smoke": "node scripts/smoke-test.js",
     "test:load": "node scripts/load-test.js",
     "test:mobile-guide": "node scripts/mobile-testing-guide.js",
@@ -50,6 +52,7 @@
   "devDependencies": {
     "@axe-core/react": "^4.11.1",
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/axe-core": "^3.0.6",

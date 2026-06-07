@@ -54,6 +54,12 @@ src/**/*.js.map
 coverage/
 *.lcov
 
+# Playwright E2E artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
 # Lighthouse reports
 lighthouse-reports/
 lighthouse-report*

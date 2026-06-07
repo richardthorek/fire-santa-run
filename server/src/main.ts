@@ -1,6 +1,10 @@
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { createApp } from './app.js';
+import { validateServerEnv } from './utils/configValidation.js';
+
+// Fail fast on invalid configuration before accepting any traffic.
+validateServerEnv();
 
 // Path to the built React SPA, relative to process.cwd() (the deployment root).
 // Start the server from the repository root so that './dist' resolves to the

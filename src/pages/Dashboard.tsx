@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '../hooks';
-import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText } from '../components';
+import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import {
@@ -184,6 +184,9 @@ export function Dashboard() {
       <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
         {/* Christmas Lights Divider at top */}
         <div className="christmas-lights" style={{ marginBottom: '2rem' }} />
+
+        {/* Onboarding checklist — shows once until dismissed (manages its own visibility) */}
+        {brigade && <OnboardingChecklist brigade={brigade} routes={routes} />}
         
         {/* Header */}
       <div style={{ 

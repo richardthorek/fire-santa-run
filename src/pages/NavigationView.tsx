@@ -393,6 +393,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
         nextWaypoint={navigationState.nextWaypoint}
         distanceToWaypoint={navigationState.distanceToNextWaypoint}
         eta={navigationState.etaToNextWaypoint}
+        scheduleVarianceMinutes={navigationState.scheduleVarianceMinutes}
         routeProgress={navigationState.routeProgress}
         canCompleteWaypoint={canCompleteWaypoint || false}
         onCompleteWaypoint={handleCompleteWaypoint}

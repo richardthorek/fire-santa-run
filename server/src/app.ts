@@ -11,12 +11,50 @@ import { verificationRouter } from './routes/verification.js';
 import { adminVerificationRouter } from './routes/admin-verification.js';
 import { claimRouter } from './routes/claim.js';
 import { analyticsRouter } from './routes/analytics.js';
+import { healthRouter } from './routes/health.js';
+import { telemetryRouter } from './routes/telemetry.js';
+
+const isDevMode = process.env.DEV_MODE === 'true';
+const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || 'https://firesantarun.com.au';
 
 export function createApp() {
   const app = new Hono();
 
-  // Health check
-  app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
+  // CORS preflight: answer OPTIONS before any route handler runs so authed
+  // cross-origin writes (which send an Authorization header) pass preflight.
+  app.options('*', (c) => {
+    const origin = c.req.header('origin');
+    const headers = new Headers({ Vary: 'Origin' });
+    if (isDevMode || origin === ALLOWED_ORIGIN) {
+      headers.set('Access-Control-Allow-Origin', isDevMode ? (origin ?? '*') : ALLOWED_ORIGIN);
+      headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+      headers.set('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+      headers.set('Access-Control-Max-Age', '86400');
+    }
+    return new Response(null, { status: 204, headers });
+  });
+
+  // Security headers + CORS on every response.
+  app.use('*', async (c, next) => {
+    await next();
+    c.res.headers.set('X-Content-Type-Options', 'nosniff');
+    c.res.headers.set('X-Frame-Options', 'DENY');
+    c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    c.res.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
+    // Only enforce strict CORS in production; dev uses Vite's proxy.
+    // Always set Vary: Origin so caches don't serve a CORS response cross-origin.
+    if (!isDevMode) {
+      c.res.headers.set('Vary', 'Origin');
+      const origin = c.req.header('origin');
+      if (origin === ALLOWED_ORIGIN) {
+        c.res.headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+      }
+    }
+  });
+
+  // Health, readiness, and client telemetry ingestion.
+  app.route('/api', healthRouter);
+  app.route('/api', telemetryRouter);
 
   // API routes
   app.route('/api/brigades', brigadesRouter);

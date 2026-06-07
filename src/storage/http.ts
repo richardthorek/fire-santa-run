@@ -269,7 +269,9 @@ export class HttpStorageAdapter implements IStorageAdapter {
 
   // Brigades
   async getBrigades(): Promise<Brigade[]> {
-    const response = await fetch(`${this.apiBaseUrl}/brigades`);
+    // Use the sanitised public projection — this powers the public discovery
+    // page and must not leak member emails, allowed domains, or admin user IDs.
+    const response = await fetch(`${this.apiBaseUrl}/brigades/public`);
     if (!response.ok) {
       throw new Error(`Failed to fetch brigades: ${response.statusText}`);
     }
@@ -294,6 +296,17 @@ export class HttpStorageAdapter implements IStorageAdapter {
     }
     if (!response.ok) {
       throw new Error(`Failed to fetch brigade by RFS ID: ${response.statusText}`);
+    }
+    return await this.parseJsonResponse(response);
+  }
+
+  async getBrigadeBySlug(slug: string): Promise<Brigade | null> {
+    const response = await fetch(`${this.apiBaseUrl}/brigades/by-slug/${encodeURIComponent(slug)}`);
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Failed to fetch brigade by slug: ${response.statusText}`);
     }
     return await this.parseJsonResponse(response);
   }

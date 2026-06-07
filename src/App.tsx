@@ -7,6 +7,7 @@ import { initializeMockData } from './utils/mockData';
 import { useRoutes, useServiceWorker } from './hooks';
 import { ProtectedRoute } from './components';
 import { InstallBanner } from './components';
+import { ErrorBoundary } from './components';
 import type { Route as RouteType } from './types';
 
 // Lazy load pages for code splitting
@@ -15,15 +16,21 @@ const Dashboard = lazy(() => import('./pages').then(m => ({ default: m.Dashboard
 const RouteEditor = lazy(() => import('./pages').then(m => ({ default: m.RouteEditor })));
 const NavigationView = lazy(() => import('./pages').then(m => ({ default: m.NavigationView })));
 const TrackingView = lazy(() => import('./pages').then(m => ({ default: m.TrackingView })));
+const PublicBrigadePage = lazy(() => import('./pages').then(m => ({ default: m.PublicBrigadePage })));
 const RouteDetail = lazy(() => import('./pages').then(m => ({ default: m.RouteDetail })));
 const ProfilePage = lazy(() => import('./pages').then(m => ({ default: m.ProfilePage })));
 const BrigadeClaimingPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeClaimingPage })));
 const MemberManagementPage = lazy(() => import('./pages').then(m => ({ default: m.MemberManagementPage })));
+const BrigadeSettingsPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeSettingsPage })));
+const BrigadeDiscoveryPage = lazy(() => import('./pages').then(m => ({ default: m.BrigadeDiscoveryPage })));
 const InvitationAcceptancePage = lazy(() => import('./pages').then(m => ({ default: m.InvitationAcceptancePage })));
 const LogoutPage = lazy(() => import('./pages').then(m => ({ default: m.LogoutPage })));
 const CallbackPage = lazy(() => import('./pages').then(m => ({ default: m.CallbackPage })));
 const TemplateLibrary = lazy(() => import('./pages').then(m => ({ default: m.TemplateLibrary })));
 const AnalyticsDashboard = lazy(() => import('./pages').then(m => ({ default: m.AnalyticsDashboard })));
+const PrivacyPolicyPage = lazy(() => import('./pages').then(m => ({ default: m.PrivacyPolicyPage })));
+const TermsPage = lazy(() => import('./pages').then(m => ({ default: m.TermsPage })));
+const HelpPage = lazy(() => import('./pages').then(m => ({ default: m.HelpPage })));
 
 // Loading component
 function PageLoader() {
@@ -76,17 +83,25 @@ function App() {
   useEffect(() => {
     const init = async () => {
       if (isDevMode && !initialized) {
-        await initializeMockData(
-          storageAdapter.saveBrigade.bind(storageAdapter),
-          storageAdapter.saveRoute.bind(storageAdapter)
-        );
-        setInitialized(true);
+        try {
+          await initializeMockData(
+            storageAdapter.saveBrigade.bind(storageAdapter),
+            storageAdapter.saveRoute.bind(storageAdapter)
+          );
+        } catch (err) {
+          // Seeding failure must not brick the dev app on the loading screen.
+          console.error('Failed to initialize mock data:', err);
+        } finally {
+          setInitialized(true);
+        }
       }
     };
     init();
   }, [isDevMode, initialized]);
 
-  if (authLoading || brigadeLoading) {
+  // In dev mode, wait for mock data to be seeded before rendering any route so
+  // pages that read storage on mount (dashboard, discovery) don't race the seed.
+  if (authLoading || brigadeLoading || (isDevMode && !initialized)) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <div style={{ textAlign: 'center' }}>
@@ -133,11 +148,21 @@ function App() {
       
       {/* Main Routes */}
       <div style={{ paddingTop: isDevMode ? '2.5rem' : 0, height: '100%', width: '100%' }}>
+        <ErrorBoundary label="page">
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/track/:id" element={<TrackingViewWrapper />} />
+            <Route path="/brigade/:slug" element={
+              <ErrorBoundary label="brigade page">
+                <PublicBrigadePage />
+              </ErrorBoundary>
+            } />
+            <Route path="/brigades" element={<BrigadeDiscoveryPage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/help" element={<HelpPage />} />
             
             {/* Authentication Routes */}
             <Route path="/login" element={<Navigate to={`/${window.location.search}`} replace />} />
@@ -163,6 +188,11 @@ function App() {
             <Route path="/dashboard/:brigadeId/members" element={
               <ProtectedRoute>
                 <MemberManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/:brigadeId/settings" element={
+              <ProtectedRoute>
+                <BrigadeSettingsPage />
               </ProtectedRoute>
             } />
             <Route path="/dashboard" element={
@@ -207,6 +237,7 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </div>
     </BrowserRouter>
   );
@@ -257,15 +288,17 @@ function NavigationViewWrapper() {
   }
 
   return (
-    <NavigationView
-      route={route}
-      onExit={() => {
-        navigate('/dashboard');
-      }}
-      onComplete={() => {
-        navigate('/dashboard');
-      }}
-    />
+    <ErrorBoundary label="navigation view">
+      <NavigationView
+        route={route}
+        onExit={() => {
+          navigate('/dashboard');
+        }}
+        onComplete={() => {
+          navigate('/dashboard');
+        }}
+      />
+    </ErrorBoundary>
   );
 }
 
@@ -281,8 +314,12 @@ function RouteDetailWrapper() {
 function TrackingViewWrapper() {
   const pathSegments = window.location.pathname.split('/');
   const routeId = pathSegments[pathSegments.length - 1]; // /track/:id
-  
-  return <TrackingView routeId={routeId} />;
+
+  return (
+    <ErrorBoundary label="Santa tracker">
+      <TrackingView routeId={routeId} />
+    </ErrorBoundary>
+  );
 }
 
 // 404 Page

@@ -1,4 +1,8 @@
-export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbGV4YW1wbGUifQ.example';
+// Placeholder token used as a last-resort fallback. Treated as "not configured"
+// by the environment validator (src/config/env.ts).
+export const EXAMPLE_MAPBOX_TOKEN = 'pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbGV4YW1wbGUifQ.example';
+
+export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || EXAMPLE_MAPBOX_TOKEN;
 
 // Default center for Australia (central Australia for fallback when no other location available)
 export const DEFAULT_CENTER: [number, number] = [133.7751, -25.2744]; // Central Australia

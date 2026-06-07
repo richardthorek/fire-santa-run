@@ -1,6 +1,7 @@
 // Central entrypoint that imports all function modules so the Azure Functions
 // TypeScript build emits a single `dist/index.js` the Functions host can load.
 
+import './health';
 import './brigades';
 import './rfs-stations';
 import './routes';

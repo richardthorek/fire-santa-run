@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 import { SEO } from '../components';
 import { COLORS } from '../utils/constants';
@@ -216,6 +216,17 @@ export function LandingPage() {
                 opacity: 0.9,
               }}>
                 Use a government provided email (e.g. .gov.au) to avoid secondary verification as a Fire Brigade member.              </p>
+
+              {/* Brigade discovery link */}
+              <p style={{ marginTop: '1.25rem', marginBottom: 0, fontSize: '0.9rem', opacity: 0.95 }}>
+                Looking for your local brigade?{' '}
+                <Link
+                  to="/brigades"
+                  style={{ color: 'white', fontWeight: 700, textDecoration: 'underline' }}
+                >
+                  Browse all brigades →
+                </Link>
+              </p>
             </div>
           </div>
         </section>
@@ -885,7 +896,20 @@ export function LandingPage() {
           <p style={{ margin: 0, fontSize: '0.875rem' }}>
             🎄 Fire Santa Run • Made with ❤️ for Australian Rural Fire Service brigades
           </p>
-          <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', opacity: 0.7 }}>
+          <nav aria-label="Legal and help" style={{
+            display: 'flex',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            gap: '0.5rem 1.25rem',
+            margin: '1rem 0 0',
+            fontSize: '0.8125rem',
+          }}>
+            <Link to="/brigades" style={{ color: 'var(--neutral-300)', textDecoration: 'underline' }}>Find a brigade</Link>
+            <Link to="/help" style={{ color: 'var(--neutral-300)', textDecoration: 'underline' }}>How to track Santa</Link>
+            <Link to="/privacy" style={{ color: 'var(--neutral-300)', textDecoration: 'underline' }}>Privacy Policy</Link>
+            <Link to="/terms" style={{ color: 'var(--neutral-300)', textDecoration: 'underline' }}>Terms of Use</Link>
+          </nav>
+          <p style={{ margin: '0.75rem 0 0', fontSize: '0.75rem', opacity: 0.7 }}>
             © {new Date().getFullYear()} • Spreading summer Christmas magic across Australia
           </p>
         </footer>

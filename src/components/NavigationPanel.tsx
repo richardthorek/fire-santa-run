@@ -13,6 +13,8 @@ export interface NavigationPanelProps {
   nextWaypoint: Waypoint | null;
   distanceToWaypoint: number;
   eta: string | null;
+  /** Minutes ahead (positive) or behind (negative) schedule. Null until first waypoint is completed. */
+  scheduleVarianceMinutes?: number | null;
   routeProgress: number;
   canCompleteWaypoint: boolean;
   onCompleteWaypoint: () => void;
@@ -28,6 +30,7 @@ export function NavigationPanel({
   nextWaypoint,
   distanceToWaypoint,
   eta,
+  scheduleVarianceMinutes = null,
   routeProgress,
   canCompleteWaypoint,
   onCompleteWaypoint,
@@ -75,12 +78,44 @@ export function NavigationPanel({
             Route Progress
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {scheduleVarianceMinutes !== null && (() => {
+              const onTime = scheduleVarianceMinutes === 0;
+              const ahead = scheduleVarianceMinutes > 0;
+              const mins = Math.abs(scheduleVarianceMinutes);
+              const label = onTime
+                ? 'On schedule'
+                : ahead
+                  ? `${mins} minute${mins === 1 ? '' : 's'} ahead of schedule`
+                  : `${mins} minute${mins === 1 ? '' : 's'} behind schedule`;
+              // Darkened text colours meet WCAG AA on the pale pill backgrounds.
+              const fg = onTime ? '#424242' : ahead ? '#2E7D32' : '#B71C1C';
+              const bg = onTime ? '#EEEEEE' : ahead ? '#E8F5E9' : '#FFEBEE';
+              return (
+                <span
+                  role="status"
+                  aria-label={label}
+                  title={label}
+                  style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    color: fg,
+                    backgroundColor: bg,
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                  }}
+                >
+                  <span aria-hidden="true">{onTime ? '●' : ahead ? '▲' : '▼'} </span>
+                  {onTime ? 'On time' : `${mins} min ${ahead ? 'ahead' : 'behind'}`}
+                </span>
+              );
+            })()}
             {rerouteCount > 0 && (
               <span
+                aria-label={`${rerouteCount} reroute${rerouteCount === 1 ? '' : 's'} during this run`}
                 title={`${rerouteCount} reroute${rerouteCount === 1 ? '' : 's'} during this run`}
-                style={{ fontSize: '0.75rem', color: '#FF7043', fontWeight: 600 }}
+                style={{ fontSize: '0.75rem', color: '#D84315', fontWeight: 600 }}
               >
-                🔄 {rerouteCount} reroute{rerouteCount === 1 ? '' : 's'}
+                <span aria-hidden="true">🔄 </span>{rerouteCount} reroute{rerouteCount === 1 ? '' : 's'}
               </span>
             )}
             <span style={{ fontSize: '0.875rem', color: '#616161' }}>

@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useWebPubSub, useRoutes, useReverseGeocode } from '../hooks';
 import { ShareModal, SEO, CountdownTimer, ThankYouOverlay } from '../components';
 import { MAPBOX_CONFIG } from '../config/mapbox';
@@ -610,6 +611,27 @@ export function TrackingView({ routeId }: TrackingViewProps) {
           </div>
         </>
       )}
+
+      {/* Legal links — low-key overlay for public viewers */}
+      <nav
+        aria-label="Legal"
+        style={{
+          position: 'absolute',
+          bottom: '0.4rem',
+          right: '0.6rem',
+          zIndex: 1000,
+          display: 'flex',
+          gap: '0.75rem',
+          fontSize: '0.7rem',
+          background: 'rgba(255, 255, 255, 0.75)',
+          padding: '0.2rem 0.5rem',
+          borderRadius: '6px',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+        <Link to="/privacy" style={{ color: 'var(--neutral-700)', textDecoration: 'none' }}>Privacy</Link>
+        <Link to="/terms" style={{ color: 'var(--neutral-700)', textDecoration: 'none' }}>Terms</Link>
+      </nav>
 
       {/* Share Modal */}
       {showShareModal && route && (

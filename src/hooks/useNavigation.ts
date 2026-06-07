@@ -34,6 +34,8 @@ export interface NavigationState {
   nextWaypoint: Waypoint | null;
   distanceToNextWaypoint: number;
   etaToNextWaypoint: string | null;
+  /** Minutes ahead (positive) or behind (negative) the planned schedule. Null until a waypoint with both estimatedArrival and actualArrival exists. */
+  scheduleVarianceMinutes: number | null;
   routeProgress: number;
   isOffRoute: boolean;
   isRerouting: boolean;
@@ -67,6 +69,11 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
   const hasAnnouncedOffRouteRef = useRef(false);
   const rerouteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const waypointCompletionQueueRef = useRef<Set<string>>(new Set());
+  // Frozen plan-time estimated arrival per waypoint id, captured at navigation
+  // start. The live ETA recalc overwrites waypoint.estimatedArrival, so the
+  // schedule-variance indicator must compare against this immutable baseline.
+  // Held in state (not a ref) so it can be read safely during render.
+  const [plannedArrivals, setPlannedArrivals] = useState<Map<string, string>>(new Map());
 
   // Configure voice settings
   useEffect(() => {
@@ -87,6 +94,7 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
         nextWaypoint: null,
         distanceToNextWaypoint: 0,
         etaToNextWaypoint: null,
+        scheduleVarianceMinutes: null,
         routeProgress: 0,
         isOffRoute: false,
         isRerouting,
@@ -124,6 +132,22 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     // Check if off route
     const offRoute = isOffRoute(userLocation, updatedRoute.geometry, 100);
 
+    // Schedule variance: compare the FROZEN planned arrival (captured at nav
+    // start) against the actual arrival for the most recently completed
+    // waypoint. Positive = ahead of schedule (arrived earlier than planned).
+    let scheduleVarianceMinutes: number | null = null;
+    const completedWithTimes = updatedRoute.waypoints.filter(
+      (wp) => wp.isCompleted && wp.actualArrival && plannedArrivals.has(wp.id),
+    );
+    if (completedWithTimes.length > 0) {
+      const last = completedWithTimes[completedWithTimes.length - 1];
+      const plannedMs = new Date(plannedArrivals.get(last.id)!).getTime();
+      const actualMs = new Date(last.actualArrival!).getTime();
+      if (!Number.isNaN(plannedMs) && !Number.isNaN(actualMs)) {
+        scheduleVarianceMinutes = Math.round((plannedMs - actualMs) / 60_000);
+      }
+    }
+
     return {
       isNavigating,
       currentStepIndex: stepIndex,
@@ -132,6 +156,7 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       nextWaypoint,
       distanceToNextWaypoint,
       etaToNextWaypoint: eta ? formatETA(eta) : null,
+      scheduleVarianceMinutes,
       routeProgress: progress,
       isOffRoute: offRoute,
       isRerouting,
@@ -139,7 +164,7 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       showOffRouteBanner: offRoute && !isRerouting,
       rerouteCount,
     };
-  }, [isNavigating, position, updatedRoute, isRerouting, completedWaypointIds, rerouteCount]);
+  }, [isNavigating, position, updatedRoute, isRerouting, completedWaypointIds, rerouteCount, plannedArrivals]);
 
   // Start navigation
   const startNavigation = useCallback(() => {
@@ -147,6 +172,13 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     lastAnnouncedStepRef.current = -1;
     lastAnnouncedWaypointRef.current = null;
     hasAnnouncedOffRouteRef.current = false;
+
+    // Freeze the planned schedule so we can measure ahead/behind against it.
+    const planned = new Map<string, string>();
+    for (const wp of updatedRoute.waypoints) {
+      if (wp.estimatedArrival) planned.set(wp.id, wp.estimatedArrival);
+    }
+    setPlannedArrivals(planned);
 
     // Initial announcement
     if (voiceEnabled && updatedRoute.navigationSteps && updatedRoute.navigationSteps.length > 0) {

@@ -1,11 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { validateToken, checkBrigadePermission } from '../utils/auth.js';
 
 const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
+const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
 function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");
+}
+
+async function getUserMembership(userId: string, brigadeId: string): Promise<any> {
+  const client = await getTableClient(MEMBERSHIPS_TABLE);
+  const entities = client.listEntities({
+    queryOptions: { filter: `PartitionKey eq '${escapeODataValue(brigadeId)}' and userId eq '${escapeODataValue(userId)}'` }
+  });
+  for await (const entity of entities) {
+    return { id: entity.rowKey, brigadeId: entity.partitionKey, userId: entity.userId, role: entity.role, status: entity.status };
+  }
+  return null;
 }
 
 function entityToBrigade(entity: any) {
@@ -59,6 +72,22 @@ function brigadeToEntity(brigade: any) {
 
 export const brigadesRouter = new Hono();
 
+// Public list — sanitised projection only, no auth required.
+// Used by the brigade discovery page (/brigades).
+brigadesRouter.get('/public', async (c) => {
+  try {
+    const client = await getTableClient(BRIGADES_TABLE);
+    const brigades = [];
+    for await (const entity of client.listEntities()) {
+      brigades.push(toPublicBrigade(entity));
+    }
+    return c.json(brigades);
+  } catch (error) {
+    console.error('Error fetching public brigades:', error);
+    return c.json({ error: 'Failed to fetch brigades', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
+  }
+});
+
 brigadesRouter.get('/', async (c) => {
   try {
     const client = await getTableClient(BRIGADES_TABLE);
@@ -88,6 +117,41 @@ brigadesRouter.get('/rfs/:rfsStationId', async (c) => {
   }
 });
 
+// Public-safe projection for the unauthenticated /brigade/:slug page — omits
+// member emails, allowed domains, and admin user IDs.
+function toPublicBrigade(entity: any) {
+  const b = entityToBrigade(entity);
+  return {
+    id: b.id,
+    slug: b.slug,
+    name: b.name,
+    location: b.location,
+    rfsStationId: b.rfsStationId,
+    logo: b.logo,
+    themeColor: b.themeColor,
+    contact: b.contact,
+    isClaimed: b.isClaimed,
+    createdAt: b.createdAt,
+  };
+}
+
+// Public lookup by slug. Registered before /:id so "by-slug" is not captured
+// as an :id. Returns only public-safe fields.
+brigadesRouter.get('/by-slug/:slug', async (c) => {
+  try {
+    const slug = c.req.param('slug');
+    const client = await getTableClient(BRIGADES_TABLE);
+    const entities = client.listEntities({ queryOptions: { filter: `slug eq '${escapeODataValue(slug)}'` } });
+    for await (const entity of entities) {
+      return c.json(toPublicBrigade(entity));
+    }
+    return c.json({ error: 'Brigade not found' }, 404);
+  } catch (error) {
+    console.error('Error fetching brigade by slug:', error);
+    return c.json({ error: 'Failed to fetch brigade by slug' }, 500);
+  }
+});
+
 brigadesRouter.get('/:id', async (c) => {
   try {
     const brigadeId = c.req.param('id');
@@ -107,6 +171,8 @@ brigadesRouter.get('/:id', async (c) => {
 
 brigadesRouter.post('/', async (c) => {
   try {
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
     const brigade = await c.req.json() as any;
     if (!brigade.id || !brigade.name) return c.json({ error: 'Missing required fields: id, name' }, 400);
     const client = await getTableClient(BRIGADES_TABLE);
@@ -125,6 +191,10 @@ brigadesRouter.post('/', async (c) => {
 brigadesRouter.put('/:id', async (c) => {
   try {
     const brigadeId = c.req.param('id');
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    const permissionCheck = await checkBrigadePermission(authResult.userId!, brigadeId, 'edit_settings', getUserMembership);
+    if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
     const brigade = await c.req.json() as any;
     const client = await getTableClient(BRIGADES_TABLE);
     const now = new Date().toISOString();
@@ -142,6 +212,10 @@ brigadesRouter.put('/:id', async (c) => {
 brigadesRouter.delete('/:id', async (c) => {
   try {
     const brigadeId = c.req.param('id');
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    const permissionCheck = await checkBrigadePermission(authResult.userId!, brigadeId, 'edit_settings', getUserMembership);
+    if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
     const client = await getTableClient(BRIGADES_TABLE);
     await client.deleteEntity(brigadeId, brigadeId);
     console.log(`Deleted brigade: ${brigadeId}`);

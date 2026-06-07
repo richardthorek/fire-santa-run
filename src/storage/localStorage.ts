@@ -85,6 +85,26 @@ export class LocalStorageAdapter implements IStorageAdapter {
     localStorage.setItem(key, JSON.stringify(filtered));
   }
 
+  async getBrigades(): Promise<Brigade[]> {
+    // Brigade records are stored under keys of the form `santa_<brigadeId>_brigade`
+    // (see getStorageKey). Enumerate via the Web Storage length/key(i) API.
+    const brigades: Brigade[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('santa_') && key.endsWith('_brigade')) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
+            brigades.push(JSON.parse(stored) as Brigade);
+          } catch {
+            // Skip malformed entries
+          }
+        }
+      }
+    }
+    return brigades;
+  }
+
   async getBrigade(brigadeId: string): Promise<Brigade | null> {
     const key = this.getStorageKey(brigadeId, 'brigade');
     const stored = localStorage.getItem(key);
@@ -107,6 +127,23 @@ export class LocalStorageAdapter implements IStorageAdapter {
       }
     }
     
+    return null;
+  }
+
+  async getBrigadeBySlug(slug: string): Promise<Brigade | null> {
+    // localStorage has no indexes; iterate brigade keys (efficient query in Azure).
+    const brigadeKeys = Object.keys(localStorage).filter(k => k.includes('_brigade'));
+
+    for (const key of brigadeKeys) {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const brigade: Brigade = JSON.parse(stored);
+        if (brigade.slug === slug) {
+          return brigade;
+        }
+      }
+    }
+
     return null;
   }
 

@@ -81,8 +81,11 @@ export interface IStorageAdapter {
   deleteTemplate(brigadeId: string, templateId: string): Promise<void>;
   
   // Brigade operations
+  getBrigades(): Promise<Brigade[]>;
   getBrigade(brigadeId: string): Promise<Brigade | null>;
   getBrigadeByRFSId(rfsStationId: string): Promise<Brigade | null>;
+  /** Look up a brigade by its public URL slug (for /brigade/:slug). */
+  getBrigadeBySlug(slug: string): Promise<Brigade | null>;
   saveBrigade(brigade: Brigade): Promise<void>;
   
   // User operations
