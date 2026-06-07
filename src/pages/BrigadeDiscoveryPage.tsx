@@ -174,11 +174,21 @@ export function BrigadeDiscoveryPage() {
                 ? 'No brigades match your search.'
                 : `${filtered.length} brigade${filtered.length === 1 ? '' : 's'} found`}
             </p>
-            <div className="bdp__grid">
-              {filtered.map((b) => (
-                <BrigadeCard key={b.id} brigade={b} />
-              ))}
-            </div>
+            {filtered.length === 0 ? (
+              <div className="bdp__state">
+                <div className="bdp__state-emoji">🔍</div>
+                <p>
+                  No brigades found{query || stateFilter ? ' for that search' : ''}. Try a
+                  different name or state{!showUnclaimed ? ', or show unclaimed brigades' : ''}.
+                </p>
+              </div>
+            ) : (
+              <div className="bdp__grid">
+                {filtered.map((b) => (
+                  <BrigadeCard key={b.id} brigade={b} />
+                ))}
+              </div>
+            )}
           </>
         )}
 

@@ -36,6 +36,10 @@ async function compressLogo(file: File): Promise<string> {
       img.onerror = () => reject(new Error('Could not decode the image.'));
       img.onload = () => {
         let { width, height } = img;
+        if (!width || !height) {
+          reject(new Error('The image appears to be empty or corrupt.'));
+          return;
+        }
         if (width > LOGO_MAX_PX || height > LOGO_MAX_PX) {
           if (width >= height) {
             height = Math.round((height * LOGO_MAX_PX) / width);
@@ -45,16 +49,31 @@ async function compressLogo(file: File): Promise<string> {
             height = LOGO_MAX_PX;
           }
         }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Canvas not available.'));
-          return;
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas not available.'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', LOGO_QUALITY);
+          // Azure Table Storage caps a single string property at 64 KB. A data
+          // URL is ~33% larger than its bytes, so keep a margin for safety.
+          if (dataUrl.length > 60_000) {
+            reject(
+              new Error(
+                'That image is too detailed to store — please try a simpler logo or a smaller file.',
+              ),
+            );
+            return;
+          }
+          resolve(dataUrl);
+        } catch {
+          reject(new Error('Could not process the image. Please try another file.'));
         }
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', LOGO_QUALITY));
       };
       img.src = ev.target?.result as string;
     };
@@ -68,7 +87,7 @@ export function BrigadeSettingsPage() {
   const { brigadeId } = useParams<{ brigadeId: string }>();
   const navigate = useNavigate();
   useAuth();
-  const { memberships } = useUserProfile();
+  const { memberships, isLoading: membershipsLoading } = useUserProfile();
 
   const [brigade, setBrigade] = useState<Brigade | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,14 +139,14 @@ export function BrigadeSettingsPage() {
     void load();
   }, [brigadeId, navigate]);
 
-  // Check permission once brigade + memberships are loaded
+  // Check permission once the brigade and the membership list have both loaded.
+  // Wait for membership loading to finish before deciding — otherwise an empty
+  // (still-loading) list would let the admin form render to a non-admin.
   useEffect(() => {
-    if (!brigade || memberships.length === 0) return;
+    if (!brigade || membershipsLoading) return;
     const membership = memberships.find((m) => m.brigadeId === brigade.id);
-    if (!canEditBrigadeSettings(membership ?? null)) {
-      setAccessDenied(true);
-    }
-  }, [brigade, memberships]);
+    setAccessDenied(!canEditBrigadeSettings(membership ?? null));
+  }, [brigade, memberships, membershipsLoading]);
 
   async function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -186,7 +205,7 @@ export function BrigadeSettingsPage() {
     }
   }
 
-  if (loading) {
+  if (loading || membershipsLoading) {
     return (
       <AppLayout>
         <div className="bsp__loading" role="status" aria-live="polite">
@@ -228,7 +247,7 @@ export function BrigadeSettingsPage() {
           <section className="bsp__section" aria-labelledby="bsp-logo">
             <h2 className="bsp__section-title" id="bsp-logo">Brigade Logo</h2>
             <div className="bsp__logo-row">
-              <div className="bsp__logo-preview" aria-label="Logo preview">
+              <div className="bsp__logo-preview">
                 {logoPreview ? (
                   <img src={logoPreview} alt="Brigade logo preview" />
                 ) : (

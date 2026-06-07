@@ -69,6 +69,10 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
   const hasAnnouncedOffRouteRef = useRef(false);
   const rerouteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const waypointCompletionQueueRef = useRef<Set<string>>(new Set());
+  // Frozen plan-time estimated arrival per waypoint id, captured at navigation
+  // start. The live ETA recalc overwrites waypoint.estimatedArrival, so the
+  // schedule-variance indicator must compare against this immutable baseline.
+  const plannedArrivalsRef = useRef<Map<string, string>>(new Map());
 
   // Configure voice settings
   useEffect(() => {
@@ -127,17 +131,21 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     // Check if off route
     const offRoute = isOffRoute(userLocation, updatedRoute.geometry, 100);
 
-    // Schedule variance: compare estimatedArrival vs actualArrival for the last
-    // completed waypoint that has both timestamps set. Positive = arrived early.
-    const completedWithTimes = updatedRoute.waypoints.filter(
-      (wp) => wp.isCompleted && wp.estimatedArrival && wp.actualArrival,
-    );
+    // Schedule variance: compare the FROZEN planned arrival (captured at nav
+    // start) against the actual arrival for the most recently completed
+    // waypoint. Positive = ahead of schedule (arrived earlier than planned).
     let scheduleVarianceMinutes: number | null = null;
+    const planned = plannedArrivalsRef.current;
+    const completedWithTimes = updatedRoute.waypoints.filter(
+      (wp) => wp.isCompleted && wp.actualArrival && planned.has(wp.id),
+    );
     if (completedWithTimes.length > 0) {
       const last = completedWithTimes[completedWithTimes.length - 1];
-      const estimatedMs = new Date(last.estimatedArrival!).getTime();
+      const plannedMs = new Date(planned.get(last.id)!).getTime();
       const actualMs = new Date(last.actualArrival!).getTime();
-      scheduleVarianceMinutes = Math.round((estimatedMs - actualMs) / 60_000);
+      if (!Number.isNaN(plannedMs) && !Number.isNaN(actualMs)) {
+        scheduleVarianceMinutes = Math.round((plannedMs - actualMs) / 60_000);
+      }
     }
 
     return {
@@ -164,6 +172,13 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     lastAnnouncedStepRef.current = -1;
     lastAnnouncedWaypointRef.current = null;
     hasAnnouncedOffRouteRef.current = false;
+
+    // Freeze the planned schedule so we can measure ahead/behind against it.
+    const planned = new Map<string, string>();
+    for (const wp of updatedRoute.waypoints) {
+      if (wp.estimatedArrival) planned.set(wp.id, wp.estimatedArrival);
+    }
+    plannedArrivalsRef.current = planned;
 
     // Initial announcement
     if (voiceEnabled && updatedRoute.navigationSteps && updatedRoute.navigationSteps.length > 0) {

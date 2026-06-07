@@ -58,7 +58,7 @@
   width: 100%;
   padding: 0.875rem 1.25rem;
   border: none;
-  border-radius: var(--border-radius-lg, 12px);
+  border-radius: var(--border-radius-sm);
   font-size: 1rem;
   font-family: var(--font-body, 'Nunito', sans-serif);
   color: var(--neutral-900, #212121);
@@ -87,8 +87,8 @@
   margin-bottom: 1.25rem;
   padding: 1rem 1.25rem;
   background: white;
-  border-radius: var(--border-radius-lg, 12px);
-  box-shadow: var(--ui-shadow-sm, 0 1px 3px rgba(0,0,0,0.08));
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--ui-shadow-soft);
 }
 
 .bdp__filter-group {
@@ -114,9 +114,10 @@
   cursor: pointer;
 }
 
-.bdp__select:focus {
+.bdp__select:focus-visible {
   outline: none;
-  border-color: var(--fire-red, #d32f2f);
+  border-color: var(--fire-red);
+  box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.2);
 }
 
 .bdp__toggle {
@@ -173,8 +174,8 @@
   gap: 1rem;
   padding: 1rem;
   background: white;
-  border-radius: var(--border-radius-lg, 12px);
-  box-shadow: var(--ui-shadow-sm, 0 1px 3px rgba(0,0,0,0.08));
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--ui-shadow-soft);
   text-decoration: none;
   color: inherit;
   border: 2px solid transparent;
@@ -264,8 +265,8 @@
   text-align: center;
   padding: 2rem 1rem;
   background: white;
-  border-radius: var(--border-radius-lg, 12px);
-  box-shadow: var(--ui-shadow-sm, 0 1px 3px rgba(0,0,0,0.08));
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--ui-shadow-soft);
   border: 2px dashed var(--neutral-200, #e0e0e0);
 }
 
@@ -282,7 +283,7 @@
   color: white;
   font-weight: 700;
   font-size: 0.9375rem;
-  border-radius: var(--border-radius, 8px);
+  border-radius: var(--border-radius-xs);
   text-decoration: none;
   transition: filter 0.18s, transform 0.18s;
 }

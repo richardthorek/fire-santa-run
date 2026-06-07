@@ -15,10 +15,29 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getTableClient, isDevMode } from './utils/storage';
+import { validateToken, checkBrigadePermission } from './utils/auth';
 const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
+const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
+
+function escapeODataValue(value: string): string {
+  return value.replace(/'/g, "''");
+}
 
 async function resolveBrigadesClient() {
   return getTableClient(BRIGADES_TABLE);
+}
+
+async function getUserMembership(userId: string, brigadeId: string): Promise<any> {
+  const client = await getTableClient(MEMBERSHIPS_TABLE);
+  const entities = client.listEntities({
+    queryOptions: {
+      filter: `PartitionKey eq '${escapeODataValue(brigadeId)}' and userId eq '${escapeODataValue(userId)}'`,
+    },
+  });
+  for await (const entity of entities) {
+    return { id: entity.rowKey, brigadeId: entity.partitionKey, userId: entity.userId, role: entity.role, status: entity.status };
+  }
+  return null;
 }
 
 // Helper to convert Table entity to Brigade object
@@ -124,6 +143,10 @@ async function getBrigades(request: HttpRequest, context: InvocationContext): Pr
 // POST /api/brigades
 async function createBrigade(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
     const brigade = await request.json() as any;
 
     if (!brigade.id || !brigade.name) {
@@ -170,7 +193,6 @@ async function createBrigade(request: HttpRequest, context: InvocationContext): 
 async function updateBrigade(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
     const brigadeId = request.params.id;
-    const brigade = await request.json() as any;
 
     if (!brigadeId) {
       return {
@@ -179,6 +201,16 @@ async function updateBrigade(request: HttpRequest, context: InvocationContext): 
       };
     }
 
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+    const permissionCheck = await checkBrigadePermission(authResult.userId!, brigadeId, 'edit_settings', getUserMembership);
+    if (!permissionCheck.authorized) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' } };
+    }
+
+    const brigade = await request.json() as any;
     const client = await resolveBrigadesClient();
     const now = new Date().toISOString();
     const entity = brigadeToEntity({ ...brigade, id: brigadeId, updatedAt: now });
@@ -222,6 +254,15 @@ async function deleteBrigade(request: HttpRequest, context: InvocationContext): 
         status: 400,
         jsonBody: { error: 'Missing required parameter: id' }
       };
+    }
+
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+    const permissionCheck = await checkBrigadePermission(authResult.userId!, brigadeId, 'edit_settings', getUserMembership);
+    if (!permissionCheck.authorized) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' } };
     }
 
     const client = await resolveBrigadesClient();
@@ -274,7 +315,7 @@ app.http('brigades-get-by-rfs', {
       }
 
       const client = await resolveBrigadesClient();
-      const entities = client.listEntities({ queryOptions: { filter: `rfsStationId eq '${rfsStationId}'` } });
+      const entities = client.listEntities({ queryOptions: { filter: `rfsStationId eq '${escapeODataValue(rfsStationId)}'` } });
       for await (const entity of entities) {
         return { status: 200, jsonBody: entityToBrigade(entity) };
       }

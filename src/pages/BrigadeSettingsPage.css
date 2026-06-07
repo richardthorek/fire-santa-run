@@ -82,8 +82,8 @@
 /* Sections */
 .bsp__section {
   background: white;
-  border-radius: var(--border-radius-lg, 12px);
-  box-shadow: var(--ui-shadow-sm, 0 1px 3px rgba(0,0,0,0.08));
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--ui-shadow-soft);
   padding: 1.5rem;
   margin-bottom: 1.25rem;
   border-top: 4px solid var(--brigade-accent, var(--fire-red, #d32f2f));
@@ -152,7 +152,7 @@
   color: white;
   font-weight: 600;
   font-size: 0.875rem;
-  border-radius: var(--border-radius, 8px);
+  border-radius: var(--border-radius-xs);
   cursor: pointer;
   transition: background 0.2s;
   text-align: center;
@@ -244,7 +244,7 @@
 .bsp__input {
   padding: 0.625rem 0.875rem;
   border: 1.5px solid var(--neutral-300, #e0e0e0);
-  border-radius: var(--border-radius, 8px);
+  border-radius: var(--border-radius-xs);
   font-size: 0.9375rem;
   font-family: var(--font-body, 'Nunito', sans-serif);
   color: var(--neutral-900, #212121);
@@ -285,7 +285,8 @@
 /* Buttons */
 .bsp__btn {
   padding: 0.625rem 1.25rem;
-  border-radius: var(--border-radius, 8px);
+  min-height: 44px;
+  border-radius: var(--border-radius-xs);
   font-weight: 600;
   font-size: 0.9375rem;
   cursor: pointer;

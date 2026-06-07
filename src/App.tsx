@@ -83,11 +83,17 @@ function App() {
   useEffect(() => {
     const init = async () => {
       if (isDevMode && !initialized) {
-        await initializeMockData(
-          storageAdapter.saveBrigade.bind(storageAdapter),
-          storageAdapter.saveRoute.bind(storageAdapter)
-        );
-        setInitialized(true);
+        try {
+          await initializeMockData(
+            storageAdapter.saveBrigade.bind(storageAdapter),
+            storageAdapter.saveRoute.bind(storageAdapter)
+          );
+        } catch (err) {
+          // Seeding failure must not brick the dev app on the loading screen.
+          console.error('Failed to initialize mock data:', err);
+        } finally {
+          setInitialized(true);
+        }
       }
     };
     init();
