@@ -10,7 +10,8 @@ import { expect } from 'vitest';
 // Extend Vitest matchers with axe accessibility matchers
 expect.extend(toHaveNoViolations);
 
-// Mock localStorage
+// Mock localStorage (implements the Web Storage API surface used in the app,
+// including length/key(i) enumeration relied on by getBrigades()).
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
 
@@ -24,6 +25,10 @@ const localStorageMock = (() => {
     },
     clear: () => {
       store = {};
+    },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+    get length() {
+      return Object.keys(store).length;
     },
   };
 })();

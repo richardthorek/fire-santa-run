@@ -86,11 +86,12 @@ export class LocalStorageAdapter implements IStorageAdapter {
   }
 
   async getBrigades(): Promise<Brigade[]> {
-    // Collect all brigade records stored under any brigadeId key
+    // Brigade records are stored under keys of the form `santa_<brigadeId>_brigade`
+    // (see getStorageKey). Enumerate via the Web Storage length/key(i) API.
     const brigades: Brigade[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.endsWith(':brigade')) {
+      if (key && key.startsWith('santa_') && key.endsWith('_brigade')) {
         const stored = localStorage.getItem(key);
         if (stored) {
           try {
