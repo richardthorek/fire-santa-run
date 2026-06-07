@@ -93,7 +93,9 @@ function App() {
     init();
   }, [isDevMode, initialized]);
 
-  if (authLoading || brigadeLoading) {
+  // In dev mode, wait for mock data to be seeded before rendering any route so
+  // pages that read storage on mount (dashboard, discovery) don't race the seed.
+  if (authLoading || brigadeLoading || (isDevMode && !initialized)) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <div style={{ textAlign: 'center' }}>
