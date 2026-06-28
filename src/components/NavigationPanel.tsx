@@ -163,6 +163,7 @@ export function NavigationPanel({
             {waypointAfterNext && (
               <button
                 onClick={onSkipToNext}
+                aria-label={`Skip ahead to ${waypointAfterNext.name || waypointAfterNext.address || `stop ${waypointAfterNext.order}`}`}
                 style={{
                   flex: '1',
                   backgroundColor: '#FFA726',
@@ -187,6 +188,12 @@ export function NavigationPanel({
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'scale(1)';
                 }}
+                onTouchStart={(e) => {
+                  e.currentTarget.style.transform = 'scale(0.95)';
+                }}
+                onTouchEnd={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
               >
                 <div style={{ fontSize: '0.7rem', color: '#424242', marginBottom: '0.25rem', fontWeight: 600 }}>
                   NEXT
@@ -206,6 +213,12 @@ export function NavigationPanel({
             <button
               onClick={onCompleteWaypoint}
               disabled={!canCompleteWaypoint}
+              aria-label={
+                canCompleteWaypoint
+                  ? `Mark ${nextWaypoint.name || 'current stop'} as arrived`
+                  : 'Get closer to the stop to mark it as arrived'
+              }
+              title={canCompleteWaypoint ? undefined : 'Get closer to the stop to enable'}
               style={{
                 flex: 1,
                 padding: '1rem',
@@ -227,6 +240,7 @@ export function NavigationPanel({
             </button>
             <button
               onClick={onStopNavigation}
+              aria-label="Stop navigation"
               style={{
                 padding: '1rem',
                 fontSize: '1rem',

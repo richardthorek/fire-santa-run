@@ -7,7 +7,7 @@
  * existing GET /api/brigades endpoint.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { storageAdapter } from '../storage';
 import { safeImageSrc } from '../utils/publicBrigade';
@@ -16,7 +16,8 @@ import type { Brigade } from '../storage/types';
 import './BrigadeDiscoveryPage.css';
 
 /** Extract the state abbreviation from "City, NSW" → "NSW". */
-function extractState(location: string): string {
+function extractState(location: string | undefined): string {
+  if (!location) return '';
   const parts = location.split(',');
   return parts.length > 1 ? parts[parts.length - 1].trim() : '';
 }
@@ -61,6 +62,16 @@ export function BrigadeDiscoveryPage() {
   const [query, setQuery] = useState('');
   const [stateFilter, setStateFilter] = useState('');
   const [showUnclaimed, setShowUnclaimed] = useState(false);
+  // Defer the query used for filtering so typing stays responsive even when the
+  // brigade list is large — the input updates instantly, the grid catches up.
+  const deferredQuery = useDeferredValue(query);
+
+  const hasActiveFilters = query.trim() !== '' || stateFilter !== '';
+
+  function clearFilters() {
+    setQuery('');
+    setStateFilter('');
+  }
 
   useEffect(() => {
     async function load() {
@@ -80,14 +91,14 @@ export function BrigadeDiscoveryPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     return brigades.filter((b) => {
       if (!showUnclaimed && !b.isClaimed) return false;
       if (stateFilter && extractState(b.location) !== stateFilter) return false;
-      if (q && !b.name.toLowerCase().includes(q) && !b.location.toLowerCase().includes(q)) return false;
+      if (q && !b.name.toLowerCase().includes(q) && !(b.location ?? '').toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [brigades, query, stateFilter, showUnclaimed]);
+  }, [brigades, deferredQuery, stateFilter, showUnclaimed]);
 
   const statesWithBrigades = useMemo(() => {
     const present = new Set(brigades.map((b) => extractState(b.location)).filter(Boolean));
@@ -178,9 +189,25 @@ export function BrigadeDiscoveryPage() {
               <div className="bdp__state">
                 <div className="bdp__state-emoji">🔍</div>
                 <p>
-                  No brigades found{query || stateFilter ? ' for that search' : ''}. Try a
+                  No brigades found{hasActiveFilters ? ' for that search' : ''}. Try a
                   different name or state{!showUnclaimed ? ', or show unclaimed brigades' : ''}.
                 </p>
+                <div className="bdp__state-actions">
+                  {hasActiveFilters && (
+                    <button type="button" className="bdp__state-btn" onClick={clearFilters}>
+                      Clear search
+                    </button>
+                  )}
+                  {!showUnclaimed && (
+                    <button
+                      type="button"
+                      className="bdp__state-btn"
+                      onClick={() => setShowUnclaimed(true)}
+                    >
+                      Show unclaimed brigades
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="bdp__grid">
