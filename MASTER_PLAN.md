@@ -4950,3 +4950,112 @@ To make this application fully testable and deployable with new Azure architectu
 - Integrated monitoring and logging
 - DevOps-ready with GitHub Actions
 
+---
+
+## 29. Dependency Update Status (June 2026)
+
+> **Snapshot date:** 2026-06-29. Six open Dependabot PRs are queued against `main`. This section documents each PR, its risk level, required manual work, and the recommended merge order.
+
+### Current Project State
+
+The codebase is in a **post-launch, maintenance + polish** phase:
+- Release 3 (PWA / offline) complete — service worker, IndexedDB caching, background location, lock screen controls
+- Public brigade discovery pages shipped
+- Navigation accessibility and UX polish merged (PR #354, the last non-dependabot feature commit)
+- CI/CD running on `.github/workflows/deploy-app-service.yml` → Azure App Service
+
+### Open Dependabot PRs
+
+| # | PR | Area | Type | Risk |
+|---|---|---|---|---|
+| 1 | [#359](https://github.com/richardthorek/fire-santa-run/pull/359) | GitHub Actions | 2 action bumps | Low |
+| 2 | [#355](https://github.com/richardthorek/fire-santa-run/pull/355) | Root npm | shell-quote 1.8.3→1.8.4 (security) | Low |
+| 3 | [#356](https://github.com/richardthorek/fire-santa-run/pull/356) | /server | esbuild 0.27.7→0.28.1 (security) | Low |
+| 4 | [#351](https://github.com/richardthorek/fire-santa-run/pull/351) | /api | 6 updates incl. jwks-rsa 3→4, TS 5.9→6.0 | Medium |
+| 5 | [#358](https://github.com/richardthorek/fire-santa-run/pull/358) | /server | 6 updates incl. @hono/node-server 1→2, jwks-rsa 3→4, TS 6.0 | High |
+| 6 | [#360](https://github.com/richardthorek/fire-santa-run/pull/360) | Root npm | 26 updates incl. MSAL 4→5, Vite 7→8, ESLint 9→10, TS 6.0 | High |
+
+### PR-by-PR Analysis
+
+#### PR #359 — GitHub Actions batch (Low risk)
+- `actions/checkout` v6 → v7
+- `actions/upload-artifact` bump
+- **Action:** Merge directly. No code changes needed.
+
+#### PR #355 — shell-quote security patch (Low risk)
+- `shell-quote` 1.8.3 → 1.8.4 (dev dependency, security fix)
+- **Action:** Merge directly.
+
+#### PR #356 — esbuild security patch in /server (Low risk)
+- `esbuild` 0.27.7 → 0.28.1 in `/server`
+- **Action:** Merge directly after verifying `npm run build` in `/server` still works.
+
+#### PR #351 — /api batch (Medium risk)
+Notable upgrades:
+- `jwks-rsa` 3.2.0 → 4.0.1 — **MAJOR**: v4 drops CommonJS exports; import syntax must use ESM (`import { JwksClient } from 'jwks-rsa'`). Check all `api/` files that use jwks-rsa.
+- `typescript` 5.9.3 → 6.0.3 — **MAJOR**: TS 6 introduces stricter type-narrowing. Run `npx tsc -b` in `/api` and fix errors.
+- `@azure/functions` 4.12.0 → 4.16.0 (minor, safe)
+- `@azure/storage-blob` 12.31.0 → 12.32.0 (minor, safe)
+- `rimraf` 6.0.1 → 6.1.3 (minor, safe)
+- `@types/node` 25.0.3 → 25.9.2 (minor, safe)
+
+**Action:** Review jwks-rsa usage in `/api`, run `tsc -b`, fix any errors, then merge.
+
+#### PR #358 — /server batch (High risk)
+Notable upgrades:
+- `@hono/node-server` 1.19.14 → 2.0.4 — **MAJOR**: startup API changed in v2; verify `server/index.ts` `serve()` call signature still works.
+- `jwks-rsa` 3.2.2 → 4.0.1 — **MAJOR**: same ESM-only issue as PR #351; check `server/` files.
+- `typescript` 5.9.3 → 6.0.3 — **MAJOR**: run `npx tsc -b` in `/server` and fix any new errors.
+- `@types/node` 22.x → 25.9.3 (minor drift from major type changes; check for breakage)
+- `hono` 4.12.23 → 4.12.25 (patch, safe)
+- `tsx` 4.21.0 → 4.22.4 (minor, safe)
+
+**Action:** Test `npm run build` in `/server`, check `serve()` call signature in `server/index.ts`, verify jwks-rsa imports.
+
+#### PR #360 — Root npm batch (High risk — do last)
+This is the largest PR (26 packages) with several major version bumps:
+
+**Breaking changes requiring code updates:**
+
+| Package | Change | Impact |
+|---|---|---|
+| `@azure/msal-browser` | 4.27.0 → 5.14.0 | MSAL v5 is a complete rewrite — `PublicClientApplication`, `AuthenticationResult`, and `AccountInfo` APIs changed. Auth context will need updating. |
+| `@azure/msal-react` | 3.0.23 → 5.4.5 | `useMsal()`, `useAccount()`, `MsalProvider` API changes. All components using MSAL hooks need review. |
+| `vite` | 7.3.3 → 8.0.16 | Vite 8 drops Node 18; verify `vite.config.ts` plugin API compatibility. |
+| `@vitejs/plugin-react` | 5.1.2 → 6.0.2 | Plugin API changes for Vite 8; needs updated config. |
+| `eslint` | 9.39.2 → 10.5.0 | ESLint 10 config format changes; verify `eslint.config.js`. |
+| `@eslint/js` | 9.39.2 → 10.0.1 | Goes with ESLint 10. |
+| `typescript` | 5.9.3 → 6.0.3 | Run `npx tsc -b` and fix strict type errors. |
+| `@types/node` | 25.6.0 → 26.0.0 | Major type changes; check for breakage. |
+| `jsdom` | 27.4.0 → 29.1.1 | Test environment update; run `npx vitest run` after merge. |
+| `concurrently` | 9.2.1 → 10.0.3 | CLI API may have changed; verify `npm run dev` still works. |
+
+**Minor updates (safe to include):** `date-fns`, `mapbox-gl`, `react`/`react-dom` (patch), `react-router-dom`, `vite-plugin-pwa`, `@axe-core/react`, `@playwright/test`, `@vitest/coverage-v8`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `globals`, `lighthouse`, `terser`, `typescript-eslint`.
+
+**Action:** This PR likely needs significant manual code updates before it will build/test cleanly. Recommend creating a dedicated branch to work through it rather than merging Dependabot's branch directly.
+
+### Recommended Merge Order
+
+Work through in this sequence to minimise cascading conflicts:
+
+1. **PR #359** (Actions) — merge first, no code changes needed
+2. **PR #355** (shell-quote security) — merge directly
+3. **PR #356** (esbuild security in /server) — merge directly
+4. **PR #351** (/api batch) — fix jwks-rsa import + TS 6 errors in `/api`, then merge
+5. **PR #358** (/server batch) — fix @hono/node-server v2 startup + jwks-rsa + TS 6 in `/server`, then merge
+6. **PR #360** (root batch) — create a work branch, update MSAL auth context + vite config + eslint config + fix TS 6 errors; run full test suite before merging
+
+### TypeScript 6.0 Coordination Note
+
+TypeScript 6.0 appears in **three separate PRs** (#351 for `/api`, #358 for `/server`, #360 for root). Each sub-package has its own `tsconfig.json` and `package.json`. Merge in order (api → server → root) and run `npx tsc -b` at each step to catch TS 6 errors in isolation before they compound.
+
+### MSAL v5 Migration Notes
+
+MSAL browser 4→5 and MSAL react 3→5 are the highest-impact upgrades. Key files to review:
+- `src/context/AuthContext.tsx` — `PublicClientApplication` config and `loginPopup`/`loginRedirect` API
+- `src/hooks/` — any hooks wrapping `useMsal()`
+- `src/config/` — MSAL config object shape changed
+- `server/` auth middleware — token validation may be unaffected (server uses jwks-rsa directly)
+
+MSAL v5 migration guide: https://github.com/AzureAD/microsoft-authentication-library-for-js/blob/dev/lib/msal-browser/docs/v5-migration.md
+
