@@ -44,19 +44,34 @@ export default defineConfig(( env: ConfigEnv ): UserConfig => {
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            // Split React and React-DOM into separate chunk
-            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-            // Split Mapbox (large mapping library) into separate chunk
-            'mapbox': ['mapbox-gl', '@mapbox/mapbox-gl-geocoder', '@mapbox/mapbox-gl-draw'],
-            // Split Azure SDKs into separate chunk
-            'azure': ['@azure/msal-browser', '@azure/msal-react', '@azure/data-tables', '@azure/web-pubsub-client'],
-            // Split UI libraries into separate chunk
-            'ui-libs': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities', 'qrcode.react'],
-            // Split Socket.IO into separate chunk
-            'realtime': ['socket.io-client'],
+          // Vite 8 / Rollup 4: use the function form of manualChunks (the object
+          // form is deprecated). Groupings below match the previous explicit map.
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+            // Split React core into a separate chunk
+            if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+              return 'react-vendor';
+            }
+            // Split Mapbox (large mapping library) into a separate chunk
+            if (id.includes('mapbox-gl') || id.includes('@mapbox/mapbox-gl-geocoder') || id.includes('@mapbox/mapbox-gl-draw')) {
+              return 'mapbox';
+            }
+            // Split Azure SDKs into a separate chunk
+            if (id.includes('@azure/msal-browser') || id.includes('@azure/msal-react') || id.includes('@azure/data-tables') || id.includes('@azure/web-pubsub-client')) {
+              return 'azure';
+            }
+            // Split UI libraries into a separate chunk
+            if (id.includes('@dnd-kit/') || id.includes('qrcode.react')) {
+              return 'ui-libs';
+            }
+            // Split Socket.IO into a separate chunk
+            if (id.includes('socket.io-client')) {
+              return 'realtime';
+            }
             // Split date utilities
-            'date-utils': ['date-fns'],
+            if (id.includes('date-fns')) {
+              return 'date-utils';
+            }
           },
         },
       },

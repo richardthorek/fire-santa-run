@@ -180,11 +180,10 @@ export async function clearTokenCache(
   account: AccountInfo
 ): Promise<void> {
   try {
-    // Remove account from cache (removes all associated tokens)
-    await instance.logout({
-      account,
-      onRedirectNavigate: () => false, // Prevent redirect, just clear cache
-    });
+    // Remove the account and its tokens from the local cache without redirecting.
+    // MSAL v5 removed the generic `logout()` (and `onRedirectNavigate` from
+    // logout requests); `clearCache` is the supported way to drop local state only.
+    await instance.clearCache({ account });
   } catch (error) {
     console.error('[Token] Error clearing token cache:', error);
   }

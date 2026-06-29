@@ -32,7 +32,6 @@ const msalInstance = isMsalConfigured()
       },
       cache: {
         cacheLocation: 'sessionStorage',
-        storeAuthStateInCookie: false,
       },
     });
 
@@ -111,7 +110,10 @@ async function initializeApp() {
 
       // Handle redirect promise after login/logout and set active account from the result
       // CRITICAL: Wait for this to complete before rendering React
-      const result = await msalInstance.handleRedirectPromise();
+      // MSAL v5: `navigateToLoginRequestUrl` moved from config to this call.
+      const result = await msalInstance.handleRedirectPromise({
+        navigateToLoginRequestUrl: false,
+      });
       if (result?.account) {
         msalInstance.setActiveAccount(result.account);
         if (import.meta.env.DEV) {

@@ -4954,7 +4954,9 @@ To make this application fully testable and deployable with new Azure architectu
 
 ## 29. Dependency Update Status (June 2026)
 
-> **Snapshot date:** 2026-06-29. Six open Dependabot PRs are queued against `main`. This section documents each PR, its risk level, required manual work, and the recommended merge order.
+> **Snapshot date:** 2026-06-29. Six open Dependabot PRs were queued against `main`. This section documents each PR, its risk level, required manual work, and the recommended merge order.
+
+> **✅ Consolidation update (2026-06-29):** The three batched npm PRs — **#351 (/api)**, **#358 (/server)**, and **#360 (root)** — have been merged together onto branch `claude/dependabot-prs-analysis-vtzzo9` and brought to a fully green state (root + api + server all `tsc`/build/test clean, 508/508 unit tests passing). The remaining low-risk PRs (#359 Actions, #355 shell-quote, #356 esbuild) are independent and can be merged directly on top. See the "Consolidation outcome" subsection at the end of this section for the code changes that were required.
 
 ### Current Project State
 
@@ -5058,4 +5060,26 @@ MSAL browser 4→5 and MSAL react 3→5 are the highest-impact upgrades. Key fil
 - `server/` auth middleware — token validation may be unaffected (server uses jwks-rsa directly)
 
 MSAL v5 migration guide: https://github.com/AzureAD/microsoft-authentication-library-for-js/blob/dev/lib/msal-browser/docs/v5-migration.md
+
+### Consolidation outcome (what the upgrades actually required)
+
+The three npm batches were applied together. Toolchain landed on: **TypeScript 6.0.3**, **Vite 8.1 (Rolldown bundler)**, **ESLint 10.5**, **MSAL browser 5.15 / react 5.5**, **jwks-rsa 4**, **@hono/node-server 2**.
+
+**Code changes required by the upgrades:**
+
+- **MSAL v5 API migration** (`src/auth/msalConfig.ts`, `src/main.tsx`, `src/auth/tokenManager.ts`):
+  - `navigateToLoginRequestUrl` removed from `Configuration.auth` → now passed to `handleRedirectPromise({ navigateToLoginRequestUrl: false })` in `main.tsx`.
+  - `storeAuthStateInCookie` removed from `CacheOptions` (both the real config and the dev-bypass instance) → MSAL v5 handles secure HTTPS-only auth-state cookies automatically, preserving prior iOS Safari / ITP SSO behaviour.
+  - `windowHashTimeout` / `iframeHashTimeout` renamed to `popupBridgeTimeout` / `iframeBridgeTimeout` (new BroadcastChannel redirect bridge).
+  - `instance.logout(...)` (with `onRedirectNavigate`) removed → replaced with `instance.clearCache({ account })`, which drops local tokens without redirecting (the original intent of `clearTokenCache`).
+- **Vite 8 / Rolldown** (`vite.config.ts`): `build.rollupOptions.output.manualChunks` object form is deprecated → converted to the function form, preserving the same vendor chunk groupings (react-vendor / mapbox / azure / ui-libs / realtime / date-utils).
+- **jwks-rsa 4 + TypeScript 6** (`api/`, `server/`): no source changes needed — the existing `jwksClient.default({...})` usage compiles cleanly under v4 + TS 6 with `esModuleInterop`.
+- **@hono/node-server 2** (`server/src/main.ts`): existing `serve({ fetch, port }, cb)` call is compatible with v2 (verified at runtime).
+
+**Deferred (tracked) — lint baseline:** ESLint 10 and eslint-plugin-react-hooks 7.1 promoted several rules to `recommended` that flag ~37 pre-existing findings across ~13 files, unrelated to the dependency changes. To keep this consolidation focused and reviewable, these rules are set to `warn` (not error) in `eslint.config.js` rather than refactoring working code under a deps PR. **Follow-up task:** a dedicated lint-cleanup pass to resolve and re-promote these to `error`:
+- `preserve-caught-error` (19, core) — attach `{ cause }` to rethrown errors in `src/storage/azure.ts` + `src/storage/http.ts`.
+- `no-useless-assignment` (2, core) — remove dead initializers in `src/storage/http.ts`, `src/utils/routeHelpers.ts`.
+- `react-hooks/set-state-in-effect`, `preserve-manual-memoization`, `purity`, `immutability`, `refs` (16, React Compiler diagnostics) — review hooks/pages flagged by the new compiler-based analysis.
+
+**Local network caveat:** `api/` install requires `npm install --ignore-scripts` in this environment because the `azure-functions-core-tools` postinstall downloads a binary that the agent proxy blocks (HTTP 403). This is environment-only and does not affect CI or production.
 
