@@ -254,6 +254,14 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
  * GET /analytics/routes/:routeId/viewer-count
  * Get current live viewer count for a specific route
  */
+// Viewer counts are polled by every open tracking page, so an uncached
+// implementation costs one table scan per viewer per poll — a quota killer on
+// small App Service plans during a busy run. A short in-memory TTL cache
+// collapses that to at most one scan per route per window, no matter how many
+// people are watching.
+const VIEWER_COUNT_TTL_MS = 15 * 1000;
+const viewerCountCache = new Map<string, { count: number; expires: number }>();
+
 analyticsRouter.get('/routes/:routeId/viewer-count', async (c) => {
   try {
     const routeId = c.req.param('routeId');
@@ -261,9 +269,21 @@ analyticsRouter.get('/routes/:routeId/viewer-count', async (c) => {
       return c.json({ error: 'Missing routeId parameter' }, 400);
     }
 
+    const cached = viewerCountCache.get(routeId);
+    if (cached && cached.expires > Date.now()) {
+      return c.json({
+        routeId,
+        count: cached.count,
+        timestamp: new Date().toISOString()
+      }, 200);
+    }
+
     const tableClient = await getTableClient(VIEWER_SESSIONS_TABLE);
     const sessions = tableClient.listEntities({
-      queryOptions: { filter: `PartitionKey eq '${escapeODataValue(routeId)}'` }
+      queryOptions: {
+        filter: `PartitionKey eq '${escapeODataValue(routeId)}'`,
+        select: ['joinedAt', 'leftAt']
+      }
     });
 
     // Count sessions that have joined but not left yet (active viewers)
@@ -283,6 +303,8 @@ analyticsRouter.get('/routes/:routeId/viewer-count', async (c) => {
         }
       }
     }
+
+    viewerCountCache.set(routeId, { count: activeCount, expires: Date.now() + VIEWER_COUNT_TTL_MS });
 
     return c.json({
       routeId,

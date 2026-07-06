@@ -71,7 +71,7 @@ describe('Storage Adapter Factory', () => {
       const { storageAdapter } = await import('../index');
       
       // Verify it's Azure adapter
-      expect(storageAdapter.constructor.name).toBe('AzureTableStorageAdapter');
+      expect(storageAdapter.constructor.name).toBe('LazyAzureStorageAdapter');
       
       // Verify console log indicates dev prefix usage
       expect(console.info).toHaveBeenCalledWith(
@@ -93,7 +93,7 @@ describe('Storage Adapter Factory', () => {
       const { storageAdapter } = await import('../index');
       
       // Verify it's Azure adapter
-      expect(storageAdapter.constructor.name).toBe('AzureTableStorageAdapter');
+      expect(storageAdapter.constructor.name).toBe('LazyAzureStorageAdapter');
       
       // Verify console log indicates production mode
       expect(console.info).toHaveBeenCalledWith(

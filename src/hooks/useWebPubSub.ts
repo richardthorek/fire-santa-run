@@ -53,13 +53,18 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
 
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY_MS = 3000;
-  const VIEWER_COUNT_POLL_INTERVAL_MS = 10000; // 10 seconds
+  // 30s keeps the badge feeling live while quartering the request volume of
+  // the old 10s poll — every open tracking page runs this loop, and the free
+  // App Service tiers pay for each request in shared CPU quota.
+  const VIEWER_COUNT_POLL_INTERVAL_MS = 30000;
 
   /**
-   * Fetch current viewer count from API
+   * Fetch current viewer count from API. Skipped while the tab is hidden —
+   * backgrounded phones on a tracking page shouldn't keep the server busy.
    */
   const fetchViewerCount = useCallback(async () => {
     if (role !== 'viewer') return;
+    if (typeof document !== 'undefined' && document.hidden) return;
 
     try {
       const response = await fetch(`${API_BASE_URL}/analytics/routes/${routeId}/viewer-count`);

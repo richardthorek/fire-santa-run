@@ -16,12 +16,45 @@ const port = parseInt(process.env.PORT ?? '8080', 10);
 const app = createApp();
 
 // Serve static frontend assets — registered after API routes to avoid shadowing /api/*.
-app.use('/assets/*', serveStatic({ root: staticRoot }));
+// Vite emits content-hashed filenames under /assets, so they are immutable:
+// long-lived caching means each browser downloads a chunk once, which matters
+// on the F1/B1 App Service plans where every byte is served by this process.
+app.use(
+  '/assets/*',
+  serveStatic({
+    root: staticRoot,
+    onFound: (_path, c) => {
+      c.header('Cache-Control', 'public, max-age=31536000, immutable');
+    },
+  }),
+);
 app.use('/favicon.ico', serveStatic({ root: staticRoot, path: '/favicon.ico' }));
 
+// The service worker and manifest must revalidate so app updates roll out.
+app.use(
+  '/sw.js',
+  serveStatic({
+    root: staticRoot,
+    path: '/sw.js',
+    onFound: (_path, c) => {
+      c.header('Cache-Control', 'no-cache');
+    },
+  }),
+);
+
 // SPA fallback: all remaining GETs that are not API calls return index.html so
-// that client-side routing (React Router) works on direct URL loads.
-app.get('*', serveStatic({ root: staticRoot, rewriteRequestPath: () => '/index.html' }));
+// that client-side routing (React Router) works on direct URL loads. index.html
+// must never be cached — it references the current hashed asset names.
+app.get(
+  '*',
+  serveStatic({
+    root: staticRoot,
+    rewriteRequestPath: () => '/index.html',
+    onFound: (_path, c) => {
+      c.header('Cache-Control', 'no-cache');
+    },
+  }),
+);
 
 console.log(`\u{1F385} Fire Santa Run server starting on port ${port}`);
 console.log(`   Static files : ${staticRoot}`);
