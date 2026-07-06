@@ -14,7 +14,10 @@ import { storageAdapter } from '../storage';
 import type { Brigade } from '../storage/types';
 import type { Route } from '../types';
 import { categorizeBrigadeRoutes, safeHttpUrl, safeImageSrc } from '../utils/publicBrigade';
-import { RouteStatusBadge, SEO } from '../components';
+// Direct imports: the components barrel drags mapbox-gl into this public page's chunk.
+import { RouteStatusBadge } from '../components/RouteStatusBadge';
+import { SEO } from '../components/SEO';
+import { PublicHeader } from '../components/PublicHeader';
 import './PublicBrigadePage.css';
 
 type LoadState = 'loading' | 'ready' | 'not-found' | 'error';
@@ -109,6 +112,7 @@ export function PublicBrigadePage() {
   if (state === 'loading') {
     return (
       <div className="pbp">
+        <PublicHeader />
         <div className="pbp__container">
           <div className="pbp__state" role="status" aria-live="polite">
             <div className="pbp__state-emoji">🎅</div>
@@ -122,6 +126,7 @@ export function PublicBrigadePage() {
   if (state === 'not-found') {
     return (
       <div className="pbp">
+        <PublicHeader />
         <SEO title="Brigade not found" />
         <div className="pbp__container">
           <div className="pbp__state">
@@ -140,6 +145,7 @@ export function PublicBrigadePage() {
   if (state === 'error' || !brigade) {
     return (
       <div className="pbp">
+        <PublicHeader />
         <div className="pbp__container">
           <div className="pbp__state">
             <div className="pbp__state-emoji">⚠️</div>
@@ -161,6 +167,7 @@ export function PublicBrigadePage() {
 
   return (
     <div className="pbp">
+      <PublicHeader />
       <SEO
         title={brigade.name}
         description={`Follow ${brigade.name}'s Santa runs in ${brigade.location}. Live tracking, no login required.`}

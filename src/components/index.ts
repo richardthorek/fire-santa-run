@@ -13,6 +13,7 @@ export { ProgressBar } from './ProgressBar';
 export { SharePanel } from './SharePanel';
 export { ShareModal } from './ShareModal';
 export { SEO } from './SEO';
+export { PublicHeader } from './PublicHeader';
 export { SkeletonBox, RouteCardSkeleton, DashboardSkeleton, MapSkeleton } from './LoadingSkeleton';
 export { ProtectedRoute } from './ProtectedRoute';
 export { RoleBadge } from './RoleBadge';

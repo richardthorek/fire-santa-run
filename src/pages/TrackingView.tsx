@@ -254,6 +254,20 @@ export function TrackingView({ routeId }: TrackingViewProps) {
 
   // Handle location updates
   const handleLocationUpdate = (location: LocationBroadcast) => {
+    // Final message of a run: flip to the thank-you state live. Waypoints are
+    // marked done so the summary reflects a finished run.
+    if (location.status === 'completed') {
+      setRoute(prev => (prev && prev.status !== 'completed'
+        ? {
+            ...prev,
+            status: 'completed',
+            completedAt: new Date().toISOString(),
+            waypoints: prev.waypoints.map(w => ({ ...w, isCompleted: true })),
+          }
+        : prev));
+      return;
+    }
+
     setCurrentLocation(location);
     if (typeof location.currentWaypointIndex === 'number') {
       // Never go backwards — guards against out-of-order messages.

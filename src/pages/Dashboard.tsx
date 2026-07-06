@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useRoutes } from '../hooks';
 import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist } from '../components';
 import type { Route, RouteStatus } from '../types';
@@ -213,8 +213,8 @@ export function Dashboard() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <a
-          href="/routes/new"
+        <Link
+          to="/routes/new"
           aria-label="Create new Santa Run route"
           style={{
             padding: '0.875rem 1.75rem',
@@ -239,9 +239,9 @@ export function Dashboard() {
           }}
         >
           <span aria-hidden="true">➕</span> Create New Route
-        </a>
-        <a
-          href="/templates"
+        </Link>
+        <Link
+          to="/templates"
           aria-label="Browse route template library"
           style={{
             padding: '0.875rem 1.25rem',
@@ -266,7 +266,7 @@ export function Dashboard() {
           }}
         >
           <span aria-hidden="true">🗂️</span> Templates
-        </a>
+        </Link>
         </div>
       </div>
 
@@ -684,8 +684,8 @@ export function Dashboard() {
             }
           </p>
           {filterStatus !== 'archived' && (
-          <a
-            href="/routes/new"
+          <Link
+            to="/routes/new"
             aria-label="Create your first route"
             style={{
               padding: '0.875rem 1.75rem',
@@ -709,7 +709,7 @@ export function Dashboard() {
             }}
           >
             Create First Route
-          </a>
+          </Link>
           )}
         </div>
       ) : (

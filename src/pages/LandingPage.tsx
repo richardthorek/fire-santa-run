@@ -7,7 +7,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
-import { SEO } from '../components';
+// Direct import: the components barrel drags mapbox-gl into this public page's chunk.
+import { SEO } from '../components/SEO';
 import { COLORS } from '../utils/constants';
 
 export function LandingPage() {
