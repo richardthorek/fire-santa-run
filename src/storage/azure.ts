@@ -5,6 +5,7 @@ import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
 import type { MemberInvitation } from '../types/invitation';
 import type { AdminVerificationRequest } from '../types/verification';
+import { isPublicRouteStatus } from '../utils/publicBrigade';
 
 /**
  * Azure Table Storage implementation of the storage adapter.
@@ -126,6 +127,25 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
         return null;
       }
       console.error('Failed to get route from Azure Table Storage:', error);
+      throw new Error('Failed to get route');
+    }
+  }
+
+  async getPublicRoute(routeId: string): Promise<Route | null> {
+    try {
+      // Route IDs are globally unique, so a RowKey scan finds at most one.
+      const entities = this.routesClient.listEntities({
+        queryOptions: { filter: `RowKey eq '${routeId.replace(/'/g, "''")}'` }
+      });
+      for await (const entity of entities) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { partitionKey, rowKey, timestamp, etag, ...routeData } = entity;
+        const route = routeData as unknown as Route;
+        return isPublicRouteStatus(route.status) ? route : null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get public route from Azure Table Storage:', error);
       throw new Error('Failed to get route');
     }
   }

@@ -109,13 +109,17 @@ function routeToEntity(route: any) {
   };
 }
 
-// GET /api/routes?brigadeId=xxx OR GET /api/routes/{id}?brigadeId=xxx
+// Statuses visible to anonymous viewers (public tracking page). Drafts are
+// never served without a brigadeId. Keep aligned with server/src/routes/routes.ts.
+const PUBLIC_ROUTE_STATUSES = new Set(['published', 'active', 'completed', 'archived']);
+
+// GET /api/routes?brigadeId=xxx OR GET /api/routes/{id}[?brigadeId=xxx]
 async function getRoutes(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
     const brigadeId = request.query.get('brigadeId');
     const routeId = request.params.id;
 
-    if (!brigadeId) {
+    if (!brigadeId && !routeId) {
       return {
         status: 400,
         jsonBody: { error: 'Missing required parameter: brigadeId' }
@@ -126,21 +130,38 @@ async function getRoutes(request: HttpRequest, context: InvocationContext): Prom
 
     // Get single route
     if (routeId) {
-      try {
-        const entity = await client.getEntity(brigadeId, routeId);
-        return {
-          status: 200,
-          jsonBody: entityToRoute(entity)
-        };
-      } catch (error: any) {
-        if (error.statusCode === 404) {
+      // Brigade-scoped lookup (members): fast point read, any status.
+      if (brigadeId) {
+        try {
+          const entity = await client.getEntity(brigadeId, routeId);
           return {
-            status: 404,
-            jsonBody: { error: 'Route not found' }
+            status: 200,
+            jsonBody: entityToRoute(entity)
           };
+        } catch (error: any) {
+          if (error.statusCode === 404) {
+            return {
+              status: 404,
+              jsonBody: { error: 'Route not found' }
+            };
+          }
+          throw error;
         }
-        throw error;
       }
+
+      // Anonymous lookup (public /track/:id): route IDs are globally unique,
+      // so a RowKey scan finds at most one. Only public statuses are served.
+      const matches = client.listEntities({
+        queryOptions: { filter: `RowKey eq '${routeId.replace(/'/g, "''")}'` }
+      });
+      for await (const entity of matches) {
+        const route = entityToRoute(entity);
+        if (PUBLIC_ROUTE_STATUSES.has(route.status)) {
+          return { status: 200, jsonBody: route };
+        }
+        break;
+      }
+      return { status: 404, jsonBody: { error: 'Route not found' } };
     }
 
     // List all routes for brigade

@@ -40,6 +40,11 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
 
   const clientRef = useRef<WebPubSubClient | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+  // The connection is established once per routeId/role, but callers typically
+  // pass a fresh callback closure on every render. Route messages through a
+  // ref so the latest closure always runs (avoids stale route/state bugs).
+  const onLocationUpdateRef = useRef(onLocationUpdate);
+  onLocationUpdateRef.current = onLocationUpdate;
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const sessionIdRef = useRef<string>(generateSessionId());
@@ -142,8 +147,8 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
               setState(prev => ({ ...prev, viewerCount: viewerCountMsg.count }));
             }
             // Handle location updates
-            else if (onLocationUpdate) {
-              onLocationUpdate(data as LocationBroadcast);
+            else if (onLocationUpdateRef.current) {
+              onLocationUpdateRef.current(data as LocationBroadcast);
             }
           }
         };
@@ -185,8 +190,8 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
               console.log(`[Production] Received viewer count: ${viewerCountMsg.count}`);
             }
             // Handle location updates
-            else if (onLocationUpdate) {
-              onLocationUpdate(data as LocationBroadcast);
+            else if (onLocationUpdateRef.current) {
+              onLocationUpdateRef.current(data as LocationBroadcast);
             }
           }
         });
@@ -243,7 +248,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
         viewerCount: null,
       });
     }
-  }, [routeId, role, onLocationUpdate, logViewerJoin, fetchViewerCount]);
+  }, [routeId, role, logViewerJoin, fetchViewerCount]);
 
   /**
    * Disconnect from Web PubSub or BroadcastChannel

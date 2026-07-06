@@ -4,6 +4,7 @@ import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
 import type { MemberInvitation } from '../types/invitation';
 import type { AdminVerificationRequest } from '../types/verification';
+import { isPublicRouteStatus } from '../utils/publicBrigade';
 
 /**
  * LocalStorage implementation of the storage adapter.
@@ -42,6 +43,26 @@ export class LocalStorageAdapter implements IStorageAdapter {
   async getRoute(brigadeId: string, routeId: string): Promise<Route | null> {
     const routes = await this.getRoutes(brigadeId);
     return routes.find(r => r.id === routeId) || null;
+  }
+
+  async getPublicRoute(routeId: string): Promise<Route | null> {
+    // Anonymous lookup: scan every brigade's route list for the ID.
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('santa_') || !key.endsWith('_routes')) continue;
+      const stored = localStorage.getItem(key);
+      if (!stored) continue;
+      try {
+        const routes: Route[] = JSON.parse(stored);
+        const route = routes.find(r => r.id === routeId);
+        if (route) {
+          return isPublicRouteStatus(route.status) ? route : null;
+        }
+      } catch {
+        // Ignore malformed entries and keep scanning.
+      }
+    }
+    return null;
   }
 
   async deleteRoute(brigadeId: string, routeId: string): Promise<void> {

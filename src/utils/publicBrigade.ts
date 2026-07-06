@@ -15,6 +15,11 @@ const PUBLIC_STATUSES: ReadonlySet<RouteStatus> = new Set<RouteStatus>([
   'archived',
 ]);
 
+/** True when a route with this status may be shown to anonymous viewers. */
+export function isPublicRouteStatus(status: RouteStatus): boolean {
+  return PUBLIC_STATUSES.has(status);
+}
+
 /** Statuses considered current/forthcoming for a viewer. */
 const UPCOMING_STATUSES: ReadonlySet<RouteStatus> = new Set<RouteStatus>([
   'published',
