@@ -687,10 +687,10 @@ export function LandingPage() {
                   color: 'var(--christmas-green)',
                   marginBottom: '0.5rem',
                 }}>
-                  Free Forever
+                  Free to Follow
                 </h3>
                 <p style={{ color: 'var(--neutral-700)', lineHeight: 1.4, fontSize: '0.85rem' }}>
-                  No subscriptions
+                  No app or login for your community
                 </p>
               </div>
 
@@ -850,10 +850,10 @@ export function LandingPage() {
                   fontWeight: 'bold',
                   color: 'var(--fire-red)',
                 }}>
-                  🔥 Free
+                  🔥 Simple
                 </div>
                 <div style={{ color: 'var(--neutral-700)', fontSize: '0.875rem' }}>
-                  For All Brigades
+                  Set Up in Minutes
                 </div>
               </div>
               <div>

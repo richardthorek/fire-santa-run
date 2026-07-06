@@ -68,13 +68,9 @@ export function TrackingView({ routeId }: TrackingViewProps) {
 
   // Fetch route data via the public, unauthenticated lookup — viewers of
   // /track/:id are anonymous members of the community, not brigade members.
+  // NOTE: this component is mounted with key={routeId} (see App.tsx), so all
+  // per-route view state resets naturally when navigating between runs.
   useEffect(() => {
-    // Reset per-route view state when navigating between runs.
-    setLiveWaypointIndex(0);
-    setCurrentLocation(null);
-    setIsFollowing(true);
-    isFollowingRef.current = true;
-    lastLocationRef.current = null;
     storageAdapter
       .getPublicRoute(routeId)
       .then((r) => {

@@ -1,5 +1,5 @@
 import { type CSSProperties, useEffect, useState, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, Link } from 'react-router-dom';
 import './App.css';
 import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
@@ -86,7 +86,8 @@ function App() {
         try {
           await initializeMockData(
             storageAdapter.saveBrigade.bind(storageAdapter),
-            storageAdapter.saveRoute.bind(storageAdapter)
+            storageAdapter.saveRoute.bind(storageAdapter),
+            storageAdapter.saveMembership.bind(storageAdapter)
           );
         } catch (err) {
           // Seeding failure must not brick the dev app on the loading screen.
@@ -245,17 +246,15 @@ function App() {
 
 // Wrapper to extract route ID from URL params
 function RouteEditorWrapper() {
-  const pathSegments = window.location.pathname.split('/');
-  const routeId = pathSegments[pathSegments.length - 2]; // /routes/:id/edit
-  
-  return <RouteEditor mode="edit" routeId={routeId} />;
+  const { id = '' } = useParams<{ id: string }>();
+
+  return <RouteEditor mode="edit" routeId={id} key={id} />;
 }
 
 // Wrapper for Navigation View
 function NavigationViewWrapper() {
   const navigate = useNavigate();
-  const pathSegments = window.location.pathname.split('/');
-  const routeId = pathSegments[pathSegments.length - 2]; // /routes/:id/navigate
+  const { id: routeId = '' } = useParams<{ id: string }>();
   const { getRoute } = useRoutes();
   const [route, setRoute] = useState<RouteType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -304,20 +303,19 @@ function NavigationViewWrapper() {
 
 // Wrapper for Route Detail page
 function RouteDetailWrapper() {
-  const pathSegments = window.location.pathname.split('/');
-  const routeId = pathSegments[pathSegments.length - 1]; // /routes/:id
-  
-  return <RouteDetail routeId={routeId} />;
+  const { id = '' } = useParams<{ id: string }>();
+
+  return <RouteDetail routeId={id} key={id} />;
 }
 
 // Wrapper for Tracking View (public page - no auth required)
 function TrackingViewWrapper() {
-  const pathSegments = window.location.pathname.split('/');
-  const routeId = pathSegments[pathSegments.length - 1]; // /track/:id
+  const { id = '' } = useParams<{ id: string }>();
 
   return (
     <ErrorBoundary label="Santa tracker">
-      <TrackingView routeId={routeId} />
+      {/* key resets per-route view state (live progress, camera) on navigation */}
+      <TrackingView routeId={id} key={id} />
     </ErrorBoundary>
   );
 }
@@ -339,19 +337,35 @@ function NotFound() {
       <p style={{ marginBottom: '2rem', color: '#616161' }}>
         Santa couldn't find this page!
       </p>
-      <Link 
-        to="/dashboard"
-        style={{
-          padding: '0.75rem 1.5rem',
-          background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
-          color: 'white',
-          textDecoration: 'none',
-          borderRadius: '12px',
-          fontWeight: 600,
-        }}
-      >
-        Go to Dashboard
-      </Link>
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <Link
+          to="/"
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '12px',
+            fontWeight: 600,
+          }}
+        >
+          🏠 Go Home
+        </Link>
+        <Link
+          to="/brigades"
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: 'white',
+            color: '#D32F2F',
+            textDecoration: 'none',
+            borderRadius: '12px',
+            fontWeight: 600,
+            border: '2px solid #D32F2F',
+          }}
+        >
+          🚒 Find a brigade
+        </Link>
+      </div>
     </div>
   );
 }

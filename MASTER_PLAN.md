@@ -5084,3 +5084,31 @@ light testing burns CPU minutes quickly on shared F1 compute.
 3. Optional workflow hardening: precede deploy with a publish-profile‐based
    site status check and emit a clear "site disabled — quota exceeded, deploy
    will fail until reset/scale-up" error instead of three blind retries.
+
+### Review round 2 — additional fixes landed on the same branch
+
+- **CI lint fix**: replaced the per-route state-reset effect in TrackingView
+  with `key={routeId}` remounting (react-hooks/set-state-in-effect).
+- **App.tsx wrappers** now use `useParams()` instead of parsing
+  `window.location.pathname` (RouteEditor/NavigationView/RouteDetail/Tracking).
+- **404 page** now offers "Go Home" + "Find a brigade" instead of only
+  "Go to Dashboard" (public visitors are the main 404 audience).
+- **Landing copy de-risked for monetisation**: "Free Forever / No
+  subscriptions" → "Free to Follow — no app or login for your community";
+  "🔥 Free — For All Brigades" → "🔥 Simple — Set Up in Minutes". A proper
+  pricing section still needs writing once pricing is decided.
+- **Public brigade page**: `categorizeBrigadeRoutes` is now date-aware —
+  published runs whose day has passed list under "Past runs" (active runs stay
+  live regardless of date). Unit tests updated + new case.
+- **Onboarding checklist** no longer collapses to one-word-per-line at 375px.
+- **Dev/demo data**: mock routes now use relative dates (upcoming draft +5d,
+  published run +2d, completed run −7d with a public archive page), the seed is
+  versioned so stale dev browsers re-seed, and the dev user is seeded as an
+  active admin member — Brigade Settings and Member Management now work in dev
+  mode ("Sign Up Free" button and analytics-in-dev remain open items).
+
+Remaining open items are unchanged from the list above: public-page shared
+header/nav, per-page code splitting + Azure SDK/mapbox out of the entry bundle,
+removing unused socket.io-client, publish-success share moment (replace
+alert()), tracker live status transition to completed, pricing section, and the
+App Service dev-tier scale-up decision.

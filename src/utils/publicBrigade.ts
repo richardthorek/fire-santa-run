@@ -42,18 +42,36 @@ function compareByDate(a: Route, b: Route, direction: 'asc' | 'desc'): number {
 }
 
 /**
+ * True when the route's scheduled day is already over. Routes with unparseable
+ * dates are treated as not-past so they stay visible in upcoming.
+ */
+function isDatePast(route: Route, now: Date): boolean {
+  const endOfDay = new Date(`${route.date}T23:59:59`);
+  if (Number.isNaN(endOfDay.getTime())) return false;
+  return endOfDay.getTime() < now.getTime();
+}
+
+/**
  * Split a brigade's routes into upcoming vs past for public display, dropping
  * drafts and any non-public statuses.
+ *
+ * A `published` route whose date has passed is shown under past runs — brigades
+ * often never flip old runs to completed/archived, and a 2024 run must not sit
+ * under "Upcoming & live" forever. `active` routes are always live regardless
+ * of date (a run can start late).
  */
-export function categorizeBrigadeRoutes(routes: Route[]): CategorizedRoutes {
+export function categorizeBrigadeRoutes(routes: Route[], now: Date = new Date()): CategorizedRoutes {
   const visible = routes.filter((r) => PUBLIC_STATUSES.has(r.status));
 
+  const isUpcoming = (r: Route) =>
+    r.status === 'active' || (UPCOMING_STATUSES.has(r.status) && !isDatePast(r, now));
+
   const upcoming = visible
-    .filter((r) => UPCOMING_STATUSES.has(r.status))
+    .filter(isUpcoming)
     .sort((a, b) => compareByDate(a, b, 'asc'));
 
   const past = visible
-    .filter((r) => !UPCOMING_STATUSES.has(r.status))
+    .filter((r) => !isUpcoming(r))
     .sort((a, b) => compareByDate(a, b, 'desc'));
 
   return { upcoming, past };

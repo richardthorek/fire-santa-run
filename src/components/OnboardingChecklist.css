@@ -167,6 +167,12 @@
     flex-wrap: wrap;
   }
 
+  /* Claim the full first line (next to the icon) so the label never gets
+     flex-shrunk into a one-word-per-line column; the CTA wraps below. */
+  .onb__step-label {
+    flex: 1 1 calc(100% - 1.75rem - 0.625rem);
+  }
+
   .onb__step-cta {
     margin-left: calc(1.125rem + 0.625rem);
   }
