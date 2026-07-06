@@ -5107,8 +5107,47 @@ light testing burns CPU minutes quickly on shared F1 compute.
   active admin member — Brigade Settings and Member Management now work in dev
   mode ("Sign Up Free" button and analytics-in-dev remain open items).
 
-Remaining open items are unchanged from the list above: public-page shared
-header/nav, per-page code splitting + Azure SDK/mapbox out of the entry bundle,
-removing unused socket.io-client, publish-success share moment (replace
-alert()), tracker live status transition to completed, pricing section, and the
+### Review round 3 — free-tier quota burn: root causes found and fixed
+
+Follow-up to the App Service 503 incident: the site was dying "well before 60
+minutes of usage" because per-visitor and per-viewer costs were pathological.
+Root causes found in code (all fixed on this branch):
+
+1. **Code splitting was an illusion.** Every page was lazy-imported *via the
+   pages barrel*, which fuses all 21 pages into one 652 KB chunk; and App.tsx
+   imported three small components via the components barrel, which drags
+   `MapView` → `mapbox-gl` (1.75 MB) into the entry graph. Net effect:
+   `index.html` preloaded mapbox + the Azure SDKs for **every** visitor,
+   ~640 KB gz before first paint — all served by the Node process on shared
+   F1 compute. Fixed with per-module lazy imports; entry is now ~155 KB gz
+   (−75%) and mapbox loads only on map pages.
+2. **No Cache-Control headers on static assets.** Hashed `/assets/*` are now
+   `immutable, max-age=1y`; `index.html`/`sw.js` are `no-cache`. Repeat visits
+   previously re-downloaded everything through Node.
+3. **Service worker precached 3.6 MB on every first visit** (including the
+   mapbox chunk) — even for someone glancing at a tracking link once. Mapbox
+   and the Tables-SDK chunks are excluded from precache (now 1.9 MB) and are
+   runtime-cached on first real use instead.
+4. **Viewer-count polling was O(viewers × table scan).** Every open tracker
+   polled every 10 s, and each poll scanned the route's entire viewer-sessions
+   partition. Now: 15 s in-memory TTL cache on the server (one scan per route
+   per window regardless of crowd size), client polls every 30 s and pauses
+   when the tab is hidden.
+5. **@azure/data-tables shipped to browsers** via a static import in the
+   storage factory, despite never being used there — now behind
+   `LazyAzureStorageAdapter` (dynamic import; Node scripts/tests only).
+6. **Unused socket.io-client dependency** removed.
+
+Even with these fixes, F1's quota model (60 CPU-min/day, 165 MB egress/day,
+site *disabled* on breach) is wrong for anything public-facing: the scale-up
+decision in the incident section above stands — B1 + Always On for any
+environment whose links leave the brigade.
+
+Also fixed this round: the 4 failing Playwright tests (specs still asserted the
+old "Christmas Eve 2024" seed-route names; the seed was renamed to evergreen
+relative-date data in round 2).
+
+Remaining open items: public-page shared header/nav, publish-success share
+moment (replace alert()), tracker live status transition to completed, pricing
+section, api/ Functions analytics parity (dev-mode analytics 404s), and the
 App Service dev-tier scale-up decision.
