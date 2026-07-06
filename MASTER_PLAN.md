@@ -4950,3 +4950,137 @@ To make this application fully testable and deployable with new Azure architectu
 - Integrated monitoring and logging
 - DevOps-ready with GitHub Actions
 
+
+---
+
+## Launch Readiness Review — July 2026 (end-to-end audit)
+
+Full walk-through of every user-facing pathway (public tracking, brigade pages,
+discovery, planning, navigation, members/settings) in a running app at 375px and
+desktop, plus architecture and deployment review. Findings are split into what
+was **fixed on branch `claude/app-launch-polish-d4ovgg`** and what **remains**.
+
+### Fixed in this review
+
+1. **P0 — Public tracking links were broken for anonymous viewers.**
+   `/track/:id` resolved routes through the auth-gated `useRoutes` hook and the
+   `GET /api/routes/:id` endpoint required a `brigadeId` query param. Anyone who
+   wasn't a logged-in member of that same brigade got "Route Not Found" — i.e.
+   the core public experience (QR code / shared link → live map) did not work.
+   Fixed end-to-end: new `getPublicRoute(routeId)` on all storage adapters, and
+   both backends (`server/` Hono + `api/` Functions) now resolve a route by ID
+   alone, serving only public statuses (published/active/completed/archived —
+   drafts stay private).
+2. **P0 — Tracker progress was frozen at page load.** The progress bar and
+   waypoint markers only reflected route state at fetch time; live broadcasts
+   carried `currentWaypointIndex` but the page ignored it. Now stops turn green
+   and the bar advances in real time.
+3. **Camera hijack while following Santa.** Every location update recentred the
+   map at zoom 15, so viewers couldn't explore the route. Now the camera follows
+   Santa until the viewer pans/zooms, with a floating "🎅 Follow Santa" button to
+   re-engage.
+4. **Stale-closure bug in `useWebPubSub`** — the connection captured the first
+   render's `onLocationUpdate` (with `route === null`) forever; fixed via ref.
+5. **XSS in waypoint popups** — waypoint names/addresses were interpolated raw
+   into popup HTML; now escaped.
+6. Public tracker polish: friendly not-found page with paths to `/brigades` and
+   home (was a dead end), human date formatting, mobile header no longer clips
+   the Share button, SEO description no longer leaks the raw `brigadeId`.
+
+### Remaining findings (prioritised)
+
+**P1 — product/monetisation**
+- Landing page promises "Free Forever", "No subscriptions", "🔥 Free — For All
+  Brigades". This directly conflicts with charging brigades. Copy needs a
+  value-based rework (public viewing stays free; brigade accounts get a simple
+  price) before launch — legally awkward to walk back later.
+- "Sign In" and "Sign Up Free" buttons trigger the identical MSAL flow; fine
+  technically, but the duplicate implies a distinction that doesn't exist.
+
+**P1 — public brigade page correctness**
+- `categorizeBrigadeRoutes` puts every `published` route under "Upcoming & live
+  runs" regardless of date — a Dec 2024 route still shows as upcoming in 2026.
+  Needs date-aware categorisation (published + past date → past).
+
+**P1 — public pages are dead ends**
+- `/brigades`, `/brigade/:slug` and `/track/:id` have no header/nav back to the
+  landing page or each other (tracker has only tiny legal links). A lightweight
+  shared public header (logo → home, "Find a brigade") would fix all three.
+- The 404 page's only CTA is "Go to Dashboard" — wrong audience; public
+  visitors should be pointed home / to discovery.
+
+**P1 — dev/demo experience (first impression for evaluating brigades)**
+- Mock data is hard-coded to December 2024: demo routes render as stale/past,
+  countdowns never run. Should generate relative dates (upcoming run in a few
+  days, one active, one completed last week).
+- Dev mode seeds no membership for the mock user: Brigade Settings shows
+  "Admin access required" and Member Management lists 0 members — two whole
+  surfaces can't be demoed. Seed an admin membership with the mock data.
+- Onboarding checklist at 375px wraps one word per line (label column too
+  narrow next to the action link).
+- Analytics dashboard fetches `/api` directly and error-screens in client-only
+  dev (`dev:client`); viewer-count polling also hits `/api` every 10s in dev
+  mode, spamming the console.
+
+**P2 — performance (public first paint on mobile)**
+- `dist/index.html` preloads the Mapbox chunk (1.75 MB / 470 KB gz) and the
+  Azure chunk (@azure/data-tables ships to the browser but is never used
+  there) for every visitor, before any page renders. Cause: `App.tsx` imports
+  from the `components` barrel (drags `MapView`→`mapbox-gl` into the entry) and
+  `storage/index.ts` statically imports the Azure adapter.
+- All 21 "lazy" pages collapse into ONE 652 KB chunk because they're lazy-loaded
+  via the pages barrel (`import('./pages')`). Per-page `import('./pages/X')`
+  would restore real code splitting.
+- `socket.io-client` is a dependency (and manualChunk) but is imported nowhere.
+- These matter most for the public tracker link opened on a phone on mobile
+  data — the single most common user journey.
+
+**P2 — code quality / UX niceties**
+- Route wrappers in `App.tsx` parse `window.location.pathname` instead of
+  `useParams()` — brittle and non-reactive.
+- RouteEditor publish success uses a native `alert()`; should be a festive
+  success modal/toast offering the share link + QR right there (the moment of
+  highest sharing intent).
+- Dashboard "Create New Route"/"Templates" are `<a href>` (full page reload)
+  instead of `<Link>`.
+- Tracker: a run completing while a viewer watches doesn't transition to the
+  thank-you state without a refresh (route status only read at load).
+
+### Capacity note for launch
+- Web PubSub SKU is `Free_F1` outside prod: **20 concurrent connections, 20K
+  messages/day**. One moderately shared dev/test run will hit the connection cap
+  and new viewers will fail to connect. Prod's `Standard_S1` (1K connections) is
+  right; just don't publicise dev links.
+
+### Deployment incident — App Service deploy failing, site 503 (July 2026)
+
+**Symptoms:** `azure/webapps-deploy@v3` fails all retries with
+`Error: Failed to deploy web package using OneDeploy… Site Disabled (CODE: 403)`
+and https://santarun-web-dev020.azurewebsites.net/ returns **503 Service
+Unavailable** for all requests.
+
+**Diagnosis:** the dev App Service plan is **F1 (Free)** by design
+(`infra/main.bicep` — `appServiceSku = environment == 'prod' ? 'B1' : 'F1'`).
+F1 has a **60 CPU-minutes/day quota on shared compute**; when exhausted, Azure
+*disables the site* until the daily quota window resets (midnight UTC). While
+disabled: all HTTP traffic gets 503, and Kudu/OneDeploy rejects deployments
+with exactly `Site Disabled (403)`. The workflow, package and publish profile
+are fine — retrying cannot succeed until the site is re-enabled. (Confirm in
+Portal → App Service → *Diagnose and solve problems* → "Web app down", or the
+*Quotas* blade: "CPU Time" shows exceeded.)
+
+**Why it exhausted:** the Hono server now handles negotiate + broadcast +
+analytics polling (viewer-count poll every 10s per open tracker tab) — even
+light testing burns CPU minutes quickly on shared F1 compute.
+
+**Remediation:**
+1. *Now:* wait for the daily quota reset (or scale the plan to **B1** in
+   Portal → Scale up, which re-enables the site immediately; ~A$20/mo).
+2. *Before launch:* dev/staging on F1 is fine only if nobody shares its links.
+   Any environment whose tracker URL reaches the public must run **B1+ with
+   Always On**, or a Christmas-Eve crowd will 503 mid-run. Consider bumping
+   `appServiceSku` for dev, or adding a `staging` env mapped to B1 in
+   `main.bicep`.
+3. Optional workflow hardening: precede deploy with a publish-profile‐based
+   site status check and emit a clear "site disabled — quota exceeded, deploy
+   will fail until reset/scale-up" error instead of three blind retries.
