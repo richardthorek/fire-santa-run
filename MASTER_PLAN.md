@@ -5147,7 +5147,34 @@ Also fixed this round: the 4 failing Playwright tests (specs still asserted the
 old "Christmas Eve 2024" seed-route names; the seed was renamed to evergreen
 relative-date data in round 2).
 
-Remaining open items: public-page shared header/nav, publish-success share
-moment (replace alert()), tracker live status transition to completed, pricing
-section, api/ Functions analytics parity (dev-mode analytics 404s), and the
-App Service dev-tier scale-up decision.
+### Review round 4 — functional pathways exercised in the running app
+
+Driving every flow with Playwright against the dev server surfaced one
+critical bug and closed most of the open experience items:
+
+- **CRITICAL (fixed): editing an existing route showed an empty editor.**
+  `useRouteEditor` reads its initial route only on first render, before the
+  async `getRoute` resolves — so `/routes/:id/edit` always initialised from a
+  blank placeholder and members could not edit saved routes at all. Fixed by
+  pushing the loaded route in via `resetRoute` once it arrives (guarded
+  against effect re-runs clobbering edits).
+- **Publish → share moment** (was alert()): publishing now opens the Share
+  modal (QR, copy link, print flyer, socials) right in the editor.
+- **Live run completion for viewers**: broadcaster sends a final
+  `status:'completed'` message; open tracking pages flip to the thank-you
+  overlay live, with all stops marked done.
+- **PublicHeader** on brigade profile + discovery pages — public deep links
+  are no longer dead ends.
+- **Public page chunks de-fattened**: public pages import components directly
+  rather than via the components barrel, which was dragging mapbox-gl into
+  every public page chunk (landing page visitors were downloading 1.75 MB of
+  map code with no map on screen).
+- Dashboard internal links use router `<Link>` (no full reloads).
+
+All verified in-app (publish modal, edit loading, live tracking, follow
+pause/resume, live completion) plus 509 unit + 20 e2e tests green.
+
+Remaining open items: pricing section (needs a pricing decision), api/
+Functions analytics parity (dev-mode analytics 404s), AnalyticsDashboard has
+no dev-mode fallback, tracker viewer-count in dev is API-dependent, and the
+App Service dev-tier scale-up decision (F1 → B1 + Always On before launch).
