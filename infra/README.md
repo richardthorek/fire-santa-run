@@ -7,7 +7,9 @@ This directory contains [Bicep](https://learn.microsoft.com/en-us/azure/azure-re
 ```
 infra/
 ├── main.bicep                  # Root orchestration template (subscription scope)
-├── deploy.sh                   # One-command deployment script
+├── deploy.sh                   # One-command deployment script (calls seed-secrets.sh)
+├── seed-secrets.sh             # Idempotent App Service settings seeder (re-runnable)
+├── .env.example                # Template for infra/.env.<env> secret files (gitignored)
 ├── modules/
 │   ├── appservice.bicep        # Azure App Service (hosting + API + WebSocket support)
 │   ├── storage.bicep           # Azure Table Storage (data persistence)
@@ -159,32 +161,40 @@ az deployment sub show \
 | `AZURE_APP_SERVICE_PUBLISH_PROFILE` | App Service publish profile XML (from `az webapp deployment list-publishing-profiles --xml`) |
 | `VITE_MAPBOX_TOKEN` | Mapbox API token for frontend maps |
 
-### App Service Application Settings (set automatically by `deploy.sh`, or via Portal)
+### App Service Application Settings (seeded automatically)
 
-| Setting | Value |
-|---|---|
-| `AZURE_STORAGE_CONNECTION_STRING` | From Bicep `storageConnectionString` output |
-| `AZURE_WEBPUBSUB_CONNECTION_STRING` | From Bicep `webPubSubConnectionString` output |
-| `AZURE_WEBPUBSUB_HUB_NAME` | `santa_tracking` |
-| `DEV_MODE` | `false` |
-| `PORT` | `8080` |
-| `CORS_ORIGIN` / `APP_BASE_URL` | Public origin for this environment (prod: `https://firesantarun.com.au`; dev: the `*.azurewebsites.net` host, or set `APP_ORIGIN` in the deploy shell) |
-| `STRIPE_SECRET_KEY` | Stripe secret key — **test** key for dev, **live** key for prod (only set when exported in the deploy shell) |
-| `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) for that environment's webhook endpoint |
-| `STRIPE_PRICE_ID` | Price id (`price_…`) of the $5/yr recurring price (test vs live mode) |
-| `SITE_ADMIN_USER_IDS` | Comma-separated Entra `oid.tid` IDs allowed to review brigade verification |
+`deploy.sh` calls **`seed-secrets.sh`** at the end of a deploy to populate these.
+The seeder reads the Storage and Web PubSub connection strings **live from the
+deployed resources** (so it needs no deployment output) and pulls the Stripe /
+admin secrets from a gitignored `infra/.env.<env>` file (or the shell env). It is
+idempotent — `az webapp config appsettings set` merges, so re-running only
+updates the keys you provide and never blanks the rest.
 
-To set app settings manually:
+| Setting | Value | Source |
+|---|---|---|
+| `AZURE_STORAGE_CONNECTION_STRING` | Storage account primary connection string | read live from Azure |
+| `AZURE_WEBPUBSUB_CONNECTION_STRING` | Web PubSub primary connection string | read live from Azure |
+| `AZURE_WEBPUBSUB_HUB_NAME` | `santa_tracking` | fixed |
+| `DEV_MODE` | `false` | fixed |
+| `NODE_ENV` / `PORT` | `production` / `8080` | fixed |
+| `CORS_ORIGIN` / `APP_BASE_URL` | Public origin (prod: `https://firesantarun.com.au`; dev: the `*.azurewebsites.net` host, or `APP_ORIGIN` override) | derived |
+| `STRIPE_SECRET_KEY` | Stripe secret key — **test** for dev, **live** for prod | `infra/.env.<env>` |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) for that environment's webhook endpoint | `infra/.env.<env>` |
+| `STRIPE_PRICE_ID` | Price id (`price_…`) of the $5/yr recurring price (test vs live mode) | `infra/.env.<env>` |
+| `SITE_ADMIN_USER_IDS` | Comma-separated Entra `oid.tid` IDs allowed to review brigade verification | `infra/.env.<env>` |
+
+**Re-seed without a full redeploy** (e.g. after rotating a Stripe key or adding a
+webhook secret):
+
 ```bash
-az webapp config appsettings set \
-  --resource-group rg-santarun-dev-<suffix> \
-  --name santarun-web-<suffix> \
-  --settings \
-    "AZURE_STORAGE_CONNECTION_STRING=<value>" \
-    "AZURE_WEBPUBSUB_CONNECTION_STRING=<value>" \
-   "AZURE_WEBPUBSUB_HUB_NAME=santa_tracking" \
-    "DEV_MODE=false" "PORT=8080"
+cp infra/.env.example infra/.env.dev     # first time only, then edit
+./infra/seed-secrets.sh --env dev --dry-run   # preview (values masked)
+./infra/seed-secrets.sh --env dev             # apply
 ```
+
+The suffix defaults to the value in `parameters/<env>.bicepparam`; override with
+`--suffix`. Secrets set in the shell env take precedence over the file, so CI can
+inject them without a file present.
 
 ---
 
@@ -209,24 +219,28 @@ zero-downtime code releases — that is orthogonal to environment isolation.
 ### Stripe configuration per environment
 
 The `/api/stripe` routes return `503` until fully configured, and the paywall
-treats brigades as unentitled until the webhook records a subscription. Export
-the environment-appropriate values in the shell before running `deploy.sh` (or
-set them in the Portal / CI secrets):
+treats brigades as unentitled until the webhook records a subscription. Put the
+environment-appropriate values in a gitignored `infra/.env.<env>` file (copied
+from `infra/.env.example`); `deploy.sh`/`seed-secrets.sh` load them automatically:
 
 ```bash
 # DEV — Stripe test mode
-export STRIPE_SECRET_KEY=sk_test_...
-export STRIPE_WEBHOOK_SECRET=whsec_...      # from the dev webhook endpoint
-export STRIPE_PRICE_ID=price_...            # $5/yr recurring price, test mode
-export SITE_ADMIN_USER_IDS=oid.tid,oid2.tid2
-./infra/deploy.sh --env dev --suffix dev001
+cp infra/.env.example infra/.env.dev
+#   STRIPE_SECRET_KEY=sk_test_...
+#   STRIPE_WEBHOOK_SECRET=whsec_...   # from the dev (test-mode) webhook endpoint
+#   STRIPE_PRICE_ID=price_...         # $5/yr recurring price, TEST mode
+#   SITE_ADMIN_USER_IDS=oid.tid,oid2.tid2
+./infra/deploy.sh --env dev --suffix dev001    # deploy + seed
+#   ./infra/seed-secrets.sh --env dev           # or re-seed only, no redeploy
 
 # PROD — Stripe live mode (live keys, live price, live webhook secret)
-export STRIPE_SECRET_KEY=sk_live_...
-export STRIPE_WEBHOOK_SECRET=whsec_...
-export STRIPE_PRICE_ID=price_...
+cp infra/.env.example infra/.env.prod          # fill with sk_live_ / live price / live whsec_
 ./infra/deploy.sh --env prod --suffix prod1
 ```
+
+Secrets set in the shell env still override the file, so CI can inject them
+without committing anything. These files are gitignored (`infra/.env.dev`,
+`infra/.env.prod`) — only `infra/.env.example` is tracked.
 
 Point each environment's Stripe webhook at `https://<origin>/api/stripe/webhook`
 and subscribe to `checkout.session.completed` and `customer.subscription.*`.

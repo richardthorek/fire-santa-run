@@ -218,24 +218,6 @@ data = json.load(sys.stdin)
 print(data.get('properties', {}).get('outputs', {}).get('appServiceName', {}).get('value', ''))
 " <<< "$DEPLOY_OUTPUT" 2>/dev/null || true)
 
-  STORAGE_CONN=$(python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-print(data.get('properties', {}).get('outputs', {}).get('storageConnectionString', {}).get('value', ''))
-" <<< "$DEPLOY_OUTPUT" 2>/dev/null || true)
-
-  PUBSUB_CONN=$(python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-print(data.get('properties', {}).get('outputs', {}).get('webPubSubConnectionString', {}).get('value', ''))
-" <<< "$DEPLOY_OUTPUT" 2>/dev/null || true)
-
-  HUB_NAME=$(python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-print(data.get('properties', {}).get('outputs', {}).get('webPubSubHubName', {}).get('value', ''))
-" <<< "$DEPLOY_OUTPUT" 2>/dev/null || true)
-
   PUBLISH_PROFILE=$(az webapp deployment list-publishing-profiles \
     --resource-group "$RESOURCE_GROUP" \
     --name "$APP_NAME" \
@@ -248,40 +230,20 @@ print(data.get('properties', {}).get('outputs', {}).get('webPubSubHubName', {}).
     echo "   az webapp deployment list-publishing-profiles --resource-group '$RESOURCE_GROUP' --name '$APP_NAME' --xml"
   fi
 
-  if [[ -n "$RESOURCE_GROUP" && -n "$STORAGE_CONN" ]]; then
-    # Per-environment public origin. Override either default via APP_ORIGIN.
-    if [[ "$ENVIRONMENT" == "prod" ]]; then
-      DEFAULT_ORIGIN="https://firesantarun.com.au"
-    else
-      DEFAULT_ORIGIN="https://santarun-web-${NAME_SUFFIX}.azurewebsites.net"
-    fi
-    APP_ORIGIN="${APP_ORIGIN:-$DEFAULT_ORIGIN}"
-
-    # Base settings — always set.
-    SETTINGS=(
-      "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONN"
-      "AZURE_WEBPUBSUB_CONNECTION_STRING=$PUBSUB_CONN"
-      "AZURE_WEBPUBSUB_HUB_NAME=$HUB_NAME"
-      "DEV_MODE=false"
-      "NODE_ENV=production"
-      "PORT=8080"
-      "CORS_ORIGIN=$APP_ORIGIN"
-      "APP_BASE_URL=$APP_ORIGIN"
-    )
-
-    # Optional settings — only set when provided in the deploy shell's env, so a
-    # partial deploy never blanks an existing secret (appsettings set merges).
-    # Use Stripe TEST keys for the dev environment and LIVE keys for prod.
-    [[ -n "${STRIPE_SECRET_KEY:-}" ]]     && SETTINGS+=("STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY")
-    [[ -n "${STRIPE_WEBHOOK_SECRET:-}" ]] && SETTINGS+=("STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET")
-    [[ -n "${STRIPE_PRICE_ID:-}" ]]       && SETTINGS+=("STRIPE_PRICE_ID=$STRIPE_PRICE_ID")
-    [[ -n "${SITE_ADMIN_USER_IDS:-}" ]]   && SETTINGS+=("SITE_ADMIN_USER_IDS=$SITE_ADMIN_USER_IDS")
-
-    az webapp config appsettings set \
-      --resource-group "$RESOURCE_GROUP" \
-      --name "$APP_NAME" \
-      --settings "${SETTINGS[@]}" \
-      --output none && echo "✅ App Service settings configured ($ENVIRONMENT, origin: $APP_ORIGIN)." || echo "⚠️  Could not set app settings automatically. Set them manually in Azure Portal."
+  # ── Seed App Service application settings ────────────────────────────────
+  # Delegated to seed-secrets.sh so the same idempotent logic can be re-run
+  # standalone (e.g. after rotating a Stripe key) without a full redeploy. It
+  # reads the live connection strings itself and pulls Stripe/admin secrets from
+  # infra/.env.$ENVIRONMENT (gitignored) or the shell env.
+  echo ""
+  echo "Seeding App Service application settings..."
+  SEED_ARGS=(--env "$ENVIRONMENT")
+  [[ -n "$NAME_SUFFIX" ]] && SEED_ARGS+=(--suffix "$NAME_SUFFIX")
+  if [[ -x "${SCRIPT_DIR}/seed-secrets.sh" ]]; then
+    "${SCRIPT_DIR}/seed-secrets.sh" "${SEED_ARGS[@]}" \
+      || echo "⚠️  Secret seeding failed. Run infra/seed-secrets.sh manually once resources are ready."
+  else
+    echo "⚠️  infra/seed-secrets.sh not found or not executable; skipping settings seed."
   fi
 
   echo ""

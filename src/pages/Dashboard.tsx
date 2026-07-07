@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 export function Dashboard() {
   const navigate = useNavigate();
   const { routes, isLoading, error, archiveRoute, restoreRoute, saveRoute } = useRoutes();
-  const { brigade, refreshBrigade } = useBrigade();
+  const { brigade, refreshBrigade, isEntitled } = useBrigade();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Returning from Stripe Checkout: refresh the brigade so the webhook-updated
@@ -230,33 +230,58 @@ export function Dashboard() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <Link
-          to="/routes/new"
-          aria-label="Create new Santa Run route"
-          style={{
-            padding: '0.875rem 1.75rem',
-            background: 'linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%)',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: 'var(--border-radius-sm)',
-            fontWeight: 700,
-            fontFamily: 'var(--font-body)',
-            boxShadow: '0 4px 12px rgba(211, 47, 47, 0.3)',
-            transition: 'all 0.3s ease',
-            display: 'inline-block',
-            fontSize: '1rem',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 6px 16px rgba(211, 47, 47, 0.4)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(211, 47, 47, 0.3)';
-          }}
-        >
-          <span aria-hidden="true">➕</span> Create New Route
-        </Link>
+        {isEntitled ? (
+          <Link
+            to="/routes/new"
+            aria-label="Create new Santa Run route"
+            style={{
+              padding: '0.875rem 1.75rem',
+              background: 'linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%)',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 'var(--border-radius-sm)',
+              fontWeight: 700,
+              fontFamily: 'var(--font-body)',
+              boxShadow: '0 4px 12px rgba(211, 47, 47, 0.3)',
+              transition: 'all 0.3s ease',
+              display: 'inline-block',
+              fontSize: '1rem',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(211, 47, 47, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(211, 47, 47, 0.3)';
+            }}
+          >
+            <span aria-hidden="true">➕</span> Create New Route
+          </Link>
+        ) : (
+          // Not entitled: soft-gate the action so members hit the Subscribe prompt
+          // (rendered in SubscriptionBanner above) rather than a 402 in the editor.
+          <button
+            type="button"
+            aria-label="Subscribe to create new Santa Run routes"
+            title="A $5/year brigade subscription is required to create routes"
+            disabled
+            style={{
+              padding: '0.875rem 1.75rem',
+              background: 'var(--neutral-300)',
+              color: 'var(--neutral-600)',
+              border: 'none',
+              borderRadius: 'var(--border-radius-sm)',
+              fontWeight: 700,
+              fontFamily: 'var(--font-body)',
+              cursor: 'not-allowed',
+              display: 'inline-block',
+              fontSize: '1rem',
+            }}
+          >
+            <span aria-hidden="true">🔒</span> Create New Route
+          </button>
+        )}
         <Link
           to="/templates"
           aria-label="Browse route template library"
