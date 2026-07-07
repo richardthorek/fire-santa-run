@@ -1,4 +1,4 @@
-import type { Route, RouteTemplate } from '../types';
+import type { Route, RouteTemplate, Waypoint } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
 import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
@@ -36,12 +36,30 @@ export class LocalStorageAdapter implements IStorageAdapter {
   async getRoutes(brigadeId: string): Promise<Route[]> {
     const key = this.getStorageKey(brigadeId, 'routes');
     const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : [];
+    const routes = stored ? JSON.parse(stored) : [];
+    
+    // Reconstruct waypoints for each route
+    const routesWithWaypoints = await Promise.all(
+      routes.map(async (route: Route) => ({
+        ...route,
+        waypoints: await this.getWaypoints(brigadeId, route.id),
+      }))
+    );
+    
+    return routesWithWaypoints;
   }
 
   async getRoute(brigadeId: string, routeId: string): Promise<Route | null> {
-    const routes = await this.getRoutes(brigadeId);
-    return routes.find(r => r.id === routeId) || null;
+    const key = this.getStorageKey(brigadeId, 'routes');
+    const stored = localStorage.getItem(key);
+    const routes = stored ? JSON.parse(stored) : [];
+    const route = routes.find((r: Route) => r.id === routeId);
+    
+    if (!route) return null;
+    
+    // Reconstruct waypoints
+    const waypoints = await this.getWaypoints(brigadeId, routeId);
+    return { ...route, waypoints };
   }
 
   async deleteRoute(brigadeId: string, routeId: string): Promise<void> {
@@ -50,6 +68,44 @@ export class LocalStorageAdapter implements IStorageAdapter {
     
     const key = this.getStorageKey(brigadeId, 'routes');
     localStorage.setItem(key, JSON.stringify(filtered));
+
+    // Also delete waypoints for this route
+    await this.deleteWaypoints(brigadeId, routeId);
+  }
+
+  // Waypoint operations
+  private getWaypointsKey(brigadeId: string, routeId: string): string {
+    return `santa_${brigadeId}_route_${routeId}_waypoints`;
+  }
+
+  async saveWaypoint(brigadeId: string, routeId: string, waypoint: Waypoint): Promise<void> {
+    const waypoints = await this.getWaypoints(brigadeId, routeId);
+    const existingIndex = waypoints.findIndex(w => w.id === waypoint.id);
+    
+    if (existingIndex >= 0) {
+      waypoints[existingIndex] = waypoint;
+    } else {
+      waypoints.push(waypoint);
+    }
+    
+    const key = this.getWaypointsKey(brigadeId, routeId);
+    localStorage.setItem(key, JSON.stringify(waypoints));
+  }
+
+  async saveWaypoints(brigadeId: string, routeId: string, waypoints: Waypoint[]): Promise<void> {
+    const key = this.getWaypointsKey(brigadeId, routeId);
+    localStorage.setItem(key, JSON.stringify(waypoints));
+  }
+
+  async getWaypoints(brigadeId: string, routeId: string): Promise<Waypoint[]> {
+    const key = this.getWaypointsKey(brigadeId, routeId);
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  async deleteWaypoints(brigadeId: string, routeId: string): Promise<void> {
+    const key = this.getWaypointsKey(brigadeId, routeId);
+    localStorage.removeItem(key);
   }
 
   // Template operations

@@ -233,11 +233,66 @@ function haversineDistance(a: [number, number], b: [number, number]): number {
 }
 
 /**
- * Nearest-neighbour TSP heuristic.
+ * 2-opt local search improvement for TSP solutions.
+ *
+ * Iteratively tries to improve the route by removing crossing edges and reversing
+ * segments. Keeps first (0) and last (n-1) waypoints fixed.
+ *
+ * Returns improved path indices.
+ */
+export function twoOptImprove(path: number[], coordinates: [number, number][]): number[] {
+  let improved = true;
+  let currentPath = [...path];
+
+  while (improved) {
+    improved = false;
+
+    // Only optimize middle waypoints; keep first and last fixed
+    for (let i = 1; i < currentPath.length - 2; i++) {
+      for (let j = i + 2; j < currentPath.length - 1; j++) {
+        // Calculate distance before swap
+        const a = currentPath[i - 1];
+        const b = currentPath[i];
+        const c = currentPath[j];
+        const d = currentPath[j + 1];
+
+        const distBefore =
+          haversineDistance(coordinates[a], coordinates[b]) +
+          haversineDistance(coordinates[c], coordinates[d]);
+
+        const distAfter =
+          haversineDistance(coordinates[a], coordinates[c]) +
+          haversineDistance(coordinates[b], coordinates[d]);
+
+        // If swapping improves the distance, do it
+        if (distAfter < distBefore) {
+          // Reverse the segment between i and j
+          const newPath = [
+            ...currentPath.slice(0, i),
+            ...currentPath.slice(i, j + 1).reverse(),
+            ...currentPath.slice(j + 1),
+          ];
+          currentPath = newPath;
+          improved = true;
+          break;
+        }
+      }
+      if (improved) break;
+    }
+  }
+
+  return currentPath;
+}
+
+/**
+ * Nearest-neighbour TSP heuristic with 2-opt improvement.
  *
  * Returns the indices of the input `coordinates` array in the optimised visit
  * order.  The **first and last coordinates are always kept in place** (start
  * and end preserved); only the intermediate stops are reordered.
+ *
+ * Uses nearest-neighbor as initial solution, then improves it with 2-opt
+ * local search to find better paths (remove crossing edges and backtracking).
  *
  * Example: [A, B, C, D] with optimal middle order C→B returns [0, 2, 1, 3].
  */
@@ -273,7 +328,9 @@ export function nearestNeighborTsp(coordinates: [number, number][]): number[] {
   }
 
   path.push(n - 1); // always finish at the last waypoint
-  return path;
+
+  // Apply 2-opt local search improvement to remove crossing paths and backtracking
+  return twoOptImprove(path, coordinates);
 }
 
 /**

@@ -85,6 +85,20 @@ export interface Route {
   comments?: RouteComment[];
 }
 
+/**
+ * Route entity as stored in Azure Table Storage (without waypoints).
+ * Waypoints are stored separately in the routewaypoints table.
+ */
+export type RouteEntity = Omit<Route, 'waypoints'>;
+
+/**
+ * Waypoint entity as stored in Azure Table Storage.
+ * Stored in routewaypoints table with composite partition key.
+ */
+export interface WaypointEntity extends Waypoint {
+  routeId: string;  // For queries and reconstruction
+}
+
 export interface RouteTemplate {
   id: string;
   brigadeId: string;

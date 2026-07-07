@@ -1,4 +1,4 @@
-import type { Route, RouteTemplate } from '../types';
+import type { Route, RouteTemplate, Waypoint } from '../types';
 import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
 import type { MemberInvitation } from '../types/invitation';
@@ -73,6 +73,12 @@ export interface IStorageAdapter {
   getRoutes(brigadeId: string): Promise<Route[]>;
   getRoute(brigadeId: string, routeId: string): Promise<Route | null>;
   deleteRoute(brigadeId: string, routeId: string): Promise<void>;
+
+  // Waypoint operations (stored separately to avoid entity size limits)
+  saveWaypoint(brigadeId: string, routeId: string, waypoint: Waypoint): Promise<void>;
+  saveWaypoints(brigadeId: string, routeId: string, waypoints: Waypoint[]): Promise<void>;
+  getWaypoints(brigadeId: string, routeId: string): Promise<Waypoint[]>;
+  deleteWaypoints(brigadeId: string, routeId: string): Promise<void>;
 
   // Route template operations
   saveTemplate(brigadeId: string, template: RouteTemplate): Promise<void>;
