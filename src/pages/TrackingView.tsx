@@ -4,12 +4,13 @@
  * No authentication required - accessible via shareable link
  */
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useWebPubSub, useRoutes, useReverseGeocode } from '../hooks';
+import { useWebPubSub, useReverseGeocode } from '../hooks';
 import { ShareModal, SEO, CountdownTimer, ThankYouOverlay } from '../components';
 import { MAPBOX_CONFIG } from '../config/mapbox';
 import mapboxgl from 'mapbox-gl';
+import { storageAdapter } from '../storage';
 import type { Route, LocationBroadcast } from '../types';
 import { formatDistance } from '../utils/mapbox';
 import { calculateDistance } from '../utils/navigation';
@@ -19,12 +20,41 @@ export interface TrackingViewProps {
   routeId: string;
 }
 
+/**
+ * Format "2026-12-24" + "19:30" as "Thu 24 Dec • 7:30 pm". Falls back to the
+ * raw values if either part doesn't parse.
+ */
+function formatRunDateTime(date: string, startTime: string): string {
+  const parsed = new Date(`${date}T${startTime || '00:00'}`);
+  if (Number.isNaN(parsed.getTime())) return `${date} • ⏰ ${startTime}`;
+  const day = parsed.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const time = parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `${day} • ⏰ ${time}`;
+}
+
+/** Escape user-provided text before interpolating into popup HTML. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function TrackingView({ routeId }: TrackingViewProps) {
   const [route, setRoute] = useState<Route | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<LocationBroadcast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  // Highest waypoint index Santa has passed, from live broadcasts — lets the
+  // progress bar and markers update in real time without refetching the route.
+  const [liveWaypointIndex, setLiveWaypointIndex] = useState(0);
+  // Whether the camera follows Santa. Panning/zooming the map pauses following;
+  // a floating button lets the viewer re-engage.
+  const [isFollowing, setIsFollowing] = useState(true);
+  const isFollowingRef = useRef(true);
   // Track which routeId the countdown has completed for, so the "It's time!"
   // message naturally resets when navigating to a different route — no effect needed.
   const [completedForRouteId, setCompletedForRouteId] = useState<string | null>(null);
@@ -33,12 +63,16 @@ export function TrackingView({ routeId }: TrackingViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const santaMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const waypointMarkerElsRef = useRef<HTMLDivElement[]>([]);
+  const lastLocationRef = useRef<[number, number] | null>(null);
 
-  const { getRoute } = useRoutes();
-
-  // Fetch route data
+  // Fetch route data via the public, unauthenticated lookup — viewers of
+  // /track/:id are anonymous members of the community, not brigade members.
+  // NOTE: this component is mounted with key={routeId} (see App.tsx), so all
+  // per-route view state resets naturally when navigating between runs.
   useEffect(() => {
-    getRoute(routeId)
+    storageAdapter
+      .getPublicRoute(routeId)
       .then((r) => {
         if (r) {
           setRoute(r);
@@ -54,7 +88,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       .finally(() => {
         setLoading(false);
       });
-  }, [routeId, getRoute]);
+  }, [routeId]);
 
   // Initialize map
   useEffect(() => {
@@ -149,6 +183,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       }
 
       // Add waypoint markers with improved styling
+      waypointMarkerElsRef.current = [];
       route.waypoints.forEach((waypoint, index) => {
         const el = document.createElement('div');
         el.className = 'waypoint-marker';
@@ -165,17 +200,20 @@ export function TrackingView({ routeId }: TrackingViewProps) {
         el.style.border = '3px solid white';
         el.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
         el.textContent = (index + 1).toString();
+        waypointMarkerElsRef.current[index] = el;
 
+        const stopName = escapeHtml(waypoint.name || `Stop ${index + 1}`);
+        const stopAddress = waypoint.address ? escapeHtml(waypoint.address) : '';
         new mapboxgl.Marker(el)
           .setLngLat(waypoint.coordinates)
           .setPopup(
-            new mapboxgl.Popup({ 
+            new mapboxgl.Popup({
               offset: 25,
               className: 'festive-popup',
             }).setHTML(
               `<div style="padding: 0.75rem; font-family: var(--font-body);">
-                <strong style="color: var(--fire-red); font-size: 1rem;">${waypoint.name || `Stop ${index + 1}`}</strong>
-                ${waypoint.address ? `<br/><small style="color: var(--neutral-700);">${waypoint.address}</small>` : ''}
+                <strong style="color: var(--fire-red); font-size: 1rem;">${stopName}</strong>
+                ${stopAddress ? `<br/><small style="color: var(--neutral-700);">${stopAddress}</small>` : ''}
                 ${waypoint.isCompleted ? '<br/><span style="color: var(--christmas-green); font-weight: 600;">✓ Completed</span>' : ''}
               </div>`
             )
@@ -184,26 +222,64 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       });
     });
 
+    // Panning/zooming by the viewer pauses auto-follow so they can explore the
+    // route freely without the camera snapping back on the next update.
+    const pauseFollowing = () => {
+      isFollowingRef.current = false;
+      setIsFollowing(false);
+    };
+    map.on('dragstart', pauseFollowing);
+    map.on('wheel', pauseFollowing);
+    map.on('pitchstart', pauseFollowing);
+
     mapRef.current = map;
 
     return () => {
       map.remove();
       mapRef.current = null;
-      if (santaMarkerRef.current) {
-        santaMarkerRef.current.remove();
-        santaMarkerRef.current = null;
-      }
+      santaMarkerRef.current = null;
+      waypointMarkerElsRef.current = [];
     };
   }, [route]);
 
+  // Live waypoint progress from broadcasts: colour completed stops green.
+  useEffect(() => {
+    if (!route) return;
+    waypointMarkerElsRef.current.forEach((el, index) => {
+      if (!el) return;
+      const done = route.waypoints[index]?.isCompleted || index < liveWaypointIndex;
+      el.style.backgroundColor = done ? 'var(--christmas-green)' : 'var(--summer-gold)';
+    });
+  }, [route, liveWaypointIndex]);
+
   // Handle location updates
   const handleLocationUpdate = (location: LocationBroadcast) => {
+    // Final message of a run: flip to the thank-you state live. Waypoints are
+    // marked done so the summary reflects a finished run.
+    if (location.status === 'completed') {
+      setRoute(prev => (prev && prev.status !== 'completed'
+        ? {
+            ...prev,
+            status: 'completed',
+            completedAt: new Date().toISOString(),
+            waypoints: prev.waypoints.map(w => ({ ...w, isCompleted: true })),
+          }
+        : prev));
+      return;
+    }
+
     setCurrentLocation(location);
+    if (typeof location.currentWaypointIndex === 'number') {
+      // Never go backwards — guards against out-of-order messages.
+      setLiveWaypointIndex(prev => Math.max(prev, location.currentWaypointIndex!));
+    }
 
     if (!mapRef.current) return;
 
     // In archive mode (completed route) do not auto-pan the map
     if (route?.status === 'completed') return;
+
+    lastLocationRef.current = location.location;
 
     // Update or create Santa marker with bouncing animation
     if (santaMarkerRef.current) {
@@ -222,13 +298,27 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       santaMarkerRef.current = marker;
     }
 
-    // Center map on Santa's location with smooth animation
-    mapRef.current.easeTo({
-      center: location.location,
-      zoom: 15,
-      duration: 1500,
-    });
+    // Follow Santa with a smooth animation — unless the viewer took control.
+    if (isFollowingRef.current) {
+      mapRef.current.easeTo({
+        center: location.location,
+        zoom: Math.max(mapRef.current.getZoom(), 14),
+        duration: 1500,
+      });
+    }
   };
+
+  const resumeFollowing = useCallback(() => {
+    isFollowingRef.current = true;
+    setIsFollowing(true);
+    if (mapRef.current && lastLocationRef.current) {
+      mapRef.current.easeTo({
+        center: lastLocationRef.current,
+        zoom: Math.max(mapRef.current.getZoom(), 14),
+        duration: 800,
+      });
+    }
+  }, []);
 
   // Connect to Web PubSub for real-time updates
   const { isConnected, isConnecting, error: connectionError, viewerCount } = useWebPubSub({
@@ -269,16 +359,50 @@ export function TrackingView({ routeId }: TrackingViewProps) {
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          height: '100vh',
+          minHeight: '100vh',
           padding: '2rem',
           backgroundColor: '#FAFAFA',
+          textAlign: 'center',
         }}
       >
-        <div style={{ fontSize: '64px', marginBottom: '1rem' }}>❌</div>
-        <h1 style={{ color: '#D32F2F', marginBottom: '1rem' }}>Route Not Found</h1>
-        <p style={{ color: '#616161', textAlign: 'center', maxWidth: '400px' }}>
-          {error}
+        <SEO title="Santa run not found" />
+        <div style={{ fontSize: '64px', marginBottom: '1rem' }}>🎅</div>
+        <h1 style={{ color: 'var(--fire-red)', marginBottom: '0.75rem' }}>
+          We couldn&apos;t find that Santa run
+        </h1>
+        <p style={{ color: 'var(--neutral-700)', maxWidth: '420px', lineHeight: 1.6 }}>
+          The link may be out of date, or the run hasn&apos;t been published yet.
+          Check with your local brigade, or find them below to see their latest runs.
         </p>
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Link
+            to="/brigades"
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: 'linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%)',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 'var(--border-radius-sm)',
+              fontWeight: 600,
+            }}
+          >
+            🚒 Find your brigade
+          </Link>
+          <Link
+            to="/"
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: 'white',
+              color: 'var(--fire-red)',
+              textDecoration: 'none',
+              borderRadius: 'var(--border-radius-sm)',
+              fontWeight: 600,
+              border: '2px solid var(--fire-red)',
+            }}
+          >
+            Go home
+          </Link>
+        </div>
       </div>
     );
   }
@@ -287,14 +411,17 @@ export function TrackingView({ routeId }: TrackingViewProps) {
     return null;
   }
 
-  // Calculate progress
-  const completedWaypoints = route.waypoints.filter((w) => w.isCompleted).length;
+  // Calculate progress — blend stored completion flags with live broadcasts so
+  // the bar moves in real time as Santa passes each stop.
+  const completedWaypoints = route.waypoints.filter(
+    (w, index) => w.isCompleted || index < liveWaypointIndex
+  ).length;
   const totalWaypoints = route.waypoints.length;
-  const progressPercent = (completedWaypoints / totalWaypoints) * 100;
+  const progressPercent = totalWaypoints > 0 ? (completedWaypoints / totalWaypoints) * 100 : 0;
 
   // SEO meta tags for social sharing
   const seoTitle = `Track Santa - ${route.name}`;
-  const seoDescription = `🎅 Track Santa in real-time for ${route.name}! See Santa's location live as the ${route.brigadeId} Rural Fire Service brings Christmas joy on ${route.date}.`;
+  const seoDescription = `🎅 Track Santa in real-time for ${route.name}! See Santa's location live as your local Rural Fire Service brings Christmas joy on ${route.date}.`;
   const seoUrl = route.shareableLink || `${window.location.origin}/track/${route.id}`;
   // Dynamic OG image generated server-side with route map, brigade name, and festive branding.
   // window.location.origin automatically resolves to the correct host (localhost, staging, or
@@ -320,6 +447,31 @@ export function TrackingView({ routeId }: TrackingViewProps) {
         <ThankYouOverlay route={route} />
       )}
 
+      {/* Re-centre on Santa after the viewer pans away */}
+      {route.status !== 'completed' && !isFollowing && currentLocation && (
+        <button
+          onClick={resumeFollowing}
+          style={{
+            position: 'absolute',
+            bottom: 'calc(1.5rem + 232px)',
+            right: '1rem',
+            zIndex: 1000,
+            padding: '0.625rem 1rem',
+            background: 'white',
+            color: 'var(--santa-red)',
+            border: '2px solid var(--santa-red)',
+            borderRadius: '999px',
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+            fontFamily: 'var(--font-body)',
+          }}
+        >
+          🎅 Follow Santa
+        </button>
+      )}
+
       {/* Santa Tracker Header and Progress Panel — hidden in archive mode */}
       {route.status !== 'completed' && (
         <>
@@ -334,7 +486,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
               background: 'linear-gradient(135deg, var(--santa-red), #B21E1E)',
               color: 'var(--candy-white)',
               fontFamily: 'var(--font-fun)',
-              padding: '1.25rem 1.5rem',
+              padding: 'clamp(0.75rem, 2.5vw, 1.25rem) clamp(1rem, 3vw, 1.5rem)',
               borderRadius: '0 0 25px 25px',
               boxShadow: 'var(--ui-shadow)',
               borderBottom: '4px solid var(--rfs-yellow)', // RFS accent
@@ -344,29 +496,31 @@ export function TrackingView({ routeId }: TrackingViewProps) {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '1rem',
+              flexWrap: 'wrap',
+              gap: '0.5rem 1rem',
               maxWidth: '1200px',
               margin: '0 auto',
             }}>
-              <div style={{ fontSize: '48px', lineHeight: 1 }}>🎅</div>
-              <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 'clamp(32px, 6vw, 48px)', lineHeight: 1 }}>🎅</div>
+              <div style={{ flex: 1, minWidth: '55%' }}>
                 <h1
                   style={{
                     margin: 0,
-                    fontSize: 'clamp(1.25rem, 4vw, 1.75rem)',
+                    fontSize: 'clamp(1.15rem, 4vw, 1.75rem)',
                     fontWeight: 'normal',
                     textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                    lineHeight: 1.15,
                   }}
                 >
                   {route.name}
                 </h1>
                 <p style={{
                   margin: '0.25rem 0 0',
-                  fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                  fontSize: 'clamp(0.8125rem, 2vw, 1rem)',
                   opacity: 0.95,
                   fontFamily: 'var(--font-body)',
                 }}>
-                  📅 {route.date} • ⏰ {route.startTime}
+                  📅 {formatRunDateTime(route.date, route.startTime)}
                 </p>
               </div>
               {/* Live Viewer Count Badge */}

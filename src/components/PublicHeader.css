@@ -1,0 +1,66 @@
+/* Slim navigation bar for public, unauthenticated pages (brigade profile,
+   discovery, static pages). Self-contained styling so it sits correctly on
+   both light and hero-red page backgrounds. */
+
+.public-header {
+  background: linear-gradient(135deg, var(--santa-red, #d62828) 0%, var(--fire-red-dark, #b71c1c) 100%);
+  border-bottom: 3px solid var(--rfs-yellow, #ffe600);
+}
+
+.public-header__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0.6rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.public-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  text-decoration: none;
+  font-family: var(--font-heading, sans-serif);
+  font-weight: 700;
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.public-header__brand:hover {
+  text-decoration: underline;
+}
+
+.public-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.public-header__link {
+  color: white;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0.95;
+  white-space: nowrap;
+}
+
+.public-header__link:hover,
+.public-header__link:focus-visible {
+  text-decoration: underline;
+  opacity: 1;
+}
+
+@media (max-width: 480px) {
+  .public-header__brand span.public-header__brand-text {
+    font-size: 0.95rem;
+  }
+
+  .public-header__nav {
+    gap: 0.75rem;
+  }
+}

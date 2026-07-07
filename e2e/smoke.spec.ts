@@ -15,7 +15,7 @@ test.describe('App smoke', () => {
     ).toBeVisible();
 
     // Seeded mock route from utils/mockData.ts
-    await expect(page.getByText('Christmas Eve 2024 - South Route')).toBeVisible();
+    await expect(page.getByText('Christmas Eve - South Route')).toBeVisible();
   });
 
   test('dev-mode banner is present', async ({ page }) => {

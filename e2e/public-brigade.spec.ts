@@ -13,7 +13,7 @@ test.describe('Public brigade page', () => {
     ).toBeVisible();
 
     // The seeded published route appears under upcoming/live runs.
-    const run = page.getByRole('link', { name: /Track Christmas Eve 2024 - South Route/i });
+    const run = page.getByRole('link', { name: /Track Christmas Eve - South Route/i });
     await expect(run).toBeVisible();
 
     await run.click();

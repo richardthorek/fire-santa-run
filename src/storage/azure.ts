@@ -5,6 +5,7 @@ import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
 import type { MemberInvitation } from '../types/invitation';
 import type { AdminVerificationRequest } from '../types/verification';
+import { isPublicRouteStatus } from '../utils/publicBrigade';
 
 /**
  * Azure Table Storage implementation of the storage adapter.
@@ -84,14 +85,18 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
   }
 
   async saveRoute(brigadeId: string, route: Route): Promise<void> {
+    // Two-table schema: the routes table stores RouteEntity (no waypoints);
+    // waypoints go to the routewaypoints table.
+    const { waypoints, ...routeEntity } = route;
     const entity = {
       partitionKey: brigadeId,
       rowKey: route.id,
-      ...route,
+      ...routeEntity,
     };
-    
+
     try {
       await this.routesClient.upsertEntity(entity, 'Replace');
+      await this.saveWaypoints(brigadeId, route.id, waypoints ?? []);
     } catch (error) {
       console.error('Failed to save route to Azure Table Storage:', error);
       throw new Error('Failed to save route');
@@ -109,9 +114,9 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { partitionKey, rowKey, timestamp, etag, ...routeData } = entity;
         const route = routeData as unknown as Route;
-        // Reconstruct waypoints
+        // Reconstruct waypoints (fall back to any embedded pre-split data)
         const waypoints = await this.getWaypoints(brigadeId, route.id);
-        routes.push({ ...route, waypoints });
+        routes.push({ ...route, waypoints: waypoints.length > 0 ? waypoints : (route.waypoints ?? []) });
       }
       
       return routes;
@@ -127,15 +132,38 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { partitionKey, rowKey, timestamp, etag, ...routeData } = entity;
       const route = routeData as unknown as Route;
-      // Reconstruct waypoints
+      // Reconstruct waypoints (fall back to any embedded pre-split data)
       const waypoints = await this.getWaypoints(brigadeId, routeId);
-      return { ...route, waypoints };
+      return { ...route, waypoints: waypoints.length > 0 ? waypoints : (route.waypoints ?? []) };
     } catch (error: unknown) {
       const err = error as { statusCode?: number };
       if (err.statusCode === 404) {
         return null;
       }
       console.error('Failed to get route from Azure Table Storage:', error);
+      throw new Error('Failed to get route');
+    }
+  }
+
+  async getPublicRoute(routeId: string): Promise<Route | null> {
+    try {
+      // Route IDs are globally unique, so a RowKey scan finds at most one.
+      const entities = this.routesClient.listEntities({
+        queryOptions: { filter: `RowKey eq '${routeId.replace(/'/g, "''")}'` }
+      });
+      for await (const entity of entities) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { partitionKey, rowKey, timestamp, etag, ...routeData } = entity;
+        const route = routeData as unknown as Route;
+        if (!isPublicRouteStatus(route.status)) return null;
+        // PartitionKey is the brigadeId — reconstruct waypoints from the
+        // routewaypoints table (fall back to embedded pre-split data).
+        const waypoints = await this.getWaypoints(partitionKey as string, routeId);
+        return { ...route, waypoints: waypoints.length > 0 ? waypoints : (route.waypoints ?? []) };
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get public route from Azure Table Storage:', error);
       throw new Error('Failed to get route');
     }
   }

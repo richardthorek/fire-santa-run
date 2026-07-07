@@ -4,6 +4,7 @@ import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
 import type { MemberInvitation } from '../types/invitation';
 import type { AdminVerificationRequest } from '../types/verification';
+import { isPublicRouteStatus } from '../utils/publicBrigade';
 
 /**
  * LocalStorage implementation of the storage adapter.
@@ -20,32 +21,48 @@ export class LocalStorageAdapter implements IStorageAdapter {
   }
 
   async saveRoute(brigadeId: string, route: Route): Promise<void> {
-    const routes = await this.getRoutes(brigadeId);
-    const existingIndex = routes.findIndex(r => r.id === route.id);
-    
-    if (existingIndex >= 0) {
-      routes[existingIndex] = route;
-    } else {
-      routes.push(route);
-    }
-    
     const key = this.getStorageKey(brigadeId, 'routes');
+    const stored = localStorage.getItem(key);
+    const routes: Route[] = stored ? JSON.parse(stored) : [];
+
+    // Two-table schema: the route list stores RouteEntity (no waypoints);
+    // waypoints live in their own store keyed by route.
+    const { waypoints, ...routeEntity } = route;
+    const existingIndex = routes.findIndex(r => r.id === route.id);
+
+    if (existingIndex >= 0) {
+      routes[existingIndex] = routeEntity as Route;
+    } else {
+      routes.push(routeEntity as Route);
+    }
+
     localStorage.setItem(key, JSON.stringify(routes));
+    await this.saveWaypoints(brigadeId, route.id, waypoints ?? []);
+  }
+
+  /**
+   * Reconstruct waypoints from the waypoint store, falling back to waypoints
+   * embedded in the route record (data written before the two-table split).
+   */
+  private async reconstructWaypoints(brigadeId: string, route: Route): Promise<Waypoint[]> {
+    const separate = await this.getWaypoints(brigadeId, route.id);
+    if (separate.length > 0) return separate;
+    return route.waypoints ?? [];
   }
 
   async getRoutes(brigadeId: string): Promise<Route[]> {
     const key = this.getStorageKey(brigadeId, 'routes');
     const stored = localStorage.getItem(key);
     const routes = stored ? JSON.parse(stored) : [];
-    
+
     // Reconstruct waypoints for each route
     const routesWithWaypoints = await Promise.all(
       routes.map(async (route: Route) => ({
         ...route,
-        waypoints: await this.getWaypoints(brigadeId, route.id),
+        waypoints: await this.reconstructWaypoints(brigadeId, route),
       }))
     );
-    
+
     return routesWithWaypoints;
   }
 
@@ -54,12 +71,37 @@ export class LocalStorageAdapter implements IStorageAdapter {
     const stored = localStorage.getItem(key);
     const routes = stored ? JSON.parse(stored) : [];
     const route = routes.find((r: Route) => r.id === routeId);
-    
+
     if (!route) return null;
-    
+
     // Reconstruct waypoints
-    const waypoints = await this.getWaypoints(brigadeId, routeId);
+    const waypoints = await this.reconstructWaypoints(brigadeId, route);
     return { ...route, waypoints };
+  }
+
+  async getPublicRoute(routeId: string): Promise<Route | null> {
+    // Anonymous lookup: scan every brigade's route list for the ID.
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('santa_') || !key.endsWith('_routes')) continue;
+      const stored = localStorage.getItem(key);
+      if (!stored) continue;
+      try {
+        const routes: Route[] = JSON.parse(stored);
+        const route = routes.find(r => r.id === routeId);
+        if (route) {
+          if (!isPublicRouteStatus(route.status)) return null;
+          // Key format is santa_{brigadeId}_routes — recover the brigade to
+          // reconstruct waypoints from the waypoint store.
+          const brigadeId = key.slice('santa_'.length, -'_routes'.length);
+          const waypoints = await this.reconstructWaypoints(brigadeId, route);
+          return { ...route, waypoints };
+        }
+      } catch {
+        // Ignore malformed entries and keep scanning.
+      }
+    }
+    return null;
   }
 
   async deleteRoute(brigadeId: string, routeId: string): Promise<void> {

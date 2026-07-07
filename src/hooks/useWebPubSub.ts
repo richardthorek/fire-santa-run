@@ -40,6 +40,11 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
 
   const clientRef = useRef<WebPubSubClient | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+  // The connection is established once per routeId/role, but callers typically
+  // pass a fresh callback closure on every render. Route messages through a
+  // ref so the latest closure always runs (avoids stale route/state bugs).
+  const onLocationUpdateRef = useRef(onLocationUpdate);
+  onLocationUpdateRef.current = onLocationUpdate;
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const sessionIdRef = useRef<string>(generateSessionId());
@@ -48,19 +53,30 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
 
   const MAX_RECONNECT_ATTEMPTS = 5;
   const RECONNECT_DELAY_MS = 3000;
-  const VIEWER_COUNT_POLL_INTERVAL_MS = 10000; // 10 seconds
+  // 30s keeps the badge feeling live while quartering the request volume of
+  // the old 10s poll — every open tracking page runs this loop, and the free
+  // App Service tiers pay for each request in shared CPU quota.
+  const VIEWER_COUNT_POLL_INTERVAL_MS = 30000;
 
   /**
-   * Fetch current viewer count from API
+   * Fetch current viewer count from API. Skipped while the tab is hidden —
+   * backgrounded phones on a tracking page shouldn't keep the server busy.
    */
   const fetchViewerCount = useCallback(async () => {
     if (role !== 'viewer') return;
+    if (typeof document !== 'undefined' && document.hidden) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/analytics/routes/${routeId}/viewer-count`);
-      if (response.ok) {
-        const data = await response.json();
-        setState(prev => ({ ...prev, viewerCount: data.count }));
+      if (isDevMode) {
+        // Mock viewer count in dev mode (realistic demo data)
+        const mockCount = Math.floor(Math.random() * 15) + 3;
+        setState(prev => ({ ...prev, viewerCount: mockCount }));
+      } else {
+        const response = await fetch(`${API_BASE_URL}/analytics/routes/${routeId}/viewer-count`);
+        if (response.ok) {
+          const data = await response.json();
+          setState(prev => ({ ...prev, viewerCount: data.count }));
+        }
       }
     } catch (error) {
       console.error('[ViewerCount] Failed to fetch viewer count:', error);
@@ -74,18 +90,23 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     if (role !== 'viewer') return;
 
     try {
-      await fetch(`${API_BASE_URL}/analytics/viewer-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          routeId,
-          sessionId: sessionIdRef.current,
-          joinedAt: new Date().toISOString(),
-          userAgent: navigator.userAgent,
-          shareSource: shareSource || 'direct',
-        }),
-      });
-      console.log('[Analytics] Viewer session join logged:', sessionIdRef.current);
+      if (isDevMode) {
+        // Mock log in dev mode
+        console.log('[Analytics] Viewer session join (mock):', sessionIdRef.current);
+      } else {
+        await fetch(`${API_BASE_URL}/analytics/viewer-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            routeId,
+            sessionId: sessionIdRef.current,
+            joinedAt: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            shareSource: shareSource || 'direct',
+          }),
+        });
+        console.log('[Analytics] Viewer session join logged:', sessionIdRef.current);
+      }
     } catch (error) {
       console.error('[Analytics] Failed to log viewer join:', error);
     }
@@ -100,17 +121,22 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     const viewDuration = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
 
     try {
-      await fetch(`${API_BASE_URL}/analytics/viewer-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          routeId,
-          sessionId: sessionIdRef.current,
-          leftAt: new Date().toISOString(),
-          viewDuration,
-        }),
-      });
-      console.log('[Analytics] Viewer session leave logged:', sessionIdRef.current, 'Duration:', viewDuration, 'seconds');
+      if (isDevMode) {
+        // Mock log in dev mode
+        console.log('[Analytics] Viewer session leave (mock):', sessionIdRef.current, 'Duration:', viewDuration, 'seconds');
+      } else {
+        await fetch(`${API_BASE_URL}/analytics/viewer-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            routeId,
+            sessionId: sessionIdRef.current,
+            leftAt: new Date().toISOString(),
+            viewDuration,
+          }),
+        });
+        console.log('[Analytics] Viewer session leave logged:', sessionIdRef.current, 'Duration:', viewDuration, 'seconds');
+      }
     } catch (error) {
       console.error('[Analytics] Failed to log viewer leave:', error);
     }
@@ -142,8 +168,8 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
               setState(prev => ({ ...prev, viewerCount: viewerCountMsg.count }));
             }
             // Handle location updates
-            else if (onLocationUpdate) {
-              onLocationUpdate(data as LocationBroadcast);
+            else if (onLocationUpdateRef.current) {
+              onLocationUpdateRef.current(data as LocationBroadcast);
             }
           }
         };
@@ -185,8 +211,8 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
               console.log(`[Production] Received viewer count: ${viewerCountMsg.count}`);
             }
             // Handle location updates
-            else if (onLocationUpdate) {
-              onLocationUpdate(data as LocationBroadcast);
+            else if (onLocationUpdateRef.current) {
+              onLocationUpdateRef.current(data as LocationBroadcast);
             }
           }
         });
@@ -243,7 +269,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
         viewerCount: null,
       });
     }
-  }, [routeId, role, onLocationUpdate, logViewerJoin, fetchViewerCount]);
+  }, [routeId, role, logViewerJoin, fetchViewerCount]);
 
   /**
    * Disconnect from Web PubSub or BroadcastChannel

@@ -7,7 +7,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
-import { SEO } from '../components';
+// Direct import: the components barrel drags mapbox-gl into this public page's chunk.
+import { SEO } from '../components/SEO';
 import { COLORS } from '../utils/constants';
 
 export function LandingPage() {
@@ -687,10 +688,10 @@ export function LandingPage() {
                   color: 'var(--christmas-green)',
                   marginBottom: '0.5rem',
                 }}>
-                  Free Forever
+                  Free to Follow
                 </h3>
                 <p style={{ color: 'var(--neutral-700)', lineHeight: 1.4, fontSize: '0.85rem' }}>
-                  No subscriptions
+                  No app or login for your community
                 </p>
               </div>
 
@@ -850,10 +851,10 @@ export function LandingPage() {
                   fontWeight: 'bold',
                   color: 'var(--fire-red)',
                 }}>
-                  🔥 Free
+                  🔥 Simple
                 </div>
                 <div style={{ color: 'var(--neutral-700)', fontSize: '0.875rem' }}>
-                  For All Brigades
+                  Set Up in Minutes
                 </div>
               </div>
               <div>
@@ -880,6 +881,279 @@ export function LandingPage() {
                 </div>
                 <div style={{ color: 'var(--neutral-700)', fontSize: '0.875rem' }}>
                   Live Updates
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing Section */}
+        <section style={{
+          padding: '3.5rem 2rem 4rem',
+          backgroundColor: 'var(--neutral-50)',
+          position: 'relative',
+        }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+              <h2 style={{
+                fontFamily: 'var(--font-heading)',
+                fontSize: 'clamp(1.75rem, 4.5vw, 2.25rem)',
+                color: 'var(--fire-red)',
+                marginBottom: '0.75rem',
+              }}>
+                Simple, Transparent Pricing
+              </h2>
+              <p style={{
+                fontSize: '1.05rem',
+                color: 'var(--neutral-700)',
+                maxWidth: '700px',
+                margin: '0 auto',
+              }}>
+                Public tracking is always free. Fire brigades get a simple, affordable plan to run unlimited Santa runs.
+              </p>
+            </div>
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '2rem',
+              maxWidth: '1000px',
+              margin: '0 auto',
+            }}>
+              {/* Public Viewer */}
+              <div style={{
+                backgroundColor: 'white',
+                borderRadius: '16px',
+                padding: '2rem',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                border: '2px solid var(--neutral-200)',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+              }}>
+                <div style={{ fontSize: '56px', marginBottom: '1rem' }}>🎅</div>
+                <h3 style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: '1.5rem',
+                  color: 'var(--fire-red)',
+                  marginBottom: '0.5rem',
+                }}>
+                  Public Viewer
+                </h3>
+                <div style={{
+                  fontSize: '2.5rem',
+                  fontWeight: 'bold',
+                  color: 'var(--fire-red)',
+                  margin: '1rem 0 0.5rem',
+                }}>
+                  Free
+                </div>
+                <p style={{ color: 'var(--neutral-600)', fontSize: '0.9rem', marginTop: '1rem', marginBottom: '1.5rem', flex: 1 }}>
+                  Track Santa in real-time with shared QR codes or links. No account or app required.
+                </p>
+                <ul style={{
+                  textAlign: 'left',
+                  color: 'var(--neutral-700)',
+                  fontSize: '0.95rem',
+                  marginBottom: '1.5rem',
+                  listStyle: 'none',
+                  padding: 0,
+                }}>
+                  <li style={{ marginBottom: '0.75rem' }}>✅ Live GPS tracking</li>
+                  <li style={{ marginBottom: '0.75rem' }}>✅ Route progress</li>
+                  <li style={{ marginBottom: '0.75rem' }}>✅ Viewer count</li>
+                  <li>✅ Works on any device</li>
+                </ul>
+              </div>
+
+              {/* Brigade Plan */}
+              <div style={{
+                backgroundColor: 'white',
+                borderRadius: '16px',
+                padding: '2rem',
+                boxShadow: '0 8px 24px rgba(211, 47, 47, 0.15)',
+                border: '3px solid var(--fire-red)',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                transform: 'scale(1.05)',
+                transformOrigin: 'center',
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '-12px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  backgroundColor: 'var(--fire-red)',
+                  color: 'white',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '20px',
+                  fontSize: '0.85rem',
+                  fontWeight: 'bold',
+                }}>
+                  POPULAR
+                </div>
+
+                <div style={{ fontSize: '56px', marginBottom: '1rem' }}>🚒</div>
+                <h3 style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: '1.5rem',
+                  color: 'var(--fire-red)',
+                  marginBottom: '0.5rem',
+                  marginTop: '0.5rem',
+                }}>
+                  Brigade Pro
+                </h3>
+                <div style={{
+                  fontSize: '2.5rem',
+                  fontWeight: 'bold',
+                  color: 'var(--fire-red)',
+                  margin: '1rem 0 0.25rem',
+                }}>
+                  $5-15/mo
+                </div>
+                <p style={{ color: 'var(--neutral-600)', fontSize: '0.9rem', margin: '0.5rem 0 1.5rem' }}>
+                  Perfect for brigades of any size
+                </p>
+                <ul style={{
+                  textAlign: 'left',
+                  color: 'var(--neutral-700)',
+                  fontSize: '0.95rem',
+                  marginBottom: '1.5rem',
+                  listStyle: 'none',
+                  padding: 0,
+                  flex: 1,
+                }}>
+                  <li style={{ marginBottom: '0.75rem' }}>✅ Unlimited Santa runs</li>
+                  <li style={{ marginBottom: '0.75rem' }}>✅ Route planning & optimization</li>
+                  <li style={{ marginBottom: '0.75rem' }}>✅ Turn-by-turn navigation</li>
+                  <li style={{ marginBottom: '0.75rem' }}>✅ Brigade branding</li>
+                  <li style={{ marginBottom: '0.75rem' }}>✅ Analytics dashboard</li>
+                  <li>✅ Team member access</li>
+                </ul>
+
+                <button
+                  onClick={handleLogin}
+                  disabled={isLoggingIn}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: 'var(--fire-red)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '1rem',
+                    fontWeight: 'bold',
+                    cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                    opacity: isLoggingIn ? 0.7 : 1,
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => !isLoggingIn && (e.currentTarget.style.opacity = '0.9')}
+                  onMouseLeave={(e) => !isLoggingIn && (e.currentTarget.style.opacity = '1')}
+                >
+                  {isLoggingIn ? '🎅 Setting up...' : '🎅 Get Started'}
+                </button>
+              </div>
+
+              {/* Teams (Future) */}
+              <div style={{
+                backgroundColor: 'white',
+                borderRadius: '16px',
+                padding: '2rem',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                border: '2px solid var(--neutral-200)',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                opacity: 0.75,
+              }}>
+                <div style={{ fontSize: '56px', marginBottom: '1rem' }}>🏢</div>
+                <h3 style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: '1.5rem',
+                  color: 'var(--neutral-600)',
+                  marginBottom: '0.5rem',
+                }}>
+                  Multi-Brigade
+                </h3>
+                <div style={{
+                  fontSize: '2.5rem',
+                  fontWeight: 'bold',
+                  color: 'var(--neutral-600)',
+                  margin: '1rem 0 0.5rem',
+                }}>
+                  Coming Soon
+                </div>
+                <p style={{ color: 'var(--neutral-600)', fontSize: '0.9rem', marginTop: '1rem', marginBottom: '1.5rem', flex: 1 }}>
+                  For district-level coordination. Contact us for early access.
+                </p>
+                <ul style={{
+                  textAlign: 'left',
+                  color: 'var(--neutral-600)',
+                  fontSize: '0.95rem',
+                  marginBottom: '1.5rem',
+                  listStyle: 'none',
+                  padding: 0,
+                }}>
+                  <li style={{ marginBottom: '0.75rem' }}>✨ Coordinate across brigades</li>
+                  <li style={{ marginBottom: '0.75rem' }}>✨ Cross-brigade analytics</li>
+                  <li>✨ Custom training & support</li>
+                </ul>
+                <button style={{
+                  width: '100%',
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: 'var(--neutral-200)',
+                  color: 'var(--neutral-700)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  cursor: 'not-allowed',
+                }}>
+                  Coming Soon
+                </button>
+              </div>
+            </div>
+
+            {/* FAQ Section */}
+            <div style={{ marginTop: '4rem', maxWidth: '800px', margin: '4rem auto 0' }}>
+              <h3 style={{
+                fontFamily: 'var(--font-heading)',
+                fontSize: '1.5rem',
+                color: 'var(--fire-red)',
+                marginBottom: '1.5rem',
+                textAlign: 'center',
+              }}>
+                Frequently Asked Questions
+              </h3>
+
+              <div style={{ display: 'grid', gap: '1.5rem' }}>
+                <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--neutral-200)' }}>
+                  <h4 style={{ color: 'var(--fire-red)', marginBottom: '0.5rem', fontSize: '1rem', fontWeight: 'bold' }}>
+                    Is there a free trial?
+                  </h4>
+                  <p style={{ color: 'var(--neutral-700)', margin: 0, fontSize: '0.95rem' }}>
+                    Yes! Sign up to get 30 days free to test all features before committing.
+                  </p>
+                </div>
+
+                <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--neutral-200)' }}>
+                  <h4 style={{ color: 'var(--fire-red)', marginBottom: '0.5rem', fontSize: '1rem', fontWeight: 'bold' }}>
+                    Do public viewers need to pay?
+                  </h4>
+                  <p style={{ color: 'var(--neutral-700)', margin: 0, fontSize: '0.95rem' }}>
+                    No—sharing a tracking link or QR code is completely free. Public tracking requires no account or payment.
+                  </p>
+                </div>
+
+                <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--neutral-200)' }}>
+                  <h4 style={{ color: 'var(--fire-red)', marginBottom: '0.5rem', fontSize: '1rem', fontWeight: 'bold' }}>
+                    Can we cancel anytime?
+                  </h4>
+                  <p style={{ color: 'var(--neutral-700)', margin: 0, fontSize: '0.95rem' }}>
+                    Absolutely—no long-term contracts, no lock-in. Cancel your subscription at any time.
+                  </p>
                 </div>
               </div>
             </div>

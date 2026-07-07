@@ -11,7 +11,9 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { storageAdapter } from '../storage';
 import { safeImageSrc } from '../utils/publicBrigade';
-import { SEO } from '../components';
+// Direct import: the components barrel drags mapbox-gl into this public page's chunk.
+import { SEO } from '../components/SEO';
+import { PublicHeader } from '../components/PublicHeader';
 import type { Brigade } from '../storage/types';
 import './BrigadeDiscoveryPage.css';
 
@@ -107,6 +109,7 @@ export function BrigadeDiscoveryPage() {
 
   return (
     <div className="bdp">
+      <PublicHeader />
       <SEO
         title="Find Your Local Brigade"
         description="Browse Australian Rural Fire Service brigades. Find your local brigade's Santa run and follow along live."

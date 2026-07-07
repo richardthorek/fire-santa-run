@@ -21,12 +21,15 @@ function makeRoute(id: string, status: RouteStatus, date: string): Route {
 }
 
 describe('categorizeBrigadeRoutes', () => {
+  // Fixed reference time so date-aware categorisation is deterministic.
+  const NOW = new Date('2025-12-01T12:00:00');
+
   it('drops drafts and non-public statuses from both lists', () => {
     const routes = [
       makeRoute('draft', 'draft', '2025-12-01'),
       makeRoute('pub', 'published', '2025-12-10'),
     ];
-    const { upcoming, past } = categorizeBrigadeRoutes(routes);
+    const { upcoming, past } = categorizeBrigadeRoutes(routes, NOW);
     expect(upcoming.map((r) => r.id)).toEqual(['pub']);
     expect(past).toHaveLength(0);
   });
@@ -38,9 +41,21 @@ describe('categorizeBrigadeRoutes', () => {
       makeRoute('c', 'completed', '2025-11-01'),
       makeRoute('ar', 'archived', '2025-10-01'),
     ];
-    const { upcoming, past } = categorizeBrigadeRoutes(routes);
+    const { upcoming, past } = categorizeBrigadeRoutes(routes, NOW);
     expect(new Set(upcoming.map((r) => r.id))).toEqual(new Set(['a', 'p']));
     expect(new Set(past.map((r) => r.id))).toEqual(new Set(['c', 'ar']));
+  });
+
+  it('moves published routes whose date has passed into past runs', () => {
+    const routes = [
+      makeRoute('stale', 'published', '2024-12-24'),
+      makeRoute('fresh', 'published', '2025-12-20'),
+      makeRoute('late-start', 'active', '2025-11-30'),
+    ];
+    const { upcoming, past } = categorizeBrigadeRoutes(routes, NOW);
+    // Active runs stay live regardless of date (a run can start late).
+    expect(new Set(upcoming.map((r) => r.id))).toEqual(new Set(['fresh', 'late-start']));
+    expect(past.map((r) => r.id)).toContain('stale');
   });
 
   it('sorts upcoming soonest-first and past most-recent-first', () => {
@@ -50,7 +65,7 @@ describe('categorizeBrigadeRoutes', () => {
       makeRoute('old', 'completed', '2025-01-01'),
       makeRoute('recent', 'completed', '2025-11-30'),
     ];
-    const { upcoming, past } = categorizeBrigadeRoutes(routes);
+    const { upcoming, past } = categorizeBrigadeRoutes(routes, NOW);
     expect(upcoming.map((r) => r.id)).toEqual(['sooner', 'later']);
     expect(past.map((r) => r.id)).toEqual(['recent', 'old']);
   });

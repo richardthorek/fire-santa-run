@@ -170,6 +170,19 @@ export class HttpStorageAdapter implements IStorageAdapter {
     return await response.json();
   }
 
+  async getPublicRoute(routeId: string): Promise<Route | null> {
+    // No brigadeId: the API resolves the route by ID alone and only returns
+    // publicly visible routes. Powers the anonymous /track/:id page.
+    const response = await fetch(`${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}`);
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Failed to fetch route: ${response.statusText}`);
+    }
+    return await response.json();
+  }
+
   async saveRoute(brigadeId: string, route: Route): Promise<void> {
     // Determine if this is a create or update
     const existingRoute = await this.getRoute(brigadeId, route.id);

@@ -138,6 +138,11 @@ export interface LocationBroadcast {
   speed?: number;
   currentWaypointIndex?: number;
   nextWaypointEta?: string;
+  /**
+   * Sent on the broadcaster's final message when the run finishes, so open
+   * tracking pages can transition to the thank-you state without a refresh.
+   */
+  status?: 'completed';
 }
 
 export interface ViewerCountMessage {

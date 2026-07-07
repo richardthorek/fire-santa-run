@@ -72,6 +72,13 @@ export interface IStorageAdapter {
   saveRoute(brigadeId: string, route: Route): Promise<void>;
   getRoutes(brigadeId: string): Promise<Route[]>;
   getRoute(brigadeId: string, routeId: string): Promise<Route | null>;
+  /**
+   * Look up a route by ID alone, without knowing its brigade — used by the
+   * public tracking page (/track/:id) where viewers are anonymous. Only
+   * returns publicly visible routes (published/active/completed/archived);
+   * drafts resolve to null.
+   */
+  getPublicRoute(routeId: string): Promise<Route | null>;
   deleteRoute(brigadeId: string, routeId: string): Promise<void>;
 
   // Waypoint operations (stored separately to avoid entity size limits)
