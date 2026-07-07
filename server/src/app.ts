@@ -13,6 +13,7 @@ import { claimRouter } from './routes/claim.js';
 import { analyticsRouter } from './routes/analytics.js';
 import { healthRouter } from './routes/health.js';
 import { telemetryRouter } from './routes/telemetry.js';
+import { stripeRouter } from './routes/stripe.js';
 
 const isDevMode = process.env.DEV_MODE === 'true';
 const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || 'https://firesantarun.com.au';
@@ -74,6 +75,7 @@ export function createApp() {
   app.route('/api/verification', verificationRouter);
   app.route('/api/site-admin/verification', adminVerificationRouter);
   app.route('/api/analytics', analyticsRouter);
+  app.route('/api/stripe', stripeRouter);
 
   return app;
 }

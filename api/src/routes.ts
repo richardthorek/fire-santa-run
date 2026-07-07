@@ -16,6 +16,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { validateToken, checkBrigadePermission } from './utils/auth';
 import { getTableClient, isDevMode } from './utils/storage';
+import { isBrigadeEntitled } from './utils/subscription';
 
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
 const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
@@ -238,6 +239,13 @@ async function createRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
+    if (!(await isBrigadeEntitled(route.brigadeId))) {
+      return {
+        status: 402,
+        jsonBody: { error: 'Payment required', message: 'An active brigade subscription is required to create routes' }
+      };
+    }
+
     const client = await getRoutesTableClient();
     const entity = routeToEntity(route);
 
@@ -305,6 +313,13 @@ async function updateRoute(request: HttpRequest, context: InvocationContext): Pr
       return {
         status: 403,
         jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }
+      };
+    }
+
+    if (!(await isBrigadeEntitled(route.brigadeId))) {
+      return {
+        status: 402,
+        jsonBody: { error: 'Payment required', message: 'An active brigade subscription is required to edit routes' }
       };
     }
 

@@ -62,6 +62,11 @@ function entityToBrigade(entity: any) {
     themeColor: entity.themeColor,
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt,
+    // Entitlement fields the UI needs; non-sensitive. Stripe customer/
+    // subscription IDs are intentionally not projected. Written only by the
+    // Stripe webhook (server/ backend), never by this local-dev API.
+    subscriptionStatus: entity.subscriptionStatus || 'none',
+    subscribedUntil: entity.subscribedUntil || undefined,
   };
 }
 

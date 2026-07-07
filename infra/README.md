@@ -168,6 +168,11 @@ az deployment sub show \
 | `AZURE_WEBPUBSUB_HUB_NAME` | `santa_tracking` |
 | `DEV_MODE` | `false` |
 | `PORT` | `8080` |
+| `CORS_ORIGIN` / `APP_BASE_URL` | Public origin for this environment (prod: `https://firesantarun.com.au`; dev: the `*.azurewebsites.net` host, or set `APP_ORIGIN` in the deploy shell) |
+| `STRIPE_SECRET_KEY` | Stripe secret key — **test** key for dev, **live** key for prod (only set when exported in the deploy shell) |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) for that environment's webhook endpoint |
+| `STRIPE_PRICE_ID` | Price id (`price_…`) of the $5/yr recurring price (test vs live mode) |
+| `SITE_ADMIN_USER_IDS` | Comma-separated Entra `oid.tid` IDs allowed to review brigade verification |
 
 To set app settings manually:
 ```bash
@@ -180,6 +185,59 @@ az webapp config appsettings set \
    "AZURE_WEBPUBSUB_HUB_NAME=santa_tracking" \
     "DEV_MODE=false" "PORT=8080"
 ```
+
+---
+
+## Dev / Prod Environments
+
+Dev and prod are **fully separate deployments**, not slots — each gets its own
+resource group, Storage account, Web PubSub, and App Service, provisioned from
+the matching parameter file:
+
+```bash
+./infra/deploy.sh --env dev  --suffix dev001    # rg-santarun-dev-dev001   (F1 / Free_F1)
+./infra/deploy.sh --env prod --suffix prod1      # rg-santarun-prod-prod1   (B1 / Standard_S1)
+```
+
+Separate environments (rather than an App Service deployment slot) are the right
+choice here because the app is stateful (Table Storage + Web PubSub) and because
+Stripe has distinct **test** and **live** modes: the dev environment points at
+Stripe test mode with its own storage, so test subscriptions never touch real
+brigade data. A prod deployment slot can still be added later purely for
+zero-downtime code releases — that is orthogonal to environment isolation.
+
+### Stripe configuration per environment
+
+The `/api/stripe` routes return `503` until fully configured, and the paywall
+treats brigades as unentitled until the webhook records a subscription. Export
+the environment-appropriate values in the shell before running `deploy.sh` (or
+set them in the Portal / CI secrets):
+
+```bash
+# DEV — Stripe test mode
+export STRIPE_SECRET_KEY=sk_test_...
+export STRIPE_WEBHOOK_SECRET=whsec_...      # from the dev webhook endpoint
+export STRIPE_PRICE_ID=price_...            # $5/yr recurring price, test mode
+export SITE_ADMIN_USER_IDS=oid.tid,oid2.tid2
+./infra/deploy.sh --env dev --suffix dev001
+
+# PROD — Stripe live mode (live keys, live price, live webhook secret)
+export STRIPE_SECRET_KEY=sk_live_...
+export STRIPE_WEBHOOK_SECRET=whsec_...
+export STRIPE_PRICE_ID=price_...
+./infra/deploy.sh --env prod --suffix prod1
+```
+
+Point each environment's Stripe webhook at `https://<origin>/api/stripe/webhook`
+and subscribe to `checkout.session.completed` and `customer.subscription.*`.
+Locally you can forward events with the Stripe CLI:
+
+```bash
+stripe listen --forward-to localhost:8080/api/stripe/webhook
+```
+
+Note: local dev (`DEV_MODE=true`) bypasses billing entirely — every brigade is
+treated as entitled — so Stripe is only needed against deployed environments.
 
 ---
 

@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useRoutes } from '../hooks';
-import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist, ImportModal, ExportMenu } from '../components';
+import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist, ImportModal, ExportMenu, SubscriptionBanner } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import {
@@ -20,7 +20,19 @@ import { format } from 'date-fns';
 export function Dashboard() {
   const navigate = useNavigate();
   const { routes, isLoading, error, archiveRoute, restoreRoute, saveRoute } = useRoutes();
-  const { brigade } = useBrigade();
+  const { brigade, refreshBrigade } = useBrigade();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Returning from Stripe Checkout: refresh the brigade so the webhook-updated
+  // subscription state is reflected, then clear the query param.
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      refreshBrigade();
+      const next = new URLSearchParams(searchParams);
+      next.delete('checkout');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams, refreshBrigade]);
   const [filterStatus, setFilterStatus] = useState<RouteStatus | 'all'>('all');
   const [shareModalRoute, setShareModalRoute] = useState<Route | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -186,6 +198,9 @@ export function Dashboard() {
       <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
         {/* Christmas Lights Divider at top */}
         <div className="christmas-lights" style={{ marginBottom: '2rem' }} />
+
+        {/* Subscription prompt — shown when the brigade is not entitled */}
+        <SubscriptionBanner />
 
         {/* Onboarding checklist — shows once until dismissed (manages its own visibility) */}
         {brigade && <OnboardingChecklist brigade={brigade} routes={routes} />}

@@ -23,6 +23,7 @@ export { ThankYouOverlay } from './ThankYouOverlay';
 export { HighlightedText } from './HighlightedText';
 export { RoutePreviewModal } from './RoutePreviewModal';
 export { OfflineBanner } from './OfflineBanner';
+export { SubscriptionBanner } from './SubscriptionBanner';
 export { SyncStatusBanner } from './SyncStatusBanner';
 export { InstallBanner } from './InstallBanner';
 export { ErrorBoundary } from './ErrorBoundary';

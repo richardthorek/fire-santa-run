@@ -54,6 +54,17 @@ export function evaluateServerConfig(): ServerConfigResult {
         `Entra config missing (${entraMissing.join(', ')}) — API token validation may reject all requests.`,
       );
     }
+
+    // Billing is optional: without full Stripe config the /api/stripe routes
+    // return 503 and the paywall cannot be enforced (brigades stay unentitled).
+    const stripeVars = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID'];
+    const stripeSet = stripeVars.filter((v) => process.env[v]);
+    if (stripeSet.length > 0 && stripeSet.length < stripeVars.length) {
+      const missing = stripeVars.filter((v) => !process.env[v]);
+      warnings.push(
+        `Stripe partially configured — missing ${missing.join(', ')}; subscription checkout/webhook will not work.`,
+      );
+    }
   }
 
   return { isDevMode: devMode, fatal, warnings };

@@ -2,6 +2,7 @@
 import { Hono } from 'hono';
 import { validateToken, checkBrigadePermission } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { isBrigadeEntitled } from '../utils/subscription.js';
 
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
 const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
@@ -150,6 +151,9 @@ routesRouter.post('/', async (c) => {
     if (!route.id || !route.brigadeId) return c.json({ error: 'Missing required fields: id, brigadeId' }, 400);
     const permissionCheck = await checkBrigadePermission(authResult.userId!, route.brigadeId, 'manage_routes', getUserMembership);
     if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
+    if (!(await isBrigadeEntitled(route.brigadeId))) {
+      return c.json({ error: 'Payment required', message: 'An active brigade subscription is required to create routes' }, 402);
+    }
     const client = await getTableClient(ROUTES_TABLE);
     await client.createEntity(routeToEntity(route));
     console.log(`Created route: ${route.id} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);
@@ -170,6 +174,9 @@ routesRouter.put('/:id', async (c) => {
     if (!routeId || !route.brigadeId) return c.json({ error: 'Missing required fields: id, brigadeId' }, 400);
     const permissionCheck = await checkBrigadePermission(authResult.userId!, route.brigadeId, 'manage_routes', getUserMembership);
     if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
+    if (!(await isBrigadeEntitled(route.brigadeId))) {
+      return c.json({ error: 'Payment required', message: 'An active brigade subscription is required to edit routes' }, 402);
+    }
     const client = await getTableClient(ROUTES_TABLE);
     await client.updateEntity(routeToEntity({ ...route, id: routeId }), 'Merge');
     console.log(`Updated route: ${routeId} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);

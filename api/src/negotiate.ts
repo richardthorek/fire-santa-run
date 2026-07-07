@@ -14,9 +14,38 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { checkRateLimit } from './rateLimit';
-import { validateToken } from './utils/auth';
+import { validateToken, checkBrigadePermission } from './utils/auth';
+import { getTableClient, isDevMode } from './utils/storage';
+import { isBrigadeEntitled } from './utils/subscription';
+import type { BrigadeMembership } from './types/membership';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
+const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
+const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
+
+function escapeODataValue(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+async function getRouteBrigadeId(routeId: string): Promise<string | null> {
+  const client = await getTableClient(ROUTES_TABLE);
+  const entities = client.listEntities({ queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` } });
+  for await (const entity of entities) {
+    return typeof entity.partitionKey === 'string' ? entity.partitionKey : null;
+  }
+  return null;
+}
+
+async function getUserMembership(userId: string, brigadeId: string): Promise<BrigadeMembership | null> {
+  const client = await getTableClient(MEMBERSHIPS_TABLE);
+  const entities = client.listEntities({
+    queryOptions: { filter: `PartitionKey eq '${escapeODataValue(brigadeId)}' and userId eq '${escapeODataValue(userId)}'` },
+  });
+  for await (const entity of entities) {
+    return { id: entity.rowKey, brigadeId: entity.partitionKey, userId: entity.userId, role: entity.role, status: entity.status } as unknown as BrigadeMembership;
+  }
+  return null;
+}
 
 export async function negotiate(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
@@ -57,6 +86,22 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
       const authResult = await validateToken(request);
       if (!authResult.authenticated) {
         return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+      }
+
+      // Broadcaster/editor tokens are privileged: the route must belong to a
+      // brigade the user can act on, and that brigade must be subscribed.
+      // Resolved once per session (negotiate), not per location update.
+      const brigadeId = await getRouteBrigadeId(routeId);
+      if (!brigadeId) {
+        return { status: 404, jsonBody: { error: 'Route not found' } };
+      }
+      const requiredPermission = role === 'broadcaster' ? 'start_navigation' : 'manage_routes';
+      const permission = await checkBrigadePermission(authResult.userId!, brigadeId, requiredPermission, getUserMembership);
+      if (!permission.authorized) {
+        return { status: 403, jsonBody: { error: 'Forbidden', message: permission.error || 'Insufficient permissions' } };
+      }
+      if (!(await isBrigadeEntitled(brigadeId))) {
+        return { status: 402, jsonBody: { error: 'Payment required', message: 'An active brigade subscription is required to broadcast' } };
       }
     }
 

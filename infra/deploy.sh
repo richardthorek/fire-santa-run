@@ -249,17 +249,39 @@ print(data.get('properties', {}).get('outputs', {}).get('webPubSubHubName', {}).
   fi
 
   if [[ -n "$RESOURCE_GROUP" && -n "$STORAGE_CONN" ]]; then
+    # Per-environment public origin. Override either default via APP_ORIGIN.
+    if [[ "$ENVIRONMENT" == "prod" ]]; then
+      DEFAULT_ORIGIN="https://firesantarun.com.au"
+    else
+      DEFAULT_ORIGIN="https://santarun-web-${NAME_SUFFIX}.azurewebsites.net"
+    fi
+    APP_ORIGIN="${APP_ORIGIN:-$DEFAULT_ORIGIN}"
+
+    # Base settings — always set.
+    SETTINGS=(
+      "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONN"
+      "AZURE_WEBPUBSUB_CONNECTION_STRING=$PUBSUB_CONN"
+      "AZURE_WEBPUBSUB_HUB_NAME=$HUB_NAME"
+      "DEV_MODE=false"
+      "NODE_ENV=production"
+      "PORT=8080"
+      "CORS_ORIGIN=$APP_ORIGIN"
+      "APP_BASE_URL=$APP_ORIGIN"
+    )
+
+    # Optional settings — only set when provided in the deploy shell's env, so a
+    # partial deploy never blanks an existing secret (appsettings set merges).
+    # Use Stripe TEST keys for the dev environment and LIVE keys for prod.
+    [[ -n "${STRIPE_SECRET_KEY:-}" ]]     && SETTINGS+=("STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY")
+    [[ -n "${STRIPE_WEBHOOK_SECRET:-}" ]] && SETTINGS+=("STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET")
+    [[ -n "${STRIPE_PRICE_ID:-}" ]]       && SETTINGS+=("STRIPE_PRICE_ID=$STRIPE_PRICE_ID")
+    [[ -n "${SITE_ADMIN_USER_IDS:-}" ]]   && SETTINGS+=("SITE_ADMIN_USER_IDS=$SITE_ADMIN_USER_IDS")
+
     az webapp config appsettings set \
       --resource-group "$RESOURCE_GROUP" \
       --name "$APP_NAME" \
-      --settings \
-        "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONN" \
-        "AZURE_WEBPUBSUB_CONNECTION_STRING=$PUBSUB_CONN" \
-        "AZURE_WEBPUBSUB_HUB_NAME=$HUB_NAME" \
-        "DEV_MODE=false" \
-        "NODE_ENV=production" \
-        "PORT=8080" \
-      --output none && echo "✅ App Service settings configured." || echo "⚠️  Could not set app settings automatically. Set them manually in Azure Portal."
+      --settings "${SETTINGS[@]}" \
+      --output none && echo "✅ App Service settings configured ($ENVIRONMENT, origin: $APP_ORIGIN)." || echo "⚠️  Could not set app settings automatically. Set them manually in Azure Portal."
   fi
 
   echo ""
