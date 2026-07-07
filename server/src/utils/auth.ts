@@ -172,6 +172,24 @@ export function hasPermission(role: string, permission: string): boolean {
   return permissions ? permissions.includes(permission) : false;
 }
 
+/**
+ * Site administrators authorised to review brigade verification requests.
+ * Configured via the SITE_ADMIN_USER_IDS env var (comma-separated Entra user
+ * IDs, i.e. `oid.tid`). In dev mode the mock user is always treated as admin.
+ */
+export function getSiteAdminIds(): string[] {
+  return (process.env.SITE_ADMIN_USER_IDS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export function isSiteAdmin(userId: string | undefined): boolean {
+  if (isDevMode) return true;
+  if (!userId) return false;
+  return getSiteAdminIds().includes(userId);
+}
+
 export async function checkBrigadePermission(
   userId: string,
   brigadeId: string,

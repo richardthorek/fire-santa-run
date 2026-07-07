@@ -17,6 +17,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { checkRateLimit } from './rateLimit';
+import { validateToken } from './utils/auth';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 
@@ -36,6 +37,13 @@ export async function broadcast(request: HttpRequest, context: InvocationContext
     // plus presence heartbeats; 40/min blocks flooding with headroom to spare.
     const limited = checkRateLimit(request, 'broadcast', 40, 60_000);
     if (limited) return limited;
+
+    // Broadcasting Santa's position pushes to every public viewer of the route,
+    // so it must come from a signed-in brigade user, never an anonymous client.
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
 
     // Parse request body
     const body = await request.json() as Partial<LocationBroadcast>;
@@ -147,6 +155,11 @@ export async function broadcastEditorPresence(request: HttpRequest, context: Inv
   try {
     const limited = checkRateLimit(request, 'broadcast', 40, 60_000);
     if (limited) return limited;
+
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
 
     const body = await request.json() as {
       routeId?: string;

@@ -50,7 +50,7 @@ describe('HttpStorageAdapter - User Operations', () => {
 
       const result = await adapter.getUserByEmail('test@example.com');
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/users/by-email/test%40example.com');
+      expect(fetchMock).toHaveBeenCalledWith('/api/users/by-email/test%40example.com', { headers: {} });
       expect(result).toEqual(mockUser);
     });
 
@@ -85,7 +85,7 @@ describe('HttpStorageAdapter - User Operations', () => {
 
       await adapter.getUserByEmail('test+tag@example.com');
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/users/by-email/test%2Btag%40example.com');
+      expect(fetchMock).toHaveBeenCalledWith('/api/users/by-email/test%2Btag%40example.com', { headers: {} });
     });
   });
 
@@ -160,7 +160,7 @@ describe('HttpStorageAdapter - User Operations', () => {
 
       const result = await adapter.getUser('user-123');
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/users/user-123');
+      expect(fetchMock).toHaveBeenCalledWith('/api/users/user-123', { headers: {} });
       expect(result).toEqual(mockUser);
     });
 
@@ -216,7 +216,7 @@ describe('HttpStorageAdapter - Membership Operations', () => {
 
       const result = await adapter.getMembershipsByUser('user-123');
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/users/user-123/memberships');
+      expect(fetchMock).toHaveBeenCalledWith('/api/users/user-123/memberships', { headers: {} });
       expect(result).toEqual(mockMemberships);
     });
 
@@ -255,7 +255,7 @@ describe('HttpStorageAdapter - Membership Operations', () => {
 
       const result = await adapter.getMembershipsByBrigade('brigade-1');
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/brigades/brigade-1/members');
+      expect(fetchMock).toHaveBeenCalledWith('/api/brigades/brigade-1/members', { headers: {} });
       expect(result).toEqual(mockMemberships);
     });
   });
@@ -282,7 +282,7 @@ describe('HttpStorageAdapter - Membership Operations', () => {
 
       const result = await adapter.getPendingMembershipsByBrigade('brigade-1');
 
-      expect(fetchMock).toHaveBeenCalledWith('/api/brigades/brigade-1/members/pending');
+      expect(fetchMock).toHaveBeenCalledWith('/api/brigades/brigade-1/members/pending', { headers: {} });
       expect(result).toEqual(mockMemberships);
     });
   });

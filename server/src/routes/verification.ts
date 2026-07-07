@@ -2,6 +2,7 @@
 import { Hono } from 'hono';
 import { TableClient } from '@azure/data-tables';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { validateToken } from '../utils/auth.js';
 
 const VERIFICATION_TABLE = isDevMode ? 'dev-verificationrequests' : 'verificationrequests';
 
@@ -56,10 +57,21 @@ export const verificationRouter = new Hono();
 // POST /request
 verificationRouter.post('/request', async (c) => {
   try {
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) {
+      return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    }
+
     const requestData = await c.req.json();
 
     if (!requestData.userId || !requestData.brigadeId || !requestData.email || !requestData.explanation) {
       return c.json({ error: 'Missing required fields: userId, brigadeId, email, explanation' }, 400);
+    }
+
+    // Verification requests may only be submitted for the authenticated user —
+    // this is the gate that (once approved) grants brigade-claim eligibility.
+    if (requestData.userId !== authResult.userId) {
+      return c.json({ error: 'Forbidden', message: 'You can only submit a verification request for your own account' }, 403);
     }
 
     if (requestData.explanation.length < 50 || requestData.explanation.length > 500) {
@@ -104,11 +116,20 @@ verificationRouter.post('/request', async (c) => {
 // GET /requests/:requestId
 verificationRouter.get('/requests/:requestId', async (c) => {
   try {
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) {
+      return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    }
+
     const requestId = c.req.param('requestId');
     const userId = c.req.query('userId');
 
     if (!requestId || !userId) {
       return c.json({ error: 'Missing required parameters: requestId, userId' }, 400);
+    }
+
+    if (userId !== authResult.userId) {
+      return c.json({ error: 'Forbidden', message: 'You can only view your own verification requests' }, 403);
     }
 
     const client = await getVerificationTableClient();
@@ -128,9 +149,18 @@ verificationRouter.get('/requests/:requestId', async (c) => {
 // GET /user/:userId
 verificationRouter.get('/user/:userId', async (c) => {
   try {
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) {
+      return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    }
+
     const userId = c.req.param('userId');
     if (!userId) {
       return c.json({ error: 'Missing required parameter: userId' }, 400);
+    }
+
+    if (userId !== authResult.userId) {
+      return c.json({ error: 'Forbidden', message: 'You can only view your own verification requests' }, 403);
     }
 
     const client = await getVerificationTableClient();

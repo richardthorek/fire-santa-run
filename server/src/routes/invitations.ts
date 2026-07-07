@@ -2,6 +2,7 @@
 import { Hono } from 'hono';
 import { TableClient } from '@azure/data-tables';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { validateToken } from '../utils/auth.js';
 
 const INVITATIONS_TABLE = isDevMode ? 'dev-invitations' : 'invitations';
 const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
@@ -85,7 +86,19 @@ async function findInvitationByToken(client: TableClient, token: string): Promis
   return null;
 }
 
-export const invitationsRouter = new Hono();
+export const invitationsRouter = new Hono<{ Variables: { userId?: string } }>();
+
+// Accepting an invitation creates a brigade membership, and cancelling one is a
+// management action — both require a signed-in user. Requiring auth also stops
+// anonymous callers from probing invitation tokens.
+invitationsRouter.use('*', async (c, next) => {
+  const authResult = await validateToken(c.req.raw);
+  if (!authResult.authenticated) {
+    return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+  }
+  c.set('userId', authResult.userId);
+  await next();
+});
 
 // GET /:token
 invitationsRouter.get('/:token', async (c) => {
@@ -124,6 +137,10 @@ invitationsRouter.post('/:token/accept', async (c) => {
 
     if (!token || !acceptData.userId) {
       return c.json({ error: 'Missing required fields: token, userId' }, 400);
+    }
+
+    if (acceptData.userId !== c.get('userId')) {
+      return c.json({ error: 'Forbidden', message: 'You can only accept an invitation for your own account' }, 403);
     }
 
     const invitationsClient = await getInvitationsTableClient();

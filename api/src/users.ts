@@ -14,6 +14,24 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getTableClient, isDevMode } from './utils/storage';
+import { validateToken } from './utils/auth';
+
+/**
+ * The user directory holds emails and Entra IDs. Every handler requires a valid
+ * token so it can never be enumerated or mutated anonymously; writes are
+ * additionally restricted to the caller's own record via a self-match check.
+ */
+async function requireUser(request: HttpRequest): Promise<{ userId?: string } | HttpResponseInit> {
+  const authResult = await validateToken(request);
+  if (!authResult.authenticated) {
+    return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+  }
+  return { userId: authResult.userId };
+}
+
+function isDenied(result: { userId?: string } | HttpResponseInit): result is HttpResponseInit {
+  return typeof (result as HttpResponseInit).status === 'number';
+}
 const USERS_TABLE = isDevMode ? 'dev-users' : 'users';
 const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
@@ -91,6 +109,9 @@ function escapeODataValue(value: string): string {
 // POST /api/users/register
 async function registerUser(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const auth = await requireUser(request);
+    if (isDenied(auth)) return auth;
+
     const user = await request.json() as any;
 
     if (!user.id || !user.email || !user.name) {
@@ -98,6 +119,10 @@ async function registerUser(request: HttpRequest, context: InvocationContext): P
         status: 400,
         jsonBody: { error: 'Missing required fields: id, email, name' }
       };
+    }
+
+    if (user.id !== auth.userId) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: 'You can only register your own account' } };
     }
 
     const client = await getUsersTableClient();
@@ -140,6 +165,9 @@ async function registerUser(request: HttpRequest, context: InvocationContext): P
 // GET /api/users/{userId}
 async function getUser(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const auth = await requireUser(request);
+    if (isDenied(auth)) return auth;
+
     const userId = request.params.userId;
 
     if (!userId) {
@@ -182,6 +210,9 @@ async function getUser(request: HttpRequest, context: InvocationContext): Promis
 // GET /api/users/by-email/{email}
 async function getUserByEmail(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const auth = await requireUser(request);
+    if (isDenied(auth)) return auth;
+
     const email = request.params.email;
 
     if (!email) {
@@ -250,6 +281,9 @@ async function getUserByEmail(request: HttpRequest, context: InvocationContext):
 // PUT /api/users - Create or update user
 async function saveUser(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const auth = await requireUser(request);
+    if (isDenied(auth)) return auth;
+
     const user = await request.json() as any;
 
     if (!user.id || !user.email || !user.name) {
@@ -259,8 +293,12 @@ async function saveUser(request: HttpRequest, context: InvocationContext): Promi
       };
     }
 
+    if (user.id !== auth.userId) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: 'You can only modify your own account' } };
+    }
+
     const client = await getUsersTableClient();
-    
+
     try {
       // Try to get existing user
       await client.getEntity(user.id, user.id);
@@ -307,6 +345,9 @@ async function saveUser(request: HttpRequest, context: InvocationContext): Promi
 // PATCH /api/users/{userId}
 async function updateUser(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const auth = await requireUser(request);
+    if (isDenied(auth)) return auth;
+
     const userId = request.params.userId;
     const updates = await request.json() as any;
 
@@ -315,6 +356,10 @@ async function updateUser(request: HttpRequest, context: InvocationContext): Pro
         status: 400,
         jsonBody: { error: 'Missing required parameter: userId' }
       };
+    }
+
+    if (userId !== auth.userId) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: 'You can only modify your own account' } };
     }
 
     const client = await getUsersTableClient();
@@ -365,6 +410,9 @@ async function updateUser(request: HttpRequest, context: InvocationContext): Pro
 // GET /api/users/{userId}/memberships
 async function getUserMemberships(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const auth = await requireUser(request);
+    if (isDenied(auth)) return auth;
+
     const userId = request.params.userId;
 
     if (!userId) {

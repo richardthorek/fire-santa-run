@@ -14,6 +14,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { checkRateLimit } from './rateLimit';
+import { validateToken } from './utils/auth';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 
@@ -46,6 +47,17 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
           error: 'Invalid role. Must be "viewer", "broadcaster" or "editor"'
         }
       };
+    }
+
+    // Anonymous public viewers may connect read-only, but a broadcaster token
+    // carries sendToGroup rights (it can move Santa on the map) and an editor
+    // token joins the private editing-presence group — both require a signed-in
+    // brigade user. Viewer stays open so public tracking needs no login.
+    if (role === 'broadcaster' || role === 'editor') {
+      const authResult = await validateToken(request);
+      if (!authResult.authenticated) {
+        return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+      }
     }
 
     // Get Web PubSub connection string from environment

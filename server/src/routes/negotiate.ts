@@ -2,6 +2,7 @@
 import { Hono } from 'hono';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { rateLimit } from '../utils/rateLimit.js';
+import { validateToken } from '../utils/auth.js';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 
@@ -22,6 +23,17 @@ async function handleNegotiate(c: any) {
 
     if (role !== 'viewer' && role !== 'broadcaster' && role !== 'editor') {
       return c.json({ error: 'Invalid role. Must be "viewer", "broadcaster" or "editor"' }, 400);
+    }
+
+    // Anonymous public viewers may connect read-only, but a broadcaster token
+    // carries sendToGroup rights (it can move Santa on the map) and an editor
+    // token joins the private editing-presence group — both require a signed-in
+    // brigade user. Viewer stays open so public tracking needs no login.
+    if (role === 'broadcaster' || role === 'editor') {
+      const authResult = await validateToken(c.req.raw);
+      if (!authResult.authenticated) {
+        return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+      }
     }
 
     const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;

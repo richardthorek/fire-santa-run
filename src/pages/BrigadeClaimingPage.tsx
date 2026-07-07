@@ -12,6 +12,7 @@ import { searchStationsByName, getStationsByState } from '../utils/rfsData';
 import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
 import { HttpStorageAdapter } from '../storage/http';
+import { getApiAuthHeaders } from '../auth/apiToken';
 import { isGovernmentEmail } from '../utils/emailValidation';
 import { logBrigadeClaimed } from '../utils/auditLog';
 import { COLORS } from '../utils/constants';
@@ -119,7 +120,7 @@ export function BrigadeClaimingPage() {
       if (isHttpAdapter) {
         const response = await fetch(`/api/brigades/${encodeURIComponent(brigade.id)}/claim`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await getApiAuthHeaders()) },
           body: JSON.stringify({ userId: user.id }),
         });
 

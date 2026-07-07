@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { validateToken } from '../utils/auth.js';
 
 const USERS_TABLE = isDevMode ? 'dev-users' : 'users';
 const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
@@ -59,12 +60,25 @@ function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");
 }
 
-export const usersRouter = new Hono();
+export const usersRouter = new Hono<{ Variables: { userId?: string } }>();
+
+// The user directory holds emails and Entra IDs — every route requires a valid
+// token so it can never be enumerated or mutated anonymously. Writes are
+// additionally restricted to the authenticated user's own record below.
+usersRouter.use('*', async (c, next) => {
+  const authResult = await validateToken(c.req.raw);
+  if (!authResult.authenticated) {
+    return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+  }
+  c.set('userId', authResult.userId);
+  await next();
+});
 
 usersRouter.post('/register', async (c) => {
   try {
     const user = await c.req.json() as any;
     if (!user.id || !user.email || !user.name) return c.json({ error: 'Missing required fields: id, email, name' }, 400);
+    if (user.id !== c.get('userId')) return c.json({ error: 'Forbidden', message: 'You can only register your own account' }, 403);
     const client = await getTableClient(USERS_TABLE);
     const entity = userToEntity({ ...user, emailVerified: false, verifiedBrigades: [], createdAt: new Date().toISOString() });
     await client.createEntity(entity);
@@ -125,6 +139,7 @@ usersRouter.put('/', async (c) => {
   try {
     const user = await c.req.json() as any;
     if (!user.id || !user.email || !user.name) return c.json({ error: 'Missing required fields: id, email, name' }, 400);
+    if (user.id !== c.get('userId')) return c.json({ error: 'Forbidden', message: 'You can only modify your own account' }, 403);
     const client = await getTableClient(USERS_TABLE);
     try {
       await client.getEntity(user.id, user.id);
@@ -163,6 +178,7 @@ usersRouter.get('/:userId', async (c) => {
 usersRouter.patch('/:userId', async (c) => {
   try {
     const userId = c.req.param('userId');
+    if (userId !== c.get('userId')) return c.json({ error: 'Forbidden', message: 'You can only modify your own account' }, 403);
     const updates = await c.req.json() as any;
     const client = await getTableClient(USERS_TABLE);
     const existingEntity = await client.getEntity(userId, userId);

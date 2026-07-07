@@ -13,6 +13,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { WebPubSubClient } from '@azure/web-pubsub-client';
+import { getApiAuthHeaders } from '../auth/apiToken';
 
 const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -55,6 +56,10 @@ export function useEditingPresence({ routeId, user, enabled = true }: UseEditing
     let client: WebPubSubClient | null = null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     let sweepTimer: ReturnType<typeof setInterval> | null = null;
+    // Editor presence is an authenticated action. Resolve the bearer token once
+    // at connect and reuse it for heartbeats and the teardown 'left' beacon, so
+    // the keepalive request still carries auth after the page starts unloading.
+    let authHeaders: Record<string, string> = {};
 
     const publishPeers = () => {
       setPeers([...peersRef.current.values()].sort((a, b) => a.userName.localeCompare(b.userName)));
@@ -91,7 +96,7 @@ export function useEditingPresence({ routeId, user, enabled = true }: UseEditing
         // keepalive lets the 'left' message survive page teardown
         fetch(`${API_BASE_URL}/broadcast/editor-presence`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
           body: JSON.stringify(buildMessage(action)),
           keepalive: action === 'left',
         }).catch(() => {
@@ -123,8 +128,10 @@ export function useEditingPresence({ routeId, user, enabled = true }: UseEditing
     } else {
       (async () => {
         try {
+          authHeaders = await getApiAuthHeaders();
           const response = await fetch(
-            `${API_BASE_URL}/negotiate?routeId=${encodeURIComponent(routeId)}&role=editor`
+            `${API_BASE_URL}/negotiate?routeId=${encodeURIComponent(routeId)}&role=editor`,
+            { headers: authHeaders }
           );
           if (!response.ok) throw new Error(`negotiate failed: ${response.status}`);
           const { url } = await response.json();

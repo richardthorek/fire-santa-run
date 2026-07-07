@@ -11,6 +11,7 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getTableClient, isDevMode } from './utils/storage';
+import { validateToken } from './utils/auth';
 const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
 const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 const USERS_TABLE = isDevMode ? 'dev-users' : 'users';
@@ -101,6 +102,11 @@ function membershipToEntity(membership: any) {
 // POST /api/brigades/{brigadeId}/claim
 async function claimBrigade(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+
     const brigadeId = request.params.brigadeId;
     const claimData = await request.json() as any;
 
@@ -109,6 +115,11 @@ async function claimBrigade(request: HttpRequest, context: InvocationContext): P
         status: 400,
         jsonBody: { error: 'Missing required fields: brigadeId, userId' }
       };
+    }
+
+    // A user may only claim a brigade as themselves.
+    if (claimData.userId !== authResult.userId) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: 'You can only claim a brigade for your own account' } };
     }
 
     const brigadesClient = await getBrigadesTableClient();

@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebPubSubClient } from '@azure/web-pubsub-client';
 import type { LocationBroadcast, ViewerCountMessage } from '../types';
+import { getApiAuthHeaders } from '../auth/apiToken';
 
 const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -189,7 +190,10 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       } else {
         // Production mode: Use Azure Web PubSub
         const negotiateUrl = `${API_BASE_URL}/negotiate?routeId=${encodeURIComponent(routeId)}&role=${role}`;
-        const response = await fetch(negotiateUrl);
+        // A broadcaster token grants sendToGroup rights, so the negotiate call
+        // must be authenticated. Viewers connect anonymously (no token).
+        const negotiateHeaders = role === 'broadcaster' ? await getApiAuthHeaders() : undefined;
+        const response = await fetch(negotiateUrl, negotiateHeaders ? { headers: negotiateHeaders } : undefined);
 
         if (!response.ok) {
           throw new Error(`Failed to negotiate connection: ${response.statusText}`);
@@ -322,11 +326,13 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
           console.log('[Dev Mode] Broadcasted location:', location);
         }
       } else {
-        // Production mode: Send via API
+        // Production mode: Send via API. Broadcasting Santa's position is an
+        // authenticated action — attach the signed-in user's bearer token.
         const response = await fetch(`${API_BASE_URL}/broadcast`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(await getApiAuthHeaders()),
           },
           body: JSON.stringify(location),
         });

@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
+import type { Context, Next } from 'hono';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { rateLimit } from '../utils/rateLimit.js';
+import { validateToken } from '../utils/auth.js';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 
@@ -22,6 +24,19 @@ export const broadcastRouter = new Hono();
 // 40/min leaves ample headroom for retries without allowing flooding.
 broadcastRouter.use('/broadcast', rateLimit({ name: 'broadcast', limit: 40, windowMs: 60_000 }));
 broadcastRouter.use('/broadcast/*', rateLimit({ name: 'broadcast', limit: 40, windowMs: 60_000 }));
+
+// Every broadcast pushes a message to a route group — Santa's location, editor
+// presence, or the viewer count. All must come from a signed-in brigade user so
+// anonymous clients cannot inject fake positions to public viewers.
+async function requireAuth(c: Context, next: Next) {
+  const authResult = await validateToken(c.req.raw);
+  if (!authResult.authenticated) {
+    return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+  }
+  await next();
+}
+broadcastRouter.use('/broadcast', requireAuth);
+broadcastRouter.use('/broadcast/*', requireAuth);
 
 broadcastRouter.post('/broadcast', async (c) => {
   try {

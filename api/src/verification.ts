@@ -16,6 +16,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { TableClient } from '@azure/data-tables';
 import { getTableClient, isDevMode } from './utils/storage';
+import { validateToken } from './utils/auth';
 
 const VERIFICATION_TABLE = isDevMode ? 'dev-verificationrequests' : 'verificationrequests';
 
@@ -66,6 +67,11 @@ function verificationRequestToEntity(request: any) {
 // POST /api/verification/request
 async function submitVerificationRequest(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+
     const requestData = await request.json() as any;
 
     if (!requestData.userId || !requestData.brigadeId || !requestData.email || !requestData.explanation) {
@@ -73,6 +79,10 @@ async function submitVerificationRequest(request: HttpRequest, context: Invocati
         status: 400,
         jsonBody: { error: 'Missing required fields: userId, brigadeId, email, explanation' }
       };
+    }
+
+    if (requestData.userId !== authResult.userId) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: 'You can only submit a verification request for your own account' } };
     }
 
     // Validate explanation length
@@ -143,6 +153,11 @@ async function submitVerificationRequest(request: HttpRequest, context: Invocati
 // GET /api/verification/requests/{requestId}?userId=xxx
 async function getVerificationRequest(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+
     const requestId = request.params.requestId;
     const userId = request.query.get('userId');
 
@@ -151,6 +166,10 @@ async function getVerificationRequest(request: HttpRequest, context: InvocationC
         status: 400,
         jsonBody: { error: 'Missing required parameters: requestId, userId' }
       };
+    }
+
+    if (userId !== authResult.userId) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: 'You can only view your own verification requests' } };
     }
 
     const client = await getVerificationTableClient();
@@ -186,6 +205,11 @@ async function getVerificationRequest(request: HttpRequest, context: InvocationC
 // GET /api/verification/user/{userId}
 async function getUserVerificationRequests(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+
     const userId = request.params.userId;
 
     if (!userId) {
@@ -193,6 +217,10 @@ async function getUserVerificationRequests(request: HttpRequest, context: Invoca
         status: 400,
         jsonBody: { error: 'Missing required parameter: userId' }
       };
+    }
+
+    if (userId !== authResult.userId) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: 'You can only view your own verification requests' } };
     }
 
     const client = await getVerificationTableClient();

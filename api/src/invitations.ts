@@ -15,6 +15,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { TableClient } from '@azure/data-tables';
 import { getTableClient, isDevMode } from './utils/storage';
+import { validateToken } from './utils/auth';
 
 const INVITATIONS_TABLE = isDevMode ? 'dev-invitations' : 'invitations';
 const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
@@ -103,6 +104,11 @@ async function findInvitationByToken(client: TableClient, token: string): Promis
 // GET /api/invitations/{token}
 async function getInvitation(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+
     const token = request.params.token;
 
     if (!token) {
@@ -152,6 +158,11 @@ async function getInvitation(request: HttpRequest, context: InvocationContext): 
 // POST /api/invitations/{token}/accept
 async function acceptInvitation(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+
     const token = request.params.token;
     const acceptData = await request.json() as any;
 
@@ -160,6 +171,10 @@ async function acceptInvitation(request: HttpRequest, context: InvocationContext
         status: 400,
         jsonBody: { error: 'Missing required fields: token, userId' }
       };
+    }
+
+    if (acceptData.userId !== authResult.userId) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: 'You can only accept an invitation for your own account' } };
     }
 
     const invitationsClient = await getInvitationsTableClient();
@@ -243,6 +258,11 @@ async function acceptInvitation(request: HttpRequest, context: InvocationContext
 // POST /api/invitations/{token}/decline
 async function declineInvitation(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+
     const token = request.params.token;
 
     if (!token) {
@@ -300,6 +320,11 @@ async function declineInvitation(request: HttpRequest, context: InvocationContex
 // DELETE /api/invitations/{invitationId}?brigadeId=xxx
 async function cancelInvitation(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+
     const invitationId = request.params.invitationId;
     const brigadeId = request.query.get('brigadeId');
 

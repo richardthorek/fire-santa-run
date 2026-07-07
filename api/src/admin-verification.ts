@@ -17,6 +17,24 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { TableClient } from '@azure/data-tables';
 import { getTableClient, isDevMode } from './utils/storage';
+import { validateToken, isSiteAdmin } from './utils/auth';
+
+/**
+ * Guard for the site-admin verification review endpoints. Approving a request
+ * grants a user brigade-claim eligibility, so this must be locked to configured
+ * site administrators. Returns an error response to short-circuit, or null when
+ * the caller is authorised.
+ */
+async function requireSiteAdmin(request: HttpRequest): Promise<HttpResponseInit | null> {
+  const authResult = await validateToken(request);
+  if (!authResult.authenticated) {
+    return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+  }
+  if (!isSiteAdmin(authResult.userId)) {
+    return { status: 403, jsonBody: { error: 'Forbidden', message: 'Site administrator access required' } };
+  }
+  return null;
+}
 
 const VERIFICATION_TABLE = isDevMode ? 'dev-verificationrequests' : 'verificationrequests';
 const USERS_TABLE = isDevMode ? 'dev-users' : 'users';
@@ -72,6 +90,9 @@ function verificationRequestToEntity(request: any) {
 // GET /api/site-admin/verification/pending
 async function getPendingVerifications(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const denied = await requireSiteAdmin(request);
+    if (denied) return denied;
+
     const client = await getVerificationTableClient();
     
     // Query all pending verifications
@@ -116,6 +137,9 @@ async function getPendingVerifications(request: HttpRequest, context: Invocation
 // GET /api/site-admin/verification/requests/{requestId}?userId=xxx
 async function getVerificationRequestDetails(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const denied = await requireSiteAdmin(request);
+    if (denied) return denied;
+
     const requestId = request.params.requestId;
     const userId = request.query.get('userId');
 
@@ -159,6 +183,9 @@ async function getVerificationRequestDetails(request: HttpRequest, context: Invo
 // POST /api/site-admin/verification/requests/{requestId}/approve?userId=xxx
 async function approveVerification(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const denied = await requireSiteAdmin(request);
+    if (denied) return denied;
+
     const requestId = request.params.requestId;
     const userId = request.query.get('userId');
     const approvalData = await request.json() as any;
@@ -252,6 +279,9 @@ async function approveVerification(request: HttpRequest, context: InvocationCont
 // POST /api/site-admin/verification/requests/{requestId}/reject?userId=xxx
 async function rejectVerification(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const denied = await requireSiteAdmin(request);
+    if (denied) return denied;
+
     const requestId = request.params.requestId;
     const userId = request.query.get('userId');
     const rejectionData = await request.json() as any;

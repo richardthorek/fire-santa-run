@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { validateToken } from '../utils/auth.js';
 
 const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
 const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
@@ -91,11 +92,22 @@ export const claimRouter = new Hono();
 // POST /claim
 claimRouter.post('/claim', async (c) => {
   try {
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) {
+      return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    }
+
     const brigadeId = c.req.param('brigadeId');
     const claimData = await c.req.json();
 
     if (!brigadeId || !claimData.userId) {
       return c.json({ error: 'Missing required fields: brigadeId, userId' }, 400);
+    }
+
+    // A user may only claim a brigade as themselves — never on behalf of another
+    // account whose email/verification happens to satisfy the eligibility check.
+    if (claimData.userId !== authResult.userId) {
+      return c.json({ error: 'Forbidden', message: 'You can only claim a brigade for your own account' }, 403);
     }
 
     const brigadesClient = await getBrigadesTableClient();

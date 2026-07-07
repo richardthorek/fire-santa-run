@@ -71,6 +71,9 @@ infra/**/*.json
 server/node_modules
 server/dist
 
+# TypeScript incremental build metadata
+*.tsbuildinfo
+
 # Deployment package (assembled during CI)
 deploy/
 appservice-deploy.zip
