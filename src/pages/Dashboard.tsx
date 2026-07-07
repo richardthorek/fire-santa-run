@@ -182,7 +182,7 @@ export function Dashboard() {
 
   return (
     <>
-      <SEO title="Dashboard" description="Manage your Santa Run routes - Plan and track Christmas Eve routes for your Rural Fire Service brigade" />
+      <SEO title="Dashboard" description="Manage your Santa Run routes - Plan and track Christmas routes for your brigade or community group" />
       <AppLayout>
       <div style={{ 
       width: '100%', 
@@ -264,7 +264,7 @@ export function Dashboard() {
           <button
             type="button"
             aria-label="Subscribe to create new Santa Run routes"
-            title="A $5/year brigade subscription is required to create routes"
+            title="An active brigade subscription is required to create routes"
             disabled
             style={{
               padding: '0.875rem 1.75rem',

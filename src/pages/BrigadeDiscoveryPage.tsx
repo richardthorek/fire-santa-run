@@ -112,7 +112,7 @@ export function BrigadeDiscoveryPage() {
       <PublicHeader />
       <SEO
         title="Find Your Local Brigade"
-        description="Browse Australian Rural Fire Service brigades. Find your local brigade's Santa run and follow along live."
+        description="Browse participating brigades and community groups. Find your local Santa run and follow along live."
       />
 
       <header className="bdp__hero">
@@ -120,7 +120,7 @@ export function BrigadeDiscoveryPage() {
           <div className="bdp__hero-emoji" aria-hidden="true">🚒</div>
           <h1 className="bdp__hero-title">Find Your Brigade</h1>
           <p className="bdp__hero-desc">
-            Browse RFS brigades across Australia and follow their Santa runs live.
+            Browse participating brigades and community groups and follow their Santa runs live.
           </p>
 
           {/* Search */}

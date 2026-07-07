@@ -19,3 +19,5 @@ export { useTileCache } from './useTileCache';
 export type { TileCacheState } from './useTileCache';
 export { useMediaSession } from './useMediaSession';
 export type { UseMediaSessionOptions } from './useMediaSession';
+export { useSubscriptionPrice } from './useSubscriptionPrice';
+export type { UseSubscriptionPriceResult } from './useSubscriptionPrice';

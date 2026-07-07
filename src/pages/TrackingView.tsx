@@ -465,7 +465,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
 
   // SEO meta tags for social sharing
   const seoTitle = `Track Santa - ${route.name}`;
-  const seoDescription = `🎅 Track Santa in real-time for ${route.name}! See Santa's location live as your local Rural Fire Service brings Christmas joy on ${route.date}.`;
+  const seoDescription = `🎅 Track Santa in real-time for ${route.name}! See Santa's location live as your local crew brings Christmas joy on ${route.date}.`;
   const seoUrl = route.shareableLink || `${window.location.origin}/track/${route.id}`;
   // Dynamic OG image generated server-side with route map, brigade name, and festive branding.
   // window.location.origin automatically resolves to the correct host (localhost, staging, or

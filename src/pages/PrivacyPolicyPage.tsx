@@ -26,7 +26,7 @@ export function PrivacyPolicyPage() {
         <p className="static-page__updated">Last updated: {LAST_UPDATED}</p>
 
         <p className="static-page__intro">
-          Fire Santa Run helps Australian Rural Fire Service (RFS) brigades plan and
+          Fire Santa Run helps fire brigades and community organisations plan and
           broadcast their community Santa runs, and lets the public follow along live.
           This policy explains what data we collect and how it is used.
         </p>

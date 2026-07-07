@@ -102,12 +102,15 @@ body {
   color: var(--neutral-900);
 }
 
-/* Typography - Australian Summer Style */
+/* Typography - Australian Summer Style
+ * Headings INHERIT color: the :root already provides the dark default, and
+ * forcing var(--neutral-900) here silently overrode `color: white` set on
+ * red hero/header sections — titles rendered dark-on-red across the app. */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: 700;
   line-height: 1.2;
-  color: var(--neutral-900);
+  color: inherit;
   margin: 0;
 }
 

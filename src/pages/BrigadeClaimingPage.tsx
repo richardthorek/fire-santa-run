@@ -213,7 +213,7 @@ export function BrigadeClaimingPage() {
             color: COLORS.neutral700,
             marginBottom: '1rem',
           }}>
-            Search for your Rural Fire Service brigade and claim it to start planning Santa runs
+            Search for your brigade or community group and claim it to start planning Santa runs
           </p>
 
           {/* Email validation info */}
@@ -231,7 +231,7 @@ export function BrigadeClaimingPage() {
               }}>
                 {hasGovEmail ? (
                   <>
-                    ✅ <strong>{user.email}</strong> - Your .gov.au email allows instant brigade claiming
+                    ✅ <strong>{user.email}</strong> - Your official government email allows instant brigade claiming
                   </>
                 ) : (
                   <>

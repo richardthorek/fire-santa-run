@@ -14,9 +14,11 @@ import { useState } from 'react';
 import { useBrigade } from '../context';
 import { startBrigadeCheckout, openBillingPortal } from '../utils/billing';
 import { describeSubscription } from '../utils/subscription';
+import { useSubscriptionPrice } from '../hooks/useSubscriptionPrice';
 
 export function SubscriptionBanner() {
   const { brigade, isEntitled } = useBrigade();
+  const { label: priceLabel } = useSubscriptionPrice();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,7 +62,7 @@ export function SubscriptionBanner() {
     : 'Subscribe to plan & broadcast your Santa run';
   const buttonLabel = busy
     ? (useManage ? 'Opening…' : 'Starting…')
-    : (useManage ? 'Manage billing' : 'Subscribe — $5/yr');
+    : (useManage ? 'Manage billing' : `Subscribe — ${priceLabel}`);
 
   return (
     <div

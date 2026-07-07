@@ -15,6 +15,7 @@
 import { useState } from 'react';
 import { startBrigadeCheckout, openBillingPortal } from '../utils/billing';
 import { describeSubscription, type SubscriptionPresentation } from '../utils/subscription';
+import { useSubscriptionPrice } from '../hooks/useSubscriptionPrice';
 import type { Brigade } from '../storage/types';
 
 const TONE_COLORS: Record<SubscriptionPresentation['tone'], { bg: string; fg: string }> = {
@@ -30,6 +31,7 @@ export interface BillingPanelProps {
 
 export function BillingPanel({ brigade }: BillingPanelProps) {
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+  const { label: priceLabel } = useSubscriptionPrice();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +58,7 @@ export function BillingPanel({ brigade }: BillingPanelProps) {
     <section className="bsp__section" aria-labelledby="bsp-billing">
       <h2 className="bsp__section-title" id="bsp-billing">Subscription &amp; Billing</h2>
       <p className="bsp__section-desc">
-        A $5/year brigade subscription unlocks route planning and live broadcasting.
+        A {priceLabel} brigade subscription unlocks route planning and live broadcasting.
         Public live tracking is always free.
       </p>
 
@@ -102,7 +104,7 @@ export function BillingPanel({ brigade }: BillingPanelProps) {
                 disabled={busy}
                 aria-busy={busy}
               >
-                {busy ? 'Starting…' : 'Subscribe — $5/yr'}
+                {busy ? 'Starting…' : `Subscribe — ${priceLabel}`}
               </button>
             )}
             {info.action === 'manage' && (

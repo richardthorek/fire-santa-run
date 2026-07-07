@@ -126,7 +126,7 @@ export function describeSubscription(
     default:
       return {
         label: 'Not subscribed',
-        detail: 'Subscribe ($5/year) to plan routes and broadcast a live run. Public tracking is always free.',
+        detail: 'Subscribe to plan routes and broadcast a live run. Public tracking is always free.',
         tone: 'neutral',
         action: 'subscribe',
         entitled,

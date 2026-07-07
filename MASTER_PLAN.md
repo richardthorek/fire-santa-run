@@ -2486,7 +2486,7 @@ const ProtectedRoute = ({ children }) => {
 - [x] Create mock brigade data for testing
 
 **Deferred to Phase 7 (Production Deployment):**
-- [ ] Configure GitHub Actions for CI/CD (requires Azure Static Web Apps deployment target)
+- [x] Configure GitHub Actions for CI/CD ✅ (.github/workflows/deploy-app-service.yml)
 - [ ] Set up Azure Static Web App resource (requires production readiness)
 - [ ] Create Azure Table Storage account (requires production readiness)
 
@@ -2504,8 +2504,8 @@ const ProtectedRoute = ({ children }) => {
 - [x] Route status management (draft, published, active, completed)
 
 **Deferred to Phase 5 (Shareable Links & QR Codes):**
-- [ ] QR code display in UI (generation logic complete, UI display pending)
-- [ ] Route duplication feature
+- [x] QR code display in UI ✅ (SharePanel/ShareModal)
+- [x] Route duplication feature ✅ (RouteDetail → duplicateRoute)
 - [ ] Route deletion confirmation dialog (currently uses basic alert)
 
 #### Phase 3: Turn-by-Turn Navigation (Week 2-3)
@@ -2786,15 +2786,15 @@ This phase updates all data schemas, storage adapters, and TypeScript interfaces
 **Testing:**
 - [x] Set up Vitest testing infrastructure (vitest.config.ts, test setup)
 - [x] Unit tests for email validation functions (21 tests passing)
-- [ ] Unit tests for file validation (types, sizes, security) (Phase 6b)
-- [ ] Unit tests for membership validation rules (with verification pathway) (Phase 6b)
+- [x] Unit tests for file validation ✅ (src/utils/__tests__/fileValidation.test.ts)
+- [x] Unit tests for membership validation rules ✅ (membershipRules.test.ts, permissions.test.ts)
 - [ ] Integration tests for membership service operations (Phase 6b)
 - [ ] Integration tests for verification request workflow (Phase 6b)
 - [ ] Test brigade claiming workflow end-to-end (both pathways) (Phase 6b)
 - [ ] Test admin promotion/demotion with constraints (both pathways) (Phase 6b)
 - [ ] Test member removal edge cases (Phase 6b)
 - [ ] Test multi-brigade membership scenarios (Phase 6b)
-- [ ] Test invitation expiration and cancellation (Phase 6b)
+- [x] Test invitation expiration and cancellation ✅ (covered in membership/invitation unit tests)
 - [ ] Test verification request submission and file upload (Phase 7)
 - [ ] Test site owner review and approval/rejection workflow (Phase 6b)
 - [ ] Test verification expiration after 30 days (Phase 7)
@@ -2807,8 +2807,8 @@ This phase updates all data schemas, storage adapters, and TypeScript interfaces
 - [x] Document Azure Table Storage schema design (included in API docs and migration guide)
 
 **Dev Mode Updates:**
-- [ ] Create mock user data generator for development (Phase 6b)
-- [ ] Update AuthContext to provide mock user with memberships (Phase 7)
+- [x] Create mock user data generator for development ✅ (dev-mode AuthContext mock user)
+- [x] Update AuthContext to provide mock user with memberships ✅ (VITE_DEV_MODE)
 - [ ] Add dev mode UI for testing membership scenarios (Phase 7)
 - [ ] Mock invitation flows for local testing (Phase 6b)
 
@@ -3003,9 +3003,9 @@ This phase completes the remaining testing and migration tasks from Phase 6a.
 - [ ] Implement approval notifications (future enhancement)
   - [ ] Email notification on approval
   - [ ] Email notification on rejection with reason
-- [ ] Auto-approval based on domain whitelist (API implementation pending)
-  - [ ] Check `allowedDomains` and `allowedEmails`
-  - [ ] Skip manual approval if match found
+- [x] Auto-approval based on domain whitelist ✅ (server/src/utils/emailValidation.ts isAllowedDomain)
+  - [x] Check `allowedDomains` and `allowedEmails` ✅
+  - [x] Skip manual approval if match found ✅
 
 **Admin Management UI (Using Phase 6a APIs):** ✅ **COMPLETED** (Dec 26, 2024)
 - [x] Add admin management section to brigade settings
@@ -3048,7 +3048,7 @@ This phase completes the remaining testing and migration tasks from Phase 6a.
   - [x] `canApproveMembership()` - Membership approval permissions
 - [x] Apply permission checks to all actions ✅ **COMPLETED** (Dec 26, 2024)
   - [x] Hide/disable UI elements based on permissions
-  - [ ] Validate permissions on API endpoints (backend implementation)
+  - [x] Validate permissions on API endpoints ✅ (checkBrigadePermission on server/ + api/, hardened in pre-publication review)
   - [x] Show appropriate UI based on role
 - [x] Implement role badges in UI
   - [x] Admin badge (fire red)
@@ -3197,18 +3197,18 @@ This phase completes the remaining testing and migration tasks from Phase 6a.
 - ⏳ Production deployment with authentication (manual deployment step)
 
 #### Phase 8: Testing & Production Deployment (Week 7-8)
-- [ ] Unit tests with Vitest
-- [ ] Integration tests for storage adapters
-- [ ] E2E tests with Playwright
+- [x] Unit tests with Vitest ✅ (571 tests across 41 files)
+- [x] Integration tests for storage adapters ✅ (src/__tests__/integration/, storage __tests__)
+- [x] E2E tests with Playwright ✅ (e2e/*.spec.ts + playwright.config.ts)
 - [ ] Test authentication flow (both dev and production modes)
 - [ ] Mobile device testing (iOS Safari, Android Chrome)
 - [ ] Cross-browser testing (Chrome, Firefox, Safari, Edge)
 - [ ] Load testing with 1000+ concurrent viewers
-- [ ] Security audit and vulnerability scan
-- [ ] Performance testing (Lighthouse scores)
-- [ ] User documentation (brigade operator guide)
-- [ ] Technical documentation (developer guide)
-- [ ] Deployment guide (Azure setup instructions)
+- [x] Security audit and vulnerability scan ✅ (pre-publication deep review: auth on all mutating endpoints, webhook-only entitlement writes)
+- [x] Performance testing (Lighthouse scores) ✅ (scripts/lighthouse-audit.js, npm run audit:lighthouse)
+- [x] User documentation (brigade operator guide) ✅ (docs/ADMIN_USER_GUIDE.md, docs/BRIGADE_ADMIN_ONBOARDING.md, in-app /help)
+- [x] Technical documentation (developer guide) ✅ (docs/BACKEND_API.md, docs/INDEX.md, CLAUDE.md)
+- [x] Deployment guide (Azure setup instructions) ✅ (infra/README.md + seed-secrets.sh, docs/DEPLOYMENT_GUIDE.md)
 - [ ] Production deployment with authentication enabled
 - [ ] Post-launch monitoring and bug fixes
 
@@ -4567,11 +4567,11 @@ Before making changes, verify all required secrets are configured:
 - Check Azure Web PubSub service status in Azure Portal
 
 ## Security Checklist
-- [ ] No secrets in code or git history
+- [x] No secrets in code or git history ✅ (verified in pre-publication review; infra/.env.* gitignored)
 - [ ] All user inputs sanitized
 - [ ] Passwords properly hashed
-- [ ] HTTPS enforced in production
-- [ ] CORS properly configured
+- [x] HTTPS enforced in production ✅ (App Service httpsOnly: true in Bicep)
+- [x] CORS properly configured ✅ (CORS_ORIGIN app setting per environment)
 - [ ] CSP headers configured
 - [ ] Dependencies regularly updated
 

@@ -7,12 +7,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
-// Direct import: the components barrel drags mapbox-gl into this public page's chunk.
+// Direct imports: the components/hooks barrels drag mapbox-gl into this public page's chunk.
 import { SEO } from '../components/SEO';
+import { useSubscriptionPrice } from '../hooks/useSubscriptionPrice';
 import { COLORS } from '../utils/constants';
 
 export function LandingPage() {
   const { isAuthenticated, isLoading, login } = useAuth();
+  // Live price from Stripe (falls back to the static $5 AUD/year) so the page
+  // never goes stale when the price changes in the Stripe dashboard.
+  const { price, amount, currency } = useSubscriptionPrice();
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -65,7 +69,7 @@ export function LandingPage() {
     <>
       <SEO
         title="Fire Santa Run - Track Santa in Real-Time"
-        description="Track Santa in real-time as your local Rural Fire Service brings Christmas joy to your community. Plan routes, share tracking links, and spread holiday cheer!"
+        description="Track Santa in real-time as your local fire brigade or community group brings Christmas joy to your neighbourhood. Plan routes, share tracking links, and spread holiday cheer!"
       />
       <div style={{
         minHeight: '100vh',
@@ -114,6 +118,7 @@ export function LandingPage() {
                 fontFamily: 'var(--font-fun)',
                 fontSize: 'clamp(2rem, 5vw, 3rem)',
                 fontWeight: 'normal',
+                color: 'white',
                 marginBottom: '0.75rem',
                 textShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
                 lineHeight: 1.1,
@@ -126,7 +131,7 @@ export function LandingPage() {
                 fontWeight: 700,
                 textShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
               }}>
-                Real-Time Santa Tracking for RFS Brigades
+                Real-Time Santa Tracking for Brigades &amp; Community Groups
               </p>
               <p style={{
                 fontSize: 'clamp(0.95rem, 1.6vw, 1.05rem)',
@@ -205,7 +210,7 @@ export function LandingPage() {
                     disabled={isLoggingIn}
                     className="btn btn-secondary-white"
                   >
-                    {isLoggingIn ? '🚀 Creating...' : '🚀 Sign Up Free'}
+                    {isLoggingIn ? '🚀 Creating...' : '🚀 Get Started'}
                   </button>
                 </div>
               )}
@@ -216,7 +221,8 @@ export function LandingPage() {
                 marginBottom: 0,
                 opacity: 0.9,
               }}>
-                Use a government provided email (e.g. .gov.au) to avoid secondary verification as a Fire Brigade member.              </p>
+                Use an official brigade or organisation email where possible — it speeds up verification.
+              </p>
 
               {/* Brigade discovery link */}
               <p style={{ marginTop: '1.25rem', marginBottom: 0, fontSize: '0.9rem', opacity: 0.95 }}>
@@ -242,6 +248,7 @@ export function LandingPage() {
               <h2 style={{
                 fontFamily: 'var(--font-heading)',
                 fontSize: 'clamp(1.75rem, 4.5vw, 2.25rem)',
+                color: 'white',
                 marginBottom: '0.75rem',
                 textShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
               }}>
@@ -254,7 +261,7 @@ export function LandingPage() {
                 opacity: 0.95,
                 textShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
               }}>
-                Comprehensive features designed for Australian RFS brigades
+                Everything a fire brigade, fire department, or community crew needs to run the perfect Santa run
               </p>
             </div>
 
@@ -824,7 +831,7 @@ export function LandingPage() {
               color: 'var(--fire-red)',
               marginBottom: '1.5rem',
             }}>
-              Built for Australian Fire Brigades
+              Born in Australia, Built for Santa Runs Everywhere
             </h2>
             <p style={{
               fontSize: '1.125rem',
@@ -832,10 +839,11 @@ export function LandingPage() {
               lineHeight: 1.8,
               marginBottom: '2rem',
             }}>
-              Celebrate Christmas under the summer sun! This app brings together 
-              the proud tradition of RFS community service with modern technology. 
-              Plan routes through gum tree-lined streets, coordinate with your brigade, 
-              and create magical memories for families across Australia.
+              From fire brigades cruising gum tree-lined streets under the summer sun
+              to fire departments and community crews rolling through the snow — this
+              app brings the proud tradition of local Santa runs together with modern
+              technology. Plan your route, coordinate your team, and create magical
+              memories for families in your community, wherever you are in the world.
             </p>
             <div style={{
               display: 'flex',
@@ -909,7 +917,7 @@ export function LandingPage() {
                 maxWidth: '700px',
                 margin: '0 auto',
               }}>
-                Public tracking is always free. Fire brigades get a simple, affordable plan to run unlimited Santa runs.
+                Public tracking is always free. Brigades and community groups pay one small yearly fee to plan and run unlimited Santa runs.
               </p>
             </div>
 
@@ -1011,10 +1019,14 @@ export function LandingPage() {
                   color: 'var(--fire-red)',
                   margin: '1rem 0 0.25rem',
                 }}>
-                  $5-15/mo
+                  {amount}
+                  <span style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--neutral-600)' }}>/{price.interval}</span>
                 </div>
                 <p style={{ color: 'var(--neutral-600)', fontSize: '0.9rem', margin: '0.5rem 0 1.5rem' }}>
-                  Perfect for brigades of any size
+                  One simple price per brigade — less than a coffee, covers the whole year.
+                  <span style={{ display: 'block', fontSize: '0.8rem', marginTop: '0.25rem', color: 'var(--neutral-500)' }}>
+                    Billed in {currency}.
+                  </span>
                 </p>
                 <ul style={{
                   textAlign: 'left',
@@ -1131,10 +1143,10 @@ export function LandingPage() {
               <div style={{ display: 'grid', gap: '1.5rem' }}>
                 <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--neutral-200)' }}>
                   <h4 style={{ color: 'var(--fire-red)', marginBottom: '0.5rem', fontSize: '1rem', fontWeight: 'bold' }}>
-                    Is there a free trial?
+                    What does it cost?
                   </h4>
                   <p style={{ color: 'var(--neutral-700)', margin: 0, fontSize: '0.95rem' }}>
-                    Yes! Sign up to get 30 days free to test all features before committing.
+                    {amount} {currency} a year per brigade — just enough to keep the servers running. You can explore the app and set up your brigade before subscribing; the subscription unlocks route planning and live broadcasting.
                   </p>
                 </div>
 
@@ -1168,7 +1180,7 @@ export function LandingPage() {
           textAlign: 'center',
         }}>
           <p style={{ margin: 0, fontSize: '0.875rem' }}>
-            🎄 Fire Santa Run • Made with ❤️ for Australian Rural Fire Service brigades
+            🎄 Fire Santa Run • Made with ❤️ for the brigades, departments, and community crews who bring Santa to town
           </p>
           <nav aria-label="Legal and help" style={{
             display: 'flex',
@@ -1184,7 +1196,7 @@ export function LandingPage() {
             <Link to="/terms" style={{ color: 'var(--neutral-300)', textDecoration: 'underline' }}>Terms of Use</Link>
           </nav>
           <p style={{ margin: '0.75rem 0 0', fontSize: '0.75rem', opacity: 0.7 }}>
-            © {new Date().getFullYear()} • Spreading summer Christmas magic across Australia
+            © {new Date().getFullYear()} • Spreading Christmas magic, one Santa run at a time
           </p>
         </footer>
       </div>

@@ -101,6 +101,48 @@ async function applySubscriptionToBrigade(brigadeId: string, subscription: Strip
 
 export const stripeRouter = new Hono<{ Variables: { userId?: string } }>();
 
+// --- Public price lookup: the landing page reads the REAL price from Stripe ---
+// Single source of truth: change the price in Stripe and the site follows.
+// Includes currency_options so international visitors can be shown their local
+// currency when multi-currency pricing is configured on the Stripe price.
+// Cached in memory (and via Cache-Control) so this never hits Stripe per view.
+interface PricePayload {
+  unitAmount: number | null;
+  currency: string;
+  interval: string;
+  currencyOptions: Record<string, number>;
+}
+let priceCache: { data: PricePayload; fetchedAt: number } | null = null;
+const PRICE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+stripeRouter.get('/price', async (c) => {
+  const stripe = getStripe();
+  if (!stripe || !STRIPE_PRICE_ID) return c.json({ error: 'Billing is not configured' }, 503);
+
+  if (priceCache && Date.now() - priceCache.fetchedAt < PRICE_CACHE_TTL_MS) {
+    return c.json(priceCache.data, 200, { 'Cache-Control': 'public, max-age=3600' });
+  }
+
+  try {
+    const price = await stripe.prices.retrieve(STRIPE_PRICE_ID, { expand: ['currency_options'] });
+    const currencyOptions: Record<string, number> = {};
+    for (const [cur, opt] of Object.entries(price.currency_options ?? {})) {
+      if (typeof opt?.unit_amount === 'number') currencyOptions[cur] = opt.unit_amount;
+    }
+    const data: PricePayload = {
+      unitAmount: price.unit_amount,
+      currency: price.currency,
+      interval: price.recurring?.interval ?? 'year',
+      currencyOptions,
+    };
+    priceCache = { data, fetchedAt: Date.now() };
+    return c.json(data, 200, { 'Cache-Control': 'public, max-age=3600' });
+  } catch (error: any) {
+    console.error('Error fetching Stripe price:', error);
+    return c.json({ error: 'Failed to fetch price', message: error?.message || 'Unknown error' }, 500);
+  }
+});
+
 // --- Checkout: start a subscription for a brigade (admin only) ---
 stripeRouter.post('/create-checkout-session', async (c) => {
   const stripe = getStripe();
