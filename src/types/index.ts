@@ -30,6 +30,27 @@ export interface NavigationSettings {
   transitSpeedKmh: number;        // Speed for high-speed road segments in km/h (default: 60)
 }
 
+/** A comment left by a brigade member on a route (optionally tagged to a waypoint). */
+export interface RouteComment {
+  id: string;
+  /** User ID of the author */
+  userId: string;
+  /** Display name of the author (denormalised for display without a user lookup) */
+  userName: string;
+  /** Comment body (plain text) */
+  text: string;
+  /** Optional waypoint this comment is attached to */
+  waypointId?: string;
+  createdAt: string;
+}
+
+/** Who last saved a route — used for multi-operator conflict awareness. */
+export interface RouteEditStamp {
+  userId: string;
+  userName: string;
+  at: string;
+}
+
 export interface Route {
   id: string;
   brigadeId: string;
@@ -56,6 +77,12 @@ export interface Route {
   viewCount?: number;
   archivedAt?: string;
   rerouteCount?: number;
+  /** Last-save timestamp — used for multi-operator conflict detection */
+  updatedAt?: string;
+  /** Who last saved this route */
+  lastEditedBy?: RouteEditStamp;
+  /** Brigade-internal comment thread */
+  comments?: RouteComment[];
 }
 
 export interface RouteTemplate {
