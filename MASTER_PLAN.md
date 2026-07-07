@@ -5301,3 +5301,11 @@ then focused on improving dev/demo experience and addressing pricing P1 item:
 6. Brigade outreach and onboarding support
 
 **Status: Ready for public launch. All core user flows work end-to-end, performance is optimized for free-tier constraints, and the app presents a compelling, polished experience on mobile and desktop. 🚀**
+
+### Route/Waypoint Two-Table Split — completed (PR #373)
+
+Route data and waypoints are now stored separately (routes table +
+routewaypoints table) via `RouteEntity` / `WaypointEntity`, implemented across
+the localStorage, Azure and HTTP storage adapters with reconstruction on read.
+Merged to main in PR #373; the original working log lives in that branch's
+history.

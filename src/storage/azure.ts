@@ -1,5 +1,5 @@
 import { TableClient } from '@azure/data-tables';
-import type { Route, RouteTemplate } from '../types';
+import type { Route, RouteTemplate, Waypoint } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
 import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
@@ -17,6 +17,7 @@ import { isPublicRouteStatus } from '../utils/publicBrigade';
  */
 export class AzureTableStorageAdapter implements IStorageAdapter {
   private routesClient: TableClient;
+  private waypointsClient: TableClient;
   private brigadesClient: TableClient;
   private usersClient: TableClient;
   private membershipsClient: TableClient;
@@ -35,6 +36,7 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
     }
 
     const routesTableName = tablePrefix ? `${tablePrefix}routes` : 'routes';
+    const waypointsTableName = tablePrefix ? `${tablePrefix}routewaypoints` : 'routewaypoints';
     const brigadesTableName = tablePrefix ? `${tablePrefix}brigades` : 'brigades';
     const usersTableName = tablePrefix ? `${tablePrefix}users` : 'users';
     const membershipsTableName = tablePrefix ? `${tablePrefix}memberships` : 'memberships';
@@ -43,6 +45,7 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
     const templatesTableName = tablePrefix ? `${tablePrefix}templates` : 'templates';
     
     this.routesClient = TableClient.fromConnectionString(connectionString, routesTableName);
+    this.waypointsClient = TableClient.fromConnectionString(connectionString, waypointsTableName);
     this.brigadesClient = TableClient.fromConnectionString(connectionString, brigadesTableName);
     this.usersClient = TableClient.fromConnectionString(connectionString, usersTableName);
     this.membershipsClient = TableClient.fromConnectionString(connectionString, membershipsTableName);
@@ -59,6 +62,7 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
   private async initializeTables(): Promise<void> {
     const clients = [
       this.routesClient,
+      this.waypointsClient,
       this.brigadesClient,
       this.usersClient,
       this.membershipsClient,
@@ -81,14 +85,18 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
   }
 
   async saveRoute(brigadeId: string, route: Route): Promise<void> {
+    // Two-table schema: the routes table stores RouteEntity (no waypoints);
+    // waypoints go to the routewaypoints table.
+    const { waypoints, ...routeEntity } = route;
     const entity = {
       partitionKey: brigadeId,
       rowKey: route.id,
-      ...route,
+      ...routeEntity,
     };
-    
+
     try {
       await this.routesClient.upsertEntity(entity, 'Replace');
+      await this.saveWaypoints(brigadeId, route.id, waypoints ?? []);
     } catch (error) {
       console.error('Failed to save route to Azure Table Storage:', error);
       throw new Error('Failed to save route');
@@ -105,7 +113,10 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
       for await (const entity of entities) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { partitionKey, rowKey, timestamp, etag, ...routeData } = entity;
-        routes.push(routeData as unknown as Route);
+        const route = routeData as unknown as Route;
+        // Reconstruct waypoints (fall back to any embedded pre-split data)
+        const waypoints = await this.getWaypoints(brigadeId, route.id);
+        routes.push({ ...route, waypoints: waypoints.length > 0 ? waypoints : (route.waypoints ?? []) });
       }
       
       return routes;
@@ -120,7 +131,10 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
       const entity = await this.routesClient.getEntity(brigadeId, routeId);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { partitionKey, rowKey, timestamp, etag, ...routeData } = entity;
-      return routeData as unknown as Route;
+      const route = routeData as unknown as Route;
+      // Reconstruct waypoints (fall back to any embedded pre-split data)
+      const waypoints = await this.getWaypoints(brigadeId, routeId);
+      return { ...route, waypoints: waypoints.length > 0 ? waypoints : (route.waypoints ?? []) };
     } catch (error: unknown) {
       const err = error as { statusCode?: number };
       if (err.statusCode === 404) {
@@ -141,7 +155,11 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { partitionKey, rowKey, timestamp, etag, ...routeData } = entity;
         const route = routeData as unknown as Route;
-        return isPublicRouteStatus(route.status) ? route : null;
+        if (!isPublicRouteStatus(route.status)) return null;
+        // PartitionKey is the brigadeId — reconstruct waypoints from the
+        // routewaypoints table (fall back to embedded pre-split data).
+        const waypoints = await this.getWaypoints(partitionKey as string, routeId);
+        return { ...route, waypoints: waypoints.length > 0 ? waypoints : (route.waypoints ?? []) };
       }
       return null;
     } catch (error) {
@@ -153,6 +171,8 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
   async deleteRoute(brigadeId: string, routeId: string): Promise<void> {
     try {
       await this.routesClient.deleteEntity(brigadeId, routeId);
+      // Also delete waypoints for this route
+      await this.deleteWaypoints(brigadeId, routeId);
     } catch (error: unknown) {
       const err = error as { statusCode?: number };
       if (err.statusCode === 404) {
@@ -161,6 +181,76 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
       }
       console.error('Failed to delete route from Azure Table Storage:', error);
       throw new Error('Failed to delete route');
+    }
+  }
+
+  // Waypoint operations
+  async saveWaypoint(brigadeId: string, routeId: string, waypoint: Waypoint): Promise<void> {
+    const entity = {
+      partitionKey: `${brigadeId}#${routeId}`,
+      rowKey: `${String(waypoint.order).padStart(5, '0')}#${waypoint.id}`,
+      ...waypoint,
+    };
+
+    try {
+      await this.waypointsClient.upsertEntity(entity, 'Replace');
+    } catch (error) {
+      console.error('Failed to save waypoint to Azure Table Storage:', error);
+      throw new Error('Failed to save waypoint');
+    }
+  }
+
+  async saveWaypoints(brigadeId: string, routeId: string, waypoints: Waypoint[]): Promise<void> {
+    // Delete existing waypoints first
+    await this.deleteWaypoints(brigadeId, routeId);
+
+    // Save all new waypoints
+    for (const waypoint of waypoints) {
+      await this.saveWaypoint(brigadeId, routeId, waypoint);
+    }
+  }
+
+  async getWaypoints(brigadeId: string, routeId: string): Promise<Waypoint[]> {
+    try {
+      const waypoints: Waypoint[] = [];
+      const partitionKey = `${brigadeId}#${routeId}`;
+      const entities = this.waypointsClient.listEntities({
+        queryOptions: { filter: `PartitionKey eq '${partitionKey}'` },
+      });
+
+      for await (const entity of entities) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { partitionKey, rowKey, timestamp, etag, ...waypointData } = entity;
+        waypoints.push(waypointData as unknown as Waypoint);
+      }
+
+      // Sort by order field to maintain sequence
+      waypoints.sort((a, b) => a.order - b.order);
+      return waypoints;
+    } catch (error) {
+      console.error('Failed to get waypoints from Azure Table Storage:', error);
+      return [];
+    }
+  }
+
+  async deleteWaypoints(brigadeId: string, routeId: string): Promise<void> {
+    try {
+      const partitionKey = `${brigadeId}#${routeId}`;
+      const entities = this.waypointsClient.listEntities({
+        queryOptions: { filter: `PartitionKey eq '${partitionKey}'` },
+      });
+
+      for await (const entity of entities) {
+        try {
+          await this.waypointsClient.deleteEntity(entity.partitionKey as string, entity.rowKey as string);
+        } catch (err) {
+          // Continue deleting other entities even if one fails
+          console.error('Failed to delete individual waypoint:', err);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete waypoints from Azure Table Storage:', error);
+      throw new Error('Failed to delete waypoints');
     }
   }
 

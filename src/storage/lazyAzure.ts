@@ -1,4 +1,4 @@
-import type { Route, RouteTemplate } from '../types';
+import type { Route, RouteTemplate, Waypoint } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
 import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
@@ -41,6 +41,12 @@ export class LazyAzureStorageAdapter implements IStorageAdapter {
   getRoute = (brigadeId: string, routeId: string) => this.load().then(a => a.getRoute(brigadeId, routeId));
   getPublicRoute = (routeId: string) => this.load().then(a => a.getPublicRoute(routeId));
   deleteRoute = (brigadeId: string, routeId: string) => this.load().then(a => a.deleteRoute(brigadeId, routeId));
+
+  // Waypoints (two-table route/waypoint split)
+  saveWaypoint = (brigadeId: string, routeId: string, waypoint: Waypoint) => this.load().then(a => a.saveWaypoint(brigadeId, routeId, waypoint));
+  saveWaypoints = (brigadeId: string, routeId: string, waypoints: Waypoint[]) => this.load().then(a => a.saveWaypoints(brigadeId, routeId, waypoints));
+  getWaypoints = (brigadeId: string, routeId: string) => this.load().then(a => a.getWaypoints(brigadeId, routeId));
+  deleteWaypoints = (brigadeId: string, routeId: string) => this.load().then(a => a.deleteWaypoints(brigadeId, routeId));
 
   // Templates
   saveTemplate = (brigadeId: string, template: RouteTemplate) => this.load().then(a => a.saveTemplate(brigadeId, template));
