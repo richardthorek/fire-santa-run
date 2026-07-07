@@ -89,9 +89,7 @@ export interface Route {
  * Route entity as stored in Azure Table Storage (without waypoints).
  * Waypoints are stored separately in the routewaypoints table.
  */
-export interface RouteEntity extends Omit<Route, 'waypoints'> {
-  // Inherits all Route fields except waypoints
-}
+export type RouteEntity = Omit<Route, 'waypoints'>;
 
 /**
  * Waypoint entity as stored in Azure Table Storage.
