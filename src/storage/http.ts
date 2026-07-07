@@ -1,4 +1,4 @@
-import type { Route, RouteTemplate } from '../types';
+import type { Route, RouteTemplate, Waypoint } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
 import type { User } from '../types/user';
 import type { BrigadeMembership } from '../types/membership';
@@ -170,6 +170,19 @@ export class HttpStorageAdapter implements IStorageAdapter {
     return await response.json();
   }
 
+  async getPublicRoute(routeId: string): Promise<Route | null> {
+    // No brigadeId: the API resolves the route by ID alone and only returns
+    // publicly visible routes. Powers the anonymous /track/:id page.
+    const response = await fetch(`${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}`);
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Failed to fetch route: ${response.statusText}`);
+    }
+    return await response.json();
+  }
+
   async saveRoute(brigadeId: string, route: Route): Promise<void> {
     // Determine if this is a create or update
     const existingRoute = await this.getRoute(brigadeId, route.id);
@@ -207,6 +220,61 @@ export class HttpStorageAdapter implements IStorageAdapter {
     });
     if (!response.ok && response.status !== 404) {
       throw new Error(`Failed to delete route: ${response.statusText}`);
+    }
+  }
+
+  // Waypoints
+  async saveWaypoint(brigadeId: string, routeId: string, waypoint: Waypoint): Promise<void> {
+    const authHeaders = await this.getAuthHeaders();
+    const response = await fetch(
+      `${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}/waypoints/${encodeURIComponent(waypoint.id)}?brigadeId=${encodeURIComponent(brigadeId)}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify(waypoint),
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to save waypoint: ${response.statusText}`);
+    }
+  }
+
+  async saveWaypoints(brigadeId: string, routeId: string, waypoints: Waypoint[]): Promise<void> {
+    const authHeaders = await this.getAuthHeaders();
+    const response = await fetch(
+      `${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}/waypoints?brigadeId=${encodeURIComponent(brigadeId)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify(waypoints),
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to save waypoints: ${response.statusText}`);
+    }
+  }
+
+  async getWaypoints(brigadeId: string, routeId: string): Promise<Waypoint[]> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}/waypoints?brigadeId=${encodeURIComponent(brigadeId)}`
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch waypoints: ${response.statusText}`);
+    }
+    return await response.json();
+  }
+
+  async deleteWaypoints(brigadeId: string, routeId: string): Promise<void> {
+    const authHeaders = await this.getAuthHeaders();
+    const response = await fetch(
+      `${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}/waypoints?brigadeId=${encodeURIComponent(brigadeId)}`,
+      {
+        method: 'DELETE',
+        headers: { ...authHeaders },
+      }
+    );
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`Failed to delete waypoints: ${response.statusText}`);
     }
   }
 

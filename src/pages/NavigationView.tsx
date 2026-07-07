@@ -3,7 +3,7 @@
  * Main turn-by-turn navigation interface for brigade operators
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigation, useRoutes, useLocationBroadcast, useMediaSession } from '../hooks';
 import { useWakeLock } from '../utils/wakeLock';
 import { NavigationHeader } from '../components/NavigationHeader';
@@ -24,6 +24,9 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   const [keepScreenOn, setKeepScreenOn] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
   const { saveRoute } = useRoutes();
+  // Filled in below once useLocationBroadcast has run; useNavigation's
+  // onRouteComplete callback fires long after both hooks are initialised.
+  const broadcastRunCompletedRef = useRef<() => void>(() => {});
 
   const {
     navigationState,
@@ -53,7 +56,11 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
           : undefined,
       };
       await saveRoute(completedRoute);
-      
+
+      // Tell open tracking pages the run is done so they flip to the
+      // thank-you state live instead of waiting for a refresh.
+      broadcastRunCompletedRef.current();
+
       if (onComplete) {
         onComplete();
       }
@@ -67,7 +74,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   );
 
   // Broadcast location updates for real-time tracking
-  const { isOnline } = useLocationBroadcast({
+  const { isOnline, broadcastRunCompleted } = useLocationBroadcast({
     routeId: route.id,
     position,
     routeProgress: {
@@ -78,6 +85,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     isNavigating: navigationState.isNavigating,
     nextWaypointEta: navigationState.etaToNextWaypoint || undefined,
   });
+  broadcastRunCompletedRef.current = broadcastRunCompleted;
 
   // Auto-start navigation on mount and mark route as active
   useEffect(() => {

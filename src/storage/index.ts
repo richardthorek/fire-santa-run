@@ -1,6 +1,6 @@
 import type { IStorageAdapter } from './types';
 import { LocalStorageAdapter } from './localStorage';
-import { AzureTableStorageAdapter } from './azure';
+import { LazyAzureStorageAdapter } from './lazyAzure';
 import { HttpStorageAdapter } from './http';
 
 /**
@@ -28,8 +28,8 @@ function createStorageAdapter(): IStorageAdapter {
   // Vitest branch keeps direct Azure selection to satisfy adapter unit tests
   if (isVitest) {
     if (isDevMode && hasAzureCredentials) {
-      console.info('[Storage] Dev mode with Azure credentials. Using AzureTableStorageAdapter with dev prefix.');
-      return new AzureTableStorageAdapter(connectionString, 'dev');
+      console.info('[Storage] Dev mode with Azure credentials. Using LazyAzureStorageAdapter with dev prefix.');
+      return new LazyAzureStorageAdapter(connectionString, 'dev');
     }
 
     if (isDevMode) {
@@ -41,8 +41,8 @@ function createStorageAdapter(): IStorageAdapter {
       throw new Error('Production mode requires Azure Storage connection string');
     }
 
-    console.info('[Storage] Production mode. Using AzureTableStorageAdapter.');
-    return new AzureTableStorageAdapter(connectionString);
+    console.info('[Storage] Production mode. Using LazyAzureStorageAdapter.');
+    return new LazyAzureStorageAdapter(connectionString);
   }
 
   // Browser dev mode: Use localStorage directly. Browser production mode: Use HTTP API.
@@ -57,8 +57,8 @@ function createStorageAdapter(): IStorageAdapter {
 
   // Non-browser runtime (e.g., server scripts) can use Azure if provided
   if (isDevMode && hasAzureCredentials) {
-    console.info('[Storage] Dev mode with Azure credentials (non-browser). Using AzureTableStorageAdapter with dev prefix.');
-    return new AzureTableStorageAdapter(connectionString, 'dev');
+    console.info('[Storage] Dev mode with Azure credentials (non-browser). Using LazyAzureStorageAdapter with dev prefix.');
+    return new LazyAzureStorageAdapter(connectionString, 'dev');
   }
 
   if (isDevMode) {
@@ -71,8 +71,8 @@ function createStorageAdapter(): IStorageAdapter {
     return new HttpStorageAdapter('/api');
   }
 
-  console.info('[Storage] Production mode (non-browser). Using AzureTableStorageAdapter.');
-  return new AzureTableStorageAdapter(connectionString);
+  console.info('[Storage] Production mode (non-browser). Using LazyAzureStorageAdapter.');
+  return new LazyAzureStorageAdapter(connectionString);
 }
 
 // Export singleton instance

@@ -20,9 +20,12 @@ export default defineConfig(( env: ConfigEnv ): UserConfig => {
         injectManifest: {
           // Precache all JS, CSS, HTML, common image/font formats
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-          // Raise the per-file size limit to accommodate the Mapbox bundle (~1.7 MB gzipped).
-          // The default Workbox limit is 2 MB; mapbox-gl routinely exceeds this.
-          // All other chunks are well below 500 KB.
+          // The huge vendor chunks (mapbox-gl ~1.7 MB, Azure SDKs) are NOT
+          // precached: forcing every first-time visitor to download them up
+          // front burns bandwidth on pages that never open a map. The service
+          // worker's runtime CacheFirst route for scripts caches them on first
+          // real use instead.
+          globIgnores: ['**/assets/mapbox-*.js', '**/assets/azure-data-*.js'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
         },
         // Service worker is only active in production builds
@@ -44,34 +47,32 @@ export default defineConfig(( env: ConfigEnv ): UserConfig => {
     build: {
       rollupOptions: {
         output: {
-          // Vite 8 / Rollup 4: use the function form of manualChunks (the object
-          // form is deprecated). Groupings below match the previous explicit map.
-          manualChunks(id) {
-            if (!id.includes('node_modules')) return;
-            // Split React core into a separate chunk
-            if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
-              return 'react-vendor';
+          // Vite 8 (Rolldown) only accepts the function form of manualChunks;
+          // the object form fails type-checking and the build.
+          manualChunks: (id: string) => {
+            if (!id.includes('node_modules')) return undefined;
+            const chunkGroups: Record<string, string[]> = {
+              // Split React and React-DOM into separate chunk
+              'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+              // Split Mapbox (large mapping library) into separate chunk
+              'mapbox': ['mapbox-gl', '@mapbox/mapbox-gl-geocoder', '@mapbox/mapbox-gl-draw'],
+              // Auth SDK is needed at boot (session restore), so it gets its own
+              // chunk — kept separate from the Tables SDK, which browsers only
+              // reach via the lazy storage adapter and should never download.
+              'azure-auth': ['@azure/msal-browser', '@azure/msal-react'],
+              'azure-data': ['@azure/data-tables'],
+              'realtime': ['@azure/web-pubsub-client'],
+              // Split UI libraries into separate chunk
+              'ui-libs': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities', 'qrcode.react'],
+              // Split date utilities
+              'date-utils': ['date-fns'],
+            };
+            for (const [chunk, packages] of Object.entries(chunkGroups)) {
+              if (packages.some((pkg) => id.includes(`node_modules/${pkg}/`))) {
+                return chunk;
+              }
             }
-            // Split Mapbox (large mapping library) into a separate chunk
-            if (id.includes('mapbox-gl') || id.includes('@mapbox/mapbox-gl-geocoder') || id.includes('@mapbox/mapbox-gl-draw')) {
-              return 'mapbox';
-            }
-            // Split Azure SDKs into a separate chunk
-            if (id.includes('@azure/msal-browser') || id.includes('@azure/msal-react') || id.includes('@azure/data-tables') || id.includes('@azure/web-pubsub-client')) {
-              return 'azure';
-            }
-            // Split UI libraries into a separate chunk
-            if (id.includes('@dnd-kit/') || id.includes('qrcode.react')) {
-              return 'ui-libs';
-            }
-            // Split Socket.IO into a separate chunk
-            if (id.includes('socket.io-client')) {
-              return 'realtime';
-            }
-            // Split date utilities
-            if (id.includes('date-fns')) {
-              return 'date-utils';
-            }
+            return undefined;
           },
         },
       },

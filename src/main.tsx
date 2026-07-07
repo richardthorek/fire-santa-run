@@ -6,7 +6,9 @@ import { PublicClientApplication, EventType } from '@azure/msal-browser'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider, BrigadeProvider } from './context'
-import { ErrorBoundary } from './components'
+// Direct module import: the components barrel re-exports MapView, which would
+// pull mapbox-gl into the entry chunk for every visitor.
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { installGlobalErrorHandlers, installClientErrorReporter } from './utils/errorLogger'
 import { validateClientEnv, EnvironmentConfigError, isProductionMode } from './config/env'
 import { msalConfig, isMsalConfigured } from './auth/msalConfig'

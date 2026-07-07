@@ -46,6 +46,11 @@ function entityToRoute(entity: any) {
     qrCodeUrl: entity.qrCodeUrl,
     viewCount: entity.viewCount || 0,
     archivedAt: entity.archivedAt || undefined,
+    navigationSettings: entity.navigationSettings ? JSON.parse(entity.navigationSettings) : undefined,
+    rerouteCount: entity.rerouteCount || 0,
+    updatedAt: entity.updatedAt || undefined,
+    lastEditedBy: entity.lastEditedBy ? JSON.parse(entity.lastEditedBy) : undefined,
+    comments: entity.comments ? JSON.parse(entity.comments) : undefined,
   };
 }
 
@@ -74,6 +79,11 @@ function routeToEntity(route: any) {
     qrCodeUrl: route.qrCodeUrl || '',
     viewCount: route.viewCount || 0,
     archivedAt: route.archivedAt || '',
+    navigationSettings: route.navigationSettings ? JSON.stringify(route.navigationSettings) : '',
+    rerouteCount: route.rerouteCount || 0,
+    updatedAt: route.updatedAt || '',
+    lastEditedBy: route.lastEditedBy ? JSON.stringify(route.lastEditedBy) : '',
+    comments: route.comments ? JSON.stringify(route.comments) : '',
   };
 }
 
@@ -94,19 +104,38 @@ routesRouter.get('/', async (c) => {
   }
 });
 
+// Statuses visible to anonymous viewers (public tracking page). Drafts are
+// never served without a brigadeId.
+const PUBLIC_ROUTE_STATUSES = new Set(['published', 'active', 'completed', 'archived']);
+
 routesRouter.get('/:id', async (c) => {
   try {
     const brigadeId = c.req.query('brigadeId');
     const routeId = c.req.param('id');
-    if (!brigadeId) return c.json({ error: 'Missing required parameter: brigadeId' }, 400);
     const client = await getTableClient(ROUTES_TABLE);
-    try {
-      const entity = await client.getEntity(brigadeId, routeId);
-      return c.json(entityToRoute(entity));
-    } catch (error: any) {
-      if (error.statusCode === 404) return c.json({ error: 'Route not found' }, 404);
-      throw error;
+
+    // Brigade-scoped lookup (members): fast point read, any status.
+    if (brigadeId) {
+      try {
+        const entity = await client.getEntity(brigadeId, routeId);
+        return c.json(entityToRoute(entity));
+      } catch (error: any) {
+        if (error.statusCode === 404) return c.json({ error: 'Route not found' }, 404);
+        throw error;
+      }
     }
+
+    // Anonymous lookup (public /track/:id): route IDs are globally unique, so
+    // a RowKey scan finds at most one. Only publicly visible statuses are served.
+    const entities = client.listEntities({
+      queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` }
+    });
+    for await (const entity of entities) {
+      const route = entityToRoute(entity);
+      if (PUBLIC_ROUTE_STATUSES.has(route.status)) return c.json(route);
+      break;
+    }
+    return c.json({ error: 'Route not found' }, 404);
   } catch (error) {
     console.error('Error fetching route:', error);
     return c.json({ error: 'Failed to fetch route', message: error instanceof Error ? error.message : 'Unknown error' }, 500);

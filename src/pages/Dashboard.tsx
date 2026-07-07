@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useRoutes } from '../hooks';
-import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist } from '../components';
+import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist, ImportModal, ExportMenu } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import {
@@ -19,10 +19,12 @@ import { format } from 'date-fns';
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { routes, isLoading, error, archiveRoute, restoreRoute } = useRoutes();
+  const { routes, isLoading, error, archiveRoute, restoreRoute, saveRoute } = useRoutes();
   const { brigade } = useBrigade();
   const [filterStatus, setFilterStatus] = useState<RouteStatus | 'all'>('all');
   const [shareModalRoute, setShareModalRoute] = useState<Route | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
 
@@ -213,8 +215,8 @@ export function Dashboard() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <a
-          href="/routes/new"
+        <Link
+          to="/routes/new"
           aria-label="Create new Santa Run route"
           style={{
             padding: '0.875rem 1.75rem',
@@ -239,9 +241,9 @@ export function Dashboard() {
           }}
         >
           <span aria-hidden="true">➕</span> Create New Route
-        </a>
-        <a
-          href="/templates"
+        </Link>
+        <Link
+          to="/templates"
           aria-label="Browse route template library"
           style={{
             padding: '0.875rem 1.25rem',
@@ -266,7 +268,59 @@ export function Dashboard() {
           }}
         >
           <span aria-hidden="true">🗂️</span> Templates
-        </a>
+        </Link>
+        <button
+          type="button"
+          onClick={() => setImportModalOpen(true)}
+          aria-label="Import routes from a backup, GPX or KML file"
+          style={{
+            padding: '0.875rem 1.25rem',
+            background: 'white',
+            color: 'var(--christmas-green)',
+            borderRadius: 'var(--border-radius-sm)',
+            fontWeight: 600,
+            fontFamily: 'var(--font-body)',
+            border: '2px solid var(--christmas-green)',
+            transition: 'all 0.3s ease',
+            fontSize: '1rem',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--christmas-green)';
+            e.currentTarget.style.color = 'white';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'white';
+            e.currentTarget.style.color = 'var(--christmas-green)';
+          }}
+        >
+          <span aria-hidden="true">📥</span> Import
+        </button>
+        <button
+          type="button"
+          onClick={() => setExportMenuOpen(true)}
+          aria-label="Export all brigade routes"
+          style={{
+            padding: '0.875rem 1.25rem',
+            background: 'white',
+            color: 'var(--neutral-700)',
+            borderRadius: 'var(--border-radius-sm)',
+            fontWeight: 600,
+            fontFamily: 'var(--font-body)',
+            border: '2px solid var(--neutral-300)',
+            transition: 'all 0.3s ease',
+            fontSize: '1rem',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--neutral-700)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--neutral-300)';
+          }}
+        >
+          <span aria-hidden="true">📤</span> Export
+        </button>
         </div>
       </div>
 
@@ -684,8 +738,8 @@ export function Dashboard() {
             }
           </p>
           {filterStatus !== 'archived' && (
-          <a
-            href="/routes/new"
+          <Link
+            to="/routes/new"
             aria-label="Create your first route"
             style={{
               padding: '0.875rem 1.75rem',
@@ -709,7 +763,7 @@ export function Dashboard() {
             }}
           >
             Create First Route
-          </a>
+          </Link>
           )}
         </div>
       ) : (
@@ -955,6 +1009,29 @@ export function Dashboard() {
           route={shareModalRoute}
           isOpen={true}
           onClose={() => setShareModalRoute(null)}
+        />
+      )}
+
+      {/* Import Modal (#153) */}
+      {importModalOpen && brigade && (
+        <ImportModal
+          brigadeId={brigade.id}
+          existingRoutes={routes}
+          onClose={() => setImportModalOpen(false)}
+          onImport={async (importedRoutes) => {
+            for (const route of importedRoutes) {
+              await saveRoute(route);
+            }
+          }}
+        />
+      )}
+
+      {/* Bulk Export Menu (#152) */}
+      {exportMenuOpen && (
+        <ExportMenu
+          routes={routes}
+          brigade={brigade}
+          onClose={() => setExportMenuOpen(false)}
         />
       )}
     </div>

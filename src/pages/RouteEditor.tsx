@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useBrigade } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
 import { useTemplates } from '../hooks/useTemplates';
-import { MapView, WaypointList, AddressSearch } from '../components';
+import { MapView, WaypointList, AddressSearch, ShareModal } from '../components';
 import { createNewRoute, generateShareableLink, canPublishRoute, generateWaypointId, generateTemplateId, DEFAULT_NAVIGATION_SETTINGS } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
@@ -32,6 +32,8 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   const [editingWaypoint, setEditingWaypoint] = useState<Waypoint | null>(null);
   const [waypointForm, setWaypointForm] = useState({ name: '', notes: '' });
   const [autoZoom, setAutoZoom] = useState(true);
+  // Set after a successful publish; shows the share modal before leaving.
+  const [publishedRoute, setPublishedRoute] = useState<Route | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
   const [mapZoom, setMapZoom] = useState(5); // Default Australia-wide zoom
 
@@ -69,23 +71,6 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     };
   }, [brigade?.stationCoordinates, brigade?.name]);
 
-  // Load existing route for edit mode
-  useEffect(() => {
-    if (mode === 'edit' && routeId) {
-      setIsLoading(true);
-      getRoute(routeId).then(route => {
-        if (route) {
-          setInitialRoute(route);
-        } else {
-          navigate('/dashboard');
-        }
-        setIsLoading(false);
-      });
-    } else if (mode === 'new' && user?.brigadeId) {
-      setInitialRoute(createNewRoute(user.brigadeId, user.email));
-    }
-  }, [mode, routeId, getRoute, user, navigate]);
-
   const {
     route,
     updateMetadata,
@@ -97,11 +82,40 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     tspOptimizeRoute,
     acceptOptimization,
     rejectOptimization,
+    resetRoute,
     validate,
     isOptimizing,
     optimizationError,
     optimizationComparison,
   } = useRouteEditor(initialRoute || createNewRoute(user?.brigadeId || '', user?.email));
+
+  // Tracks which route id has been pushed into the editor, so re-runs of the
+  // load effect (e.g. auth context identity changes) never clobber edits.
+  const loadedRouteIdRef = useRef<string | null>(null);
+
+  // Load existing route for edit mode. The editor hook only reads its initial
+  // route on first render, so the loaded route must be pushed in explicitly
+  // via resetRoute once it arrives.
+  useEffect(() => {
+    if (mode === 'edit' && routeId) {
+      if (loadedRouteIdRef.current === routeId) return;
+      setIsLoading(true);
+      getRoute(routeId).then(route => {
+        if (route) {
+          loadedRouteIdRef.current = routeId;
+          setInitialRoute(route);
+          resetRoute(route);
+        } else {
+          navigate('/dashboard');
+        }
+        setIsLoading(false);
+      });
+    } else if (mode === 'new' && user?.brigadeId && !initialRoute) {
+      const fresh = createNewRoute(user.brigadeId, user.email);
+      setInitialRoute(fresh);
+      resetRoute(fresh);
+    }
+  }, [mode, routeId, getRoute, user, navigate, resetRoute, initialRoute]);
 
   const handleMapClick = useCallback(async (coordinates: [number, number]) => {
     try {
@@ -150,6 +164,25 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     setSaveError(null);
 
     try {
+      // Multi-operator conflict detection: warn if someone else saved this
+      // route since we loaded it (last-edit-wins after confirmation).
+      try {
+        const stored = await getRoute(route.id);
+        if (stored?.updatedAt && stored.updatedAt !== route.updatedAt) {
+          const who = stored.lastEditedBy?.userName || 'Another member';
+          const overwrite = confirm(
+            `${who} saved changes to this route while you were editing. ` +
+            'Saving now will overwrite their changes. Continue?'
+          );
+          if (!overwrite) {
+            setIsSaving(false);
+            return;
+          }
+        }
+      } catch {
+        // Conflict check is best-effort; never block saving on it
+      }
+
       const routeToSave: Route = {
         ...route,
         status: shouldPublish ? 'published' : route.status,
@@ -158,18 +191,20 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
       };
 
       await saveRoute(routeToSave);
-      
+
       if (shouldPublish) {
-        alert('Route published successfully! Share link generated.');
+        // Publishing is the moment of highest sharing intent — surface the
+        // share link + QR right here instead of a blocking alert().
+        setPublishedRoute(routeToSave);
+      } else {
+        navigate('/dashboard');
       }
-      
-      navigate('/dashboard');
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to save route');
     } finally {
       setIsSaving(false);
     }
-  }, [route, validate, saveRoute, navigate]);
+  }, [route, validate, saveRoute, getRoute, navigate]);
 
   const handleSaveAsTemplate = useCallback(async () => {
     if (!route.name.trim()) {
@@ -1074,6 +1109,18 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Post-publish share moment: link + QR while sharing intent is highest */}
+      {publishedRoute && (
+        <ShareModal
+          route={publishedRoute}
+          isOpen={true}
+          onClose={() => {
+            setPublishedRoute(null);
+            navigate('/dashboard');
+          }}
+        />
       )}
     </div>
   );

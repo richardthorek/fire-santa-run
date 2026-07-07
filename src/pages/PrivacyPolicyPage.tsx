@@ -7,7 +7,8 @@
  */
 
 import { Link } from 'react-router-dom';
-import { SEO } from '../components';
+// Direct import: the components barrel drags mapbox-gl into this public page's chunk.
+import { SEO } from '../components/SEO';
 import './StaticPage.css';
 
 const LAST_UPDATED = 'June 2026';

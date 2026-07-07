@@ -8,7 +8,7 @@
  * the connection is restored.
  */
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useWebPubSub } from './useWebPubSub';
 import { useNetworkStatus } from './useNetworkStatus';
 import type { RouteProgress, LocationBroadcast } from '../types';
@@ -32,6 +32,7 @@ export function useLocationBroadcast({
   nextWaypointEta,
 }: UseLocationBroadcastOptions) {
   const lastBroadcastTimeRef = useRef(0);
+  const lastPositionRef = useRef<[number, number] | null>(null);
 
   const { sendLocation, isConnected } = useWebPubSub({
     routeId,
@@ -59,6 +60,7 @@ export function useLocationBroadcast({
     }
 
     lastBroadcastTimeRef.current = now;
+    lastPositionRef.current = position.coordinates;
 
     // Prepare location broadcast message
     const broadcast: LocationBroadcast = {
@@ -75,8 +77,24 @@ export function useLocationBroadcast({
     sendLocation(broadcast);
   }, [isNavigating, position, routeId, routeProgress, nextWaypointEta, sendLocation]);
 
+  /**
+   * Send a final "run completed" message so viewers' tracking pages flip to
+   * the thank-you state live, without waiting for a refresh.
+   */
+  const broadcastRunCompleted = useCallback(() => {
+    const location = lastPositionRef.current;
+    if (!location) return;
+    sendLocation({
+      routeId,
+      location,
+      timestamp: Date.now(),
+      status: 'completed',
+    });
+  }, [routeId, sendLocation]);
+
   return {
     isConnected,
     isOnline,
+    broadcastRunCompleted,
   };
 }

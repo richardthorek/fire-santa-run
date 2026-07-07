@@ -295,10 +295,14 @@ export function useRouteEditor(initialRoute: Route) {
   }, []);
 
   /**
-   * Reset route to initial state
+   * Reset the editor. With an argument, replaces the state wholesale — needed
+   * because `initialRoute` is only read on first render, so pages that load a
+   * route asynchronously (edit mode) must push the loaded route in once it
+   * arrives or the editor keeps showing the empty placeholder it was
+   * initialised with. Without an argument, resets to the initial route.
    */
-  const resetRoute = useCallback(() => {
-    setRoute(initialRoute);
+  const resetRoute = useCallback((newRoute?: Route) => {
+    setRoute(newRoute ?? initialRoute);
     setOptimizationError(null);
     setOptimizationComparison(null);
   }, [initialRoute]);

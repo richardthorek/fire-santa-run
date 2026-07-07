@@ -13,6 +13,7 @@ export { ProgressBar } from './ProgressBar';
 export { SharePanel } from './SharePanel';
 export { ShareModal } from './ShareModal';
 export { SEO } from './SEO';
+export { PublicHeader } from './PublicHeader';
 export { SkeletonBox, RouteCardSkeleton, DashboardSkeleton, MapSkeleton } from './LoadingSkeleton';
 export { ProtectedRoute } from './ProtectedRoute';
 export { RoleBadge } from './RoleBadge';
@@ -28,6 +29,12 @@ export { ErrorBoundary } from './ErrorBoundary';
 export type { ErrorBoundaryProps } from './ErrorBoundary';
 export { OnboardingChecklist } from './OnboardingChecklist';
 export type { OnboardingChecklistProps } from './OnboardingChecklist';
+export { ExportMenu } from './ExportMenu';
+export type { ExportMenuProps } from './ExportMenu';
+export { ImportModal } from './ImportModal';
+export type { ImportModalProps } from './ImportModal';
+export { RouteComments } from './RouteComments';
+export type { RouteCommentsProps } from './RouteComments';
 
 // Convenience export for LoadingSkeleton (for consistency)
 export { DashboardSkeleton as LoadingSkeleton } from './LoadingSkeleton';
