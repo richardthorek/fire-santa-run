@@ -198,7 +198,15 @@ function formatDurationHuman(seconds?: number): string {
  * from the browser dialog.
  */
 export function buildPrintableRouteSummary(route: Route, brigade?: Pick<Brigade, 'name' | 'logo' | 'themeColor'> | null): string {
-  const themeColor = brigade?.themeColor || '#D32F2F';
+  // Sanitise values interpolated outside xmlEscape'd text nodes:
+  // theme colour goes into CSS — only accept a hex colour literal
+  const themeColor = brigade?.themeColor && /^#[0-9a-fA-F]{3,8}$/.test(brigade.themeColor)
+    ? brigade.themeColor
+    : '#D32F2F';
+  // logo goes into an img src attribute — only accept data-URL images or http(s) URLs
+  const logoSrc = brigade?.logo && /^(data:image\/|https?:\/\/)/i.test(brigade.logo)
+    ? xmlEscape(brigade.logo)
+    : null;
   const mapUrl = buildStaticMapUrl(route, 800, 400);
   const waypoints = [...route.waypoints].sort((a, b) => a.order - b.order);
 
@@ -243,7 +251,7 @@ export function buildPrintableRouteSummary(route: Route, brigade?: Pick<Brigade,
 </head>
 <body>
   <header>
-    ${brigade?.logo ? `<img src="${brigade.logo}" alt="">` : ''}
+    ${logoSrc ? `<img src="${logoSrc}" alt="">` : ''}
     <div>
       <h1>🎅 ${xmlEscape(route.name)}</h1>
       <p class="subtitle">${brigade?.name ? xmlEscape(brigade.name) + ' · ' : ''}${xmlEscape(new Date(route.date).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}${route.startTime ? ' · departs ' + xmlEscape(route.startTime) : ''}</p>
@@ -256,7 +264,7 @@ export function buildPrintableRouteSummary(route: Route, brigade?: Pick<Brigade,
     <div><strong>${formatDurationHuman(route.estimatedDuration)}</strong> Est. duration</div>
     <div><strong>${xmlEscape(route.status)}</strong> Status</div>
   </div>
-  ${mapUrl ? `<img class="map" src="${mapUrl}" alt="Route overview map">` : ''}
+  ${mapUrl ? `<img class="map" src="${xmlEscape(mapUrl)}" alt="Route overview map">` : ''}
   <h2>📍 Stops</h2>
   <table>
     <thead><tr><th>#</th><th>Name</th><th>Address</th><th>ETA</th><th>Notes</th></tr></thead>
@@ -272,13 +280,19 @@ export function buildPrintableRouteSummary(route: Route, brigade?: Pick<Brigade,
 /** Open the printable summary in a new window and trigger the print dialog. */
 export function openPrintableRouteSummary(route: Route, brigade?: Pick<Brigade, 'name' | 'logo' | 'themeColor'> | null): void {
   const html = buildPrintableRouteSummary(route, brigade);
-  const win = window.open('', '_blank', 'noopener');
+  // Load via a Blob URL rather than document.write: all interpolated values in
+  // the generated document are escaped/validated, and the blob document gets a
+  // unique opaque origin instead of inheriting the app's origin.
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank', 'noopener');
   if (!win) {
+    URL.revokeObjectURL(url);
     alert('Please allow pop-ups to print the route summary.');
     return;
   }
-  win.document.write(html);
-  win.document.close();
+  // Revoke once the new window has had time to load the blob
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 /** Export a single route in the chosen format and download it. */

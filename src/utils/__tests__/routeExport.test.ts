@@ -8,6 +8,7 @@ import {
   routesToCSV,
   routesToKML,
   safeFilename,
+  buildPrintableRouteSummary,
   BACKUP_FORMAT,
 } from '../routeExport';
 import type { Route } from '../../types';
@@ -94,6 +95,48 @@ describe('routeExport', () => {
     it('omits the path placemark when there is no geometry', () => {
       const kml = routesToKML([makeRoute({ geometry: undefined })]);
       expect(kml).not.toContain('<LineString>');
+    });
+  });
+
+  describe('buildPrintableRouteSummary', () => {
+    it('escapes route and waypoint text', () => {
+      const html = buildPrintableRouteSummary(
+        makeRoute({ name: '<script>alert(1)</script>', description: '<img onerror=x>' })
+      );
+      expect(html).not.toContain('<script>alert(1)</script>');
+      expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+      expect(html).not.toContain('<img onerror=x>');
+    });
+
+    it('rejects a non-hex theme colour and falls back to the default', () => {
+      const html = buildPrintableRouteSummary(makeRoute(), {
+        name: 'B',
+        themeColor: 'red; } body { background: url(javascript:1) ',
+      });
+      expect(html).not.toContain('javascript:1');
+      expect(html).toContain('#D32F2F');
+    });
+
+    it('only accepts data-image or http(s) logo URLs', () => {
+      const bad = buildPrintableRouteSummary(makeRoute(), {
+        name: 'B',
+        logo: 'javascript:alert(1)',
+      });
+      expect(bad).not.toContain('javascript:alert(1)');
+
+      const good = buildPrintableRouteSummary(makeRoute(), {
+        name: 'B',
+        logo: 'data:image/png;base64,AAAA',
+      });
+      expect(good).toContain('data:image/png;base64,AAAA');
+    });
+
+    it('escapes quotes in the logo attribute', () => {
+      const html = buildPrintableRouteSummary(makeRoute(), {
+        name: 'B',
+        logo: 'https://example.com/logo.png" onerror="alert(1)',
+      });
+      expect(html).not.toContain('" onerror="');
     });
   });
 });
