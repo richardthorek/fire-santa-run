@@ -103,6 +103,16 @@ export function useRoutes() {
       route.brigadeId = brigadeIdToUse;
     }
 
+    // Stamp last-editor info for multi-operator conflict awareness
+    route.updatedAt = new Date().toISOString();
+    if (user) {
+      route.lastEditedBy = {
+        userId: user.id,
+        userName: user.name || user.email,
+        at: route.updatedAt,
+      };
+    }
+
     try {
       await storageAdapter.saveRoute(brigadeIdToUse, route);
       await loadRoutes();
