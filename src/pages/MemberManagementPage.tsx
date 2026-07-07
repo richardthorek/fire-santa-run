@@ -473,10 +473,7 @@ export function MemberManagementPage() {
           brigadeId={brigadeId!}
           currentUser={authUser}
           onClose={() => setShowInviteModal(false)}
-          onSuccess={async () => {
-            setShowInviteModal(false);
-            await loadData();
-          }}
+          onSuccess={loadData}
         />
       )}
       </AppLayout>
@@ -565,6 +562,8 @@ function PendingInvitationCard({
   invitation: MemberInvitation;
   onCancel: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+
   return (
     <div style={{
       display: 'flex',
@@ -580,27 +579,53 @@ function PendingInvitationCard({
           {invitation.email}
         </div>
         <div style={{ fontSize: '0.875rem', color: '#616161' }}>
-          Invited {new Date(invitation.invitedAt).toLocaleDateString()}
+          Invited {new Date(invitation.invitedAt).toLocaleDateString()} · expires {new Date(invitation.expiresAt).toLocaleDateString()}
         </div>
         <div style={{ marginTop: '0.5rem' }}>
           <RoleBadge role={invitation.role} size="small" />
         </div>
       </div>
-      <button
-        onClick={onCancel}
-        style={{
-          padding: '0.5rem 1rem',
-          background: '#EEEEEE',
-          color: '#616161',
-          border: '1px solid #E0E0E0',
-          borderRadius: '8px',
-          fontSize: '0.875rem',
-          fontWeight: 600,
-          cursor: 'pointer',
-        }}
-      >
-        Cancel
-      </button>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <button
+          onClick={async () => {
+            const link = invitationLink(invitation.token);
+            try {
+              await navigator.clipboard.writeText(link);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            } catch {
+              prompt('Copy this invitation link:', link);
+            }
+          }}
+          style={{
+            padding: '0.5rem 1rem',
+            background: copied ? COLORS.success : 'white',
+            color: copied ? 'white' : COLORS.primary,
+            border: `1px solid ${copied ? COLORS.success : COLORS.primary}`,
+            borderRadius: '8px',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          {copied ? '✓ Copied' : '📋 Copy link'}
+        </button>
+        <button
+          onClick={onCancel}
+          style={{
+            padding: '0.5rem 1rem',
+            background: '#EEEEEE',
+            color: '#616161',
+            border: '1px solid #E0E0E0',
+            borderRadius: '8px',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
@@ -781,6 +806,10 @@ function InviteModal({
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // After creation the modal switches to a share step: there is no outbound
+  // email service, so the inviter delivers the link (copy or email app).
+  const [createdInvitation, setCreatedInvitation] = useState<MemberInvitation | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -801,8 +830,9 @@ function InviteModal({
         message.trim() || undefined
       );
 
-      if (result.success) {
+      if (result.success && result.data) {
         logMemberInvited(currentUser.id, currentUser.email, email.trim(), brigadeId, role);
+        setCreatedInvitation(result.data);
         onSuccess();
       } else {
         setError(result.error || 'Failed to send invitation');
@@ -846,6 +876,15 @@ function InviteModal({
           ✉️ Invite Member
         </h2>
 
+        {createdInvitation ? (
+          <InvitationShareStep
+            invitation={createdInvitation}
+            inviterName={currentUser.name || currentUser.email}
+            linkCopied={linkCopied}
+            onCopied={() => setLinkCopied(true)}
+            onDone={onClose}
+          />
+        ) : (
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
             <label
@@ -973,6 +1012,141 @@ function InviteModal({
             </button>
           </div>
         </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Build the acceptance URL for an invitation token. */
+function invitationLink(token: string): string {
+  return `${window.location.origin}/invitations/${token}`;
+}
+
+/**
+ * Share step shown after an invitation is created (#150). The app has no
+ * outbound email service, so the inviter delivers the link themselves —
+ * copy it, or open a pre-filled email in their mail app.
+ */
+function InvitationShareStep({
+  invitation,
+  inviterName,
+  linkCopied,
+  onCopied,
+  onDone,
+}: {
+  invitation: MemberInvitation;
+  inviterName: string;
+  linkCopied: boolean;
+  onCopied: () => void;
+  onDone: () => void;
+}) {
+  const link = invitationLink(invitation.token);
+  const expiryDate = new Date(invitation.expiresAt).toLocaleDateString();
+  const mailtoHref = `mailto:${encodeURIComponent(invitation.email)}`
+    + `?subject=${encodeURIComponent("You're invited to join our brigade on Fire Santa Run")}`
+    + `&body=${encodeURIComponent(
+      `G'day!\n\n${inviterName} has invited you to join their brigade on Fire Santa Run as ${invitation.role === 'operator' ? 'an operator' : 'a viewer'}.`
+      + (invitation.personalMessage ? `\n\n"${invitation.personalMessage}"` : '')
+      + `\n\nAccept your invitation here (link expires ${expiryDate}):\n${link}\n\n🎅`
+    )}`;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      onCopied();
+    } catch {
+      // Clipboard can be unavailable (permissions/http) — select-and-copy fallback
+      prompt('Copy this invitation link:', link);
+    }
+  };
+
+  return (
+    <div>
+      <div
+        style={{
+          padding: '0.75rem',
+          backgroundColor: '#E8F5E9',
+          color: '#2E7D32',
+          borderRadius: '8px',
+          marginBottom: '1rem',
+          fontSize: '0.9rem',
+        }}
+      >
+        ✅ Invitation created for <strong>{invitation.email}</strong>. Share the link below —
+        it expires on <strong>{expiryDate}</strong> (7 days).
+      </div>
+
+      <label htmlFor="invite-link" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+        Invitation link
+      </label>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <input
+          id="invite-link"
+          type="text"
+          readOnly
+          value={link}
+          onFocus={(e) => e.target.select()}
+          style={{
+            flex: 1,
+            padding: '0.75rem',
+            border: '1px solid #E0E0E0',
+            borderRadius: '8px',
+            fontSize: '0.85rem',
+            color: '#616161',
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleCopy}
+          style={{
+            padding: '0.75rem 1rem',
+            background: linkCopied ? COLORS.success : `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {linkCopied ? '✓ Copied' : '📋 Copy'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        <a
+          href={mailtoHref}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: 'white',
+            color: COLORS.primary,
+            border: `2px solid ${COLORS.primary}`,
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: 600,
+            textDecoration: 'none',
+          }}
+        >
+          ✉️ Send via email app
+        </a>
+        <button
+          type="button"
+          onClick={onDone}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '1rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Done
+        </button>
       </div>
     </div>
   );

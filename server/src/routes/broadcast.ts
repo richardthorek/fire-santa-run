@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
+import { rateLimit } from '../utils/rateLimit.js';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 
@@ -15,6 +16,12 @@ interface LocationBroadcast {
 }
 
 export const broadcastRouter = new Hono();
+
+// Launch hardening (#345): cap broadcast volume per client. Navigation sends
+// a location every 5s (12/min) and presence heartbeats every 15s (4/min);
+// 40/min leaves ample headroom for retries without allowing flooding.
+broadcastRouter.use('/broadcast', rateLimit({ name: 'broadcast', limit: 40, windowMs: 60_000 }));
+broadcastRouter.use('/broadcast/*', rateLimit({ name: 'broadcast', limit: 40, windowMs: 60_000 }));
 
 broadcastRouter.post('/broadcast', async (c) => {
   try {
@@ -65,6 +72,55 @@ broadcastRouter.post('/broadcast', async (c) => {
   } catch (error: any) {
     console.error('Error broadcasting location:', error);
     return c.json({ error: 'Failed to broadcast location', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
+  }
+});
+
+/**
+ * Editor presence (#151): relays "who is editing this route" heartbeats to
+ * the edit_{routeId} group. Kept separate from the public tracking group so
+ * editor identities never reach anonymous viewers.
+ */
+broadcastRouter.post('/broadcast/editor-presence', async (c) => {
+  try {
+    const body = await c.req.json() as {
+      routeId?: string;
+      userId?: string;
+      userName?: string;
+      action?: string;
+    };
+
+    if (!body.routeId || typeof body.routeId !== 'string') {
+      return c.json({ error: 'Missing required field: routeId' }, 400);
+    }
+    if (!body.userId || typeof body.userId !== 'string') {
+      return c.json({ error: 'Missing required field: userId' }, 400);
+    }
+    if (body.action !== 'editing' && body.action !== 'left') {
+      return c.json({ error: 'Invalid action. Must be "editing" or "left"' }, 400);
+    }
+
+    const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
+    if (!connectionString) {
+      console.error('AZURE_WEBPUBSUB_CONNECTION_STRING is not configured');
+      return c.json({ error: 'Web PubSub service is not configured' }, 500);
+    }
+
+    const serviceClient = new WebPubSubServiceClient(connectionString, HUB_NAME);
+    const groupName = `edit_${body.routeId}`;
+
+    const message = {
+      type: 'editor-presence',
+      routeId: body.routeId,
+      userId: body.userId,
+      userName: String(body.userName || 'A brigade member').slice(0, 80),
+      action: body.action,
+    };
+
+    await serviceClient.group(groupName).sendToAll(message);
+    return c.json({ success: true }, 200);
+  } catch (error: any) {
+    console.error('Error broadcasting editor presence:', error);
+    return c.json({ error: 'Failed to broadcast editor presence', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, useBrigade } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
 import { useTemplates } from '../hooks/useTemplates';
+import { useEditingPresence } from '../hooks/useEditingPresence';
 import { MapView, WaypointList, AddressSearch, ShareModal } from '../components';
 import { createNewRoute, generateShareableLink, canPublishRoute, generateWaypointId, generateTemplateId, DEFAULT_NAVIGATION_SETTINGS } from '../utils/routeHelpers';
 import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
@@ -88,6 +89,14 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     optimizationError,
     optimizationComparison,
   } = useRouteEditor(initialRoute || createNewRoute(user?.brigadeId || '', user?.email));
+
+  // Multi-operator presence (#151): announce this editor and see who else has
+  // the same saved route open. Disabled for unsaved new routes.
+  const { activeEditors } = useEditingPresence({
+    routeId: routeId || '',
+    user: user ? { id: user.id, name: user.name || user.email } : null,
+    enabled: mode === 'edit' && !!routeId,
+  });
 
   // Tracks which route id has been pushed into the editor, so re-runs of the
   // load effect (e.g. auth context identity changes) never clobber edits.
@@ -423,6 +432,33 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           maxWidth: '90%',
         }}>
           {saveError}
+        </div>
+      )}
+
+      {/* Multi-operator presence (#151): who else has this route open */}
+      {activeEditors.length > 0 && (
+        <div
+          role="status"
+          style={{
+            position: 'absolute',
+            top: '6rem',
+            right: '1rem',
+            padding: '0.6rem 1rem',
+            backgroundColor: 'rgba(255, 249, 230, 0.95)',
+            color: '#B26A00',
+            border: '1px solid var(--summer-gold)',
+            borderRadius: '12px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            zIndex: 1001,
+            maxWidth: 'min(320px, 80vw)',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+          }}
+        >
+          <span aria-hidden="true">👀</span>{' '}
+          {activeEditors.length === 1
+            ? `${activeEditors[0].userName} is also editing this route`
+            : `${activeEditors.map(e => e.userName).join(', ')} are also editing this route`}
         </div>
       )}
 
