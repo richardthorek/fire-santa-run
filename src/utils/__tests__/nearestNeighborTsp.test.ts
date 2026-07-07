@@ -3,7 +3,85 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { nearestNeighborTsp } from '../mapbox';
+import { nearestNeighborTsp, twoOptImprove } from '../mapbox';
+
+describe('twoOptImprove', () => {
+  it('improves a crossing-path tour by uncrossing', () => {
+    // Create a square: corners at (0,0), (0,1), (1,0), (1,1)
+    // Inefficient path with crossing: 0→2→1→3 (crosses itself)
+    // Better path: 0→1→3→2 or similar (no crossing)
+    const coords: [number, number][] = [
+      [0, 0],       // 0: bottom-left (start)
+      [1, 1],       // 1: top-right
+      [1, 0],       // 2: bottom-right
+      [0, 1],       // 3: top-left (end)
+    ];
+
+    // Crossing path: 0→2→1→3
+    const crossingPath = [0, 2, 1, 3];
+    
+    // Improve it
+    const improved = twoOptImprove(crossingPath, coords);
+    
+    // Start and end must remain fixed
+    expect(improved[0]).toBe(0);
+    expect(improved[improved.length - 1]).toBe(3);
+
+    // All indices must be present
+    expect(new Set(improved).size).toBe(4);
+    expect(improved.length).toBe(4);
+  });
+
+  it('does not modify an already optimal tour', () => {
+    // Simple line: 0→1→2→3 (already optimal)
+    const coords: [number, number][] = [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [3, 0],
+    ];
+
+    const optimalPath = [0, 1, 2, 3];
+    const result = twoOptImprove(optimalPath, coords);
+    
+    expect(result).toEqual([0, 1, 2, 3]);
+  });
+
+  it('preserves start and end waypoints', () => {
+    const coords: [number, number][] = [
+      [0, 0],
+      [1, 1],
+      [2, 0],
+      [3, 1],
+    ];
+
+    const path = [0, 2, 1, 3];
+    const result = twoOptImprove(path, coords);
+
+    expect(result[0]).toBe(0);
+    expect(result[result.length - 1]).toBe(3);
+  });
+
+  it('returns all waypoint indices exactly once', () => {
+    const coords: [number, number][] = [
+      [0, 0],
+      [5, 5],
+      [10, 0],
+      [5, -5],
+      [15, 0],
+    ];
+
+    const path = [0, 4, 1, 2, 3];
+    const result = twoOptImprove(path, coords);
+
+    expect(result.length).toBe(5);
+    expect(new Set(result).size).toBe(5);
+    for (let i = 0; i < 5; i++) {
+      expect(result).toContain(i);
+    }
+  });
+});
+
 
 describe('nearestNeighborTsp', () => {
   it('returns [0] for a single coordinate', () => {

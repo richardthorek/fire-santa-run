@@ -4950,3 +4950,182 @@ To make this application fully testable and deployable with new Azure architectu
 - Integrated monitoring and logging
 - DevOps-ready with GitHub Actions
 
+### Route Splitting in Progress
+
+We were a work in progress implementing seperating out route data from the inherent waypoints. This is the log of work to date. The changes so far are implemented in the branch waypoint-optimisation.
+PROGRESS LOG START:
+The user wants me to implement the two-table schema for routes and waypoints. This is a significant refactoring. Let me break it down:
+
+Update type definitions to exclude waypoints from the route entity and create a waypoint entity type
+Update the storage adapter interface to add waypoint methods
+Update all three storage implementations (localStorage, Azure, HTTP)
+Update the hooks and components that save/load routes
+Let me start by planning this out:
+
+Types (src/types/index.ts):
+
+Keep Waypoint interface as-is
+Create RouteWaypoint entity type for storage
+Update Route interface to exclude waypoints
+Storage types (src/storage/types.ts):
+
+Add waypoint methods to IStorageAdapter
+localStorage adapter (src/storage/localStorage.ts):
+
+Add waypoint save/get/delete methods
+Azure adapter (src/storage/azure.ts):
+
+Add routewaypoints table client
+Add waypoint methods
+Update route saving to exclude waypoints
+HTTP adapter (src/storage/http.ts):
+
+Add waypoint API endpoints
+Route editor hook (src/hooks/useRouteEditor.ts):
+
+Update route saving to save waypoints separately
+Route operations (src/utils/routeHelpers.ts):
+
+Update any route utilities if needed
+Let me start implementing this systematically.
+
+Created 7 todos
+
+Good, I've set up the todo list. Now let me start implementing:
+
+First, update type definitions
+Then update storage adapter interface
+Then update each adapter implementation
+Then update the hooks and components
+Let me start with types.
+
+Read index.ts, lines 32 to 60
+
+Looking at the Route type, I need to:
+
+Remove waypoints: Waypoint[] from the Route interface
+Create a new RouteWaypoint entity type for storage
+Keep Waypoint as is for in-memory use
+Actually, wait. I need to think about this carefully. When we load a route in the client, we still need the waypoints. So the Route interface should still have waypoints for in-memory use. But when we serialize it to storage, we won't include waypoints.
+
+So the approach is:
+
+Route interface still has waypoints: Waypoint[] for in-memory use
+When saving to storage, we save the route without waypoints, and save waypoints separately
+When loading from storage, we load the route and then load the waypoints separately and reconstruct
+Let me think about this differently. We need to create a storage-specific type:
+
+Create RouteEntity (what gets stored in the routes table - no waypoints)
+Create WaypointEntity (what gets stored in the routewaypoints table)
+Keep Route interface as-is for application logic
+This way, the application code doesn't change much - it still works with Route objects that have waypoints. The storage layer handles the decomposition.
+
+Let me add these types to src/types/index.ts.
+
+Edited
+index.ts+16-0
+Good. Now I need to update the storage adapter interface to add waypoint methods.
+
+Read types.ts, lines 60 to 120
+
+Now I need to add waypoint methods to the IStorageAdapter interface. I'll add them after the route operations section.
+
+Edited
+types.ts+6-0
+Now I need to update the import in types.ts to include the new WaypointEntity type.
+
+Read types.ts, lines 1 to 5
+
+I need to add Waypoint to the imports.
+
+Edited
+types.ts+1-1
+Good. Now let me update the localStorage adapter to add waypoint methods.
+
+Read localStorage.ts, lines 1 to 80
+
+I need to add waypoint methods to the localStorage adapter. Let me add them after the route operations and before template operations.
+
+Edited
+localStorage.ts+1-1
+Now I need to add the waypoint methods to the localStorage adapter class. Let me add them after deleteRoute.
+
+Edited
+localStorage.ts+38-0
+Now I need to update the localStorage adapter's getRoute and getRoutes to reconstruct routes with waypoints from the separate storage.
+
+Edited
+localStorage.ts+21-3
+Now I need to update the Azure adapter to add the routewaypoints table and implement waypoint methods. Let me first check the current Azure adapter structure.
+
+Read azure.ts, lines 1 to 80
+
+I need to:
+
+Add Waypoint to the imports
+Add a waypointsClient property
+Initialize the routewaypoints table
+Add waypoint methods
+Let me make these changes.
+
+Edited
+azure.ts+1-1
+Now I need to add the waypointsClient property and update the constructor and initializeTables method.
+
+Edited
+azure.ts+4-0
+Now I need to add waypoint methods to the Azure adapter. Let me find where to add them after the route deletion method.
+
+Read azure.ts, lines 125 to 145
+
+Let me find the end of the deleteRoute method and add waypoint methods after it.
+
+Read azure.ts, lines 135 to 160
+
+Perfect. I can see where to add the waypoint methods - between deleteRoute and the template operations. Let me add them.
+
+Edited
+azure.ts+72-0
+Now I need to update the getRoutes and getRoute methods to reconstruct routes with waypoints, similar to what I did for localStorage.
+
+Read azure.ts, lines 95 to 115
+
+I need to update getRoutes and getRoute to reconstruct waypoints.
+
+Edited
+azure.ts+8-2
+Now I need to update the HTTP adapter to add waypoint methods. Let me check the HTTP adapter.
+
+Read http.ts, lines 1 to 80
+
+Let me continue reading to find the HTTP adapter implementation.
+
+Read http.ts, lines 130 to 200
+
+I can see the HTTP adapter structure. Let me find the deleteRoute method and add waypoint methods after it.
+
+Read http.ts, lines 200 to 230
+
+Now I need to:
+
+Update the import to include Waypoint
+Add waypoint methods after deleteRoute
+Let me start with the import.
+
+Edited
+http.ts+1-1
+Now let me add the waypoint methods after deleteRoute.
+
+Edited
+http.ts+55-0
+Good! Now I need to update the route editor hook to save waypoints separately. Let me check the useRouteEditor hook to see how it currently saves routes.
+
+Read useRouteEditor.ts, lines 1 to 100
+
+Let me search for the save method in useRouteEditor.
+
+Searched for text async save (**/src/hooks/useRouteEditor.ts), no results
+
+The hook doesn't have a save method. Let me look for where routes are saved - probably in the component that uses this hook. Let me look at RouteEditor component.
+.....
+PROGRESS LOG END
