@@ -6,7 +6,7 @@ import { useTemplates } from '../hooks/useTemplates';
 import { useEditingPresence } from '../hooks/useEditingPresence';
 import { MapView, WaypointList, AddressSearch, ShareModal } from '../components';
 import { createNewRoute, generateShareableLink, canPublishRoute, generateWaypointId, generateTemplateId, DEFAULT_NAVIGATION_SETTINGS } from '../utils/routeHelpers';
-import { reverseGeocode, type GeocodingResult } from '../utils/mapbox';
+import { reverseGeocode, getDirections, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
 import { getDefaultMapCenter } from '../utils/mapCenter';
@@ -192,8 +192,29 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         // Conflict check is best-effort; never block saving on it
       }
 
+      // Editing waypoints clears the planned geometry, so a route can reach
+      // save/publish with stops but no path. Public viewers watch Santa travel
+      // BETWEEN stops, so always persist the driving path — plan it silently
+      // here rather than requiring an explicit "Plan Route" click. Best-effort:
+      // never block saving on the Directions API.
+      let plannedPath: Partial<Route> = {};
+      if (!route.geometry && route.waypoints.length >= 2) {
+        try {
+          const directions = await getDirections(route.waypoints.map(w => w.coordinates));
+          plannedPath = {
+            geometry: directions.geometry,
+            navigationSteps: directions.steps,
+            distance: directions.distance,
+            estimatedDuration: directions.duration,
+          };
+        } catch (err) {
+          console.warn('Could not auto-plan route path before save:', err);
+        }
+      }
+
       const routeToSave: Route = {
         ...route,
+        ...plannedPath,
         status: shouldPublish ? 'published' : route.status,
         publishedAt: shouldPublish && !route.publishedAt ? new Date().toISOString() : route.publishedAt,
         shareableLink: shouldPublish ? generateShareableLink(route.id) : route.shareableLink,
@@ -262,12 +283,11 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   }
 
   return (
-    <div 
-      className="route-editor-container"
-      style={{ 
+    <div
+      className="route-editor-container full-viewport"
+      style={{
       position: 'relative',
-      width: '100vw', 
-      height: '100vh',
+      width: '100vw',
       overflow: 'hidden',
     }}>
       {/* Full-screen Map */}

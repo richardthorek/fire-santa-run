@@ -12,7 +12,7 @@ import { MAPBOX_CONFIG } from '../config/mapbox';
 import mapboxgl from 'mapbox-gl';
 import { storageAdapter } from '../storage';
 import type { Route, LocationBroadcast } from '../types';
-import { formatDistance } from '../utils/mapbox';
+import { formatDistance, getDirections } from '../utils/mapbox';
 import { calculateDistance } from '../utils/navigation';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -59,6 +59,15 @@ export function TrackingView({ routeId }: TrackingViewProps) {
   // message naturally resets when navigating to a different route — no effect needed.
   const [completedForRouteId, setCompletedForRouteId] = useState<string | null>(null);
   const countdownComplete = completedForRouteId === routeId;
+  // Bottom info sheet: expanded by default, collapsible so the map stays king.
+  const [panelOpen, setPanelOpen] = useState(true);
+  // Fallback path fetched client-side when a route was published without a
+  // planned path (straight lines as a last resort), so viewers always see the
+  // path Santa will take between stops — not just the stops.
+  const [fetchedGeometry, setFetchedGeometry] = useState<GeoJSON.LineString | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  // The path drawn on the map: stored geometry wins, fallback otherwise.
+  const displayGeometry = route?.geometry ?? fetchedGeometry;
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -90,6 +99,29 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       });
   }, [routeId]);
 
+  // Resolve a fallback path when the stored route has none: Mapbox Directions
+  // → straight lines between stops. Routes are often published without an
+  // explicit "Plan Route" step, and watching Santa travel between stops is the
+  // whole point of sharing — so never show a bare scatter of waypoints.
+  useEffect(() => {
+    if (!route || route.geometry || route.waypoints.length < 2) return;
+
+    let cancelled = false;
+    const coords = route.waypoints.map((w) => w.coordinates);
+    getDirections(coords)
+      .then((directions) => {
+        if (!cancelled) setFetchedGeometry(directions.geometry);
+      })
+      .catch(() => {
+        // Directions unavailable (offline, quota, token) — draw straight
+        // segments so viewers still see the run's shape.
+        if (!cancelled) setFetchedGeometry({ type: 'LineString', coordinates: coords });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [route]);
+
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || !route || mapRef.current) return;
@@ -120,67 +152,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
     });
 
     map.on('load', () => {
-      // Add route polyline with candy cane styling (white base + red dashes + glow)
-      if (route.geometry) {
-        map.addSource('route', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: route.geometry,
-          },
-        });
-
-        // 1. Add Glow Layer (bottom layer for magic effect)
-        map.addLayer({
-          id: 'route-glow',
-          type: 'line',
-          source: 'route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '#F77F00', // Gold accent
-            'line-width': 20,
-            'line-blur': 15,
-            'line-opacity': 0.5,
-          },
-        });
-
-        // 2. Add White Base Layer (candy cane base)
-        map.addLayer({
-          id: 'route-base',
-          type: 'line',
-          source: 'route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '#FFFFFF',
-            'line-width': 12,
-            'line-opacity': 1,
-          },
-        });
-
-        // 3. Add Red Stripes Layer (candy cane effect)
-        map.addLayer({
-          id: 'route-stripes',
-          type: 'line',
-          source: 'route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '#D62828', // Santa red
-            'line-width': 12,
-            'line-dasharray': [2, 2], // Creates the candy cane dashes
-            'line-opacity': 1,
-          },
-        });
-      }
+      setMapLoaded(true);
 
       // Add waypoint markers with improved styling
       waypointMarkerElsRef.current = [];
@@ -239,8 +211,80 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       mapRef.current = null;
       santaMarkerRef.current = null;
       waypointMarkerElsRef.current = [];
+      setMapLoaded(false);
     };
   }, [route]);
+
+  // Draw (or update) the route path with candy cane styling — glow, white
+  // base, red dashes. Runs whenever the resolved geometry lands, which may be
+  // after the map loads when the path is fetched client-side.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !displayGeometry) return;
+
+    const existing = map.getSource('route') as mapboxgl.GeoJSONSource | undefined;
+    const feature: GeoJSON.Feature = {
+      type: 'Feature',
+      properties: {},
+      geometry: displayGeometry,
+    };
+
+    if (existing) {
+      existing.setData(feature);
+      return;
+    }
+
+    map.addSource('route', { type: 'geojson', data: feature });
+
+    // 1. Glow layer (bottom) for the magic effect
+    map.addLayer({
+      id: 'route-glow',
+      type: 'line',
+      source: 'route',
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': '#F77F00', // Gold accent
+        'line-width': 20,
+        'line-blur': 15,
+        'line-opacity': 0.5,
+      },
+    });
+
+    // 2. White base layer (candy cane base)
+    map.addLayer({
+      id: 'route-base',
+      type: 'line',
+      source: 'route',
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': '#FFFFFF',
+        'line-width': 12,
+        'line-opacity': 1,
+      },
+    });
+
+    // 3. Red stripes layer (candy cane effect)
+    map.addLayer({
+      id: 'route-stripes',
+      type: 'line',
+      source: 'route',
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': '#D62828', // Santa red
+        'line-width': 12,
+        'line-dasharray': [2, 2],
+        'line-opacity': 1,
+      },
+    });
+
+    // Fit the view to the full path so the run's shape reads immediately —
+    // unless Santa is already broadcasting and the camera is on him.
+    if (!lastLocationRef.current) {
+      const bounds = new mapboxgl.LngLatBounds();
+      displayGeometry.coordinates.forEach((coord) => bounds.extend(coord as [number, number]));
+      map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+    }
+  }, [mapLoaded, displayGeometry]);
 
   // Live waypoint progress from broadcasts: colour completed stops green.
   useEffect(() => {
@@ -438,38 +482,13 @@ export function TrackingView({ routeId }: TrackingViewProps) {
         type="website"
         twitterCard="summary_large_image"
       />
-      <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+      <div className="full-viewport" style={{ position: 'relative', width: '100%' }}>
       {/* Map Container */}
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
       {/* Post-event Thank You Overlay (archive mode) */}
       {route.status === 'completed' && (
         <ThankYouOverlay route={route} />
-      )}
-
-      {/* Re-centre on Santa after the viewer pans away */}
-      {route.status !== 'completed' && !isFollowing && currentLocation && (
-        <button
-          onClick={resumeFollowing}
-          style={{
-            position: 'absolute',
-            bottom: 'calc(1.5rem + 232px)',
-            right: '1rem',
-            zIndex: 1000,
-            padding: '0.625rem 1rem',
-            background: 'white',
-            color: 'var(--santa-red)',
-            border: '2px solid var(--santa-red)',
-            borderRadius: '999px',
-            fontWeight: 700,
-            fontSize: '0.875rem',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-            fontFamily: 'var(--font-body)',
-          }}
-        >
-          🎅 Follow Santa
-        </button>
       )}
 
       {/* Santa Tracker Header and Progress Panel — hidden in archive mode */}
@@ -486,7 +505,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
               background: 'linear-gradient(135deg, var(--santa-red), #B21E1E)',
               color: 'var(--candy-white)',
               fontFamily: 'var(--font-fun)',
-              padding: 'clamp(0.75rem, 2.5vw, 1.25rem) clamp(1rem, 3vw, 1.5rem)',
+              padding: 'calc(clamp(0.75rem, 2.5vw, 1.25rem) + env(safe-area-inset-top, 0px)) clamp(1rem, 3vw, 1.5rem) clamp(0.75rem, 2.5vw, 1.25rem)',
               borderRadius: '0 0 25px 25px',
               boxShadow: 'var(--ui-shadow)',
               borderBottom: '4px solid var(--rfs-yellow)', // RFS accent
@@ -508,6 +527,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
                     margin: 0,
                     fontSize: 'clamp(1.15rem, 4vw, 1.75rem)',
                     fontWeight: 'normal',
+                    color: 'var(--candy-white)',
                     textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
                     lineHeight: 1.15,
                   }}
@@ -597,52 +617,130 @@ export function TrackingView({ routeId }: TrackingViewProps) {
             </div>
           </div>
 
-          {/* Progress Panel - Frosted Glass with Festive Style */}
+          {/* Bottom Sheet — iOS-style collapsible info panel. Capped to ~a
+              third of the viewport so the map (the star of the show) stays
+              visible; the header row is always tappable to collapse/expand. */}
           <div
-            className="status-card"
             style={{
               position: 'absolute',
-              bottom: '1.5rem',
-              left: '1rem',
-              right: '1rem',
+              bottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+              left: '0.75rem',
+              right: '0.75rem',
               maxWidth: '600px',
               margin: '0 auto',
-              background: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: 'var(--border-radius)',
-              border: '2px solid var(--rfs-yellow)',
-              padding: '1.5rem',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
               zIndex: 1000,
-              fontFamily: 'var(--font-body)',
             }}
           >
-            <div style={{ marginBottom: '1rem' }}>
-              <div
+            {/* Re-centre on Santa — floats just above the sheet, wherever its top is */}
+            {!isFollowing && currentLocation && (
+              <button
+                onClick={resumeFollowing}
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: '0.75rem',
-                  alignItems: 'center',
+                  position: 'absolute',
+                  bottom: 'calc(100% + 0.75rem)',
+                  right: 0,
+                  padding: '0.625rem 1rem',
+                  background: 'white',
+                  color: 'var(--santa-red)',
+                  border: '2px solid var(--santa-red)',
+                  borderRadius: '999px',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                  fontFamily: 'var(--font-body)',
                 }}
               >
-                <h2 style={{ 
+                🎅 Follow Santa
+              </button>
+            )}
+
+            <section
+              className="status-card"
+              aria-label="Santa run status"
+              style={{
+                background: 'rgba(255, 255, 255, 0.92)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                borderRadius: 'var(--border-radius)',
+                border: '1px solid rgba(0, 0, 0, 0.06)',
+                borderTop: '3px solid var(--rfs-yellow)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+                fontFamily: 'var(--font-body)',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Always-visible header row: grabber, title, progress, chevron */}
+              <button
+                type="button"
+                className="btn-plain"
+                onClick={() => setPanelOpen((open) => !open)}
+                aria-expanded={panelOpen}
+                aria-controls="tracking-sheet-content"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem',
+                  padding: '0.75rem 1.25rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <h2 style={{
                   fontFamily: 'var(--font-heading)',
-                  fontWeight: 'bold', 
+                  fontWeight: 'bold',
                   color: 'var(--santa-red)',
                   margin: 0,
-                  fontSize: '1.125rem',
+                  fontSize: '1.05rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
                 }}>
                   🎁 Progress
                 </h2>
-                <span style={{ 
+                <span style={{
                   color: 'var(--neutral-700)',
                   fontWeight: 600,
-                  fontSize: '0.875rem',
+                  fontSize: '0.85rem',
+                  marginLeft: 'auto',
                 }}>
                   {completedWaypoints} / {totalWaypoints} stops
                 </span>
-              </div>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden="true"
+                  style={{
+                    flexShrink: 0,
+                    transform: panelOpen ? 'rotate(0deg)' : 'rotate(180deg)',
+                    transition: 'transform 0.3s ease',
+                    color: 'var(--neutral-600)',
+                  }}
+                >
+                  <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+
+              {/* Collapsible content — animates via the grid 0fr/1fr trick */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateRows: panelOpen ? '1fr' : '0fr',
+                  transition: 'grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                <div id="tracking-sheet-content" style={{ overflow: 'hidden', minHeight: 0 }}>
+                  <div
+                    style={{
+                      padding: '0 1.25rem 1.25rem',
+                      maxHeight: 'calc(33vh - 48px)',
+                      overflowY: 'auto',
+                    }}
+                  >
+            <div style={{ marginBottom: '0.9rem' }}>
               <div
                 style={{
                   width: '100%',
@@ -762,30 +860,52 @@ export function TrackingView({ routeId }: TrackingViewProps) {
                 </p>
               </div>
             )}
+
+            {/* Legal links live inside the sheet so they never overlap the map */}
+            <nav
+              aria-label="Legal"
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '1rem',
+                marginTop: '0.75rem',
+                fontSize: '0.7rem',
+              }}
+            >
+              <Link to="/privacy" style={{ color: 'var(--neutral-600)', textDecoration: 'none', fontWeight: 500 }}>Privacy</Link>
+              <Link to="/terms" style={{ color: 'var(--neutral-600)', textDecoration: 'none', fontWeight: 500 }}>Terms</Link>
+            </nav>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
         </>
       )}
 
-      {/* Legal links — low-key overlay for public viewers */}
-      <nav
-        aria-label="Legal"
-        style={{
-          position: 'absolute',
-          bottom: '0.4rem',
-          right: '0.6rem',
-          zIndex: 1000,
-          display: 'flex',
-          gap: '0.75rem',
-          fontSize: '0.7rem',
-          background: 'rgba(255, 255, 255, 0.75)',
-          padding: '0.2rem 0.5rem',
-          borderRadius: '6px',
-          backdropFilter: 'blur(4px)',
-        }}
-      >
-        <Link to="/privacy" style={{ color: 'var(--neutral-700)', textDecoration: 'none' }}>Privacy</Link>
-        <Link to="/terms" style={{ color: 'var(--neutral-700)', textDecoration: 'none' }}>Terms</Link>
-      </nav>
+      {/* Legal links — floating overlay only in archive mode; during a live
+          run they live inside the bottom sheet instead. */}
+      {route.status === 'completed' && (
+        <nav
+          aria-label="Legal"
+          style={{
+            position: 'absolute',
+            bottom: '0.4rem',
+            right: '0.6rem',
+            zIndex: 1000,
+            display: 'flex',
+            gap: '0.75rem',
+            fontSize: '0.7rem',
+            background: 'rgba(255, 255, 255, 0.75)',
+            padding: '0.2rem 0.5rem',
+            borderRadius: '6px',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <Link to="/privacy" style={{ color: 'var(--neutral-700)', textDecoration: 'none' }}>Privacy</Link>
+          <Link to="/terms" style={{ color: 'var(--neutral-700)', textDecoration: 'none' }}>Terms</Link>
+        </nav>
+      )}
 
       {/* Share Modal */}
       {showShareModal && route && (

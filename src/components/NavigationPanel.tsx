@@ -198,7 +198,7 @@ export function NavigationPanel({
                 <div style={{ fontSize: '0.7rem', color: '#424242', marginBottom: '0.25rem', fontWeight: 600 }}>
                   NEXT
                 </div>
-                <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>
+                <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem', color: '#212121' }}>
                   →
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#212121', fontWeight: 'bold', textAlign: 'center', lineHeight: '1.2' }}>

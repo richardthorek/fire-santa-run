@@ -54,8 +54,8 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '0.75rem',
-        padding: '1rem 0.5rem',
+        gap: '0.5rem',
+        padding: '0.25rem 0.25rem 0',
         textAlign: 'center',
       }}
     >
@@ -100,7 +100,7 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
                 style={{
                   fontFamily: 'var(--font-heading)',
                   fontWeight: 900,
-                  fontSize: 'clamp(1.75rem, 6vw, 2.5rem)',
+                  fontSize: 'clamp(1.5rem, 5vw, 2.25rem)',
                   color: 'var(--santa-red)',
                   lineHeight: 1,
                   minWidth: '2.5ch',
@@ -133,7 +133,7 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
                 style={{
                   fontFamily: 'var(--font-heading)',
                   fontWeight: 900,
-                  fontSize: 'clamp(1.75rem, 6vw, 2.5rem)',
+                  fontSize: 'clamp(1.5rem, 5vw, 2.25rem)',
                   color: 'var(--santa-red)',
                   lineHeight: 1,
                   opacity: 0.5,
