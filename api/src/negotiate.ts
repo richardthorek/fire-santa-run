@@ -13,11 +13,17 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
+import { checkRateLimit } from './rateLimit';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 
 export async function negotiate(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    // Launch hardening (#345): clients negotiate once per session, so 20/min
+    // per IP is generous while blocking token-minting floods.
+    const limited = checkRateLimit(request, 'negotiate', 20, 60_000);
+    if (limited) return limited;
+
     // Get query parameters
     const routeId = request.query.get('routeId');
     const role = request.query.get('role') || 'viewer';
@@ -33,11 +39,11 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
     }
 
     // Validate role
-    if (role !== 'viewer' && role !== 'broadcaster') {
+    if (role !== 'viewer' && role !== 'broadcaster' && role !== 'editor') {
       return {
         status: 400,
         jsonBody: {
-          error: 'Invalid role. Must be "viewer" or "broadcaster"'
+          error: 'Invalid role. Must be "viewer", "broadcaster" or "editor"'
         }
       };
     }
@@ -58,8 +64,9 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
     // Create Web PubSub service client
     const serviceClient = new WebPubSubServiceClient(connectionString, HUB_NAME);
 
-    // Generate group name for route
-    const groupName = `route_${routeId}`;
+    // Generate group name for route. Editors join a separate presence group
+    // so editor identities are never delivered to anonymous public viewers.
+    const groupName = role === 'editor' ? `edit_${routeId}` : `route_${routeId}`;
 
     // Configure token options based on role
     const tokenOptions = {
