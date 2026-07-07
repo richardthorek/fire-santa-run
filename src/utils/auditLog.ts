@@ -145,18 +145,20 @@ export function logAuditEvent(
  */
 let auditLogQueue: AuditLogEntry[] = [];
 
+/** Pending scheduled flush, so each queued entry doesn't stack another timer. */
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
 /**
  * Queue an audit log for batch sending.
  */
 function queueAuditLog(entry: AuditLogEntry): void {
   auditLogQueue.push(entry);
-  
+
   // Send batch every 10 logs or after 30 seconds
   if (auditLogQueue.length >= 10) {
     flushAuditLogs();
-  } else {
-    // Schedule flush after 30 seconds
-    setTimeout(flushAuditLogs, 30000);
+  } else if (flushTimer === null) {
+    flushTimer = setTimeout(flushAuditLogs, 30000);
   }
 }
 
@@ -164,11 +166,15 @@ function queueAuditLog(entry: AuditLogEntry): void {
  * Flush queued audit logs to the server.
  */
 async function flushAuditLogs(): Promise<void> {
+  if (flushTimer !== null) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
   if (auditLogQueue.length === 0) return;
-  
+
   const logs = [...auditLogQueue];
   auditLogQueue = [];
-  
+
   try {
     // Send to API endpoint
     await fetch('/api/audit/batch', {
@@ -185,6 +191,43 @@ async function flushAuditLogs(): Promise<void> {
       auditLogQueue.unshift(...logs);
     }
   }
+}
+
+/**
+ * Flush synchronously on page teardown via sendBeacon, so events queued just
+ * before the user closes the tab or navigates away (logout, role changes, …)
+ * aren't lost — fetch() doesn't survive page unload, sendBeacon does.
+ */
+function flushAuditLogsOnTeardown(): void {
+  if (auditLogQueue.length === 0) return;
+  const logs = [...auditLogQueue];
+
+  if (typeof navigator.sendBeacon === 'function') {
+    const payload = new Blob([JSON.stringify({ logs })], { type: 'application/json' });
+    if (navigator.sendBeacon('/api/audit/batch', payload)) {
+      auditLogQueue = [];
+      if (flushTimer !== null) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+    }
+  }
+}
+
+// Register teardown flushing once (browser production only — matches the
+// queueing condition in logAuditEvent). pagehide covers close/navigate;
+// visibilitychange covers mobile tab-switch, where pagehide may never fire.
+if (
+  typeof window !== 'undefined' &&
+  import.meta.env.PROD &&
+  import.meta.env.VITE_DEV_MODE !== 'true'
+) {
+  window.addEventListener('pagehide', flushAuditLogsOnTeardown);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushAuditLogsOnTeardown();
+    }
+  });
 }
 
 /**

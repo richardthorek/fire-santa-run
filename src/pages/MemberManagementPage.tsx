@@ -21,6 +21,8 @@ import {
   logMemberInvited,
   logMemberApproved,
   logMemberRemoved,
+  logRoleChanged,
+  logAuditEvent,
 } from '../utils/auditLog';
 
 const membershipService = new MembershipService(storageAdapter);
@@ -66,7 +68,7 @@ export function MemberManagementPage() {
       ]);
 
       setBrigade(brigadeData);
-      setMembers(membersData.filter(m => m.status === 'active'));
+      setMembers(membersData.filter(m => m.status === 'active' || m.status === 'suspended'));
       setPendingInvitations(invitationsData);
       setPendingApprovals(approvalsData);
     } catch (err) {
@@ -362,10 +364,20 @@ export function MemberManagementPage() {
                   onPromote={async () => {
                     if (!authUser || !brigadeId) return;
                     if (!confirm('Promote this member to admin? They will have full brigade management permissions.')) return;
-                    
+
                     try {
+                      const targetUser = await storageAdapter.getUser(membership.userId);
                       const result = await membershipService.promoteToAdmin(authUser.id, brigadeId, membership.userId);
                       if (result.success) {
+                        logRoleChanged(
+                          authUser.id,
+                          authUser.email,
+                          membership.userId,
+                          targetUser?.email || 'unknown',
+                          brigadeId,
+                          membership.role,
+                          'admin'
+                        );
                         await loadData();
                       } else {
                         alert(result.error || 'Failed to promote member');
@@ -378,10 +390,20 @@ export function MemberManagementPage() {
                   onDemote={async () => {
                     if (!authUser || !brigadeId) return;
                     if (!confirm('Demote this admin to operator? They will lose admin permissions.')) return;
-                    
+
                     try {
+                      const targetUser = await storageAdapter.getUser(membership.userId);
                       const result = await membershipService.demoteFromAdmin(authUser.id, brigadeId, membership.userId);
                       if (result.success) {
+                        logRoleChanged(
+                          authUser.id,
+                          authUser.email,
+                          membership.userId,
+                          targetUser?.email || 'unknown',
+                          brigadeId,
+                          'admin',
+                          'operator'
+                        );
                         await loadData();
                       } else {
                         alert(result.error || 'Failed to demote admin');
@@ -389,6 +411,53 @@ export function MemberManagementPage() {
                     } catch (err) {
                       console.error('Failed to demote admin:', err);
                       alert('Failed to demote admin');
+                    }
+                  }}
+                  onSuspend={async () => {
+                    if (!authUser || !brigadeId) return;
+                    if (!confirm('Suspend this member? They will lose access until reactivated.')) return;
+
+                    try {
+                      const targetUser = await storageAdapter.getUser(membership.userId);
+                      const result = await membershipService.suspendMember(authUser.id, brigadeId, membership.userId);
+                      if (result.success) {
+                        logAuditEvent('membership.removed', `${authUser.email} suspended ${targetUser?.email || 'unknown'}`, {
+                          userId: authUser.id,
+                          userEmail: authUser.email,
+                          brigadeId,
+                          targetUserId: membership.userId,
+                          metadata: { action: 'suspend', targetEmail: targetUser?.email },
+                        });
+                        await loadData();
+                      } else {
+                        alert(result.error || 'Failed to suspend member');
+                      }
+                    } catch (err) {
+                      console.error('Failed to suspend member:', err);
+                      alert('Failed to suspend member');
+                    }
+                  }}
+                  onReactivate={async () => {
+                    if (!authUser || !brigadeId) return;
+
+                    try {
+                      const targetUser = await storageAdapter.getUser(membership.userId);
+                      const result = await membershipService.reactivateMember(authUser.id, brigadeId, membership.userId);
+                      if (result.success) {
+                        logAuditEvent('membership.approved', `${authUser.email} reactivated ${targetUser?.email || 'unknown'}`, {
+                          userId: authUser.id,
+                          userEmail: authUser.email,
+                          brigadeId,
+                          targetUserId: membership.userId,
+                          metadata: { action: 'reactivate', targetEmail: targetUser?.email },
+                        });
+                        await loadData();
+                      } else {
+                        alert(result.error || 'Failed to reactivate member');
+                      }
+                    } catch (err) {
+                      console.error('Failed to reactivate member:', err);
+                      alert('Failed to reactivate member');
                     }
                   }}
                 />
@@ -544,6 +613,8 @@ function MemberCard({
   onRemove,
   onPromote,
   onDemote,
+  onSuspend,
+  onReactivate,
 }: {
   membership: BrigadeMembership;
   currentUserId?: string;
@@ -551,6 +622,8 @@ function MemberCard({
   onRemove: () => void;
   onPromote: () => void;
   onDemote: () => void;
+  onSuspend: () => void;
+  onReactivate: () => void;
 }) {
   const [user, setUser] = useState<User | null>(null);
 
@@ -559,6 +632,7 @@ function MemberCard({
   }, [membership.userId]);
 
   const isCurrentUser = currentUserId === membership.userId;
+  const isSuspended = membership.status === 'suspended';
 
   return (
     <div style={{
@@ -566,24 +640,76 @@ function MemberCard({
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '1rem',
-      backgroundColor: '#F5F5F5',
+      backgroundColor: isSuspended ? '#FFF3E0' : '#F5F5F5',
       borderRadius: '8px',
-      border: '1px solid #E0E0E0',
+      border: `1px solid ${isSuspended ? '#FFB74D' : '#E0E0E0'}`,
+      opacity: isSuspended ? 0.85 : 1,
     }}>
       <div>
         <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
           {user?.name || 'Loading...'} {isCurrentUser && '(You)'}
+          {isSuspended && (
+            <span style={{
+              marginLeft: '0.5rem',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: '#B26A00',
+              background: '#FFE0B2',
+              padding: '0.15rem 0.5rem',
+              borderRadius: '999px',
+              verticalAlign: 'middle',
+            }}>
+              ⏸ SUSPENDED
+            </span>
+          )}
         </div>
         <div style={{ fontSize: '0.875rem', color: '#616161' }}>
           {user?.email}
+        </div>
+        <div style={{ fontSize: '0.75rem', color: '#9E9E9E', marginTop: '0.25rem' }}>
+          {membership.joinedAt && <>Joined {new Date(membership.joinedAt).toLocaleDateString()}</>}
+          {user?.lastLoginAt && <>{membership.joinedAt ? ' · ' : ''}Last login {new Date(user.lastLoginAt).toLocaleDateString()}</>}
         </div>
         <div style={{ marginTop: '0.5rem' }}>
           <RoleBadge role={membership.role} size="small" />
         </div>
       </div>
       {hasManagePermission && !isCurrentUser && (
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {membership.role !== 'admin' && (
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {isSuspended ? (
+            <button
+              onClick={onReactivate}
+              style={{
+                padding: '0.5rem 1rem',
+                background: COLORS.success,
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              ▶️ Reactivate
+            </button>
+          ) : membership.role !== 'admin' ? (
+            <button
+              onClick={onSuspend}
+              style={{
+                padding: '0.5rem 1rem',
+                background: '#FB8C00',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              ⏸ Suspend
+            </button>
+          ) : null}
+          {!isSuspended && membership.role !== 'admin' && (
             <button
               onClick={onPromote}
               style={{
