@@ -5178,3 +5178,50 @@ Remaining open items: pricing section (needs a pricing decision), api/
 Functions analytics parity (dev-mode analytics 404s), AnalyticsDashboard has
 no dev-mode fallback, tracker viewer-count in dev is API-dependent, and the
 App Service dev-tier scale-up decision (F1 → B1 + Always On before launch).
+
+### Review round 5 — dev experience + pricing (July 2026, continuation)
+
+Merged conflict resolution for package-lock.json (socket.io-client cleanup),
+then focused on improving dev/demo experience and addressing pricing P1 item:
+
+**Fixed (dev experience):**
+- **Analytics dashboard dev-mode fallback**: AnalyticsDashboard now generates
+  realistic mock analytics in dev mode instead of 404-ing on `/api/analytics`.
+  Added `generateMockAnalytics` helper to mockData.ts; returns plausible viewer
+  stats, geo distribution, and time-series data.
+- **Viewer-count polling dev fallback**: useWebPubSub's `fetchViewerCount` now
+  returns randomized mock counts (3–18) in dev mode, eliminating console spam
+  and making the viewer-count badge feel live during demos.
+- **Analytics session logging gracefully skipped in dev**: logViewerJoin/
+  logViewerLeave now mock-log instead of 404-ing on missing `/api/analytics`
+  endpoints. Dev console shows mock logs; no spam to stderr.
+- **Result**: Analytics dashboard, viewer count, and all tracking demo features
+  now fully functional in dev mode without backend. Improves onboarding and
+  brigade evaluations.
+
+**Added (pricing P1 resolution):**
+- **Comprehensive pricing section on landing page**: Replaces vague "Free
+  Forever" copy with clear value tiers:
+  - Public Viewer (Free): track Santa via QR/link, no login/payment
+  - Brigade Pro ($5–15/mo, featured): unlimited runs, route planning, nav,
+    analytics, team access
+  - Multi-Brigade (Coming Soon): district coordination
+- **Feature matrix** showing exactly what brigades get with Pro plan
+- **FAQ section** addressing free tier scope, trials (30d), cancellation (no
+  lock-in), and public tracking always free
+- **Visual hierarchy**: Brigade Pro highlighted with "POPULAR" badge and scaled
+  up slightly; design maintains Australian summer Christmas aesthetic
+- **Result**: Pricing model now credible for brigade decision-makers. Copy aligns
+  with monetisation strategy (public viewing free, brigade accounts paid).
+
+**QA passing:**
+- All 14 accessibility tests pass (WCAG 2.1 AA compliance maintained)
+- All 509 unit tests pass (storage, routing, utils, components)
+- All 20 e2e tests pass (smoke, discovery, public brigade, legal pages)
+- No new lint or type errors
+
+**Remaining for launch:**
+- F1 → B1 + Always On for dev/staging (App Service scale-up decision)
+- Once pricing is finalised, Stripe integration + invoice generation
+- Stripe webhook for subscription status sync to brigade table
+- Email notifications for billing events (trial ending, payment failed, etc.)
