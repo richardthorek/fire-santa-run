@@ -164,6 +164,25 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     setSaveError(null);
 
     try {
+      // Multi-operator conflict detection: warn if someone else saved this
+      // route since we loaded it (last-edit-wins after confirmation).
+      try {
+        const stored = await getRoute(route.id);
+        if (stored?.updatedAt && stored.updatedAt !== route.updatedAt) {
+          const who = stored.lastEditedBy?.userName || 'Another member';
+          const overwrite = confirm(
+            `${who} saved changes to this route while you were editing. ` +
+            'Saving now will overwrite their changes. Continue?'
+          );
+          if (!overwrite) {
+            setIsSaving(false);
+            return;
+          }
+        }
+      } catch {
+        // Conflict check is best-effort; never block saving on it
+      }
+
       const routeToSave: Route = {
         ...route,
         status: shouldPublish ? 'published' : route.status,
@@ -185,7 +204,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [route, validate, saveRoute, navigate]);
+  }, [route, validate, saveRoute, getRoute, navigate]);
 
   const handleSaveAsTemplate = useCallback(async () => {
     if (!route.name.trim()) {

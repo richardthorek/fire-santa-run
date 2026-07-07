@@ -46,6 +46,11 @@ function entityToRoute(entity: any) {
     qrCodeUrl: entity.qrCodeUrl,
     viewCount: entity.viewCount || 0,
     archivedAt: entity.archivedAt || undefined,
+    navigationSettings: entity.navigationSettings ? JSON.parse(entity.navigationSettings) : undefined,
+    rerouteCount: entity.rerouteCount || 0,
+    updatedAt: entity.updatedAt || undefined,
+    lastEditedBy: entity.lastEditedBy ? JSON.parse(entity.lastEditedBy) : undefined,
+    comments: entity.comments ? JSON.parse(entity.comments) : undefined,
   };
 }
 
@@ -74,6 +79,11 @@ function routeToEntity(route: any) {
     qrCodeUrl: route.qrCodeUrl || '',
     viewCount: route.viewCount || 0,
     archivedAt: route.archivedAt || '',
+    navigationSettings: route.navigationSettings ? JSON.stringify(route.navigationSettings) : '',
+    rerouteCount: route.rerouteCount || 0,
+    updatedAt: route.updatedAt || '',
+    lastEditedBy: route.lastEditedBy ? JSON.stringify(route.lastEditedBy) : '',
+    comments: route.comments ? JSON.stringify(route.comments) : '',
   };
 }
 

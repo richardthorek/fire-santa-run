@@ -2,17 +2,23 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRoutes } from '../hooks';
 import { useTileCache } from '../hooks/useTileCache';
-import { 
-  MapView, 
-  RouteStatusBadge, 
-  ShareModal, 
+import { useAuth } from '../context';
+import {
+  MapView,
+  RouteStatusBadge,
+  ShareModal,
   RoutePreviewModal,
-  SEO, 
-  LoadingSkeleton
+  SEO,
+  LoadingSkeleton,
+  ExportMenu,
+  RouteComments
 } from '../components';
 import type { Route } from '../types';
+import type { Brigade } from '../storage/types';
+import { storageAdapter } from '../storage';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { duplicateRoute } from '../utils/routeHelpers';
+import { predictRouteDuration, CONFIDENCE_LABELS } from '../utils/etaPrediction';
 import { format } from 'date-fns';
 import { COLORS, FLOATING_PANEL, Z_INDEX } from '../utils/constants';
 
@@ -22,8 +28,11 @@ export interface RouteDetailProps {
 
 export function RouteDetail({ routeId }: RouteDetailProps) {
   const navigate = useNavigate();
-  const { getRoute, deleteRoute, saveRoute, archiveRoute, restoreRoute } = useRoutes();
+  const { routes, getRoute, deleteRoute, saveRoute, archiveRoute, restoreRoute } = useRoutes();
+  const { user } = useAuth();
   const [route, setRoute] = useState<Route | null>(null);
+  const [brigade, setBrigade] = useState<Brigade | null>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -45,6 +54,9 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
       try {
         const loadedRoute = await getRoute(routeId);
         setRoute(loadedRoute);
+        if (loadedRoute?.brigadeId) {
+          storageAdapter.getBrigade(loadedRoute.brigadeId).then(setBrigade).catch(() => setBrigade(null));
+        }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to load route');
         setError(error);
@@ -132,9 +144,15 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
       updatedRoute.startedAt = new Date().toISOString();
     }
     
-    // If completing, set completedAt timestamp
+    // If completing, set completedAt timestamp and record the actual duration
+    // so the predictive ETA model (#145) learns from this run
     if (newStatus === 'completed' && !route.completedAt) {
       updatedRoute.completedAt = new Date().toISOString();
+      if (!updatedRoute.actualDuration && route.startedAt) {
+        updatedRoute.actualDuration = Math.round(
+          (Date.now() - new Date(route.startedAt).getTime()) / 1000
+        );
+      }
     }
     
     setRoute(updatedRoute);
@@ -196,6 +214,10 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
 
   const canNavigate = route.geometry && route.navigationSteps && route.navigationSteps.length > 0;
   const canShare = route.status === 'published' || route.status === 'active' || route.status === 'completed';
+  // Predictive ETA (#145): adjust the estimate using the brigade's completed-run history
+  const etaPrediction = route.status !== 'completed' && route.status !== 'archived'
+    ? predictRouteDuration(route, routes)
+    : null;
 
   return (
     <>
@@ -333,6 +355,19 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               </div>
               <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>Duration</div>
             </div>
+            {etaPrediction && (
+              <div style={{ textAlign: 'center' }} title={CONFIDENCE_LABELS[etaPrediction.confidence]}>
+                <div style={{ fontWeight: 600, color: COLORS.oceanBlue, fontSize: '1.25rem' }}>
+                  {formatDuration(etaPrediction.duration)}
+                  <span aria-hidden="true" style={{ fontSize: '0.75rem', marginLeft: '0.25rem' }}>
+                    {etaPrediction.confidence === 'high' ? '●●●' : etaPrediction.confidence === 'medium' ? '●●○' : '●○○'}
+                  </span>
+                </div>
+                <div style={{ color: COLORS.neutral700, fontSize: '0.75rem' }}>
+                  Predicted ({etaPrediction.sampleCount} past run{etaPrediction.sampleCount === 1 ? '' : 's'})
+                </div>
+              </div>
+            )}
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontWeight: 600, color: COLORS.neutral900, fontSize: '1.25rem' }}>
                 {route.date ? format(new Date(route.date), 'MMM dd') : '—'}
@@ -447,7 +482,22 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                 {route.archivedAt && (
                   <div>📦 Archived: {format(new Date(route.archivedAt), 'MMM dd, h:mm a')}</div>
                 )}
+                {route.lastEditedBy && (
+                  <div>✏️ Last edited by {route.lastEditedBy.userName}: {format(new Date(route.lastEditedBy.at), 'MMM dd, h:mm a')}</div>
+                )}
               </div>
+            </div>
+
+            {/* Comments (#151 — brigade collaboration) */}
+            <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: `1px solid ${COLORS.neutral200}` }}>
+              <RouteComments
+                route={route}
+                currentUser={user ? { id: user.id, name: user.name || user.email } : null}
+                onSave={async (updated) => {
+                  await saveRoute(updated);
+                  setRoute(updated);
+                }}
+              />
             </div>
           </div>
         )}
@@ -627,6 +677,32 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               }}
             >
               📊 Analytics
+            </button>
+
+            {/* Export Button */}
+            <button
+              onClick={() => setExportMenuOpen(true)}
+              style={{
+                padding: '0.875rem 1rem',
+                background: 'white',
+                color: COLORS.neutral900,
+                border: `2px solid ${COLORS.neutral300}`,
+                borderRadius: FLOATING_PANEL.borderRadius.button,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = COLORS.christmasGreen;
+                e.currentTarget.style.color = COLORS.christmasGreen;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = COLORS.neutral300;
+                e.currentTarget.style.color = COLORS.neutral900;
+              }}
+            >
+              📤 Export
             </button>
           </div>
 
@@ -906,6 +982,15 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
           route={route}
           isOpen={true}
           onClose={() => setShareModalOpen(false)}
+        />
+      )}
+
+      {/* Export Menu Modal */}
+      {exportMenuOpen && (
+        <ExportMenu
+          route={route}
+          brigade={brigade}
+          onClose={() => setExportMenuOpen(false)}
         />
       )}
 

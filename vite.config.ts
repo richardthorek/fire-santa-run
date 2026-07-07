@@ -47,21 +47,32 @@ export default defineConfig(( env: ConfigEnv ): UserConfig => {
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            // Split React and React-DOM into separate chunk
-            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-            // Split Mapbox (large mapping library) into separate chunk
-            'mapbox': ['mapbox-gl', '@mapbox/mapbox-gl-geocoder', '@mapbox/mapbox-gl-draw'],
-            // Auth SDK is needed at boot (session restore), so it gets its own
-            // chunk — kept separate from the Tables SDK, which browsers only
-            // reach via the lazy storage adapter and should never download.
-            'azure-auth': ['@azure/msal-browser', '@azure/msal-react'],
-            'azure-data': ['@azure/data-tables'],
-            'realtime': ['@azure/web-pubsub-client'],
-            // Split UI libraries into separate chunk
-            'ui-libs': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities', 'qrcode.react'],
-            // Split date utilities
-            'date-utils': ['date-fns'],
+          // Vite 8 (Rolldown) only accepts the function form of manualChunks;
+          // the object form fails type-checking and the build.
+          manualChunks: (id: string) => {
+            if (!id.includes('node_modules')) return undefined;
+            const chunkGroups: Record<string, string[]> = {
+              // Split React and React-DOM into separate chunk
+              'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+              // Split Mapbox (large mapping library) into separate chunk
+              'mapbox': ['mapbox-gl', '@mapbox/mapbox-gl-geocoder', '@mapbox/mapbox-gl-draw'],
+              // Auth SDK is needed at boot (session restore), so it gets its own
+              // chunk — kept separate from the Tables SDK, which browsers only
+              // reach via the lazy storage adapter and should never download.
+              'azure-auth': ['@azure/msal-browser', '@azure/msal-react'],
+              'azure-data': ['@azure/data-tables'],
+              'realtime': ['@azure/web-pubsub-client'],
+              // Split UI libraries into separate chunk
+              'ui-libs': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities', 'qrcode.react'],
+              // Split date utilities
+              'date-utils': ['date-fns'],
+            };
+            for (const [chunk, packages] of Object.entries(chunkGroups)) {
+              if (packages.some((pkg) => id.includes(`node_modules/${pkg}/`))) {
+                return chunk;
+              }
+            }
+            return undefined;
           },
         },
       },

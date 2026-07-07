@@ -458,9 +458,83 @@ export class MembershipService {
   }
 
   /**
+   * Suspend an active member (admin only).
+   * Suspended members keep their record but lose access until reactivated.
+   * Admins cannot be suspended — demote them first.
+   *
+   * @param adminId - Admin performing the suspension
+   * @param brigadeId - Brigade ID
+   * @param userId - Member to suspend
+   * @returns Service result
+   */
+  async suspendMember(
+    adminId: string,
+    brigadeId: string,
+    userId: string
+  ): Promise<ServiceResult> {
+    const adminMembership = await this.storage.getMembership(brigadeId, adminId);
+    if (!adminMembership || adminMembership.role !== 'admin') {
+      return { success: false, error: 'Only admins can suspend members' };
+    }
+    if (adminId === userId) {
+      return { success: false, error: 'You cannot suspend yourself' };
+    }
+
+    const membership = await this.storage.getMembership(brigadeId, userId);
+    if (!membership) {
+      return { success: false, error: 'Membership not found' };
+    }
+    if (membership.role === 'admin') {
+      return { success: false, error: 'Admins cannot be suspended — demote them first' };
+    }
+    if (membership.status !== 'active') {
+      return { success: false, error: 'Only active members can be suspended' };
+    }
+
+    membership.status = 'suspended';
+    membership.updatedAt = new Date().toISOString();
+    await this.storage.saveMembership(membership);
+
+    return { success: true };
+  }
+
+  /**
+   * Reactivate a suspended member (admin only).
+   *
+   * @param adminId - Admin performing the reactivation
+   * @param brigadeId - Brigade ID
+   * @param userId - Member to reactivate
+   * @returns Service result
+   */
+  async reactivateMember(
+    adminId: string,
+    brigadeId: string,
+    userId: string
+  ): Promise<ServiceResult> {
+    const adminMembership = await this.storage.getMembership(brigadeId, adminId);
+    if (!adminMembership || adminMembership.role !== 'admin') {
+      return { success: false, error: 'Only admins can reactivate members' };
+    }
+
+    const membership = await this.storage.getMembership(brigadeId, userId);
+    if (!membership) {
+      return { success: false, error: 'Membership not found' };
+    }
+    if (membership.status !== 'suspended') {
+      return { success: false, error: 'Only suspended members can be reactivated' };
+    }
+
+    membership.status = 'active';
+    membership.updatedAt = new Date().toISOString();
+    await this.storage.saveMembership(membership);
+
+    return { success: true };
+  }
+
+  /**
    * Leave a brigade (self-service).
    * Validates that leaving won't violate admin constraints.
-   * 
+   *
    * @param userId - User leaving the brigade
    * @param brigadeId - Brigade to leave
    * @returns Service result
