@@ -17,7 +17,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { storageAdapter } from '../storage';
 import { canEditBrigadeSettings } from '../utils/permissions';
 import { safeImageSrc } from '../utils/publicBrigade';
-import { AppLayout, SEO } from '../components';
+import { AppLayout, SEO, BillingPanel } from '../components';
 import type { Brigade } from '../storage/types';
 import './BrigadeSettingsPage.css';
 
@@ -372,6 +372,9 @@ export function BrigadeSettingsPage() {
               </div>
             </div>
           </section>
+
+          {/* Subscription & billing */}
+          <BillingPanel brigade={brigade} />
 
           {/* Save */}
           <div className="bsp__actions">

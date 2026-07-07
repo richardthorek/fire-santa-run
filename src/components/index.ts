@@ -24,6 +24,8 @@ export { HighlightedText } from './HighlightedText';
 export { RoutePreviewModal } from './RoutePreviewModal';
 export { OfflineBanner } from './OfflineBanner';
 export { SubscriptionBanner } from './SubscriptionBanner';
+export { BillingPanel } from './BillingPanel';
+export type { BillingPanelProps } from './BillingPanel';
 export { SyncStatusBanner } from './SyncStatusBanner';
 export { InstallBanner } from './InstallBanner';
 export { ErrorBoundary } from './ErrorBoundary';
