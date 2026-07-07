@@ -1,4 +1,4 @@
-import type { Route } from '../types';
+import type { Route, RouteAnalytics } from '../types';
 import type { Brigade } from '../storage';
 import type { BrigadeMembership } from '../types/membership';
 
@@ -228,4 +228,41 @@ export async function initializeMockData(
 
   localStorage.setItem(MOCK_SEED_VERSION_KEY, MOCK_SEED_VERSION);
   console.log('Mock data initialized successfully');
+}
+
+/**
+ * Generate mock analytics for a route (dev mode only).
+ * Provides realistic demo data for the analytics dashboard.
+ */
+export function generateMockAnalytics(routeId: string): RouteAnalytics {
+  const baseTime = Date.now() - 24 * 60 * 60 * 1000; // Last 24 hours
+
+  return {
+    routeId,
+    brigadeId: 'dev-brigade-1',
+    totalViews: 247,
+    uniqueViewers: 185,
+    peakConcurrentViewers: 18,
+    totalViewDuration: 3600, // seconds
+    averageViewDuration: 15 * 60, // 15 minutes average
+    viewersBySource: {
+      direct: 89,
+      qr_code: 104,
+      social: 32,
+      search: 18,
+      other: 4,
+    },
+    viewersByLocation: [
+      { country: 'Australia', city: 'Griffith', count: 210 },
+      { country: 'Australia', city: 'Sydney', count: 18 },
+      { country: 'Australia', city: 'Melbourne', count: 12 },
+      { country: 'Australia', city: 'Brisbane', count: 5 },
+      { country: 'United States', city: 'New York', count: 2 },
+    ],
+    viewsOverTime: Array.from({ length: 24 }, (_, i) => ({
+      timestamp: new Date(baseTime + i * 60 * 60 * 1000).toISOString(),
+      count: Math.floor(Math.random() * 20) + 5,
+    })),
+    lastUpdated: new Date().toISOString(),
+  };
 }

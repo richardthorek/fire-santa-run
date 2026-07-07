@@ -5,6 +5,7 @@ import { SEO, AppLayout } from '../components';
 import { useBrigade } from '../context';
 import type { RouteAnalytics } from '../types';
 import { formatDuration } from '../utils/mapbox';
+import { generateMockAnalytics } from '../utils/mockData';
 
 const COLORS = ['#D32F2F', '#FFA726', '#43A047', '#1976D2', '#7B1FA2', '#00796B'];
 
@@ -23,13 +24,21 @@ export function AnalyticsDashboard() {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/analytics/routes/${routeId}`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch analytics: ${response.statusText}`);
-        }
+        const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 
-        const data = await response.json();
-        setAnalytics(data);
+        if (isDevMode) {
+          // Use mock analytics in dev mode
+          const mockData = generateMockAnalytics(routeId);
+          setAnalytics(mockData);
+        } else {
+          const response = await fetch(`/api/analytics/routes/${routeId}`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch analytics: ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          setAnalytics(data);
+        }
       } catch (err) {
         console.error('Error fetching analytics:', err);
         setError(err instanceof Error ? err.message : 'Failed to load analytics');

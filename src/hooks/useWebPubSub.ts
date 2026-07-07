@@ -67,10 +67,16 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     if (typeof document !== 'undefined' && document.hidden) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/analytics/routes/${routeId}/viewer-count`);
-      if (response.ok) {
-        const data = await response.json();
-        setState(prev => ({ ...prev, viewerCount: data.count }));
+      if (isDevMode) {
+        // Mock viewer count in dev mode (realistic demo data)
+        const mockCount = Math.floor(Math.random() * 15) + 3;
+        setState(prev => ({ ...prev, viewerCount: mockCount }));
+      } else {
+        const response = await fetch(`${API_BASE_URL}/analytics/routes/${routeId}/viewer-count`);
+        if (response.ok) {
+          const data = await response.json();
+          setState(prev => ({ ...prev, viewerCount: data.count }));
+        }
       }
     } catch (error) {
       console.error('[ViewerCount] Failed to fetch viewer count:', error);
@@ -84,18 +90,23 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     if (role !== 'viewer') return;
 
     try {
-      await fetch(`${API_BASE_URL}/analytics/viewer-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          routeId,
-          sessionId: sessionIdRef.current,
-          joinedAt: new Date().toISOString(),
-          userAgent: navigator.userAgent,
-          shareSource: shareSource || 'direct',
-        }),
-      });
-      console.log('[Analytics] Viewer session join logged:', sessionIdRef.current);
+      if (isDevMode) {
+        // Mock log in dev mode
+        console.log('[Analytics] Viewer session join (mock):', sessionIdRef.current);
+      } else {
+        await fetch(`${API_BASE_URL}/analytics/viewer-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            routeId,
+            sessionId: sessionIdRef.current,
+            joinedAt: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            shareSource: shareSource || 'direct',
+          }),
+        });
+        console.log('[Analytics] Viewer session join logged:', sessionIdRef.current);
+      }
     } catch (error) {
       console.error('[Analytics] Failed to log viewer join:', error);
     }
@@ -110,17 +121,22 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     const viewDuration = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000);
 
     try {
-      await fetch(`${API_BASE_URL}/analytics/viewer-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          routeId,
-          sessionId: sessionIdRef.current,
-          leftAt: new Date().toISOString(),
-          viewDuration,
-        }),
-      });
-      console.log('[Analytics] Viewer session leave logged:', sessionIdRef.current, 'Duration:', viewDuration, 'seconds');
+      if (isDevMode) {
+        // Mock log in dev mode
+        console.log('[Analytics] Viewer session leave (mock):', sessionIdRef.current, 'Duration:', viewDuration, 'seconds');
+      } else {
+        await fetch(`${API_BASE_URL}/analytics/viewer-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            routeId,
+            sessionId: sessionIdRef.current,
+            leftAt: new Date().toISOString(),
+            viewDuration,
+          }),
+        });
+        console.log('[Analytics] Viewer session leave logged:', sessionIdRef.current, 'Duration:', viewDuration, 'seconds');
+      }
     } catch (error) {
       console.error('[Analytics] Failed to log viewer leave:', error);
     }
