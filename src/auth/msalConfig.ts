@@ -110,9 +110,9 @@ export const msalConfig: Configuration = {
     // Post-logout redirect URI (optional)
     // If not set, user is redirected to authority's default logout page
     postLogoutRedirectUri: window.location.origin,
-    
-    // Navigate to login request page after logout
-    navigateToLoginRequestUrl: false,
+
+    // Note (MSAL v5): `navigateToLoginRequestUrl` moved out of config and is now
+    // passed to `handleRedirectPromise({ navigateToLoginRequestUrl })` in main.tsx.
   },
   cache: {
     // Use sessionStorage for token cache
@@ -120,11 +120,10 @@ export const msalConfig: Configuration = {
     // sessionStorage: Tokens cleared when tab/browser closes (more secure)
     // localStorage: Tokens persist across browser sessions (better UX)
     cacheLocation: BrowserCacheLocation.SessionStorage,
-    
-    // Store auth state in cookies for SSO scenarios and iOS Safari compatibility
-    // Enables silent single sign-on across browser tabs
-    // IMPORTANT: Required for iOS Safari with Intelligent Tracking Prevention (ITP)
-    storeAuthStateInCookie: true, // Enable for iOS Safari compatibility
+
+    // Note (MSAL v5): `storeAuthStateInCookie` was removed from CacheOptions.
+    // Secure auth-state cookies are now handled automatically (HTTPS-only),
+    // which preserves the prior iOS Safari / ITP SSO behaviour.
   },
   system: {
     // Configure logging for debugging
@@ -165,11 +164,12 @@ export const msalConfig: Configuration = {
       piiLoggingEnabled: false, // NEVER enable PII logging in production
     },
     
-    // Window options for popup authentication (if using loginPopup)
-    windowHashTimeout: 60000,
-    iframeHashTimeout: 6000,
-    loadFrameTimeout: 0,
-    
+    // Bridge timeouts for popup/iframe auth (MSAL v5 renamed these from
+    // windowHashTimeout/iframeHashTimeout; they now bound how long MSAL waits
+    // for a response from the redirect bridge over the BroadcastChannel API).
+    popupBridgeTimeout: 60000,
+    iframeBridgeTimeout: 6000,
+
     // Allow redirects to originate from iframe
     allowRedirectInIframe: false,
   },

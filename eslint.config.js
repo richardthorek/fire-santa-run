@@ -29,6 +29,24 @@ export default defineConfig([
           caughtErrorsIgnorePattern: '^_',
         },
       ],
+
+      // --- Deferred: rules newly promoted to "recommended" by the June 2026 ---
+      // dependency consolidation (ESLint 9→10 and eslint-plugin-react-hooks
+      // 7.0→7.1). They flag a pre-existing baseline across ~13 files and are
+      // unrelated to the dependency upgrades themselves. They are kept as
+      // warnings (still visible in lint output) rather than blocking errors so
+      // this consolidation stays focused; a dedicated lint-cleanup pass is
+      // tracked in MASTER_PLAN.md §29.
+      //
+      // ESLint 10 core additions:
+      'preserve-caught-error': 'warn',
+      'no-useless-assignment': 'warn',
+      // eslint-plugin-react-hooks 7.1 React Compiler diagnostics:
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/refs': 'warn',
     },
   },
 ])
