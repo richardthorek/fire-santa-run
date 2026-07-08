@@ -116,9 +116,11 @@ export function AppHeader({ show = true }: AppHeaderProps) {
               border: `1px solid ${COLORS.neutral300}`,
               borderRadius: '8px',
               backgroundColor: 'white',
+              color: COLORS.neutral900,
               cursor: 'pointer',
               transition: 'all 0.2s',
               fontWeight: 500,
+              boxShadow: 'none',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = COLORS.neutral50;
@@ -297,6 +299,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
                     cursor: 'pointer',
                     textAlign: 'left',
                     transition: 'background-color 0.2s',
+                    boxShadow: 'none',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = COLORS.neutral100;

@@ -485,6 +485,11 @@ async function changeMemberRole(request: HttpRequest, context: InvocationContext
 // GET /api/brigades/{brigadeId}/members/pending
 async function getPendingMembers(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+
     const brigadeId = request.params.brigadeId;
 
     if (!brigadeId) {
@@ -492,6 +497,11 @@ async function getPendingMembers(request: HttpRequest, context: InvocationContex
         status: 400,
         jsonBody: { error: 'Missing required parameter: brigadeId' }
       };
+    }
+
+    const permissionCheck = await checkBrigadePermission(authResult.userId!, brigadeId, 'view_members', getUserMembership);
+    if (!permissionCheck.authorized) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' } };
     }
 
     const client = await getMembershipsTableClient();

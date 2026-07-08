@@ -88,18 +88,29 @@ body {
   overflow: auto;
 }
 
+/* Full-viewport map screens. Prefers dynamic viewport units (100dvh) so the
+ * layout tracks mobile browsers' collapsing URL bars — with 100vh the bottom
+ * sheet can end up hidden below the visible viewport on iOS Safari. */
+.full-viewport {
+  height: 100vh;
+  height: 100dvh;
+}
+
 body {
   min-width: 320px;
   background-color: var(--neutral-50);
   color: var(--neutral-900);
 }
 
-/* Typography - Australian Summer Style */
+/* Typography - Australian Summer Style
+ * Headings INHERIT color: the :root already provides the dark default, and
+ * forcing var(--neutral-900) here silently overrode `color: white` set on
+ * red hero/header sections — titles rendered dark-on-red across the app. */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: 700;
   line-height: 1.2;
-  color: var(--neutral-900);
+  color: inherit;
   margin: 0;
 }
 
@@ -128,7 +139,14 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Buttons - Modern Festive Style */
+/* Buttons - Modern Festive Style
+ *
+ * IMPORTANT: the default background must be a flat `background-color`, NOT a
+ * gradient. A gradient is a background-IMAGE, which paints on top of any
+ * inline `backgroundColor` a component sets — that bug made "white" buttons
+ * render red-on-red (header Share button, Mapbox map controls). Components
+ * that want the gradient look opt in with .btn-primary or an inline
+ * `background` shorthand. */
 button {
   border-radius: var(--border-radius-sm);
   border: none;
@@ -136,7 +154,7 @@ button {
   font-size: 1rem;
   font-weight: 600;
   font-family: var(--font-body);
-  background: linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%);
+  background-color: var(--fire-red);
   color: white;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -158,6 +176,42 @@ button:focus,
 button:focus-visible {
   outline: 3px solid var(--summer-gold-dark);
   outline-offset: 2px;
+}
+
+/* ===== MAPBOX CONTROL OVERRIDES =====
+ * Mapbox GL's zoom/compass/geolocate buttons only reset background-color, so
+ * the app-wide button defaults (padding, red background, lift-on-hover,
+ * red shadow) leaked in and made the control icons unreadable. Reset them
+ * here and restyle the control group to match the design system. */
+.mapboxgl-ctrl button,
+.mapboxgl-ctrl button:hover,
+.mapboxgl-ctrl button:active {
+  background-color: transparent;
+  background-image: none;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+  transition: background-color 0.2s ease;
+}
+.mapboxgl-ctrl button:hover {
+  background-color: var(--neutral-100);
+}
+.mapboxgl-ctrl button:focus-visible {
+  outline: 2px solid var(--summer-gold-dark);
+  outline-offset: -2px;
+}
+.mapboxgl-ctrl-group {
+  border-radius: var(--border-radius-xs);
+  overflow: hidden;
+  box-shadow: var(--ui-shadow-soft);
+}
+
+/* Mapbox popups — match the app's rounded, soft-shadow card language */
+.mapboxgl-popup-content {
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--ui-shadow-soft);
+  font-family: var(--font-body);
 }
 
 /* Smooth transitions for interactive elements */
@@ -391,6 +445,21 @@ input:focus, select:focus, textarea:focus {
 .btn-danger:not(:disabled):hover {
   background-color: #9A0007;
   box-shadow: 0 6px 16px rgba(183, 28, 28, 0.4);
+}
+
+/* Plain Button - fully neutralises the global button defaults. For toggle
+ * rows, sheet headers, icon buttons — anything that isn't a CTA. */
+.btn-plain,
+.btn-plain:hover,
+.btn-plain:active {
+  background: none;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+  font-weight: inherit;
+  font-size: inherit;
 }
 
 /* Ghost Button - Transparent, colored text, minimal styling */

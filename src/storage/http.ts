@@ -6,6 +6,42 @@ import type { MemberInvitation } from '../types/invitation';
 import type { AdminVerificationRequest } from '../types/verification';
 import type { PublicClientApplication } from '@azure/msal-browser';
 import { tokenRequest } from '../auth/msalConfig';
+import { getApiAuthHeaders } from '../auth/apiToken';
+
+/** Error thrown by route writes, tagging the HTTP status so callers can react
+ *  (e.g. the editor shows a subscribe prompt on 402, a permissions note on 403). */
+export class RouteWriteError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'RouteWriteError';
+    this.status = status;
+  }
+}
+
+/** Build a friendly, status-aware error for a failed route create/update. */
+async function routeWriteError(response: Response, verb: 'create' | 'update'): Promise<RouteWriteError> {
+  let serverMessage = '';
+  try {
+    const body = await response.clone().json();
+    serverMessage = typeof body?.message === 'string' ? body.message : '';
+  } catch {
+    // Non-JSON error body — fall back to status text.
+  }
+  if (response.status === 402) {
+    return new RouteWriteError(
+      serverMessage || 'An active brigade subscription is required to plan routes.',
+      402,
+    );
+  }
+  if (response.status === 403) {
+    return new RouteWriteError(
+      serverMessage || 'You do not have permission to change this brigade’s routes.',
+      403,
+    );
+  }
+  return new RouteWriteError(serverMessage || `Failed to ${verb} route: ${response.statusText}`, response.status);
+}
 
 // Access token helper for API calls in production mode.
 async function getAccessToken(): Promise<string | null> {
@@ -196,7 +232,7 @@ export class HttpStorageAdapter implements IStorageAdapter {
         body: JSON.stringify(route),
       });
       if (!response.ok) {
-        throw new Error(`Failed to update route: ${response.statusText}`);
+        throw await routeWriteError(response, 'update');
       }
     } else {
       // Create
@@ -207,7 +243,7 @@ export class HttpStorageAdapter implements IStorageAdapter {
         body: JSON.stringify(route),
       });
       if (!response.ok) {
-        throw new Error(`Failed to create route: ${response.statusText}`);
+        throw await routeWriteError(response, 'create');
       }
     }
   }
@@ -432,7 +468,9 @@ export class HttpStorageAdapter implements IStorageAdapter {
   }
 
   async getUser(userId: string): Promise<User | null> {
-    const response = await fetch(`${this.apiBaseUrl}/users/${encodeURIComponent(userId)}`);
+    const response = await fetch(`${this.apiBaseUrl}/users/${encodeURIComponent(userId)}`, {
+      headers: await getApiAuthHeaders(),
+    });
     if (response.status === 404) {
       return null;
     }
@@ -443,7 +481,9 @@ export class HttpStorageAdapter implements IStorageAdapter {
   }
 
   async getUserByEmail(email: string): Promise<User | null> {
-    const response = await fetch(`${this.apiBaseUrl}/users/by-email/${encodeURIComponent(email)}`);
+    const response = await fetch(`${this.apiBaseUrl}/users/by-email/${encodeURIComponent(email)}`, {
+      headers: await getApiAuthHeaders(),
+    });
     if (response.status === 404) {
       return null;
     }
@@ -471,7 +511,9 @@ export class HttpStorageAdapter implements IStorageAdapter {
   }
 
   async getMembershipsByUser(userId: string): Promise<BrigadeMembership[]> {
-    const response = await fetch(`${this.apiBaseUrl}/users/${encodeURIComponent(userId)}/memberships`);
+    const response = await fetch(`${this.apiBaseUrl}/users/${encodeURIComponent(userId)}/memberships`, {
+      headers: await getApiAuthHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch user memberships: ${response.statusText}`);
     }
@@ -479,7 +521,9 @@ export class HttpStorageAdapter implements IStorageAdapter {
   }
 
   async getMembershipsByBrigade(brigadeId: string): Promise<BrigadeMembership[]> {
-    const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigadeId)}/members`);
+    const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigadeId)}/members`, {
+      headers: await getApiAuthHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch brigade memberships: ${response.statusText}`);
     }
@@ -487,7 +531,9 @@ export class HttpStorageAdapter implements IStorageAdapter {
   }
 
   async getPendingMembershipsByBrigade(brigadeId: string): Promise<BrigadeMembership[]> {
-    const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigadeId)}/members/pending`);
+    const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigadeId)}/members/pending`, {
+      headers: await getApiAuthHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch pending brigade memberships: ${response.statusText}`);
     }

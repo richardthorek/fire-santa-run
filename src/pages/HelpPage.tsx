@@ -14,13 +14,13 @@ export function HelpPage() {
     <div className="static-page">
       <SEO
         title="How to Track Santa"
-        description="A quick guide for families on how to follow your local RFS brigade's Santa run live."
+        description="A quick guide for families on how to follow your local Santa run live."
       />
       <div className="static-page__container">
         <Link to="/" className="static-page__back">← Back to home</Link>
         <h1 className="static-page__title">🎅 How to Track Santa</h1>
         <p className="static-page__intro">
-          Following your local Rural Fire Service Santa run is free and easy — no app
+          Following your local Santa run is free and easy — no app
           download or sign-in required.
         </p>
 

@@ -255,10 +255,10 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
 
   return (
     <div
+      className="full-viewport"
       style={{
         position: 'relative',
         width: '100vw',
-        height: '100vh',
         overflow: 'hidden',
       }}
     >

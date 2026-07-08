@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useRoutes } from '../hooks';
-import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist, ImportModal, ExportMenu } from '../components';
+import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist, ImportModal, ExportMenu, SubscriptionBanner } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import {
@@ -20,7 +20,19 @@ import { format } from 'date-fns';
 export function Dashboard() {
   const navigate = useNavigate();
   const { routes, isLoading, error, archiveRoute, restoreRoute, saveRoute } = useRoutes();
-  const { brigade } = useBrigade();
+  const { brigade, refreshBrigade, isEntitled } = useBrigade();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Returning from Stripe Checkout: refresh the brigade so the webhook-updated
+  // subscription state is reflected, then clear the query param.
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      refreshBrigade();
+      const next = new URLSearchParams(searchParams);
+      next.delete('checkout');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams, refreshBrigade]);
   const [filterStatus, setFilterStatus] = useState<RouteStatus | 'all'>('all');
   const [shareModalRoute, setShareModalRoute] = useState<Route | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -170,7 +182,7 @@ export function Dashboard() {
 
   return (
     <>
-      <SEO title="Dashboard" description="Manage your Santa Run routes - Plan and track Christmas Eve routes for your Rural Fire Service brigade" />
+      <SEO title="Dashboard" description="Manage your Santa Run routes - Plan and track Christmas routes for your brigade or community group" />
       <AppLayout>
       <div style={{ 
       width: '100%', 
@@ -186,6 +198,9 @@ export function Dashboard() {
       <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
         {/* Christmas Lights Divider at top */}
         <div className="christmas-lights" style={{ marginBottom: '2rem' }} />
+
+        {/* Subscription prompt — shown when the brigade is not entitled */}
+        <SubscriptionBanner />
 
         {/* Onboarding checklist — shows once until dismissed (manages its own visibility) */}
         {brigade && <OnboardingChecklist brigade={brigade} routes={routes} />}
@@ -215,33 +230,58 @@ export function Dashboard() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <Link
-          to="/routes/new"
-          aria-label="Create new Santa Run route"
-          style={{
-            padding: '0.875rem 1.75rem',
-            background: 'linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%)',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: 'var(--border-radius-sm)',
-            fontWeight: 700,
-            fontFamily: 'var(--font-body)',
-            boxShadow: '0 4px 12px rgba(211, 47, 47, 0.3)',
-            transition: 'all 0.3s ease',
-            display: 'inline-block',
-            fontSize: '1rem',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 6px 16px rgba(211, 47, 47, 0.4)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(211, 47, 47, 0.3)';
-          }}
-        >
-          <span aria-hidden="true">➕</span> Create New Route
-        </Link>
+        {isEntitled ? (
+          <Link
+            to="/routes/new"
+            aria-label="Create new Santa Run route"
+            style={{
+              padding: '0.875rem 1.75rem',
+              background: 'linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%)',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 'var(--border-radius-sm)',
+              fontWeight: 700,
+              fontFamily: 'var(--font-body)',
+              boxShadow: '0 4px 12px rgba(211, 47, 47, 0.3)',
+              transition: 'all 0.3s ease',
+              display: 'inline-block',
+              fontSize: '1rem',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(211, 47, 47, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(211, 47, 47, 0.3)';
+            }}
+          >
+            <span aria-hidden="true">➕</span> Create New Route
+          </Link>
+        ) : (
+          // Not entitled: soft-gate the action so members hit the Subscribe prompt
+          // (rendered in SubscriptionBanner above) rather than a 402 in the editor.
+          <button
+            type="button"
+            aria-label="Subscribe to create new Santa Run routes"
+            title="An active brigade subscription is required to create routes"
+            disabled
+            style={{
+              padding: '0.875rem 1.75rem',
+              background: 'var(--neutral-300)',
+              color: 'var(--neutral-600)',
+              border: 'none',
+              borderRadius: 'var(--border-radius-sm)',
+              fontWeight: 700,
+              fontFamily: 'var(--font-body)',
+              cursor: 'not-allowed',
+              display: 'inline-block',
+              fontSize: '1rem',
+            }}
+          >
+            <span aria-hidden="true">🔒</span> Create New Route
+          </button>
+        )}
         <Link
           to="/templates"
           aria-label="Browse route template library"

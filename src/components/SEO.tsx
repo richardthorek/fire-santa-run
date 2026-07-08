@@ -17,7 +17,7 @@ export interface SEOProps {
 }
 
 const DEFAULT_TITLE = 'Fire Santa Run';
-const DEFAULT_DESCRIPTION = 'Track Santa in real-time as your local Rural Fire Service brings Christmas joy to your community. Plan routes, share tracking links, and spread holiday cheer!';
+const DEFAULT_DESCRIPTION = 'Track Santa in real-time as your local fire brigade or community group brings Christmas joy to your neighbourhood. Plan routes, share tracking links, and spread holiday cheer!';
 const DEFAULT_IMAGE = `${window.location.origin}/og-image.svg`;
 const DEFAULT_SITE_NAME = 'Fire Santa Run';
 

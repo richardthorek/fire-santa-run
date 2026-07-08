@@ -29,6 +29,12 @@ dist-ssr
 .env.production
 .env.development
 
+# Infra secret files consumed by seed-secrets.sh (keep infra/.env.example)
+infra/.env.dev
+infra/.env.prod
+infra/.env.*
+!infra/.env.example
+
 # API specific
 api/node_modules
 api/dist
@@ -70,6 +76,9 @@ infra/**/*.json
 # Hono server build artifacts and dependencies
 server/node_modules
 server/dist
+
+# TypeScript incremental build metadata
+*.tsbuildinfo
 
 # Deployment package (assembled during CI)
 deploy/

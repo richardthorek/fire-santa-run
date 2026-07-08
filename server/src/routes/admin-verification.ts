@@ -2,6 +2,7 @@
 import { Hono } from 'hono';
 import { TableClient } from '@azure/data-tables';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { validateToken, isSiteAdmin } from '../utils/auth.js';
 
 const VERIFICATION_TABLE = isDevMode ? 'dev-verificationrequests' : 'verificationrequests';
 const USERS_TABLE = isDevMode ? 'dev-users' : 'users';
@@ -53,6 +54,20 @@ function verificationRequestToEntity(request: any) {
 }
 
 export const adminVerificationRouter = new Hono();
+
+// Every route here reviews or approves brigade-membership verification — a
+// site-admin-only capability. Approving a request grants a user the ability to
+// claim a brigade as admin, so this must never be reachable anonymously.
+adminVerificationRouter.use('*', async (c, next) => {
+  const authResult = await validateToken(c.req.raw);
+  if (!authResult.authenticated) {
+    return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+  }
+  if (!isSiteAdmin(authResult.userId)) {
+    return c.json({ error: 'Forbidden', message: 'Site administrator access required' }, 403);
+  }
+  await next();
+});
 
 // GET /pending
 adminVerificationRouter.get('/pending', async (c) => {

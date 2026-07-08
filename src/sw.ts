@@ -212,3 +212,45 @@ self.addEventListener('message', (event) => {
     );
   }
 });
+
+// ── Web Push: "notify me when Santa starts" ────────────────────────────────
+// The server sends one push per route when its first location broadcast
+// arrives (see server/src/utils/push.ts). Payload: { title, body, url }.
+
+self.addEventListener('push', (event) => {
+  let payload: { title?: string; body?: string; url?: string } = {};
+  try {
+    payload = event.data?.json() ?? {};
+  } catch {
+    // Non-JSON payload — fall back to defaults below.
+  }
+
+  const title = payload.title || '🎅 Santa is on the way!';
+  const options: NotificationOptions = {
+    body: payload.body || 'Your Santa run has started — tap to watch live.',
+    icon: '/icon-192x192.png',
+    badge: '/icon-96x96.png',
+    data: { url: payload.url || '/' },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url: string = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    (async () => {
+      // Focus an existing tracking tab if one is open, otherwise open one.
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clientList) {
+        if (client.url.includes('/track/') && 'focus' in client) {
+          await client.focus();
+          return;
+        }
+      }
+      await self.clients.openWindow(url);
+    })()
+  );
+});

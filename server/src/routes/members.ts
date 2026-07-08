@@ -147,9 +147,19 @@ membersRouter.get('/', async (c) => {
 // GET /pending - must be before /:userId
 membersRouter.get('/pending', async (c) => {
   try {
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) {
+      return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    }
+
     const brigadeId = c.req.param('brigadeId');
     if (!brigadeId) {
       return c.json({ error: 'Missing required parameter: brigadeId' }, 400);
+    }
+
+    const permissionCheck = await checkBrigadePermission(authResult.userId!, brigadeId, 'view_members', getUserMembership);
+    if (!permissionCheck.authorized) {
+      return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
     }
 
     const client = await getMembershipsTableClient();

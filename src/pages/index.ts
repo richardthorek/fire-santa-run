@@ -17,6 +17,7 @@ export { AnalyticsDashboard } from './AnalyticsDashboard';
 export { PrivacyPolicyPage } from './PrivacyPolicyPage';
 export { TermsPage } from './TermsPage';
 export { HelpPage } from './HelpPage';
+export { RoutePosterPage } from './RoutePosterPage';
 
 export type { RouteEditorProps } from './RouteEditor';
 export type { NavigationViewProps } from './NavigationView';

@@ -52,6 +52,51 @@
 
 .bdp__search-wrap {
   position: relative;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.bdp__search-wrap .bdp__search {
+  flex: 1 1 260px;
+  width: auto;
+}
+
+/* "Near me" — white pill so it reads clearly on the red hero */
+.bdp__near-btn {
+  flex: 0 0 auto;
+  padding: 0.875rem 1.25rem;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  background: white;
+  color: var(--fire-red, #d32f2f);
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: var(--font-body, 'Nunito', sans-serif);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+}
+
+.bdp__near-btn:disabled {
+  opacity: 0.75;
+  cursor: wait;
+}
+
+.bdp__near-btn:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.bdp__location-error {
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
 }
 
 .bdp__search {
@@ -277,6 +322,17 @@
   background: #FFEBEE;
   padding: 1px 6px;
   border-radius: 4px;
+}
+
+.bdp__distance-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--christmas-green, #43a047);
+  background: #e8f5e9;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 0.375rem;
 }
 
 .bdp__unclaimed-badge {

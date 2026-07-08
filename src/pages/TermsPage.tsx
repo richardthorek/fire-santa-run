@@ -25,7 +25,7 @@ export function TermsPage() {
 
         <p className="static-page__intro">
           By using Fire Santa Run you agree to these terms. The service is provided to
-          support Australian RFS brigades running community Santa events and to let the
+          support fire brigades and community organisations running Santa events and to let the
           public follow those runs.
         </p>
 

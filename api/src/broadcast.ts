@@ -17,8 +17,11 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { checkRateLimit } from './rateLimit';
+import { validateToken } from './utils/auth';
+import { notifyRunStartOnce } from './utils/push';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
+const APP_BASE_URL = process.env.APP_BASE_URL || 'https://firesantarun.com.au';
 
 interface LocationBroadcast {
   routeId: string;
@@ -36,6 +39,13 @@ export async function broadcast(request: HttpRequest, context: InvocationContext
     // plus presence heartbeats; 40/min blocks flooding with headroom to spare.
     const limited = checkRateLimit(request, 'broadcast', 40, 60_000);
     if (limited) return limited;
+
+    // Broadcasting Santa's position pushes to every public viewer of the route,
+    // so it must come from a signed-in brigade user, never an anonymous client.
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
 
     // Parse request body
     const body = await request.json() as Partial<LocationBroadcast>;
@@ -114,6 +124,10 @@ export async function broadcast(request: HttpRequest, context: InvocationContext
     const groupClient = serviceClient.group(groupName);
     await groupClient.sendToAll(message);
 
+    // First broadcast of a run wakes the "notify me" subscribers. Deliberately
+    // not awaited — pushes must never slow down or fail location updates.
+    void notifyRunStartOnce(body.routeId, APP_BASE_URL);
+
     context.log(`Broadcasted location update for route: ${body.routeId} to group: ${groupName}`);
 
     return {
@@ -147,6 +161,11 @@ export async function broadcastEditorPresence(request: HttpRequest, context: Inv
   try {
     const limited = checkRateLimit(request, 'broadcast', 40, 60_000);
     if (limited) return limited;
+
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
 
     const body = await request.json() as {
       routeId?: string;

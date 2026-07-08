@@ -113,6 +113,53 @@ function closestPointOnSegment(
 }
 
 /**
+ * Distance from `from` to `to` measured ALONG a route path (not straight-line),
+ * by projecting both points onto the LineString and summing the segment
+ * lengths between the projections.
+ *
+ * Used for the public "how far is Santa from my spot" ETA: straight-line
+ * distance is misleading on looping parade routes.
+ *
+ * `passed` is true when `to` lies behind `from` in path direction (Santa has
+ * already gone past that point). `offPathMeters` is how far `to` sits from the
+ * path itself — large values mean the viewer's pin isn't really on the route.
+ */
+export function alongPathDistance(
+  // Structural type so both the app's GeoJSON.LineString and the global
+  // @types/geojson LineString (Position[]) are accepted without casts.
+  geometry: { type: 'LineString'; coordinates: ReadonlyArray<ReadonlyArray<number>> },
+  from: [number, number],
+  to: [number, number]
+): { meters: number; passed: boolean; offPathMeters: number } {
+  const line = geometry as unknown as GeoJSON.LineString;
+  const fromProj = findClosestPointOnRoute(from, line);
+  const toProj = findClosestPointOnRoute(to, line);
+
+  const coords = line.coordinates as [number, number][];
+
+  // Cumulative path distance of a projection = full segments before it, plus
+  // the partial distance into its own segment.
+  const cumulativeTo = (proj: { point: [number, number]; segmentIndex: number }): number => {
+    let total = 0;
+    for (let i = 0; i < proj.segmentIndex; i++) {
+      total += calculateDistance(coords[i], coords[i + 1]);
+    }
+    total += calculateDistance(coords[proj.segmentIndex], proj.point);
+    return total;
+  };
+
+  const fromDist = cumulativeTo(fromProj);
+  const toDist = cumulativeTo(toProj);
+  const delta = toDist - fromDist;
+
+  return {
+    meters: Math.abs(delta),
+    passed: delta < 0,
+    offPathMeters: toProj.distance,
+  };
+}
+
+/**
  * Find current navigation step based on user's location
  */
 export function findCurrentStep(

@@ -1,6 +1,14 @@
 # Docs Index
 
-Topic map for `docs/`. `MASTER_PLAN.md` (repo root) is the single source of truth; these are deep-dives. Read the file that matches your topic instead of scanning the whole folder.
+Topic map for `docs/`. Read the file that matches your topic instead of scanning the whole folder.
+
+## Start here (canonical, kept current)
+
+- [`../MASTER_PLAN.md`](../MASTER_PLAN.md) — concise forward-looking product plan (vision, current state, roadmap, decisions)
+- [ARCHITECTURE.md](ARCHITECTURE.md) — as-built architecture (App Service + Hono prod, Functions local dev, storage, realtime, billing, push)
+- [UI_GUIDELINES.md](UI_GUIDELINES.md) — design tokens, brand, per-surface device targets, accessibility, copy
+- [`../infra/README.md`](../infra/README.md) — deployment, secrets seeding, seasonal scaling
+- [`../CLAUDE.md`](../CLAUDE.md) — quick working conventions for this repo
 
 ## Getting started & dev
 - [DEV_MODE.md](DEV_MODE.md) — local dev mode (`VITE_DEV_MODE`), localStorage, no-auth flow
@@ -53,6 +61,10 @@ Topic map for `docs/`. `MASTER_PLAN.md` (repo root) is the single source of trut
 - [AUTO_BUG_ISSUE_SUMMARY.md](AUTO_BUG_ISSUE_SUMMARY.md)
 - [WORKFLOW_FIX_RUN55.md](WORKFLOW_FIX_RUN55.md) · [WORKFLOW_FIX_RUN77.md](WORKFLOW_FIX_RUN77.md)
 
-## Phase & release history
+## Archive — point-in-time records (may name retired approaches, e.g. Static Web Apps)
+
+These are historical logs kept for provenance. For current guidance use the canonical docs at the top; where an archive doc conflicts with them, the canonical doc wins.
+
 - Phases: [PHASE_1_SUMMARY.md](PHASE_1_SUMMARY.md) · [PHASE2_SUMMARY.md](PHASE2_SUMMARY.md) · [README_PHASE2.md](README_PHASE2.md) · [PHASE3_SUMMARY.md](PHASE3_SUMMARY.md) · [PHASE4_SUMMARY.md](PHASE4_SUMMARY.md) · [PHASE5_SUMMARY.md](PHASE5_SUMMARY.md) · [PHASE6_SUMMARY.md](PHASE6_SUMMARY.md) · [PHASE_7A_SUMMARY.md](PHASE_7A_SUMMARY.md)
 - Releases: [RELEASE_1_SUMMARY.md](RELEASE_1_SUMMARY.md) · [RELEASE_2_1_SUMMARY.md](RELEASE_2_1_SUMMARY.md)
+- Workflow fix logs and visual/auth summaries elsewhere in this folder are similarly historical.

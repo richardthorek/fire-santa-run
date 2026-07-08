@@ -12,6 +12,7 @@ import { searchStationsByName, getStationsByState } from '../utils/rfsData';
 import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
 import { HttpStorageAdapter } from '../storage/http';
+import { getApiAuthHeaders } from '../auth/apiToken';
 import { isGovernmentEmail } from '../utils/emailValidation';
 import { logBrigadeClaimed } from '../utils/auditLog';
 import { COLORS } from '../utils/constants';
@@ -119,7 +120,7 @@ export function BrigadeClaimingPage() {
       if (isHttpAdapter) {
         const response = await fetch(`/api/brigades/${encodeURIComponent(brigade.id)}/claim`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await getApiAuthHeaders()) },
           body: JSON.stringify({ userId: user.id }),
         });
 
@@ -212,7 +213,7 @@ export function BrigadeClaimingPage() {
             color: COLORS.neutral700,
             marginBottom: '1rem',
           }}>
-            Search for your Rural Fire Service brigade and claim it to start planning Santa runs
+            Search for your brigade or community group and claim it to start planning Santa runs
           </p>
 
           {/* Email validation info */}
@@ -230,7 +231,7 @@ export function BrigadeClaimingPage() {
               }}>
                 {hasGovEmail ? (
                   <>
-                    ✅ <strong>{user.email}</strong> - Your .gov.au email allows instant brigade claiming
+                    ✅ <strong>{user.email}</strong> - Your official government email allows instant brigade claiming
                   </>
                 ) : (
                   <>

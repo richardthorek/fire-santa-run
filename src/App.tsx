@@ -36,6 +36,7 @@ const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard').then(
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
 const TermsPage = lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const HelpPage = lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
+const RoutePosterPage = lazy(() => import('./pages/RoutePosterPage').then(m => ({ default: m.RoutePosterPage })));
 
 // Loading component
 function PageLoader() {
@@ -160,6 +161,9 @@ function App() {
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/track/:id" element={<TrackingViewWrapper />} />
+            <Route path="/demo" element={<TrackingViewWrapper demo />} />
+            {/* Poster resolves only published routes (public lookup) — safe unauthenticated */}
+            <Route path="/routes/:id/poster" element={<RoutePosterPage />} />
             <Route path="/brigade/:slug" element={
               <ErrorBoundary label="brigade page">
                 <PublicBrigadePage />
@@ -314,13 +318,14 @@ function RouteDetailWrapper() {
 }
 
 // Wrapper for Tracking View (public page - no auth required)
-function TrackingViewWrapper() {
+function TrackingViewWrapper({ demo = false }: { demo?: boolean }) {
   const { id = '' } = useParams<{ id: string }>();
+  const routeId = demo ? 'demo' : id;
 
   return (
     <ErrorBoundary label="Santa tracker">
       {/* key resets per-route view state (live progress, camera) on navigation */}
-      <TrackingView routeId={id} key={id} />
+      <TrackingView routeId={routeId} demo={demo} key={routeId} />
     </ErrorBoundary>
   );
 }

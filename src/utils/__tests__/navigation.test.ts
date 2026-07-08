@@ -15,6 +15,7 @@ import {
   calculateETA,
   formatETA,
   getRemainingDistance,
+  alongPathDistance,
 } from '../navigation';
 import type { Waypoint, NavigationStep, GeoJSON } from '../../types';
 
@@ -408,6 +409,58 @@ describe('navigation', () => {
       const remaining = getRemainingDistance(userLocation, steps, steps.length);
 
       expect(remaining).toBe(0);
+    });
+  });
+
+  describe('alongPathDistance', () => {
+    // A straight east-west path ~1.1km long at Sydney's latitude, with a
+    // vertex every ~275m so projections land on distinct segments.
+    const path: GeoJSON.LineString = {
+      type: 'LineString',
+      coordinates: [
+        [151.2000, -33.8688],
+        [151.2030, -33.8688],
+        [151.2060, -33.8688],
+        [151.2090, -33.8688],
+        [151.2120, -33.8688],
+      ],
+    };
+
+    it('measures along-path distance between two points on the path', () => {
+      const santa: [number, number] = [151.2015, -33.8688]; // mid segment 0
+      const pin: [number, number] = [151.2105, -33.8688];   // mid segment 3
+      const result = alongPathDistance(path, santa, pin);
+
+      // 0.009° of longitude at -33.87° ≈ 830 m
+      expect(result.passed).toBe(false);
+      expect(result.meters).toBeGreaterThan(700);
+      expect(result.meters).toBeLessThan(950);
+      expect(result.offPathMeters).toBeLessThan(5);
+    });
+
+    it('flags points Santa has already passed', () => {
+      const santa: [number, number] = [151.2105, -33.8688];
+      const pin: [number, number] = [151.2015, -33.8688];
+      const result = alongPathDistance(path, santa, pin);
+
+      expect(result.passed).toBe(true);
+      expect(result.meters).toBeGreaterThan(700);
+    });
+
+    it('reports how far off the path the target point sits', () => {
+      const santa: [number, number] = [151.2000, -33.8688];
+      // ~550 m north of the path
+      const pin: [number, number] = [151.2060, -33.8638];
+      const result = alongPathDistance(path, santa, pin);
+
+      expect(result.offPathMeters).toBeGreaterThan(400);
+      expect(result.offPathMeters).toBeLessThan(700);
+    });
+
+    it('returns ~0 for the same point', () => {
+      const spot: [number, number] = [151.2060, -33.8688];
+      const result = alongPathDistance(path, spot, spot);
+      expect(result.meters).toBeLessThan(1);
     });
   });
 });

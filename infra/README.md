@@ -7,7 +7,9 @@ This directory contains [Bicep](https://learn.microsoft.com/en-us/azure/azure-re
 ```
 infra/
 ├── main.bicep                  # Root orchestration template (subscription scope)
-├── deploy.sh                   # One-command deployment script
+├── deploy.sh                   # One-command deployment script (calls seed-secrets.sh)
+├── seed-secrets.sh             # Idempotent App Service settings seeder (re-runnable)
+├── .env.example                # Template for infra/.env.<env> secret files (gitignored)
 ├── modules/
 │   ├── appservice.bicep        # Azure App Service (hosting + API + WebSocket support)
 │   ├── storage.bicep           # Azure Table Storage (data persistence)
@@ -159,27 +161,144 @@ az deployment sub show \
 | `AZURE_APP_SERVICE_PUBLISH_PROFILE` | App Service publish profile XML (from `az webapp deployment list-publishing-profiles --xml`) |
 | `VITE_MAPBOX_TOKEN` | Mapbox API token for frontend maps |
 
-### App Service Application Settings (set automatically by `deploy.sh`, or via Portal)
+### App Service Application Settings (seeded automatically)
 
-| Setting | Value |
-|---|---|
-| `AZURE_STORAGE_CONNECTION_STRING` | From Bicep `storageConnectionString` output |
-| `AZURE_WEBPUBSUB_CONNECTION_STRING` | From Bicep `webPubSubConnectionString` output |
-| `AZURE_WEBPUBSUB_HUB_NAME` | `santa_tracking` |
-| `DEV_MODE` | `false` |
-| `PORT` | `8080` |
+`deploy.sh` calls **`seed-secrets.sh`** at the end of a deploy to populate these.
+The seeder reads the Storage and Web PubSub connection strings **live from the
+deployed resources** (so it needs no deployment output) and pulls the Stripe /
+admin secrets from a gitignored `infra/.env.<env>` file (or the shell env). It is
+idempotent — `az webapp config appsettings set` merges, so re-running only
+updates the keys you provide and never blanks the rest.
 
-To set app settings manually:
+| Setting | Value | Source |
+|---|---|---|
+| `AZURE_STORAGE_CONNECTION_STRING` | Storage account primary connection string | read live from Azure |
+| `AZURE_WEBPUBSUB_CONNECTION_STRING` | Web PubSub primary connection string | read live from Azure |
+| `AZURE_WEBPUBSUB_HUB_NAME` | `santa_tracking` | fixed |
+| `DEV_MODE` | `false` | fixed |
+| `NODE_ENV` / `PORT` | `production` / `8080` | fixed |
+| `CORS_ORIGIN` / `APP_BASE_URL` | Public origin (prod: `https://firesantarun.com.au`; dev: the `*.azurewebsites.net` host, or `APP_ORIGIN` override) | derived |
+| `STRIPE_SECRET_KEY` | Stripe secret key — **test** for dev, **live** for prod | `infra/.env.<env>` |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) for that environment's webhook endpoint | `infra/.env.<env>` |
+| `STRIPE_PRICE_ID` | Price id (`price_…`) of the $5/yr recurring price (test vs live mode) | `infra/.env.<env>` |
+| `SITE_ADMIN_USER_IDS` | Comma-separated Entra `oid.tid` IDs allowed to review brigade verification | `infra/.env.<env>` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push keys for "notify me when Santa starts" (optional — hides the button when unset) | `infra/.env.<env>` |
+| `VAPID_SUBJECT` | Contact URI sent to push services (optional; defaults to a `mailto:`) | `infra/.env.<env>` |
+
+**Re-seed without a full redeploy** (e.g. after rotating a Stripe key or adding a
+webhook secret):
+
 ```bash
-az webapp config appsettings set \
-  --resource-group rg-santarun-dev-<suffix> \
-  --name santarun-web-<suffix> \
-  --settings \
-    "AZURE_STORAGE_CONNECTION_STRING=<value>" \
-    "AZURE_WEBPUBSUB_CONNECTION_STRING=<value>" \
-   "AZURE_WEBPUBSUB_HUB_NAME=santa_tracking" \
-    "DEV_MODE=false" "PORT=8080"
+cp infra/.env.example infra/.env.dev     # first time only, then edit
+./infra/seed-secrets.sh --env dev --dry-run   # preview (values masked)
+./infra/seed-secrets.sh --env dev             # apply
 ```
+
+The suffix defaults to the value in `parameters/<env>.bicepparam`; override with
+`--suffix`. Secrets set in the shell env take precedence over the file, so CI can
+inject them without a file present.
+
+---
+
+## Dev / Prod Environments
+
+Dev and prod are **fully separate deployments**, not slots — each gets its own
+resource group, Storage account, Web PubSub, and App Service, provisioned from
+the matching parameter file:
+
+```bash
+./infra/deploy.sh --env dev  --suffix dev001    # rg-santarun-dev-dev001   (F1 / Free_F1)
+./infra/deploy.sh --env prod --suffix prod1      # rg-santarun-prod-prod1   (B1 / Standard_S1)
+```
+
+Separate environments (rather than an App Service deployment slot) are the right
+choice here because the app is stateful (Table Storage + Web PubSub) and because
+Stripe has distinct **test** and **live** modes: the dev environment points at
+Stripe test mode with its own storage, so test subscriptions never touch real
+brigade data. A prod deployment slot can still be added later purely for
+zero-downtime code releases — that is orthogonal to environment isolation.
+
+### Stripe configuration per environment
+
+The `/api/stripe` routes return `503` until fully configured, and the paywall
+treats brigades as unentitled until the webhook records a subscription. Put the
+environment-appropriate values in a gitignored `infra/.env.<env>` file (copied
+from `infra/.env.example`); `deploy.sh`/`seed-secrets.sh` load them automatically:
+
+```bash
+# DEV — Stripe test mode
+cp infra/.env.example infra/.env.dev
+#   STRIPE_SECRET_KEY=sk_test_...
+#   STRIPE_WEBHOOK_SECRET=whsec_...   # from the dev (test-mode) webhook endpoint
+#   STRIPE_PRICE_ID=price_...         # $5/yr recurring price, TEST mode
+#   SITE_ADMIN_USER_IDS=oid.tid,oid2.tid2
+./infra/deploy.sh --env dev --suffix dev001    # deploy + seed
+#   ./infra/seed-secrets.sh --env dev           # or re-seed only, no redeploy
+
+# PROD — Stripe live mode (live keys, live price, live webhook secret)
+cp infra/.env.example infra/.env.prod          # fill with sk_live_ / live price / live whsec_
+./infra/deploy.sh --env prod --suffix prod1
+```
+
+Secrets set in the shell env still override the file, so CI can inject them
+without committing anything. These files are gitignored (`infra/.env.dev`,
+`infra/.env.prod`) — only `infra/.env.example` is tracked.
+
+Point each environment's Stripe webhook at `https://<origin>/api/stripe/webhook`
+and subscribe to `checkout.session.completed` and `customer.subscription.*`.
+Locally you can forward events with the Stripe CLI:
+
+```bash
+stripe listen --forward-to localhost:8080/api/stripe/webhook
+```
+
+Note: local dev (`DEV_MODE=true`) bypasses billing entirely — every brigade is
+treated as entitled — so Stripe is only needed against deployed environments.
+
+### Web Push ("notify me when Santa starts")
+
+Optional feature — when unconfigured the tracking page simply hides the notify
+button. To enable it, generate a VAPID key pair and add it to the App Service
+settings (export in the deploy shell like the Stripe vars):
+
+```bash
+npx web-push generate-vapid-keys
+# → set these app settings:
+#   VAPID_PUBLIC_KEY=BOx...
+#   VAPID_PRIVATE_KEY=k3v...
+#   VAPID_SUBJECT=mailto:admin@firesantarun.com.au   (optional, defaults to this)
+```
+
+Subscriptions are stored per-route in the `pushsubscriptions` table; the first
+location broadcast of a run sends one "Santa is on the way!" push to that
+route's subscribers (12-hour re-send guard, expired subscriptions cleaned up on
+410/404 responses).
+
+---
+
+## Seasonal Scaling (read before December!)
+
+Santa runs are hyper-seasonal, and the **Web PubSub free tier caps at 20
+concurrent connections — one popular run will exceed that on its own.** Scale
+up before your first December run and back down in January:
+
+```bash
+./infra/scale-season.sh --rg rg-santarun-prod-prod1 season      # ~Dec 1
+./infra/scale-season.sh --rg rg-santarun-prod-prod1 offseason   # ~Jan 7
+
+# Expecting >1,000 simultaneous viewers across all brigades on Christmas Eve:
+./infra/scale-season.sh --rg rg-santarun-prod-prod1 season --pubsub-units 2
+```
+
+Cost intuition (AUD, indicative): Standard_S1 ≈ $2.40/day/unit, so a Dec 1 –
+Jan 5 season ≈ **$85/unit** vs ≈ $900 left on year-round. The App Service plan
+stays at B1 year-round because custom domains require Basic or higher.
+
+**Mapbox is the other seasonal cost**: every public viewer session is one map
+load; 50k loads/month are free, then ~US$5 per 1,000. Watch the Mapbox usage
+dashboard through December — at very large viewer counts this becomes the
+dominant cost and is the trigger to consider MapLibre + open tiles for the
+public tracking page.
 
 ---
 

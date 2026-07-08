@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebPubSubClient } from '@azure/web-pubsub-client';
 import type { LocationBroadcast, ViewerCountMessage } from '../types';
+import { getApiAuthHeaders } from '../auth/apiToken';
 
 const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -23,6 +24,8 @@ interface UseWebPubSubOptions {
   role?: 'viewer' | 'broadcaster';
   onLocationUpdate?: (location: LocationBroadcast) => void;
   shareSource?: string; // Track how viewer found the route (e.g., 'qr', 'direct', 'social')
+  /** Set false to skip connecting entirely (e.g. the simulated demo run). */
+  enabled?: boolean;
 }
 
 // Generate a unique session ID for each viewer session using cryptographically secure randomness
@@ -30,7 +33,7 @@ function generateSessionId(): string {
   return crypto.randomUUID();
 }
 
-export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, shareSource }: UseWebPubSubOptions) {
+export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, shareSource, enabled = true }: UseWebPubSubOptions) {
   const [state, setState] = useState<WebPubSubConnectionState>({
     isConnected: false,
     isConnecting: false,
@@ -189,7 +192,10 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       } else {
         // Production mode: Use Azure Web PubSub
         const negotiateUrl = `${API_BASE_URL}/negotiate?routeId=${encodeURIComponent(routeId)}&role=${role}`;
-        const response = await fetch(negotiateUrl);
+        // A broadcaster token grants sendToGroup rights, so the negotiate call
+        // must be authenticated. Viewers connect anonymously (no token).
+        const negotiateHeaders = role === 'broadcaster' ? await getApiAuthHeaders() : undefined;
+        const response = await fetch(negotiateUrl, negotiateHeaders ? { headers: negotiateHeaders } : undefined);
 
         if (!response.ok) {
           throw new Error(`Failed to negotiate connection: ${response.statusText}`);
@@ -322,11 +328,13 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
           console.log('[Dev Mode] Broadcasted location:', location);
         }
       } else {
-        // Production mode: Send via API
+        // Production mode: Send via API. Broadcasting Santa's position is an
+        // authenticated action — attach the signed-in user's bearer token.
         const response = await fetch(`${API_BASE_URL}/broadcast`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(await getApiAuthHeaders()),
           },
           body: JSON.stringify(location),
         });
@@ -346,6 +354,8 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
    * Auto-connect on mount
    */
   useEffect(() => {
+    if (!enabled) return;
+
     connect();
 
     // Handle page unload to log viewer leave
@@ -360,7 +370,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeId, role]);
+  }, [routeId, role, enabled]);
 
   return {
     ...state,
