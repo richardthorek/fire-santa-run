@@ -65,6 +65,18 @@ export function evaluateServerConfig(): ServerConfigResult {
         `Stripe partially configured — missing ${missing.join(', ')}; subscription checkout/webhook will not work.`,
       );
     }
+
+    // Web Push is optional: with no VAPID keys the notify-me UI hides itself.
+    // But HALF a key pair is always a mistake — flag it.
+    const vapidVars = ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'];
+    const vapidSet = vapidVars.filter((v) => process.env[v]);
+    if (vapidSet.length === 1) {
+      const missing = vapidVars.filter((v) => !process.env[v]);
+      warnings.push(
+        `Web Push partially configured — missing ${missing.join(', ')}; ` +
+          'generate a pair with `npx web-push generate-vapid-keys`.',
+      );
+    }
   }
 
   return { isDevMode: devMode, fatal, warnings };

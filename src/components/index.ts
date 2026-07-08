@@ -26,6 +26,8 @@ export { OfflineBanner } from './OfflineBanner';
 export { SubscriptionBanner } from './SubscriptionBanner';
 export { BillingPanel } from './BillingPanel';
 export type { BillingPanelProps } from './BillingPanel';
+export { SubscriptionGate } from './SubscriptionGate';
+export type { SubscriptionGateProps } from './SubscriptionGate';
 export { SyncStatusBanner } from './SyncStatusBanner';
 export { InstallBanner } from './InstallBanner';
 export { ErrorBoundary } from './ErrorBoundary';

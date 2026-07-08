@@ -17,7 +17,6 @@ export interface SharePanelProps {
 
 export function SharePanel({ route, showPrintButton = true, compact = false }: SharePanelProps) {
   const [copySuccess, setCopySuccess] = useState(false);
-  const [showPrintView, setShowPrintView] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
 
   const shareableLink = route.shareableLink || `${window.location.origin}/track/${route.id}`;
@@ -108,15 +107,6 @@ export function SharePanel({ route, showPrintButton = true, compact = false }: S
     });
   };
 
-  const handlePrint = () => {
-    setShowPrintView(true);
-    // Wait for the print view to render, then trigger print
-    setTimeout(() => {
-      window.print();
-      setShowPrintView(false);
-    }, 100);
-  };
-
   const shareToTwitter = () => {
     const text = `🎅 Track Santa in real-time for ${route.name}! Join us on ${route.date}`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareableLink)}`;
@@ -133,98 +123,6 @@ export function SharePanel({ route, showPrintButton = true, compact = false }: S
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
-
-  if (showPrintView) {
-    return (
-      <div className="print-view">
-        <style>{`
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            .print-view, .print-view * {
-              visibility: visible;
-            }
-            .print-view {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              padding: 2rem;
-            }
-          }
-        `}</style>
-        <div style={{
-          textAlign: 'center',
-          fontFamily: 'sans-serif',
-          maxWidth: '600px',
-          margin: '0 auto',
-          padding: '2rem',
-        }}>
-          <h1 style={{ color: COLORS.fireRed, marginBottom: '1rem' }}>
-            🎅 Fire Santa Run
-          </h1>
-          <h2 style={{ color: COLORS.neutral900, marginBottom: '0.5rem' }}>
-            {route.name}
-          </h2>
-          <p style={{ color: COLORS.neutral700, fontSize: '1.1rem', marginBottom: '2rem' }}>
-            {route.date} at {route.startTime}
-          </p>
-
-          <div style={{ marginBottom: '2rem' }}>
-            <QRCodeCanvas
-              value={shareableLink}
-              size={300}
-              level="H"
-              includeMargin={true}
-            />
-          </div>
-
-          <div style={{
-            backgroundColor: COLORS.neutral100,
-            padding: '1rem',
-            borderRadius: '8px',
-            marginBottom: '2rem',
-          }}>
-            <p style={{ 
-              color: COLORS.neutral900, 
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              marginBottom: '0.5rem',
-            }}>
-              Track Santa in Real-Time!
-            </p>
-            <p style={{ 
-              color: COLORS.neutral700, 
-              fontSize: '0.9rem',
-              fontFamily: 'monospace',
-              wordBreak: 'break-all',
-            }}>
-              {shareableLink}
-            </p>
-          </div>
-
-          {route.description && (
-            <p style={{ 
-              color: COLORS.neutral700, 
-              fontSize: '0.9rem',
-              marginBottom: '1rem',
-            }}>
-              {route.description}
-            </p>
-          )}
-
-          <p style={{ 
-            color: COLORS.neutral700, 
-            fontSize: '0.85rem',
-            fontStyle: 'italic',
-          }}>
-            Scan the QR code or visit the link above to track Santa's location live!
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div style={{
@@ -335,7 +233,9 @@ export function SharePanel({ route, showPrintButton = true, compact = false }: S
         </button>
         {showPrintButton && (
           <button
-            onClick={handlePrint}
+            // Full A4 poster page (brigade branding + big QR) — replaces the
+            // old inline print view with a properly designed printable.
+            onClick={() => window.open(`/routes/${route.id}/poster`, '_blank', 'noopener')}
             style={{
               flex: 1,
               minWidth: '140px',
@@ -352,7 +252,7 @@ export function SharePanel({ route, showPrintButton = true, compact = false }: S
             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
             onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            🖨️ Print Flyer
+            🖨️ Poster & QR
           </button>
         )}
       </div>

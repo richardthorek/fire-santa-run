@@ -24,6 +24,8 @@ interface UseWebPubSubOptions {
   role?: 'viewer' | 'broadcaster';
   onLocationUpdate?: (location: LocationBroadcast) => void;
   shareSource?: string; // Track how viewer found the route (e.g., 'qr', 'direct', 'social')
+  /** Set false to skip connecting entirely (e.g. the simulated demo run). */
+  enabled?: boolean;
 }
 
 // Generate a unique session ID for each viewer session using cryptographically secure randomness
@@ -31,7 +33,7 @@ function generateSessionId(): string {
   return crypto.randomUUID();
 }
 
-export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, shareSource }: UseWebPubSubOptions) {
+export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, shareSource, enabled = true }: UseWebPubSubOptions) {
   const [state, setState] = useState<WebPubSubConnectionState>({
     isConnected: false,
     isConnecting: false,
@@ -352,6 +354,8 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
    * Auto-connect on mount
    */
   useEffect(() => {
+    if (!enabled) return;
+
     connect();
 
     // Handle page unload to log viewer leave
@@ -366,7 +370,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeId, role]);
+  }, [routeId, role, enabled]);
 
   return {
     ...state,

@@ -145,12 +145,44 @@ export function LandingPage() {
               </p>
             </div>
 
-            {/* Auth Buttons - Horizontal on larger screens */}
+            {/* Public-first CTA: most visitors are families looking for their
+                town's run — put "find Santa" ahead of the organizer sign-in. */}
             <div style={{
               maxWidth: '600px',
               margin: '0 auto',
               width: '100%',
             }}>
+              <Link
+                to="/brigades?near=1"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '1.1rem 1.5rem',
+                  backgroundColor: 'white',
+                  color: 'var(--fire-red)',
+                  borderRadius: '14px',
+                  fontSize: '1.2rem',
+                  fontWeight: 800,
+                  fontFamily: 'var(--font-heading)',
+                  textDecoration: 'none',
+                  textAlign: 'center',
+                  boxShadow: '0 6px 24px rgba(0, 0, 0, 0.25)',
+                }}
+              >
+                🎅 Find a Santa run near me
+              </Link>
+              <p style={{ margin: '0.6rem 0 1.75rem', fontSize: '0.85rem', opacity: 0.95 }}>
+                Free live tracking for everyone — no account, no app.{' '}
+                <Link to="/brigades" style={{ color: 'white', fontWeight: 700, textDecoration: 'underline' }}>
+                  Browse all brigades
+                </Link>
+                {' · '}
+                <Link to="/demo" style={{ color: 'white', fontWeight: 700, textDecoration: 'underline' }}>
+                  Watch a live demo
+                </Link>
+              </p>
+
               {loginError && (
                 <div style={{
                   padding: '0.75rem',
@@ -192,47 +224,23 @@ export function LandingPage() {
                   </button>
                 </div>
               ) : (
-                <div className="auth-buttons-horizontal" style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '1rem',
-                }}>
-                  <button
-                    onClick={handleLogin}
-                    disabled={isLoggingIn}
-                    className="btn btn-primary"
-                  >
-                    {isLoggingIn ? '🎅 Signing in...' : '🎅 Sign In'}
-                  </button>
-                  
-                  <button
-                    onClick={handleLogin}
-                    disabled={isLoggingIn}
-                    className="btn btn-secondary-white"
-                  >
-                    {isLoggingIn ? '🚀 Creating...' : '🚀 Get Started'}
-                  </button>
-                </div>
+                /* One organizer CTA — sign-in and sign-up share the same flow */
+                <button
+                  onClick={handleLogin}
+                  disabled={isLoggingIn}
+                  className="btn btn-secondary-white btn-block"
+                >
+                  {isLoggingIn ? '🚒 Signing in...' : '🚒 Run a Santa run — brigade sign in'}
+                </button>
               )}
-              
+
               <p style={{
                 fontSize: '0.75rem',
                 marginTop: '1rem',
                 marginBottom: 0,
                 opacity: 0.9,
               }}>
-                Use an official brigade or organisation email where possible — it speeds up verification.
-              </p>
-
-              {/* Brigade discovery link */}
-              <p style={{ marginTop: '1.25rem', marginBottom: 0, fontSize: '0.9rem', opacity: 0.95 }}>
-                Looking for your local brigade?{' '}
-                <Link
-                  to="/brigades"
-                  style={{ color: 'white', fontWeight: 700, textDecoration: 'underline' }}
-                >
-                  Browse all brigades →
-                </Link>
+                New brigades and community groups welcome — use an official organisation email where possible to speed up verification.
               </p>
             </div>
           </div>
@@ -316,7 +324,7 @@ export function LandingPage() {
                   Route Planning
                 </h3>
                 <p style={{ color: 'var(--neutral-700)', lineHeight: 1.5, fontSize: '0.95rem' }}>
-                  Click-to-add waypoints, drag to reorder, optimize with Mapbox Directions API
+                  Click to add stops, drag to reorder, and let smart optimisation find your quickest loop
                 </p>
               </div>
 
@@ -529,7 +537,7 @@ export function LandingPage() {
                   Live GPS Tracking
                 </h3>
                 <p style={{ color: 'var(--neutral-700)', lineHeight: 1.5, fontSize: '0.9rem' }}>
-                  Real-time location updates via Azure Web PubSub
+                  Santa moves on the map the instant the truck does
                 </p>
               </div>
 
@@ -656,7 +664,7 @@ export function LandingPage() {
                   Secure
                 </h3>
                 <p style={{ color: 'var(--neutral-700)', lineHeight: 1.4, fontSize: '0.85rem' }}>
-                  Microsoft Entra ID
+                  Protected sign-in for your team
                 </p>
               </div>
 

@@ -54,16 +54,21 @@ docs/           Detailed docs (see docs/INDEX.md)
 
 ## UI design intent (preserve this)
 
-The product aims for a slick, modern, information-rich, mobile-first UI with a fun Aussie-summer-Christmas theme. Don't regress it.
+The product aims for a slick, modern, information-rich UI with a fun Aussie-summer-Christmas theme. Don't regress it. Full rules: **[`docs/UI_GUIDELINES.md`](docs/UI_GUIDELINES.md)**.
 
 - **Design tokens live in `src/index.css` (`:root`)** — use the CSS variables, don't hardcode hex. Key tokens: `--fire-red` `#D32F2F`, `--summer-gold` `#FFA726`, `--christmas-green` `#43A047`; radii `--border-radius*`; shadows `--ui-shadow*`; fonts `--font-heading` (Baloo 2) / `--font-body` (Nunito). Use the WCAG-AA `--summer-gold-dark/darker` variants for text.
-- **Mobile-first** (design at 375px), rounded corners, gradient buttons, festive but uncluttered. Target WCAG 2.1 AA — run `npm run test:a11y` after UI changes.
+- **Design each surface for its user**: public tracking, the demo, and the navigator (in-truck) view are **mobile-first** (design at 375px); the **route editor and dashboard are tablet/desktop-first** (planning is a lean-back task). Rounded corners, gradient buttons, festive but uncluttered. Target WCAG 2.1 AA — run `npm run test:a11y` after UI changes.
 
-## Planning docs
+## Key docs (keep these current)
 
-- `MASTER_PLAN.md` is the project's single source of truth (large — read targeted sections via search/offset, don't load whole). `ROADMAP.md` is also large.
+- **[`MASTER_PLAN.md`](MASTER_PLAN.md)** — concise forward-looking product plan (vision, current state, roadmap, open decisions). Start here for "what next".
+- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — as-built architecture (App Service + Hono prod, Functions local dev, storage, realtime, billing, push).
+- **[`docs/UI_GUIDELINES.md`](docs/UI_GUIDELINES.md)** — design tokens, brand, per-surface device targets, accessibility, copy.
+- **[`docs/INDEX.md`](docs/INDEX.md)** — topic map for the rest of `docs/` (current vs archive).
+- **[`infra/README.md`](infra/README.md)** — deployment, secrets seeding, seasonal scaling.
 - `.github/copilot-instructions.md` holds the full long-form conventions; this file is the quick version.
-- `docs/INDEX.md` indexes the detailed docs by topic.
+
+Production runs on **Azure App Service + Hono** (`server/`); Azure Static Web Apps is retired. Don't reintroduce SWA as the deploy target.
 
 ## Don't
 

@@ -4,7 +4,7 @@
  * No authentication required - accessible via shareable link
  */
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useWebPubSub, useReverseGeocode } from '../hooks';
 import { ShareModal, SEO, CountdownTimer, ThankYouOverlay } from '../components';
@@ -13,11 +13,18 @@ import mapboxgl from 'mapbox-gl';
 import { storageAdapter } from '../storage';
 import type { Route, LocationBroadcast } from '../types';
 import { formatDistance, getDirections } from '../utils/mapbox';
-import { calculateDistance } from '../utils/navigation';
+import { calculateDistance, alongPathDistance } from '../utils/navigation';
+import { isPushSupported, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute } from '../utils/push';
+import { DEMO_ROUTE, startDemoSimulator } from '../utils/demoRoute';
 import 'mapbox-gl/dist/mapbox-gl.css';
+
+/** Fallback parade pace when the truck isn't reporting speed: ~12 km/h. */
+const DEFAULT_PARADE_SPEED_MS = 3.4;
 
 export interface TrackingViewProps {
   routeId: string;
+  /** Simulated demo run: baked-in route + scripted Santa, no backend. */
+  demo?: boolean;
 }
 
 /**
@@ -42,7 +49,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-export function TrackingView({ routeId }: TrackingViewProps) {
+export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   const [route, setRoute] = useState<Route | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<LocationBroadcast | null>(null);
@@ -69,9 +76,22 @@ export function TrackingView({ routeId }: TrackingViewProps) {
   // The path drawn on the map: stored geometry wins, fallback otherwise.
   const displayGeometry = route?.geometry ?? fetchedGeometry;
 
+  // "My spot": the viewer's own location pin for a personal Santa ETA.
+  const [viewerPin, setViewerPin] = useState<[number, number] | null>(null);
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
+  // "Notify me": web push before the run starts. Key stays null when the
+  // deployment has no VAPID keys or the browser lacks push — UI hides itself.
+  const [pushPublicKey, setPushPublicKey] = useState<string | null>(null);
+  const [notifyState, setNotifyState] = useState<'idle' | 'busy' | 'done'>(
+    () => (hasSubscribedToRoute(routeId) ? 'done' : 'idle'),
+  );
+  const [notifyError, setNotifyError] = useState<string | null>(null);
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const santaMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const pinMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const waypointMarkerElsRef = useRef<HTMLDivElement[]>([]);
   const lastLocationRef = useRef<[number, number] | null>(null);
 
@@ -80,6 +100,13 @@ export function TrackingView({ routeId }: TrackingViewProps) {
   // NOTE: this component is mounted with key={routeId} (see App.tsx), so all
   // per-route view state resets naturally when navigating between runs.
   useEffect(() => {
+    if (demo) {
+      // Demo mode: baked-in sample route, no backend round-trip.
+      setRoute(DEMO_ROUTE);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     storageAdapter
       .getPublicRoute(routeId)
       .then((r) => {
@@ -97,7 +124,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
       .finally(() => {
         setLoading(false);
       });
-  }, [routeId]);
+  }, [routeId, demo]);
 
   // Resolve a fallback path when the stored route has none: Mapbox Directions
   // → straight lines between stops. Routes are often published without an
@@ -352,6 +379,87 @@ export function TrackingView({ routeId }: TrackingViewProps) {
     }
   };
 
+  // Discover whether this deployment supports push (once per page).
+  useEffect(() => {
+    if (!isPushSupported()) return;
+    let cancelled = false;
+    getServerPublicKey().then((key) => {
+      if (!cancelled) setPushPublicKey(key);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleNotifyMe = useCallback(async () => {
+    if (!pushPublicKey) return;
+    setNotifyState('busy');
+    setNotifyError(null);
+    try {
+      await subscribeToRunStart(routeId, pushPublicKey);
+      setNotifyState('done');
+    } catch (err) {
+      setNotifyError(err instanceof Error ? err.message : 'Could not set up notifications.');
+      setNotifyState('idle');
+    }
+  }, [pushPublicKey, routeId]);
+
+  // Drop / clear the viewer's home pin (🏠) for a personal ETA.
+  const setMySpot = useCallback(() => {
+    if (!('geolocation' in navigator)) {
+      setPinError('Location is not available on this device.');
+      return;
+    }
+    setPinBusy(true);
+    setPinError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setViewerPin([pos.coords.longitude, pos.coords.latitude]);
+        setPinBusy(false);
+      },
+      () => {
+        setPinError("We couldn't get your location — check location permissions and try again.");
+        setPinBusy(false);
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
+  }, []);
+
+  const clearMySpot = useCallback(() => {
+    setViewerPin(null);
+    setPinError(null);
+    pinMarkerRef.current?.remove();
+    pinMarkerRef.current = null;
+  }, []);
+
+  // Keep the 🏠 marker in sync with the pin.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !viewerPin) return;
+    if (pinMarkerRef.current) {
+      pinMarkerRef.current.setLngLat(viewerPin);
+      return;
+    }
+    const el = document.createElement('div');
+    el.textContent = '🏠';
+    el.style.fontSize = '32px';
+    el.style.lineHeight = '1';
+    el.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))';
+    el.setAttribute('aria-hidden', 'true');
+    pinMarkerRef.current = new mapboxgl.Marker(el).setLngLat(viewerPin).addTo(map);
+  }, [viewerPin]);
+
+  // Personal ETA: distance from Santa to the pin measured along the route path
+  // (straight-line lies on looping parade routes), at live speed when the truck
+  // reports one, else a typical parade pace.
+  const mySpotEta = useMemo(() => {
+    if (!viewerPin || !currentLocation || !displayGeometry) return null;
+    const along = alongPathDistance(displayGeometry, currentLocation.location, viewerPin);
+    const speed = currentLocation.speed && currentLocation.speed > 1 ? currentLocation.speed : DEFAULT_PARADE_SPEED_MS;
+    const minutes = Math.max(1, Math.round(along.meters / speed / 60));
+    return { ...along, minutes };
+  }, [viewerPin, currentLocation, displayGeometry]);
+
   const resumeFollowing = useCallback(() => {
     isFollowingRef.current = true;
     setIsFollowing(true);
@@ -364,12 +472,32 @@ export function TrackingView({ routeId }: TrackingViewProps) {
     }
   }, []);
 
-  // Connect to Web PubSub for real-time updates
+  // Connect to Web PubSub for real-time updates (skipped in demo mode — the
+  // simulator below produces the same messages locally).
   const { isConnected, isConnecting, error: connectionError, viewerCount } = useWebPubSub({
     routeId,
     role: 'viewer',
     onLocationUpdate: handleLocationUpdate,
+    enabled: !demo,
   });
+
+  // Demo simulator: march Santa along the displayed path once it resolves.
+  // Routed through a ref so the interval always calls the latest closure.
+  const handleLocationUpdateRef = useRef(handleLocationUpdate);
+  handleLocationUpdateRef.current = handleLocationUpdate;
+  useEffect(() => {
+    if (!demo || !displayGeometry || !mapLoaded) return;
+    const stop = startDemoSimulator({
+      coordinates: displayGeometry.coordinates as [number, number][],
+      waypoints: DEMO_ROUTE.waypoints,
+      onUpdate: (b) => handleLocationUpdateRef.current(b),
+    });
+    return stop;
+  }, [demo, displayGeometry, mapLoaded]);
+
+  // Presentation state for demo mode: the "connection" is the local simulator.
+  const effectiveConnected = demo ? true : isConnected;
+  const effectiveViewerCount = demo ? 12 : viewerCount;
 
   // Reverse-geocode Santa's current position to get street name / suburb
   const { street, suburb } = useReverseGeocode(currentLocation?.location ?? null);
@@ -543,8 +671,24 @@ export function TrackingView({ routeId }: TrackingViewProps) {
                   📅 {formatRunDateTime(route.date, route.startTime)}
                 </p>
               </div>
+              {demo && (
+                <span
+                  style={{
+                    padding: '0.25rem 0.6rem',
+                    backgroundColor: 'var(--rfs-yellow)',
+                    color: 'var(--neutral-900)',
+                    borderRadius: '999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    fontFamily: 'var(--font-body)',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  DEMO
+                </span>
+              )}
               {/* Live Viewer Count Badge */}
-              {viewerCount !== null && viewerCount > 0 && (
+              {effectiveViewerCount !== null && effectiveViewerCount > 0 && (
                 <div
                   style={{
                     display: 'flex',
@@ -560,7 +704,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
                     fontWeight: 600,
                     whiteSpace: 'nowrap',
                   }}
-                  title={`${viewerCount} ${viewerCount === 1 ? 'person is' : 'people are'} watching`}
+                  title={`${effectiveViewerCount} ${effectiveViewerCount === 1 ? 'person is' : 'people are'} watching`}
                 >
                   <span className="live-pulse-dot" style={{
                     width: '8px',
@@ -571,7 +715,7 @@ export function TrackingView({ routeId }: TrackingViewProps) {
                   }} />
                   <span>LIVE</span>
                   <span style={{ opacity: 0.8 }}>•</span>
-                  <span>{viewerCount} watching</span>
+                  <span>{effectiveViewerCount} watching</span>
                 </div>
               )}
               <button
@@ -604,12 +748,12 @@ export function TrackingView({ routeId }: TrackingViewProps) {
               <div
                 className="live-pulse"
                 style={{
-                  backgroundColor: isConnected ? 'var(--rfs-yellow)' :
+                  backgroundColor: effectiveConnected ? 'var(--rfs-yellow)' :
                                    isConnecting ? 'var(--summer-gold)' :
                                    'var(--fire-red)',
                 }}
                 title={
-                  isConnected ? 'Connected - Live Tracking Active' :
+                  effectiveConnected ? 'Connected - Live Tracking Active' :
                   isConnecting ? 'Connecting...' :
                   'Disconnected'
                 }
@@ -846,6 +990,146 @@ export function TrackingView({ routeId }: TrackingViewProps) {
                 onShare={() => setShowShareModal(true)}
               />
             )}
+
+            {/* Demo mode: label the simulation and convert interested crews */}
+            {demo && (
+              <div
+                style={{
+                  marginTop: '0.75rem',
+                  padding: '0.75rem 1rem',
+                  backgroundColor: 'rgba(255, 230, 0, 0.15)',
+                  borderRadius: 'var(--border-radius-xs)',
+                  borderLeft: '4px solid var(--rfs-yellow)',
+                  fontSize: '0.875rem',
+                  color: 'var(--neutral-900)',
+                }}
+              >
+                <strong>This is a simulated demo run.</strong> Everything works exactly
+                like this on the night — your community follows the real truck live.{' '}
+                <Link to="/" style={{ color: 'var(--fire-red)', fontWeight: 700 }}>
+                  Set it up for your town →
+                </Link>
+              </div>
+            )}
+
+            {/* Notify me — web push before the run starts (hidden when the
+                deployment has no VAPID keys or the browser lacks push) */}
+            {!demo && !currentLocation && pushPublicKey && (
+              <div style={{ marginTop: '0.75rem' }}>
+                {notifyState === 'done' ? (
+                  <p
+                    style={{
+                      margin: 0,
+                      padding: '0.7rem 1rem',
+                      backgroundColor: 'rgba(255, 167, 38, 0.12)',
+                      borderRadius: 'var(--border-radius-xs)',
+                      borderLeft: '4px solid var(--summer-gold)',
+                      fontSize: '0.875rem',
+                      color: 'var(--neutral-900)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    🔔 You&apos;re on the list — we&apos;ll notify you the moment Santa starts.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleNotifyMe}
+                    disabled={notifyState === 'busy'}
+                    style={{
+                      width: '100%',
+                      padding: '0.7rem 1rem',
+                      border: 'none',
+                      borderRadius: 'var(--border-radius-xs)',
+                      background: 'linear-gradient(135deg, var(--summer-gold), var(--summer-gold-dark, #F57C00))',
+                      color: 'var(--neutral-900)',
+                      cursor: notifyState === 'busy' ? 'wait' : 'pointer',
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                      fontFamily: 'var(--font-body)',
+                      boxShadow: '0 2px 8px rgba(255, 167, 38, 0.4)',
+                    }}
+                  >
+                    {notifyState === 'busy' ? '🔔 Setting up…' : '🔔 Notify me when Santa starts'}
+                  </button>
+                )}
+                {notifyError && (
+                  <p role="alert" style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: 'var(--fire-red)', fontWeight: 600 }}>
+                    {notifyError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Personal ETA — pin your place, see how far away Santa is */}
+            <div style={{ marginTop: '0.75rem' }}>
+              {viewerPin ? (
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    backgroundColor: 'rgba(67, 160, 71, 0.08)',
+                    borderRadius: 'var(--border-radius-xs)',
+                    borderLeft: '4px solid var(--christmas-green)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-900)', fontWeight: 600 }}>
+                    {mySpotEta
+                      ? mySpotEta.passed
+                        ? '🏠 Santa has already passed your spot — catch him further along the route!'
+                        : `🏠 Santa is ${formatDistance(mySpotEta.meters)} from your spot — about ${mySpotEta.minutes} min away`
+                      : '🏠 Your spot is pinned — your personal ETA will appear when Santa starts.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={clearMySpot}
+                    aria-label="Remove my spot pin"
+                    style={{
+                      flexShrink: 0,
+                      width: '28px',
+                      height: '28px',
+                      border: 'none',
+                      borderRadius: '50%',
+                      background: 'var(--neutral-100)',
+                      color: 'var(--neutral-700)',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      fontWeight: 700,
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={setMySpot}
+                  disabled={pinBusy}
+                  style={{
+                    width: '100%',
+                    padding: '0.7rem 1rem',
+                    border: '2px solid var(--christmas-green)',
+                    borderRadius: 'var(--border-radius-xs)',
+                    background: 'white',
+                    color: 'var(--christmas-green)',
+                    cursor: pinBusy ? 'wait' : 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  {pinBusy ? '📍 Finding you…' : '🏠 How far is Santa from my place?'}
+                </button>
+              )}
+              {pinError && (
+                <p role="alert" style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: 'var(--fire-red)', fontWeight: 600 }}>
+                  {pinError}
+                </p>
+              )}
+            </div>
 
             {connectionError && (
               <div style={{

@@ -8,9 +8,10 @@
  */
 
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { storageAdapter } from '../storage';
 import { safeImageSrc } from '../utils/publicBrigade';
+import { calculateDistance } from '../utils/navigation';
 // Direct import: the components barrel drags mapbox-gl into this public page's chunk.
 import { SEO } from '../components/SEO';
 import { PublicHeader } from '../components/PublicHeader';
@@ -26,7 +27,14 @@ function extractState(location: string | undefined): string {
 
 const AU_STATES = ['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'];
 
-function BrigadeCard({ brigade }: { brigade: Brigade }) {
+/** "850 m away" / "12 km away" for the card distance chip. */
+function formatDistanceAway(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters / 50) * 50} m away`;
+  if (meters < 10_000) return `${(meters / 1000).toFixed(1)} km away`;
+  return `${Math.round(meters / 1000)} km away`;
+}
+
+function BrigadeCard({ brigade, distanceMeters }: { brigade: Brigade; distanceMeters?: number }) {
   const logoSrc = safeImageSrc(brigade.logo);
   const state = extractState(brigade.location);
 
@@ -48,6 +56,9 @@ function BrigadeCard({ brigade }: { brigade: Brigade }) {
         <p className="bdp__card-location">
           <span aria-hidden="true">📍</span> {brigade.location}
         </p>
+        {distanceMeters !== undefined && (
+          <span className="bdp__distance-badge">{formatDistanceAway(distanceMeters)}</span>
+        )}
         {state && <span className="bdp__state-badge">{state}</span>}
       </div>
       {!brigade.isClaimed && (
@@ -58,12 +69,17 @@ function BrigadeCard({ brigade }: { brigade: Brigade }) {
 }
 
 export function BrigadeDiscoveryPage() {
+  const [searchParams] = useSearchParams();
   const [brigades, setBrigades] = useState<Brigade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState('');
   const [stateFilter, setStateFilter] = useState('');
   const [showUnclaimed, setShowUnclaimed] = useState(false);
+  // "Near me": browser geolocation → sort by distance to each brigade station.
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   // Defer the query used for filtering so typing stays responsive even when the
   // brigade list is large — the input updates instantly, the grid catches up.
   const deferredQuery = useDeferredValue(query);
@@ -74,6 +90,33 @@ export function BrigadeDiscoveryPage() {
     setQuery('');
     setStateFilter('');
   }
+
+  function locateMe() {
+    if (!('geolocation' in navigator)) {
+      setLocationError('Location is not available on this device.');
+      return;
+    }
+    setLocating(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation([pos.coords.longitude, pos.coords.latitude]);
+        setLocating(false);
+      },
+      () => {
+        setLocationError('We couldn’t get your location. You can still search by name or town.');
+        setLocating(false);
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 },
+    );
+  }
+
+  // Landing-page CTA ("Find a Santa run near me") links here with ?near=1 —
+  // start locating immediately so the visitor lands on a sorted list.
+  useEffect(() => {
+    if (searchParams.get('near') === '1') locateMe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -92,15 +135,40 @@ export function BrigadeDiscoveryPage() {
     void load();
   }, []);
 
+  // Distance to each brigade's station when the visitor has shared a location.
+  const distances = useMemo(() => {
+    if (!userLocation) return new Map<string, number>();
+    const map = new Map<string, number>();
+    for (const b of brigades) {
+      if (b.stationCoordinates) {
+        map.set(b.id, calculateDistance(userLocation, b.stationCoordinates));
+      }
+    }
+    return map;
+  }, [brigades, userLocation]);
+
   const filtered = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
-    return brigades.filter((b) => {
+    const list = brigades.filter((b) => {
       if (!showUnclaimed && !b.isClaimed) return false;
       if (stateFilter && extractState(b.location) !== stateFilter) return false;
       if (q && !b.name.toLowerCase().includes(q) && !(b.location ?? '').toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [brigades, deferredQuery, stateFilter, showUnclaimed]);
+    if (userLocation) {
+      // Nearest first; brigades without a station location keep alphabetical
+      // order after the located ones.
+      return [...list].sort((a, b) => {
+        const da = distances.get(a.id);
+        const db = distances.get(b.id);
+        if (da === undefined && db === undefined) return a.name.localeCompare(b.name);
+        if (da === undefined) return 1;
+        if (db === undefined) return -1;
+        return da - db;
+      });
+    }
+    return list;
+  }, [brigades, deferredQuery, stateFilter, showUnclaimed, userLocation, distances]);
 
   const statesWithBrigades = useMemo(() => {
     const present = new Set(brigades.map((b) => extractState(b.location)).filter(Boolean));
@@ -123,7 +191,7 @@ export function BrigadeDiscoveryPage() {
             Browse participating brigades and community groups and follow their Santa runs live.
           </p>
 
-          {/* Search */}
+          {/* Search + near-me */}
           <div className="bdp__search-wrap">
             <label htmlFor="bdp-search" className="sr-only">Search brigades</label>
             <input
@@ -135,7 +203,19 @@ export function BrigadeDiscoveryPage() {
               onChange={(e) => setQuery(e.target.value)}
               autoComplete="off"
             />
+            <button
+              type="button"
+              className="bdp__near-btn"
+              onClick={locateMe}
+              disabled={locating}
+              aria-pressed={userLocation !== null}
+            >
+              {locating ? '📍 Locating…' : userLocation ? '📍 Sorted by distance' : '📍 Near me'}
+            </button>
           </div>
+          {locationError && (
+            <p className="bdp__location-error" role="alert">{locationError}</p>
+          )}
         </div>
       </header>
 
@@ -215,7 +295,7 @@ export function BrigadeDiscoveryPage() {
             ) : (
               <div className="bdp__grid">
                 {filtered.map((b) => (
-                  <BrigadeCard key={b.id} brigade={b} />
+                  <BrigadeCard key={b.id} brigade={b} distanceMeters={distances.get(b.id)} />
                 ))}
               </div>
             )}

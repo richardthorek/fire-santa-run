@@ -14,6 +14,7 @@ import './negotiate';
 import './broadcast';
 import './claim';
 import './og-image';
+import './push';
 
 // Import utils to ensure they are compiled
 import './utils/auth';

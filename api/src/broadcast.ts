@@ -18,8 +18,10 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { checkRateLimit } from './rateLimit';
 import { validateToken } from './utils/auth';
+import { notifyRunStartOnce } from './utils/push';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
+const APP_BASE_URL = process.env.APP_BASE_URL || 'https://firesantarun.com.au';
 
 interface LocationBroadcast {
   routeId: string;
@@ -121,6 +123,10 @@ export async function broadcast(request: HttpRequest, context: InvocationContext
     // Get group client and broadcast to all group members
     const groupClient = serviceClient.group(groupName);
     await groupClient.sendToAll(message);
+
+    // First broadcast of a run wakes the "notify me" subscribers. Deliberately
+    // not awaited — pushes must never slow down or fail location updates.
+    void notifyRunStartOnce(body.routeId, APP_BASE_URL);
 
     context.log(`Broadcasted location update for route: ${body.routeId} to group: ${groupName}`);
 

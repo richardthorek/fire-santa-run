@@ -182,6 +182,8 @@ updates the keys you provide and never blanks the rest.
 | `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) for that environment's webhook endpoint | `infra/.env.<env>` |
 | `STRIPE_PRICE_ID` | Price id (`price_…`) of the $5/yr recurring price (test vs live mode) | `infra/.env.<env>` |
 | `SITE_ADMIN_USER_IDS` | Comma-separated Entra `oid.tid` IDs allowed to review brigade verification | `infra/.env.<env>` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push keys for "notify me when Santa starts" (optional — hides the button when unset) | `infra/.env.<env>` |
+| `VAPID_SUBJECT` | Contact URI sent to push services (optional; defaults to a `mailto:`) | `infra/.env.<env>` |
 
 **Re-seed without a full redeploy** (e.g. after rotating a Stripe key or adding a
 webhook secret):
@@ -252,6 +254,51 @@ stripe listen --forward-to localhost:8080/api/stripe/webhook
 
 Note: local dev (`DEV_MODE=true`) bypasses billing entirely — every brigade is
 treated as entitled — so Stripe is only needed against deployed environments.
+
+### Web Push ("notify me when Santa starts")
+
+Optional feature — when unconfigured the tracking page simply hides the notify
+button. To enable it, generate a VAPID key pair and add it to the App Service
+settings (export in the deploy shell like the Stripe vars):
+
+```bash
+npx web-push generate-vapid-keys
+# → set these app settings:
+#   VAPID_PUBLIC_KEY=BOx...
+#   VAPID_PRIVATE_KEY=k3v...
+#   VAPID_SUBJECT=mailto:admin@firesantarun.com.au   (optional, defaults to this)
+```
+
+Subscriptions are stored per-route in the `pushsubscriptions` table; the first
+location broadcast of a run sends one "Santa is on the way!" push to that
+route's subscribers (12-hour re-send guard, expired subscriptions cleaned up on
+410/404 responses).
+
+---
+
+## Seasonal Scaling (read before December!)
+
+Santa runs are hyper-seasonal, and the **Web PubSub free tier caps at 20
+concurrent connections — one popular run will exceed that on its own.** Scale
+up before your first December run and back down in January:
+
+```bash
+./infra/scale-season.sh --rg rg-santarun-prod-prod1 season      # ~Dec 1
+./infra/scale-season.sh --rg rg-santarun-prod-prod1 offseason   # ~Jan 7
+
+# Expecting >1,000 simultaneous viewers across all brigades on Christmas Eve:
+./infra/scale-season.sh --rg rg-santarun-prod-prod1 season --pubsub-units 2
+```
+
+Cost intuition (AUD, indicative): Standard_S1 ≈ $2.40/day/unit, so a Dec 1 –
+Jan 5 season ≈ **$85/unit** vs ≈ $900 left on year-round. The App Service plan
+stays at B1 year-round because custom domains require Basic or higher.
+
+**Mapbox is the other seasonal cost**: every public viewer session is one map
+load; 50k loads/month are free, then ~US$5 per 1,000. Watch the Mapbox usage
+dashboard through December — at very large viewer counts this becomes the
+dominant cost and is the trigger to consider MapLibre + open tiles for the
+public tracking page.
 
 ---
 

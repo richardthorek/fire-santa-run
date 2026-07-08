@@ -4,8 +4,10 @@ import type { Context, Next } from 'hono';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { rateLimit } from '../utils/rateLimit.js';
 import { validateToken } from '../utils/auth.js';
+import { notifyRunStartOnce } from '../utils/push.js';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
+const APP_BASE_URL = process.env.APP_BASE_URL || 'https://firesantarun.com.au';
 
 interface LocationBroadcast {
   routeId: string;
@@ -81,6 +83,10 @@ broadcastRouter.post('/broadcast', async (c) => {
 
     const groupClient = serviceClient.group(groupName);
     await groupClient.sendToAll(message);
+
+    // First broadcast of a run wakes the "notify me" subscribers. Deliberately
+    // not awaited — pushes must never slow down or fail location updates.
+    void notifyRunStartOnce(body.routeId, APP_BASE_URL);
 
     console.log(`Broadcasted location update for route: ${body.routeId} to group: ${groupName}`);
     return c.json({ success: true, routeId: body.routeId, groupName, timestamp: body.timestamp }, 200);

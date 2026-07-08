@@ -252,15 +252,16 @@ fire-santa-run/
 ├── .github/
 │   ├── workflows/          # CI/CD pipelines (quality + App Service deploy)
 │   └── copilot-instructions.md
-├── api/                    # Azure Functions (serverless API)
+├── api/                    # Azure Functions — local dev API (npm run dev) + legacy path
 │   └── src/                # API function implementations
-├── server/                 # Hono backend for App Service runtime
+├── server/                 # Hono backend — PRODUCTION API on Azure App Service
 │   └── src/
 ├── infra/                  # Bicep IaC and deployment script
 │   ├── main.bicep
 │   └── deploy.sh
-├── docs/                   # Documentation
-│   ├── AZURE_SETUP.md
+├── docs/                   # Documentation (see docs/INDEX.md)
+│   ├── ARCHITECTURE.md     # As-built architecture (canonical)
+│   ├── UI_GUIDELINES.md    # Design tokens, brand, accessibility (canonical)
 │   ├── DEV_MODE.md
 │   └── SECRETS_MANAGEMENT.md
 ├── scripts/                # Setup and utility scripts
@@ -275,8 +276,8 @@ fire-santa-run/
 │   ├── context/            # React Context providers
 │   ├── hooks/              # Custom React hooks
 │   └── services/           # API service layer
-├── staticwebapp.config.json # Legacy SWA config (not primary production deploy target)
-├── MASTER_PLAN.md          # Complete architecture plan
+├── staticwebapp.config.json # Legacy SWA config (retired; not a deploy target)
+├── MASTER_PLAN.md          # Forward-looking product plan (concise)
 └── README.md               # This file
 ```
 

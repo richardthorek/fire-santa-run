@@ -30,6 +30,8 @@ export interface WaypointListProps {
 
 interface SortableItemProps {
   waypoint: Waypoint;
+  /** The stop before this one in route order (for leg-time display), if any. */
+  previous?: Waypoint;
   index: number;
   onEdit?: (waypoint: Waypoint) => void;
   onDelete?: (waypointId: string) => void;
@@ -37,7 +39,27 @@ interface SortableItemProps {
   showETA: boolean; // Add showETA prop
 }
 
-function SortableItem({ waypoint, index, onEdit, onDelete, editable, showETA }: SortableItemProps) {
+/** Standard six-dot drag grip — one unambiguous handle instead of split dots. */
+function DragGrip() {
+  return (
+    <svg width="10" height="16" viewBox="0 0 10 16" aria-hidden="true" focusable="false">
+      {[2, 8].map((cx) =>
+        [2, 8, 14].map((cy) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.5" fill="currentColor" />),
+      )}
+    </svg>
+  );
+}
+
+/** "+4 min" travel time for the leg into this stop, from consecutive ETAs. */
+function legMinutes(waypoint: Waypoint, previous?: Waypoint): number | null {
+  if (!previous?.estimatedArrival || !waypoint.estimatedArrival) return null;
+  const from = Date.parse(previous.estimatedArrival);
+  const to = Date.parse(waypoint.estimatedArrival);
+  if (Number.isNaN(from) || Number.isNaN(to) || to <= from) return null;
+  return Math.max(1, Math.round((to - from) / 60_000));
+}
+
+function SortableItem({ waypoint, previous, index, onEdit, onDelete, editable, showETA }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -53,81 +75,108 @@ function SortableItem({ waypoint, index, onEdit, onDelete, editable, showETA }: 
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const name = waypoint.name || `Waypoint ${index + 1}`;
+  const leg = showETA ? legMinutes(waypoint, previous) : null;
+  const eta = showETA && waypoint.estimatedArrival ? formatETA(new Date(waypoint.estimatedArrival)) : null;
+
+  // Secondary line: planning data when available, otherwise the address.
+  const secondary = eta
+    ? `${eta}${leg !== null ? ` · +${leg} min` : ''}${waypoint.address ? ` · ${waypoint.address}` : ''}`
+    : waypoint.address || '';
+
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="waypoint-item"
-    >
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '1rem',
-        padding: '1rem',
-        backgroundColor: 'white',
-        border: '1px solid #e0e0e0',
-        borderRadius: '8px',
-        marginBottom: '0.5rem',
-        boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.1)',
-      }}>
+    <div ref={setNodeRef} style={style} className="waypoint-item">
+      <div
+        title={waypoint.address ? `${name} — ${waypoint.address}` : name}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          padding: '0.45rem 0.5rem',
+          backgroundColor: 'white',
+          border: '1px solid #e0e0e0',
+          borderRadius: '8px',
+          marginBottom: '0.35rem',
+          boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.15)' : '0 1px 2px rgba(0,0,0,0.06)',
+        }}
+      >
         {/* Drag Handle */}
         {editable && (
           <div
             {...attributes}
             {...listeners}
+            aria-label={`Reorder ${name}`}
             style={{
               cursor: isDragging ? 'grabbing' : 'grab',
-              padding: '0.5rem',
+              padding: '0.4rem 0.25rem',
               color: '#9e9e9e',
-              fontSize: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              flexShrink: 0,
+              touchAction: 'none',
             }}
           >
-            ⋮⋮
+            <DragGrip />
           </div>
         )}
 
         {/* Waypoint Number */}
-        <div style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '50%',
-          backgroundColor: waypoint.isCompleted ? '#43A047' : '#D32F2F',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontWeight: 700,
-          fontSize: '14px',
-          flexShrink: 0,
-        }}>
+        <div
+          style={{
+            width: '24px',
+            height: '24px',
+            borderRadius: '50%',
+            backgroundColor: waypoint.isCompleted ? '#43A047' : '#D32F2F',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 700,
+            fontSize: '12px',
+            flexShrink: 0,
+          }}
+        >
           {index + 1}
         </div>
 
-        {/* Waypoint Details */}
+        {/* Waypoint Details — compact two-line block, both lines truncate */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
-            {waypoint.name || `Waypoint ${index + 1}`}
-          </div>
-          {waypoint.address && (
-            <div style={{ fontSize: '0.875rem', color: '#616161', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {waypoint.address}
-            </div>
-          )}
-          {showETA && waypoint.estimatedArrival && (
-            <div style={{
-              fontSize: '0.875rem',
-              color: '#29B6F6',
+          <div
+            style={{
               fontWeight: 600,
-              marginTop: '0.25rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem'
-            }}>
-              🕐 ETA: {formatETA(new Date(waypoint.estimatedArrival))}
+              fontSize: '0.875rem',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {name}
+          </div>
+          {secondary && (
+            <div
+              style={{
+                fontSize: '0.75rem',
+                color: eta ? '#0277BD' : '#757575',
+                fontWeight: eta ? 600 : 400,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {secondary}
             </div>
           )}
           {waypoint.notes && (
-            <div style={{ fontSize: '0.875rem', color: '#9e9e9e', fontStyle: 'italic', marginTop: '0.25rem' }}>
+            <div
+              style={{
+                fontSize: '0.75rem',
+                color: '#9e9e9e',
+                fontStyle: 'italic',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {waypoint.notes}
             </div>
           )}
@@ -135,18 +184,23 @@ function SortableItem({ waypoint, index, onEdit, onDelete, editable, showETA }: 
 
         {/* Action Buttons */}
         {editable && (
-          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '0.125rem', flexShrink: 0 }}>
             {onEdit && (
               <button
                 onClick={() => onEdit(waypoint)}
+                aria-label={`Edit ${name}`}
+                title="Edit waypoint"
                 style={{
-                  padding: '0.5rem',
+                  width: '28px',
+                  height: '28px',
+                  padding: 0,
                   border: 'none',
+                  borderRadius: '6px',
                   background: 'transparent',
                   cursor: 'pointer',
-                  fontSize: '18px',
+                  fontSize: '14px',
+                  lineHeight: 1,
                 }}
-                title="Edit waypoint"
               >
                 ✏️
               </button>
@@ -154,15 +208,19 @@ function SortableItem({ waypoint, index, onEdit, onDelete, editable, showETA }: 
             {onDelete && (
               <button
                 onClick={() => onDelete(waypoint.id)}
+                aria-label={`Delete ${name}`}
+                title="Delete waypoint"
                 style={{
-                  padding: '0.5rem',
+                  width: '28px',
+                  height: '28px',
+                  padding: 0,
                   border: 'none',
+                  borderRadius: '6px',
                   background: 'transparent',
                   cursor: 'pointer',
-                  fontSize: '18px',
-                  color: '#d32f2f',
+                  fontSize: '14px',
+                  lineHeight: 1,
                 }}
-                title="Delete waypoint"
               >
                 🗑️
               </button>
@@ -201,7 +259,7 @@ export function WaypointList({
     if (over && active.id !== over.id) {
       const oldIndex = sortedWaypoints.findIndex(wp => wp.id === active.id);
       const newIndex = sortedWaypoints.findIndex(wp => wp.id === over.id);
-      
+
       if (oldIndex !== -1 && newIndex !== -1) {
         onReorder(oldIndex, newIndex);
       }
@@ -243,6 +301,7 @@ export function WaypointList({
             <SortableItem
               key={waypoint.id}
               waypoint={waypoint}
+              previous={index > 0 ? sortedWaypoints[index - 1] : undefined}
               index={index}
               onEdit={onEdit}
               onDelete={onDelete}

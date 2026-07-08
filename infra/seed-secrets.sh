@@ -213,8 +213,9 @@ SETTINGS=(
 )
 
 # Optional secrets — Stripe TEST keys for dev, LIVE keys for prod.
+# VAPID_* enables the "notify me when Santa starts" web push (see README).
 MISSING_SECRETS=()
-for name in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PRICE_ID SITE_ADMIN_USER_IDS; do
+for name in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PRICE_ID SITE_ADMIN_USER_IDS VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT; do
   val="$(resolve "$name")"
   if [[ -n "$val" ]]; then
     SETTINGS+=("$name=$val")

@@ -2,6 +2,14 @@
 
 This directory contains Azure Functions V4 (Node.js) for the Fire Santa Run backend.
 
+> **Role note (current):** `api/` is the **local-development** API (used by
+> `npm run dev`) and the legacy Functions path. **Production runs on Azure App
+> Service with the Hono server in [`../server/`](../server/)** — see
+> [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md). The two implementations
+> must stay in sync for auth, entitlement, realtime, and storage logic.
+> References below to Azure Static Web Apps describe the retired deployment and
+> are kept only for historical context.
+
 ## Structure
 
 ```
@@ -201,16 +209,18 @@ Functions validate:
 
 ## Deployment
 
-Functions are automatically deployed via GitHub Actions to Azure Static Web Apps:
+**Production no longer deploys this Functions app.** The live API is the Hono
+server in [`../server/`](../server/) on Azure App Service (see
+[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) and
+[`../infra/README.md`](../infra/README.md)). This `api/` app is used for local
+development (`npm run dev`) and kept in parity with `server/`.
 
-1. Code pushed to `main` branch
-2. GitHub Actions workflow triggers
-3. Azure Static Web Apps CLI builds frontend and API
-4. Frontend deployed to Azure CDN
-5. API Functions deployed to Azure Functions (V4 runtime)
-6. Environment variables configured in Azure Portal
+_Historical:_ the original design deployed these Functions via GitHub Actions to
+Azure Static Web Apps (frontend to CDN, API to the Functions V4 runtime). That
+deployment path has been retired.
 
-The `.funcignore` file ensures only necessary files are deployed:
+The `.funcignore` file ensures only necessary files are packaged when running
+locally:
 - Compiled JavaScript (`dist/`)
 - `package.json` and `package-lock.json`
 - `host.json`
