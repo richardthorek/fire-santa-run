@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
-import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { rateLimit } from '../utils/rateLimit.js';
 import { validateToken } from '../utils/auth.js';
 import { notifyRunStartOnce } from '../utils/push.js';
+import { hub } from '../realtime/hub.js';
 
-const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://firesantarun.com.au';
 
 interface LocationBroadcast {
@@ -62,15 +61,6 @@ broadcastRouter.post('/broadcast', async (c) => {
       return c.json({ error: 'Missing required field: timestamp' }, 400);
     }
 
-    const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
-    if (!connectionString) {
-      console.error('AZURE_WEBPUBSUB_CONNECTION_STRING is not configured');
-      return c.json({ error: 'Web PubSub service is not configured' }, 500);
-    }
-
-    const serviceClient = new WebPubSubServiceClient(connectionString, HUB_NAME);
-    const groupName = `route_${body.routeId}`;
-
     const message: LocationBroadcast = {
       routeId: body.routeId,
       location: body.location,
@@ -81,15 +71,15 @@ broadcastRouter.post('/broadcast', async (c) => {
       nextWaypointEta: body.nextWaypointEta,
     };
 
-    const groupClient = serviceClient.group(groupName);
-    await groupClient.sendToAll(message);
+    // Fan out in-process to every viewer's WebSocket (no managed Web PubSub,
+    // no per-message billing).
+    hub.broadcastLocation(body.routeId, message);
 
     // First broadcast of a run wakes the "notify me" subscribers. Deliberately
     // not awaited — pushes must never slow down or fail location updates.
     void notifyRunStartOnce(body.routeId, APP_BASE_URL);
 
-    console.log(`Broadcasted location update for route: ${body.routeId} to group: ${groupName}`);
-    return c.json({ success: true, routeId: body.routeId, groupName, timestamp: body.timestamp }, 200);
+    return c.json({ success: true, routeId: body.routeId, timestamp: body.timestamp }, 200);
   } catch (error: any) {
     console.error('Error broadcasting location:', error);
     return c.json({ error: 'Failed to broadcast location', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
@@ -120,15 +110,6 @@ broadcastRouter.post('/broadcast/editor-presence', async (c) => {
       return c.json({ error: 'Invalid action. Must be "editing" or "left"' }, 400);
     }
 
-    const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
-    if (!connectionString) {
-      console.error('AZURE_WEBPUBSUB_CONNECTION_STRING is not configured');
-      return c.json({ error: 'Web PubSub service is not configured' }, 500);
-    }
-
-    const serviceClient = new WebPubSubServiceClient(connectionString, HUB_NAME);
-    const groupName = `edit_${body.routeId}`;
-
     const message = {
       type: 'editor-presence',
       routeId: body.routeId,
@@ -137,7 +118,8 @@ broadcastRouter.post('/broadcast/editor-presence', async (c) => {
       action: body.action,
     };
 
-    await serviceClient.group(groupName).sendToAll(message);
+    // Relay to the private editors set only (never to public viewers).
+    hub.broadcastEditorPresence(body.routeId, message);
     return c.json({ success: true }, 200);
   } catch (error: any) {
     console.error('Error broadcasting editor presence:', error);
@@ -145,39 +127,20 @@ broadcastRouter.post('/broadcast/editor-presence', async (c) => {
   }
 });
 
+/**
+ * Viewer count is now authoritative in the realtime hub (it knows exactly how
+ * many sockets are connected per route) and pushed automatically on join/leave.
+ * This endpoint is retained for backward compatibility and simply re-pushes the
+ * live count; the client-provided value is ignored.
+ */
 broadcastRouter.post('/broadcast/viewer-count', async (c) => {
   try {
-    const body = await c.req.json() as { routeId: string; count: number };
-
+    const body = await c.req.json().catch(() => ({})) as { routeId?: string };
     if (!body.routeId) {
       return c.json({ error: 'Missing required field: routeId' }, 400);
     }
-
-    if (typeof body.count !== 'number' || body.count < 0) {
-      return c.json({ error: 'Invalid count. Must be a non-negative number' }, 400);
-    }
-
-    const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
-    if (!connectionString) {
-      console.error('AZURE_WEBPUBSUB_CONNECTION_STRING is not configured');
-      return c.json({ error: 'Web PubSub service is not configured' }, 500);
-    }
-
-    const serviceClient = new WebPubSubServiceClient(connectionString, HUB_NAME);
-    const groupName = `route_${body.routeId}`;
-
-    const message = {
-      type: 'viewer-count',
-      routeId: body.routeId,
-      count: body.count,
-      timestamp: Date.now(),
-    };
-
-    const groupClient = serviceClient.group(groupName);
-    await groupClient.sendToAll(message);
-
-    console.log(`Broadcasted viewer count update for route: ${body.routeId}, count: ${body.count}`);
-    return c.json({ success: true, routeId: body.routeId, count: body.count }, 200);
+    hub.pushViewerCount(body.routeId);
+    return c.json({ success: true, routeId: body.routeId, count: hub.viewerCount(body.routeId) }, 200);
   } catch (error: any) {
     console.error('Error broadcasting viewer count:', error);
     return c.json({ error: 'Failed to broadcast viewer count', message: error instanceof Error ? error.message : 'Unknown error' }, 500);

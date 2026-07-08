@@ -1,15 +1,33 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
-import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { rateLimit } from '../utils/rateLimit.js';
 import { validateToken, checkBrigadePermission } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { isBrigadeEntitled } from '../utils/subscription.js';
+import { signWsToken } from '../realtime/wsToken.js';
 import type { BrigadeMembership } from '../types/membership.js';
 
-const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
 const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
+
+/**
+ * Build the wss:// base for this deployment from APP_BASE_URL (the public
+ * origin). Falls back to the incoming request's host so it still works if
+ * APP_BASE_URL is unset.
+ */
+function resolveWsBase(reqUrl: string, hostHeader: string | undefined): string {
+  const appBase = process.env.APP_BASE_URL;
+  if (appBase) {
+    return appBase.replace(/^http/, 'ws').replace(/\/$/, '');
+  }
+  try {
+    const u = new URL(reqUrl);
+    const proto = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${hostHeader ?? u.host}`;
+  } catch {
+    return `ws://${hostHeader ?? 'localhost'}`;
+  }
+}
 
 function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");
@@ -83,32 +101,21 @@ async function handleNegotiate(c: any) {
       }
     }
 
-    const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
-    if (!connectionString) {
-      console.error('AZURE_WEBPUBSUB_CONNECTION_STRING is not configured');
-      return c.json({ error: 'Web PubSub service is not configured' }, 500);
+    // Native WebSocket fan-out (in-process hub) — no managed Web PubSub. The URL
+    // points at our own /api/ws endpoint. Viewers connect anonymously; broadcaster
+    // and editor connections carry the signed token minted here (this call is
+    // already authenticated), which the WS upgrade handler verifies.
+    const wsBase = resolveWsBase(c.req.url, c.req.header('host'));
+    const params = new URLSearchParams({ routeId, role });
+    if (role === 'broadcaster' || role === 'editor') {
+      params.set('token', signWsToken(routeId, role));
     }
+    const url = `${wsBase}/api/ws?${params.toString()}`;
 
-    const serviceClient = new WebPubSubServiceClient(connectionString, HUB_NAME);
-    // Editors join a separate presence group so editor identities are never
-    // delivered to anonymous public viewers on the tracking group.
-    const groupName = role === 'editor' ? `edit_${routeId}` : `route_${routeId}`;
-
-    const tokenOptions = {
-      groups: [groupName],
-      roles: role === 'broadcaster'
-        ? ['webpubsub.sendToGroup', 'webpubsub.joinLeaveGroup']
-        : [],
-      expirationTimeInMinutes: 120,
-    };
-
-    const token = await serviceClient.getClientAccessToken(tokenOptions);
-
-    console.log(`Generated ${role} token for route: ${routeId}, group: ${groupName}`);
-    return c.json({ url: token.url, role, routeId, groupName }, 200);
+    return c.json({ url, role, routeId }, 200);
   } catch (error: any) {
-    console.error('Error generating Web PubSub token:', error);
-    return c.json({ error: 'Failed to generate connection token', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
+    console.error('Error generating realtime connection URL:', error);
+    return c.json({ error: 'Failed to generate connection URL', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 }
 

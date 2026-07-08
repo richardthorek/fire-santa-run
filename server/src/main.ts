@@ -1,7 +1,9 @@
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
+import type { Server } from 'node:http';
 import { createApp } from './app.js';
 import { validateServerEnv } from './utils/configValidation.js';
+import { attachRealtime } from './realtime/wsServer.js';
 
 // Fail fast on invalid configuration before accepting any traffic.
 validateServerEnv();
@@ -60,6 +62,11 @@ console.log(`\u{1F385} Fire Santa Run server starting on port ${port}`);
 console.log(`   Static files : ${staticRoot}`);
 console.log(`   Dev mode     : ${process.env.DEV_MODE === 'true'}`);
 
-serve({ fetch: app.fetch, port }, (info) => {
+const server = serve({ fetch: app.fetch, port }, (info) => {
   console.log(`\u2705 Server listening on http://localhost:${info.port}`);
-});
+}) as Server;
+
+// Attach the native realtime WebSocket endpoint (/api/ws) to the same HTTP
+// server. This replaces Azure Web PubSub: fan-out happens in-process, with no
+// per-connection or per-message managed-service cost.
+attachRealtime(server);

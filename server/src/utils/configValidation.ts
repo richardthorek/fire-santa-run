@@ -29,7 +29,6 @@ export function evaluateServerConfig(): ServerConfigResult {
   const storageConn =
     process.env.AZURE_STORAGE_CONNECTION_STRING ||
     process.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
-  const pubSubConn = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
 
   if (!storageConn) {
     const msg =
@@ -38,9 +37,13 @@ export function evaluateServerConfig(): ServerConfigResult {
     else fatal.push(msg);
   }
 
-  if (!pubSubConn) {
+  // Realtime tracking is now served in-process via native WebSockets (/api/ws) —
+  // no managed Web PubSub. The signed-token secret for privileged WS connections
+  // falls back to a hash of the storage connection string, so no extra config is
+  // required; warn only if there is nothing to derive a secret from in prod.
+  if (!devMode && !process.env.REALTIME_WS_SECRET && !storageConn) {
     warnings.push(
-      'AZURE_WEBPUBSUB_CONNECTION_STRING is not set — real-time location broadcasting will not work.',
+      'No REALTIME_WS_SECRET and no storage connection string — realtime WS token signing will use an insecure fallback.',
     );
   }
 

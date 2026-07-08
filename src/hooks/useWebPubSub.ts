@@ -1,11 +1,14 @@
 /**
  * useWebPubSub hook
- * Manages Web PubSub connection for real-time tracking
- * Supports both Azure Web PubSub (production) and BroadcastChannel API (dev mode)
+ * Manages the realtime tracking connection for a route.
+ * - Production: a native WebSocket to the server's own /api/ws endpoint (the
+ *   negotiate call returns the full wss:// URL, plus a signed token for
+ *   broadcaster/editor roles). In-process fan-out — no Azure Web PubSub.
+ * - Dev mode: BroadcastChannel API for cross-tab local testing.
+ * The hook name is retained for churn; it no longer uses Azure Web PubSub.
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { WebPubSubClient } from '@azure/web-pubsub-client';
 import type { LocationBroadcast, ViewerCountMessage } from '../types';
 import { getApiAuthHeaders } from '../auth/apiToken';
 
@@ -41,7 +44,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     viewerCount: null,
   });
 
-  const clientRef = useRef<WebPubSubClient | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
   // The connection is established once per routeId/role, but callers typically
   // pass a fresh callback closure on every render. Route messages through a
@@ -50,6 +53,9 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
   onLocationUpdateRef.current = onLocationUpdate;
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  // True once the consumer unmounts / disconnects, so a socket closing during
+  // teardown does not trigger a reconnect.
+  const disposedRef = useRef(false);
   const sessionIdRef = useRef<string>(generateSessionId());
   const sessionStartTimeRef = useRef<number>(Date.now());
   const viewerCountIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -190,10 +196,10 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
           viewerCountIntervalRef.current = setInterval(fetchViewerCount, VIEWER_COUNT_POLL_INTERVAL_MS);
         }
       } else {
-        // Production mode: Use Azure Web PubSub
+        // Production mode: native WebSocket to our own /api/ws endpoint.
+        // negotiate returns the full wss:// URL (with a signed token embedded for
+        // broadcaster/editor roles); it must be authenticated for those roles.
         const negotiateUrl = `${API_BASE_URL}/negotiate?routeId=${encodeURIComponent(routeId)}&role=${role}`;
-        // A broadcaster token grants sendToGroup rights, so the negotiate call
-        // must be authenticated. Viewers connect anonymously (no token).
         const negotiateHeaders = role === 'broadcaster' ? await getApiAuthHeaders() : undefined;
         const response = await fetch(negotiateUrl, negotiateHeaders ? { headers: negotiateHeaders } : undefined);
 
@@ -203,68 +209,53 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
 
         const { url } = await response.json();
 
-        // Create Web PubSub client
-        const client = new WebPubSubClient(url);
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
 
-        // Handle incoming messages
-        client.on('group-message', (event) => {
-          if (event.message.data) {
-            const data = event.message.data;
-            // Handle viewer count messages
-            if (typeof data === 'object' && data !== null && 'type' in data && data.type === 'viewer-count') {
-              const viewerCountMsg = data as ViewerCountMessage;
-              setState(prev => ({ ...prev, viewerCount: viewerCountMsg.count }));
-              console.log(`[Production] Received viewer count: ${viewerCountMsg.count}`);
-            }
-            // Handle location updates
-            else if (onLocationUpdateRef.current) {
-              onLocationUpdateRef.current(data as LocationBroadcast);
-            }
-          }
-        });
-
-        // Handle connection lifecycle
-        client.on('connected', () => {
+        ws.onopen = () => {
           setState(prev => ({ ...prev, isConnected: true, isConnecting: false, error: null }));
           reconnectAttemptsRef.current = 0;
-          console.log(`[Production] Connected to Web PubSub for route: ${routeId}`);
-
-          // Log viewer join
+          console.log(`[Realtime] Connected for route: ${routeId}`);
+          // The server pushes authoritative viewer counts over the socket, so
+          // there is no polling here anymore.
           logViewerJoin();
+        };
 
-          // Start polling viewer count in production
-          if (role === 'viewer') {
-            fetchViewerCount();
-            viewerCountIntervalRef.current = setInterval(fetchViewerCount, VIEWER_COUNT_POLL_INTERVAL_MS);
+        ws.onmessage = (event) => {
+          let data: unknown;
+          try {
+            data = JSON.parse(event.data);
+          } catch {
+            return; // ignore non-JSON frames
           }
-        });
+          if (typeof data === 'object' && data !== null && 'type' in data && (data as { type?: string }).type === 'viewer-count') {
+            const viewerCountMsg = data as ViewerCountMessage;
+            setState(prev => ({ ...prev, viewerCount: viewerCountMsg.count }));
+          } else if (onLocationUpdateRef.current) {
+            onLocationUpdateRef.current(data as LocationBroadcast);
+          }
+        };
 
-        client.on('disconnected', (event) => {
+        ws.onclose = () => {
           setState(prev => ({ ...prev, isConnected: false, isConnecting: false }));
-          console.log('[Production] Disconnected from Web PubSub:', event.message);
+          wsRef.current = null;
 
-          // Clear viewer count polling on disconnect
-          if (viewerCountIntervalRef.current) {
-            clearInterval(viewerCountIntervalRef.current);
-            viewerCountIntervalRef.current = null;
-          }
-
-          // Attempt to reconnect
-          if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          // Attempt to reconnect (unless we're tearing down on purpose).
+          if (!disposedRef.current && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
             reconnectAttemptsRef.current++;
-            console.log(`[Production] Reconnecting attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS}...`);
-
+            console.log(`[Realtime] Reconnecting attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS}...`);
             reconnectTimeoutRef.current = setTimeout(() => {
               connect();
             }, RECONNECT_DELAY_MS);
-          } else {
+          } else if (!disposedRef.current) {
             setState(prev => ({ ...prev, error: 'Connection lost. Please refresh the page.' }));
           }
-        });
+        };
 
-        // Start connection
-        await client.start();
-        clientRef.current = client;
+        ws.onerror = () => {
+          // onclose fires after onerror; reconnect is handled there.
+          console.warn('[Realtime] WebSocket error for route:', routeId);
+        };
       }
     } catch (error) {
       console.error('[WebPubSub] Connection error:', error);
@@ -281,6 +272,9 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
    * Disconnect from Web PubSub or BroadcastChannel
    */
   const disconnect = useCallback(() => {
+    // Mark disposed so a socket close during teardown doesn't trigger reconnect.
+    disposedRef.current = true;
+
     // Log viewer leave before disconnecting
     logViewerLeave();
 
@@ -290,16 +284,20 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       reconnectTimeoutRef.current = null;
     }
 
-    // Clear viewer count polling interval
+    // Clear viewer count polling interval (dev mode only)
     if (viewerCountIntervalRef.current) {
       clearInterval(viewerCountIntervalRef.current);
       viewerCountIntervalRef.current = null;
     }
 
-    // Close Web PubSub client
-    if (clientRef.current) {
-      clientRef.current.stop();
-      clientRef.current = null;
+    // Close the WebSocket
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch {
+        /* ignore */
+      }
+      wsRef.current = null;
     }
 
     // Close BroadcastChannel
@@ -356,6 +354,8 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
   useEffect(() => {
     if (!enabled) return;
 
+    // Fresh connection lifecycle — allow reconnects again after a prior teardown.
+    disposedRef.current = false;
     connect();
 
     // Handle page unload to log viewer leave

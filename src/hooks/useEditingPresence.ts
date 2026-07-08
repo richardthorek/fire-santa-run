@@ -5,14 +5,15 @@
  * dedicated channel (separate from the public tracking group so editor names
  * never reach anonymous viewers):
  * - Dev mode: BroadcastChannel `santa-editing-{routeId}` (cross-tab).
- * - Production: Web PubSub group `edit_{routeId}` — received via a
- *   negotiate(role=editor) connection, sent via POST /api/broadcast/editor-presence.
+ * - Production: a native WebSocket to /api/ws?role=editor (URL + signed token
+ *   from negotiate); heartbeats are sent via POST /api/broadcast/editor-presence
+ *   and fanned out to the private editors set. Editor identities never reach
+ *   public viewers.
  *
  * Peers that miss two heartbeats are considered gone.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { WebPubSubClient } from '@azure/web-pubsub-client';
 import { getApiAuthHeaders } from '../auth/apiToken';
 
 const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
@@ -53,7 +54,7 @@ export function useEditingPresence({ routeId, user, enabled = true }: UseEditing
     const self = { id: user.id, name: user.name };
     let disposed = false;
     let channel: BroadcastChannel | null = null;
-    let client: WebPubSubClient | null = null;
+    let ws: WebSocket | null = null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     let sweepTimer: ReturnType<typeof setInterval> | null = null;
     // Editor presence is an authenticated action. Resolve the bearer token once
@@ -137,14 +138,21 @@ export function useEditingPresence({ routeId, user, enabled = true }: UseEditing
           const { url } = await response.json();
           if (disposed) return;
 
-          client = new WebPubSubClient(url);
-          client.on('group-message', (event) => handleMessage(event.message.data));
-          await client.start();
-          if (disposed) {
-            client.stop();
-            return;
-          }
-          startHeartbeat();
+          ws = new WebSocket(url);
+          ws.onmessage = (event) => {
+            try {
+              handleMessage(JSON.parse(event.data));
+            } catch {
+              // ignore non-JSON frames
+            }
+          };
+          ws.onopen = () => {
+            if (disposed) {
+              ws?.close();
+              return;
+            }
+            startHeartbeat();
+          };
         } catch (error) {
           console.error('[EditingPresence] Failed to connect:', error);
         }
@@ -157,7 +165,7 @@ export function useEditingPresence({ routeId, user, enabled = true }: UseEditing
       if (sweepTimer) clearInterval(sweepTimer);
       sendPresence('left');
       channel?.close();
-      client?.stop();
+      ws?.close();
       peersRef.current = new Map();
       setPeers([]);
     };

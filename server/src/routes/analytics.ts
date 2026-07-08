@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { hub } from '../realtime/hub.js';
 
 const VIEWER_SESSIONS_TABLE = isDevMode ? 'devviewersessions' : 'viewersessions';
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
@@ -267,6 +268,14 @@ analyticsRouter.get('/routes/:routeId/viewer-count', async (c) => {
     const routeId = c.req.param('routeId');
     if (!routeId) {
       return c.json({ error: 'Missing routeId parameter' }, 400);
+    }
+
+    // The realtime hub knows exactly how many sockets are connected right now —
+    // authoritative and free. Prefer it; fall back to the analytics-session
+    // estimate only when this process holds no live sockets for the route.
+    const liveCount = hub.viewerCount(routeId);
+    if (liveCount > 0) {
+      return c.json({ routeId, count: liveCount, timestamp: new Date().toISOString() }, 200);
     }
 
     const cached = viewerCountCache.get(routeId);
