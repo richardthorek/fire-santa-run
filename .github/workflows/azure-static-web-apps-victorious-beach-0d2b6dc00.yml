@@ -1,7 +1,7 @@
 name: CI/CD Pipeline
 
 # Legacy workflow retained for branch protection rule compatibility.
-# Quality checks and deployment now occur in .github/workflows/deploy-app-service.yml.
+# Quality checks and deployment now occur in .github/workflows/deploy-container-apps.yml.
 # This file no longer runs redundant quality checks — it only creates a bug issue if the
 # main deploy workflow fails on pushes to main (see create_bug_issue_on_failure job below).
 
@@ -10,7 +10,7 @@ on:
     branches:
       - main
   workflow_run:
-    workflows: ["Deploy to Azure App Service"]
+    workflows: ["Deploy to Azure Container Apps"]
     types:
       - completed
 

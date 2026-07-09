@@ -57,6 +57,13 @@ output workspaceName string = logAnalyticsWorkspace.name
 @description('Log Analytics Workspace resource ID')
 output workspaceId string = logAnalyticsWorkspace.id
 
+@description('Log Analytics Workspace customer ID (needed by the Container Apps managed environment)')
+output workspaceCustomerId string = logAnalyticsWorkspace.properties.customerId
+
+@description('Log Analytics Workspace primary shared key (needed by the Container Apps managed environment)')
+@secure()
+output workspaceSharedKey string = logAnalyticsWorkspace.listKeys().primarySharedKey
+
 @description('Application Insights name')
 output appInsightsName string = appInsights.name
 

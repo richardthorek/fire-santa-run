@@ -26,10 +26,10 @@ React + TypeScript web application for Australian Rural Fire Service brigades to
 - React 19 + TypeScript
 - Vite build system
 - Mapbox GL JS for mapping and navigation (Directions API)
-- Azure App Service (Linux) for production hosting
+- Azure Container Apps (Consumption, scale-to-zero) for production hosting — a single container image, see the root `Dockerfile`
 - Bicep IaC (`infra/`) for infrastructure provisioning
 - Azure Table Storage (data persistence)
-- Azure Web PubSub (real-time tracking)
+- Native WebSocket, fanned out in-process by the Hono server (`server/src/realtime/`) — no managed real-time service
 - Microsoft Entra External ID (authentication)
 
 ## 🏗️ Project Structure & Organization
@@ -47,11 +47,12 @@ fire-santa-run/
 │   ├── types/           # TypeScript interfaces and types
 │   └── styles/          # Global styles and CSS
 ├── api/                 # Azure Functions (legacy/local dev API path)
-├── server/              # Hono backend used for App Service runtime
+├── server/              # Hono backend used for the Container Apps runtime
 ├── infra/               # Bicep IaC + deployment scripts
+├── Dockerfile           # Multi-stage build: client + server → one image
 ├── public/              # Static assets
 ├── docs/                # ALL Additional documentation
-├── MASTER_PLAN.md      # 📋 SINGLE SOURCE OF TRUTH
+├── MASTER_PLAN.md      # 📋 Forward-looking product plan (see docs/ARCHITECTURE.md for as-built detail)
 └── .github/
     └── copilot-instructions.md  # This file
 ```
@@ -187,7 +188,7 @@ if (isDevMode) {
 6. Run `npm run dev` (this now builds the Functions app before starting both servers)
 7. Access at `http://localhost:5173`
 
-**Important:** Local dev currently uses the Functions path (`api/`) while production deploy uses App Service + Hono (`server/`). Keep realtime/auth/storage behavior aligned across both codepaths when making backend changes.
+**Important:** Local dev currently uses the Functions path (`api/`) while production deploy uses Container Apps + Hono (`server/`). Keep auth/storage behavior aligned across both codepaths when making backend changes. **Realtime is the one deliberate exception**: `server/` fans out WebSocket messages natively in-process; Azure Functions on Consumption can't hold a persistent WebSocket connection, so `api/` still uses the (production-retired) Azure Web PubSub client there — harmless, because local dev always runs `VITE_DEV_MODE=true` and the client uses `BroadcastChannel` instead. See `docs/ARCHITECTURE.md`.
 
 ### Common Development Tasks
 
@@ -231,8 +232,8 @@ if (isDevMode) {
 ### GitHub Actions Workflow Guidelines
 
 **Current Architecture:**
-- App Service deploy pipeline: `.github/workflows/deploy-app-service.yml`
-- Legacy quality-only pipeline (no SWA deploy): `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml`
+- Container Apps deploy pipeline: `.github/workflows/deploy-container-apps.yml` (build image → push to ghcr.io → `az containerapp update`)
+- Legacy quality-only + failure-reporting pipeline (no deploy): `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml`
 
 **Core Principle:** Maintain workflow efficiency by avoiding redundant builds and enforcing quality gates before deployment.
 
@@ -278,14 +279,14 @@ New task: [describe task]
 - **Reference:** MASTER_PLAN.md Sections 3, 3a for route planning and navigation
 
 ### Azure Services
-- **App Service (Linux):** Production hosting for SPA + Hono backend
+- **Container Apps (Consumption, scale-to-zero):** Production hosting for SPA + Hono backend, single container image
 - **Table Storage:** NoSQL data persistence with partition/row key model
-- **Web PubSub:** Real-time WebSocket communication for live tracking
+- **In-process WebSocket hub (`server/src/realtime/`):** Real-time fan-out for live tracking — no managed pub/sub service; `maxReplicas` pinned to 1
 - **Entra External ID:** OAuth 2.0 authentication (Phase 7)
 - **Reference:** `infra/README.md`, `docs/SECRETS_MANAGEMENT.md`, and `MASTER_PLAN.md`
 
 ### Real-Time Architecture
-- **Brigade Operator:** Broadcasts GPS location via Azure Web PubSub
+- **Brigade Operator:** Broadcasts GPS location via `/api/broadcast`, fanned out by the in-process WS hub
 - **Public Viewers:** Subscribe to route-specific groups, receive updates
 - **Fallback:** BroadcastChannel API for local multi-tab testing
 - **Throttling:** Max 1 location update per 5 seconds
@@ -328,9 +329,8 @@ New task: [describe task]
 ### External Documentation
 - Mapbox GL JS: https://docs.mapbox.com/mapbox-gl-js/
 - Mapbox Directions API: https://docs.mapbox.com/api/navigation/directions/
-- Azure App Service: https://learn.microsoft.com/en-us/azure/app-service/
+- Azure Container Apps: https://learn.microsoft.com/en-us/azure/container-apps/
 - Azure Table Storage SDK: https://learn.microsoft.com/en-us/javascript/api/@azure/data-tables/
-- Azure Web PubSub: https://learn.microsoft.com/en-us/azure/azure-web-pubsub/
 - React Router v6: https://reactrouter.com/
 - TypeScript Handbook: https://www.typescriptlang.org/docs/
 

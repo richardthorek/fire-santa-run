@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Fire Santa Run — App Service secret/config seeder
+# Fire Santa Run — Container App secret/config seeder
 #
-# Seeds the App Service application settings for an environment from two sources:
-#   1. Live Azure resources  — Storage + Web PubSub connection strings are read
-#      back from the deployed resources (no deployment output needed), so this
+# Seeds the Container App's environment variables for an environment from two
+# sources:
+#   1. Live Azure resources  — the Storage connection string is read back from
+#      the deployed Storage account (no deployment output needed), so this
 #      script is fully re-runnable independent of a fresh `deploy.sh` run.
-#   2. A local secrets file   — Stripe keys and site-admin ids come from
-#      infra/.env.<env> (gitignored) or, failing that, the current shell env.
+#   2. A local secrets file   — Stripe keys, site-admin ids, VAPID keys, and
+#      the realtime WS signing secret come from infra/.env.<env> (gitignored)
+#      or, failing that, the current shell env.
 #
-# It is idempotent: `az webapp config appsettings set` MERGES, so re-running
-# updates the given keys and never blanks settings it does not touch.
+# It is idempotent: `az containerapp update --set-env-vars` replaces only the
+# keys given; every other env var already on the revision is left untouched.
 #
 # Usage:
 #   ./infra/seed-secrets.sh                       # seed dev (suffix from dev.bicepparam)
@@ -23,7 +25,9 @@
 #   STRIPE_WEBHOOK_SECRET=whsec_...
 #   STRIPE_PRICE_ID=price_...
 #   SITE_ADMIN_USER_IDS=oid1,oid2
-#   APP_ORIGIN=https://...            # optional public origin override
+#   VAPID_PUBLIC_KEY=... / VAPID_PRIVATE_KEY=... / VAPID_SUBJECT=mailto:...
+#   REALTIME_WS_SECRET=...              # optional — see docs/ARCHITECTURE.md
+#   APP_ORIGIN=https://...              # optional public origin override
 
 set -euo pipefail
 
@@ -39,7 +43,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 print_help() {
   cat <<HELP
-Fire Santa Run — App Service Secret Seeder
+Fire Santa Run — Container App Secret Seeder
 
 Usage: ./infra/seed-secrets.sh [OPTIONS]
 
@@ -49,9 +53,9 @@ Options:
   --dry-run                  Show which settings would be applied (values masked)
   --help,   -h               Show this help message
 
-Reads Stripe/admin secrets from infra/.env.<env> (gitignored) or the shell env,
-and pulls Storage + Web PubSub connection strings live from the deployed Azure
-resources. Safe to re-run; existing untouched settings are preserved.
+Reads Stripe/admin/VAPID secrets from infra/.env.<env> (gitignored) or the
+shell env, and pulls the Storage connection string live from the deployed
+Storage account. Safe to re-run; existing untouched env vars are preserved.
 HELP
 }
 
@@ -96,10 +100,8 @@ fi
 # ─── Resource names (must mirror infra/main.bicep + modules) ─────────────────
 
 RESOURCE_GROUP="rg-santarun-${ENVIRONMENT}-${NAME_SUFFIX}"
-APP_NAME="santarun-web-${NAME_SUFFIX}"
+APP_NAME="santarun-app-${NAME_SUFFIX}"
 STORAGE_ACCOUNT="santarun${NAME_SUFFIX}"
-PUBSUB_NAME="santarun-pubsub-${NAME_SUFFIX}"
-HUB_NAME="santa_tracking"
 
 # ─── Load local secrets file (gitignored) ────────────────────────────────────
 # Shell env takes precedence over the file, so CI can inject secrets without a
@@ -133,13 +135,13 @@ resolve() {
 # ─── Pre-flight ──────────────────────────────────────────────────────────────
 
 echo "======================================"
-echo "  Fire Santa Run — Seed App Settings"
+echo "  Fire Santa Run — Seed Container App"
 echo "======================================"
 echo ""
 echo "  Environment    : $ENVIRONMENT"
 echo "  Name Suffix    : $NAME_SUFFIX"
 echo "  Resource Group : $RESOURCE_GROUP"
-echo "  App Service    : $APP_NAME"
+echo "  Container App  : $APP_NAME"
 echo ""
 
 if ! command -v az &>/dev/null; then
@@ -153,58 +155,56 @@ if ! az account show &>/dev/null; then
   az login
 fi
 
-# The webpubsub commands live in an optional CLI extension.
-if ! az extension show --name webpubsub &>/dev/null; then
-  echo "📦 Installing the 'webpubsub' Azure CLI extension..."
-  az extension add --name webpubsub --only-show-errors 1>/dev/null 2>&1 || \
-    echo "⚠️  Could not install the webpubsub extension automatically."
+if ! az extension show --name containerapp &>/dev/null; then
+  echo "📦 Installing the 'containerapp' Azure CLI extension..."
+  az extension add --name containerapp --only-show-errors 1>/dev/null 2>&1 || \
+    echo "⚠️  Could not install the containerapp extension automatically."
 fi
 
 # ─── Read live connection strings from the deployed resources ────────────────
 
-echo "🔎 Reading connection strings from deployed resources..."
+echo "🔎 Reading the Storage connection string from the deployed resource..."
 
 STORAGE_CONN=$(az storage account show-connection-string \
   --name "$STORAGE_ACCOUNT" \
   --resource-group "$RESOURCE_GROUP" \
   --query connectionString --output tsv 2>/dev/null || true)
 
-PUBSUB_CONN=$(az webpubsub key show \
-  --name "$PUBSUB_NAME" \
-  --resource-group "$RESOURCE_GROUP" \
-  --query primaryConnectionString --output tsv 2>/dev/null || true)
-
 if [[ -z "$STORAGE_CONN" ]]; then
   echo "❌ Could not read the Storage connection string for '$STORAGE_ACCOUNT'."
   echo "   Confirm the resource group '$RESOURCE_GROUP' and that the deploy has run."
   exit 1
 fi
-if [[ -z "$PUBSUB_CONN" ]]; then
-  echo "❌ Could not read the Web PubSub connection string for '$PUBSUB_NAME'."
-  echo "   Confirm the 'webpubsub' CLI extension is installed and the resource exists."
-  exit 1
-fi
-echo "✅ Storage + Web PubSub connection strings retrieved."
+echo "✅ Storage connection string retrieved."
 
 # ─── Public origin ───────────────────────────────────────────────────────────
 # Per-environment default; override via APP_ORIGIN (shell env or secrets file).
+# The Container App's auto-generated FQDN is only known after deploy — read it
+# live rather than guessing the hostname pattern.
 
 if [[ "$ENVIRONMENT" == "prod" ]]; then
   DEFAULT_ORIGIN="https://firesantarun.com.au"
 else
-  DEFAULT_ORIGIN="https://${APP_NAME}.azurewebsites.net"
+  CONTAINER_FQDN=$(az containerapp show \
+    --name "$APP_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --query properties.configuration.ingress.fqdn --output tsv 2>/dev/null || true)
+  DEFAULT_ORIGIN="${CONTAINER_FQDN:+https://$CONTAINER_FQDN}"
 fi
 APP_ORIGIN="$(resolve APP_ORIGIN)"
 APP_ORIGIN="${APP_ORIGIN:-$DEFAULT_ORIGIN}"
 
+if [[ -z "$APP_ORIGIN" ]]; then
+  echo "❌ Could not determine the app origin. Pass APP_ORIGIN=https://... or confirm the app deployed."
+  exit 1
+fi
+
 # ─── Assemble settings ───────────────────────────────────────────────────────
 # Base settings are always set. Secret settings are only included when a value
-# is available (file or shell), so a partial seed never blanks an existing key.
+# is available (file or shell), so a partial seed never touches an existing key.
 
 SETTINGS=(
   "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONN"
-  "AZURE_WEBPUBSUB_CONNECTION_STRING=$PUBSUB_CONN"
-  "AZURE_WEBPUBSUB_HUB_NAME=$HUB_NAME"
   "DEV_MODE=false"
   "NODE_ENV=production"
   "PORT=8080"
@@ -214,8 +214,11 @@ SETTINGS=(
 
 # Optional secrets — Stripe TEST keys for dev, LIVE keys for prod.
 # VAPID_* enables the "notify me when Santa starts" web push (see README).
+# REALTIME_WS_SECRET signs the short-lived tokens broadcaster/editor
+# WebSocket connections present — optional (falls back to a hash of the
+# storage connection string) but worth setting explicitly in prod.
 MISSING_SECRETS=()
-for name in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PRICE_ID SITE_ADMIN_USER_IDS VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT; do
+for name in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PRICE_ID SITE_ADMIN_USER_IDS VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET; do
   val="$(resolve "$name")"
   if [[ -n "$val" ]]; then
     SETTINGS+=("$name=$val")
@@ -244,7 +247,7 @@ for pair in "${SETTINGS[@]}"; do mask "$pair"; done
 
 if [[ ${#MISSING_SECRETS[@]} -gt 0 ]]; then
   echo ""
-  echo "⚠️  Not provided (left unchanged on the App Service): ${MISSING_SECRETS[*]}"
+  echo "⚠️  Not provided (left unchanged on the Container App): ${MISSING_SECRETS[*]}"
   echo "    Add them to ${ENV_FILE#"${SCRIPT_DIR}/../"} or export them, then re-run."
 fi
 
@@ -255,14 +258,14 @@ if [[ "$DRY_RUN" == "true" ]]; then
 fi
 
 echo ""
-echo "Applying to App Service '$APP_NAME'..."
-if az webapp config appsettings set \
+echo "Applying to Container App '$APP_NAME'..."
+if az containerapp update \
   --resource-group "$RESOURCE_GROUP" \
   --name "$APP_NAME" \
-  --settings "${SETTINGS[@]}" \
+  --set-env-vars "${SETTINGS[@]}" \
   --output none; then
-  echo "✅ App Service settings seeded ($ENVIRONMENT, origin: $APP_ORIGIN)."
+  echo "✅ Container App settings seeded ($ENVIRONMENT, origin: $APP_ORIGIN)."
 else
-  echo "❌ Failed to set app settings. Check permissions and resource names above."
+  echo "❌ Failed to set env vars. Check permissions and resource names above."
   exit 1
 fi

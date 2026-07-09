@@ -1,10 +1,18 @@
 // Fire Santa Run — Azure Infrastructure (Bicep)
 //
 // Provisions all Azure resources required for the Fire Santa Run application:
-//   • Azure App Service (Linux)  — Runs the Hono Node.js server (API + static SPA)
-//   • Azure Table Storage        — NoSQL data persistence (routes, brigades, tracking)
-//   • Azure Web PubSub           — Real-time WebSocket communication for live Santa tracking
-//   • Application Insights       — Basic logging and monitoring (connected to Log Analytics)
+//   • Azure Container Apps (Consumption)  — Runs the Hono Node.js server (API,
+//     static SPA, and the in-process realtime WebSocket hub). Scales to zero
+//     when idle — see infra/modules/containerapps.bicep for the cost model
+//     and the single-replica constraint.
+//   • Azure Table Storage                 — NoSQL data persistence (routes,
+//     brigades, tracking)
+//   • Application Insights                — Basic logging and monitoring
+//     (connected to Log Analytics)
+//
+// Retired: Azure App Service and Azure Web PubSub. Realtime tracking no
+// longer uses a managed pub/sub service — it fans out over native WebSockets
+// inside the same Container App process. See docs/ARCHITECTURE.md.
 //
 // Usage:
 //   az deployment sub create \
@@ -33,6 +41,24 @@ param nameSuffix string
 @description('Optional existing CIAM directory resource name in this resource group (e.g. brigadesantarun.onmicrosoft.com). Leave empty to skip CIAM binding.')
 param ciamDirectoryName string = ''
 
+@description('Container Apps minimum replica count. 0 = scale-to-zero (default; off-season). Flip to 1 for December via infra/scale-season.sh — no redeploy needed.')
+@minValue(0)
+@maxValue(1)
+param minReplicas int = 0
+
+@description('Container image to deploy (e.g. ghcr.io/<owner>/fire-santa-run:<tag>). Leave the default placeholder for the first deploy — CI updates it via `az containerapp update --image`.')
+param containerImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
+
+@description('Container registry server (e.g. ghcr.io). Leave empty for the public placeholder image.')
+param registryServer string = ''
+
+@description('Container registry username (e.g. the GitHub org/user for ghcr.io).')
+param registryUsername string = ''
+
+@description('Container registry password / PAT. Leave empty to skip registry auth.')
+@secure()
+param registryPassword string = ''
+
 // ─── Variables ───────────────────────────────────────────────────────────────
 
 var resourceGroupName = 'rg-santarun-${environment}-${nameSuffix}'
@@ -42,16 +68,6 @@ var commonTags = {
   environment: environment
   managedBy: 'bicep'
 }
-
-// App Service SKU:
-//   dev  → F1 (Free — shared compute, 60 CPU min/day, no always-on)
-//   prod → B1 (Basic — dedicated compute, custom domain, SSL, always-on)
-var appServiceSku = environment == 'prod' ? 'B1' : 'F1'
-
-// Web PubSub SKU:
-//   dev  → Free_F1 (20 concurrent connections, 20K messages/day)
-//   prod → Standard_S1 (1,000 concurrent connections, unlimited messages)
-var pubSubSku = environment == 'prod' ? 'Standard_S1' : 'Free_F1'
 
 // ─── Resource Group ──────────────────────────────────────────────────────────
 
@@ -84,26 +100,21 @@ module storage 'modules/storage.bicep' = {
   }
 }
 
-module webPubSub 'modules/webpubsub.bicep' = {
-  name: 'webpubsub'
+module containerApps 'modules/containerapps.bicep' = {
+  name: 'containerapps'
   scope: resourceGroup
   params: {
     location: location
     nameSuffix: nameSuffix
-    sku: pubSubSku
     tags: commonTags
-  }
-}
-
-module appService 'modules/appservice.bicep' = {
-  name: 'appservice'
-  scope: resourceGroup
-  params: {
-    location: location
-    nameSuffix: nameSuffix
-    sku: appServiceSku
-    tags: commonTags
+    logAnalyticsCustomerId: monitoring.outputs.workspaceCustomerId
+    logAnalyticsSharedKey: monitoring.outputs.workspaceSharedKey
     appInsightsConnectionString: monitoring.outputs.connectionString
+    minReplicas: minReplicas
+    containerImage: containerImage
+    registryServer: registryServer
+    registryUsername: registryUsername
+    registryPassword: registryPassword
   }
 }
 
@@ -117,22 +128,18 @@ resource ciamDirectory 'Microsoft.AzureActiveDirectory/ciamDirectories@2025-08-0
 @description('Resource group name')
 output resourceGroupName string = resourceGroup.name
 
-@description('App Service name (use as AZURE_APP_SERVICE_NAME GitHub Actions variable)')
-output appServiceName string = appService.outputs.appName
+@description('Container App name (use as AZURE_CONTAINER_APP_NAME GitHub Actions variable)')
+output containerAppName string = containerApps.outputs.appName
 
-@description('App Service URL')
-output appUrl string = 'https://${appService.outputs.defaultHostname}'
+@description('Container Apps managed environment name')
+output containerAppsEnvironmentName string = containerApps.outputs.environmentName
+
+@description('Container App default (auto-generated) URL — bind a custom domain separately, see infra/README.md')
+output appUrl string = 'https://${containerApps.outputs.defaultFqdn}'
 
 @description('Azure Table Storage connection string (add to GitHub secret / env var AZURE_STORAGE_CONNECTION_STRING)')
 @secure()
 output storageConnectionString string = storage.outputs.connectionString
-
-@description('Azure Web PubSub connection string (add to GitHub secret / env var AZURE_WEBPUBSUB_CONNECTION_STRING)')
-@secure()
-output webPubSubConnectionString string = webPubSub.outputs.connectionString
-
-@description('Web PubSub hub name (set AZURE_WEBPUBSUB_HUB_NAME env var to this value)')
-output webPubSubHubName string = webPubSub.outputs.hubName
 
 @description('Application Insights connection string (for optional instrumentation)')
 output appInsightsConnectionString string = monitoring.outputs.connectionString

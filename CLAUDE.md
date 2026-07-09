@@ -35,7 +35,7 @@ src/
   types/        index.ts — Route, Waypoint, LiveLocation, RouteAnalytics, etc.
   config/       mapbox.ts
 api/            Azure Functions — used by LOCAL dev (npm run dev)
-server/         Hono backend — used by PRODUCTION (Azure App Service)
+server/         Hono backend — used by PRODUCTION (Azure Container Apps); realtime WS hub lives in server/src/realtime/
 infra/          Bicep IaC + deploy scripts
 docs/           Detailed docs (see docs/INDEX.md)
 ```
@@ -62,13 +62,13 @@ The product aims for a slick, modern, information-rich UI with a fun Aussie-summ
 ## Key docs (keep these current)
 
 - **[`MASTER_PLAN.md`](MASTER_PLAN.md)** — concise forward-looking product plan (vision, current state, roadmap, open decisions). Start here for "what next".
-- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — as-built architecture (App Service + Hono prod, Functions local dev, storage, realtime, billing, push).
+- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — as-built architecture (Container Apps + Hono prod, Functions local dev, in-process realtime WS, storage, billing, push).
 - **[`docs/UI_GUIDELINES.md`](docs/UI_GUIDELINES.md)** — design tokens, brand, per-surface device targets, accessibility, copy.
 - **[`docs/INDEX.md`](docs/INDEX.md)** — topic map for the rest of `docs/` (current vs archive).
 - **[`infra/README.md`](infra/README.md)** — deployment, secrets seeding, seasonal scaling.
 - `.github/copilot-instructions.md` holds the full long-form conventions; this file is the quick version.
 
-Production runs on **Azure App Service + Hono** (`server/`); Azure Static Web Apps is retired. Don't reintroduce SWA as the deploy target.
+Production runs on **Azure Container Apps + Hono** (`server/`), scale-to-zero, single container built from the root `Dockerfile`. Both Azure Static Web Apps and Azure App Service are retired — don't reintroduce either as the deploy target. Realtime tracking is native WebSocket fanned out in-process (`server/src/realtime/`), not a managed pub/sub service — see `docs/ARCHITECTURE.md` before touching realtime code, especially the single-replica (`maxReplicas: 1`) constraint.
 
 ## Don't
 

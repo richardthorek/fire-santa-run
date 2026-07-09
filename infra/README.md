@@ -2,22 +2,28 @@
 
 This directory contains [Bicep](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/) templates to provision all Azure resources required by the Fire Santa Run application.
 
+> **Deployment model:** production runs on **Azure Container Apps** (Consumption, scale-to-zero) as a single container image. Azure App Service and Azure Web PubSub — both used historically — are retired; see "Why Container Apps" below and [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for the full as-built picture.
+
 ## Directory Structure
 
 ```
 infra/
 ├── main.bicep                  # Root orchestration template (subscription scope)
-├── deploy.sh                   # One-command deployment script (calls seed-secrets.sh)
-├── seed-secrets.sh             # Idempotent App Service settings seeder (re-runnable)
+├── deploy.sh                   # One-command infra deployment script (calls seed-secrets.sh)
+├── seed-secrets.sh             # Idempotent Container App env var seeder (re-runnable)
+├── scale-season.sh             # Flip minReplicas for the December season / off-season
 ├── .env.example                # Template for infra/.env.<env> secret files (gitignored)
 ├── modules/
-│   ├── appservice.bicep        # Azure App Service (hosting + API + WebSocket support)
+│   ├── containerapps.bicep     # Container Apps environment + app (hosting + API + realtime WS)
 │   ├── storage.bicep           # Azure Table Storage (data persistence)
-│   ├── webpubsub.bicep         # Azure Web PubSub (real-time fan-out)
 │   └── monitoring.bicep        # Application Insights + Log Analytics
 └── parameters/
-    ├── dev.bicepparam           # Development environment parameters (free tier)
+    ├── dev.bicepparam           # Development environment parameters
     └── prod.bicepparam          # Production environment parameters
+
+Dockerfile                       # (repo root) multi-stage build for the container image
+.github/workflows/
+└── deploy-container-apps.yml    # Builds the image, pushes to ghcr.io, deploys via az CLI
 ```
 
 ---
@@ -25,56 +31,52 @@ infra/
 ## Architecture Overview
 
 ```
-Browser (React SPA)
-        │ HTTPS
+Browser (React SPA, PWA)
+        │ HTTPS + wss://
         ▼
-Azure App Service (Linux)
-   ├── GET /api/*         →  Hono Node.js server (server/)
+Azure Container Apps (Consumption, scale-to-zero, single container)
+   ├── /api/*         →  Hono Node.js server (server/)
    │     ├── /api/routes           Table Storage
    │     ├── /api/brigades         Table Storage
-   │     ├── /api/negotiate        → Azure Web PubSub token
-   │     └── /api/broadcast        → Azure Web PubSub group
-   │
-   └── GET /*             →  Static React SPA (dist/)
-                                React Router handles client-side routing
-
-Azure Web PubSub (WebSockets)
-   └── Hub: santa_tracking
-         Group: route_{routeId}   →  wss:// to browser (live tracking)
+   │     ├── /api/negotiate        → issues a signed token + wss:// URL for privileged roles
+   │     └── /api/broadcast        → fans out via the in-process realtime hub
+   ├── /api/ws        →  native WebSocket upgrade (realtime tracking — no managed pub/sub service)
+   └── /*              →  Static React SPA (dist/), React Router handles client-side routing
 
 Azure Table Storage
-   └── Stores routes, brigades, memberships, users
+   └── Stores routes, brigades, memberships, users, push subscriptions
 
 Application Insights + Log Analytics
    └── Request tracing, errors, custom metrics
 ```
 
-The Hono server is a clean, framework-native Node.js HTTP server with no adapter wrappers. It serves both the API and the compiled React SPA from a single App Service instance.
+The Hono server is a clean, framework-native Node.js HTTP server with no adapter wrappers. It serves the API, the compiled React SPA, and the realtime WebSocket endpoint from a single container process — see [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md#realtime-tracking) for how the in-process hub replaces a managed pub/sub service, and the single-replica constraint that comes with it.
 
 ---
 
 ## Service Selection Matrix
 
-| Service | SKU (Dev) | SKU (Prod) | Free Tier Limits | Why This Service |
-|---|---|---|---|---|
-| **Azure App Service (Linux)** | Free F1 | Basic B1 | 60 CPU-min/day, 1 GB RAM, no always-on | Native Node.js runtime, native WebSocket support, startup command configurable, standard zip/publish-profile deployment |
-| **Azure Table Storage** | Standard_LRS | Standard_LRS | 5 GB + 20,000 tx/month free | Low-cost NoSQL with partition/row key model matching brigade isolation pattern |
-| **Azure Web PubSub** | Free_F1 | Standard_S1 | 20 concurrent connections, 20K messages/day | Managed WebSocket fan-out for per-route live tracking; standard WS protocol; integrates with the Hono server via negotiate endpoint |
-| **Application Insights + Log Analytics** | PerGB2018 | PerGB2018 | 5 GB ingestion/month free, 30-day retention free | Request tracing, error tracking, custom queries |
+| Service | Plan | Free Tier | Why This Service |
+|---|---|---|---|
+| **Azure Container Apps** | Consumption (`minReplicas` 0 off-season / 1 in December, `maxReplicas` 1) | 180,000 vCPU-seconds + 360,000 GiB-seconds/month free | Scales to zero when idle — near-$0 for 11 months of the year; scales to a warm replica for December with one CLI flip, no redeploy |
+| **Azure Table Storage** | Standard_LRS | 5 GB + 20,000 tx/month free | Low-cost NoSQL with partition/row key model matching brigade isolation pattern |
+| **Application Insights + Log Analytics** | PerGB2018 | 5 GB ingestion/month free, 30-day retention free | Request tracing, error tracking, custom queries |
 
-### Why App Service (not Static Web Apps + Functions)?
+### Why Container Apps (not App Service, not Web PubSub)?
 
-Azure Static Web Apps with Azure Functions was the original prototype approach.
-The switch to App Service is intentional:
+The app has been through three hosting models. Each move fixed a real constraint of the one before it:
 
-| Concern | Static Web Apps + Functions | App Service + Hono |
-|---|---|---|
-| **Backend framework** | Azure Functions SDK (`app.http()` registration) | Hono — standard Node.js HTTP server, no framework lock-in |
-| **WebSocket support** | Requires Azure Web PubSub for any WS fan-out; Functions cannot hold persistent connections | App Service supports native WebSockets on all tiers; Web PubSub still used for managed fan-out |
-| **Cold starts** | Functions cold-start on first request (seconds) | Always-on from B1+; F1 has shared compute with reasonable warm times |
-| **Local development** | Requires `azure-functions-core-tools` (heavy toolchain) | Standard `node server/dist/main.js` — no special tooling |
-| **Deployment unit** | Two separately deployed artifacts (SPA + API zip) | Single deployment root containing both `dist/` and `server/` |
-| **Future extensibility** | Functions model limits persistent connections (SSE, WS) | Full Node.js — add WS server, streaming responses, middleware freely |
+| Concern | Static Web Apps + Functions (original) | App Service + Hono (2nd) | Container Apps + Hono (current) |
+|---|---|---|---|
+| **Backend framework** | Azure Functions SDK (`app.http()`) | Hono — standard Node.js HTTP server | Same Hono server, containerised |
+| **Realtime / WebSockets** | Functions can't hold persistent connections → required Azure Web PubSub | App Service supports native WebSockets, but still used managed Web PubSub for fan-out | **In-process** native WebSocket hub (`server/src/realtime/`) — no managed pub/sub service, no per-message billing |
+| **Idle cost** | Functions Consumption is near-$0 idle, but Web PubSub Standard (needed for >20 connections) is ~US$50–75/month **flat, whether or not anyone is watching** | App Service Basic (needed for a custom domain) is billed 24/7 regardless of traffic | **Scale-to-zero** — near-$0 for the ~11 idle months/year; a warm replica for December costs a few dollars |
+| **Local development** | Requires `azure-functions-core-tools` (heavy toolchain) | Standard `node server/dist/main.js` | Same — `docker build` optional, not required for dev |
+| **Deployment unit** | Two separately deployed artifacts (SPA + API zip) | Single deployment root (`dist/` + `server/`) | Single container image (same two artifacts, one Dockerfile) |
+
+The deciding factor for this move: Fire Santa Run's traffic is **radically seasonal** (a spike in December, near-silence the rest of the year), and neither Functions+Web PubSub nor App Service+Web PubSub let the realtime piece scale down — Web PubSub's Free tier caps at 20 concurrent connections (too small for a single popular run) and its Standard tier bills flat regardless of usage. Moving fan-out in-process and hosting on Container Apps' Consumption plan means the **whole stack**, not just the API, scales to zero.
+
+**The trade-off, stated plainly:** the in-process hub is per-process state, so the Container App is capped at `maxReplicas: 1` — every connection for a route must land on the same instance. That's enough headroom for the foreseeable traffic level; raising it needs a shared backplane (e.g. Redis pub/sub) for the hub first. See [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md#realtime-tracking).
 
 ### Why Bicep?
 
@@ -87,17 +89,19 @@ The switch to App Service is intentional:
 
 ## Prerequisites
 
-1. **Azure CLI** ≥ 2.50 — [Install guide](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
+1. **Azure CLI** ≥ 2.60 with the `containerapp` extension — [Install guide](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
 2. **Bicep CLI** — installed automatically with Azure CLI 2.20+, or run:
    ```bash
    az bicep install && az bicep upgrade
    ```
-3. **Azure subscription** — [Free account](https://azure.microsoft.com/free/) includes $200 credit
+3. **Docker** (only if you want to build/push an image yourself instead of letting CI do it)
+4. **Azure subscription** — [Free account](https://azure.microsoft.com/free/) includes $200 credit
 
 ```bash
-az --version       # Should show 2.50+
-az bicep version   # Should show 0.20+
-az account show    # Confirm logged in to correct subscription
+az --version                                  # Should show 2.60+
+az bicep version                              # Should show 0.20+
+az extension add --name containerapp --upgrade
+az account show                               # Confirm logged in to correct subscription
 ```
 
 ---
@@ -105,30 +109,34 @@ az account show    # Confirm logged in to correct subscription
 ## Quick Start (Single Command)
 
 ```bash
-# Deploy dev environment (uses free F1 tier)
+# Deploy dev environment (public placeholder image; CI updates it after the first push)
 ./infra/deploy.sh
 
 # Deploy with a custom name suffix (3–8 lowercase alphanumeric chars)
 ./infra/deploy.sh --suffix abc123
 
-# Deploy in another region (useful when F1 quota is exhausted in current region)
+# Deploy in another region
 ./infra/deploy.sh --suffix dev020 --location australiasoutheast
 
 # Bind existing CIAM directory resource in target RG (optional)
 ./infra/deploy.sh --suffix dev020 --ciam-directory brigadesantarun.onmicrosoft.com
 
+# Point at an image you've already built and pushed yourself
+REGISTRY_PASSWORD=ghp_xxx ./infra/deploy.sh --image ghcr.io/you/fire-santa-run:latest \
+  --registry-server ghcr.io --registry-username you
+
 # Validate without deploying
 ./infra/deploy.sh --dry-run
 
-# Deploy production (B1 App Service, Standard Web PubSub)
+# Deploy production
 ./infra/deploy.sh --env prod --suffix prod1
 ```
 
 The script will:
 1. Verify Azure CLI login
-2. Run the Bicep deployment
-3. Automatically configure App Service application settings (connection strings)
-4. Output the secrets you need to add to GitHub
+2. Run the Bicep deployment (Container Apps environment + app, Storage, Application Insights)
+3. Seed the Container App's base environment variables
+4. Print what to add to GitHub so CI can deploy new images
 
 ---
 
@@ -152,38 +160,94 @@ az deployment sub show \
 
 ---
 
-## After Deployment — Configure Secrets
+## Building and Pushing the Image
 
-### GitHub Actions Secrets (for CI/CD)
+CI (`.github/workflows/deploy-container-apps.yml`) builds the root `Dockerfile` and pushes it to `ghcr.io/<owner>/<repo>` on every push to `main`, then updates the Container App to that image tag. To do it by hand:
 
-| Secret | Description |
+```bash
+docker build \
+  --build-arg VITE_MAPBOX_TOKEN=pk.your_token \
+  -t ghcr.io/<owner>/fire-santa-run:manual .
+
+docker push ghcr.io/<owner>/fire-santa-run:manual
+
+az containerapp update \
+  --name <container-app-name> \
+  --resource-group <resource-group> \
+  --image ghcr.io/<owner>/fire-santa-run:manual
+```
+
+`VITE_*` build args are baked into the SPA bundle at **build time** (Vite requirement) — pass the ones your deployment needs (see the Dockerfile header comment). They are not secrets that need runtime protection; the real secrets (Stripe keys, storage connection string, VAPID keys) are set as Container App environment variables at **runtime**, never baked into the image.
+
+### GHCR package visibility
+
+The simplest setup is a **public** `ghcr.io` package — Container Apps then needs no registry credentials to pull it (leave `--registry-server` unset). If you'd rather keep the image private, create a classic GitHub PAT with `read:packages` scope and pass it as the Container App's registry password (`REGISTRY_PASSWORD` env var to `deploy.sh`, or `GHCR_PULL_TOKEN` documented in the workflow file).
+
+---
+
+## After Deployment — Configure CI + Secrets
+
+### GitHub Actions Secrets & Variables (for CI/CD)
+
+CI deploys via `az containerapp update`, authenticated with **OIDC federated credentials** — no long-lived Azure secret stored in GitHub.
+
+**One-time setup** (Entra admin, once per environment you want CI to deploy to):
+
+```bash
+# 1. Create an app registration (or reuse one)
+az ad app create --display-name "fire-santa-run-cd"
+APP_ID=$(az ad app list --display-name "fire-santa-run-cd" --query '[0].appId' -o tsv)
+az ad sp create --id "$APP_ID"
+
+# 2. Add a federated credential scoped to this repo's main branch
+az ad app federated-credential create --id "$APP_ID" --parameters '{
+  "name": "fire-santa-run-main",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:<owner>/<repo>:ref:refs/heads/main",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
+
+# 3. Grant it Contributor on the resource group (or narrower — Container Apps + storage roles)
+az role assignment create --assignee "$APP_ID" --role Contributor \
+  --scope "/subscriptions/<sub-id>/resourceGroups/<resource-group>"
+```
+
+| Secret | Value |
 |---|---|
-| `AZURE_APP_SERVICE_PUBLISH_PROFILE` | App Service publish profile XML (from `az webapp deployment list-publishing-profiles --xml`) |
+| `AZURE_CLIENT_ID` | The app registration's application (client) ID |
+| `AZURE_TENANT_ID` | Your Entra tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | The target subscription ID |
 | `VITE_MAPBOX_TOKEN` | Mapbox API token for frontend maps |
 
-### App Service Application Settings (seeded automatically)
+| Variable (not a secret) | Value |
+|---|---|
+| `AZURE_CONTAINER_APP_NAME` | From `deploy.sh` output, e.g. `santarun-app-dev001` |
+| `AZURE_RESOURCE_GROUP` | e.g. `rg-santarun-dev-dev001` |
+
+(Settings → Secrets and variables → Actions, in the `copilot` environment used by the workflow.)
+
+### Container App Environment Variables (seeded automatically)
 
 `deploy.sh` calls **`seed-secrets.sh`** at the end of a deploy to populate these.
-The seeder reads the Storage and Web PubSub connection strings **live from the
-deployed resources** (so it needs no deployment output) and pulls the Stripe /
-admin secrets from a gitignored `infra/.env.<env>` file (or the shell env). It is
-idempotent — `az webapp config appsettings set` merges, so re-running only
-updates the keys you provide and never blanks the rest.
+The seeder reads the Storage connection string **live from the deployed
+resource** (so it needs no deployment output) and pulls the Stripe / admin /
+VAPID secrets from a gitignored `infra/.env.<env>` file (or the shell env). It
+is idempotent — `az containerapp update --set-env-vars` only touches the keys
+you provide.
 
 | Setting | Value | Source |
 |---|---|---|
 | `AZURE_STORAGE_CONNECTION_STRING` | Storage account primary connection string | read live from Azure |
-| `AZURE_WEBPUBSUB_CONNECTION_STRING` | Web PubSub primary connection string | read live from Azure |
-| `AZURE_WEBPUBSUB_HUB_NAME` | `santa_tracking` | fixed |
 | `DEV_MODE` | `false` | fixed |
 | `NODE_ENV` / `PORT` | `production` / `8080` | fixed |
-| `CORS_ORIGIN` / `APP_BASE_URL` | Public origin (prod: `https://firesantarun.com.au`; dev: the `*.azurewebsites.net` host, or `APP_ORIGIN` override) | derived |
+| `CORS_ORIGIN` / `APP_BASE_URL` | Public origin (prod: `https://firesantarun.com.au`; dev: the Container App's auto-generated FQDN, or `APP_ORIGIN` override) | derived |
 | `STRIPE_SECRET_KEY` | Stripe secret key — **test** for dev, **live** for prod | `infra/.env.<env>` |
 | `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) for that environment's webhook endpoint | `infra/.env.<env>` |
-| `STRIPE_PRICE_ID` | Price id (`price_…`) of the $5/yr recurring price (test vs live mode) | `infra/.env.<env>` |
+| `STRIPE_PRICE_ID` | Price id (`price_…`) of the subscription price (test vs live mode) | `infra/.env.<env>` |
 | `SITE_ADMIN_USER_IDS` | Comma-separated Entra `oid.tid` IDs allowed to review brigade verification | `infra/.env.<env>` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push keys for "notify me when Santa starts" (optional — hides the button when unset) | `infra/.env.<env>` |
 | `VAPID_SUBJECT` | Contact URI sent to push services (optional; defaults to a `mailto:`) | `infra/.env.<env>` |
+| `REALTIME_WS_SECRET` | Signs the short-lived tokens broadcaster/editor WebSocket connections present (optional — falls back to a hash of the storage connection string) | `infra/.env.<env>` |
 
 **Re-seed without a full redeploy** (e.g. after rotating a Stripe key or adding a
 webhook secret):
@@ -203,20 +267,18 @@ inject them without a file present.
 ## Dev / Prod Environments
 
 Dev and prod are **fully separate deployments**, not slots — each gets its own
-resource group, Storage account, Web PubSub, and App Service, provisioned from
+resource group, Storage account, and Container App, provisioned from
 the matching parameter file:
 
 ```bash
-./infra/deploy.sh --env dev  --suffix dev001    # rg-santarun-dev-dev001   (F1 / Free_F1)
-./infra/deploy.sh --env prod --suffix prod1      # rg-santarun-prod-prod1   (B1 / Standard_S1)
+./infra/deploy.sh --env dev  --suffix dev001    # rg-santarun-dev-dev001
+./infra/deploy.sh --env prod --suffix prod1      # rg-santarun-prod-prod1
 ```
 
-Separate environments (rather than an App Service deployment slot) are the right
-choice here because the app is stateful (Table Storage + Web PubSub) and because
-Stripe has distinct **test** and **live** modes: the dev environment points at
-Stripe test mode with its own storage, so test subscriptions never touch real
-brigade data. A prod deployment slot can still be added later purely for
-zero-downtime code releases — that is orthogonal to environment isolation.
+Separate environments (rather than a slot) are the right choice here because
+the app is stateful (Table Storage) and because Stripe has distinct **test**
+and **live** modes: the dev environment points at Stripe test mode with its
+own storage, so test subscriptions never touch real brigade data.
 
 ### Stripe configuration per environment
 
@@ -230,7 +292,7 @@ from `infra/.env.example`); `deploy.sh`/`seed-secrets.sh` load them automaticall
 cp infra/.env.example infra/.env.dev
 #   STRIPE_SECRET_KEY=sk_test_...
 #   STRIPE_WEBHOOK_SECRET=whsec_...   # from the dev (test-mode) webhook endpoint
-#   STRIPE_PRICE_ID=price_...         # $5/yr recurring price, TEST mode
+#   STRIPE_PRICE_ID=price_...         # subscription price, TEST mode
 #   SITE_ADMIN_USER_IDS=oid.tid,oid2.tid2
 ./infra/deploy.sh --env dev --suffix dev001    # deploy + seed
 #   ./infra/seed-secrets.sh --env dev           # or re-seed only, no redeploy
@@ -258,12 +320,11 @@ treated as entitled — so Stripe is only needed against deployed environments.
 ### Web Push ("notify me when Santa starts")
 
 Optional feature — when unconfigured the tracking page simply hides the notify
-button. To enable it, generate a VAPID key pair and add it to the App Service
-settings (export in the deploy shell like the Stripe vars):
+button. To enable it, generate a VAPID key pair and add it via `seed-secrets.sh`:
 
 ```bash
 npx web-push generate-vapid-keys
-# → set these app settings:
+# → add to infra/.env.<env>:
 #   VAPID_PUBLIC_KEY=BOx...
 #   VAPID_PRIVATE_KEY=k3v...
 #   VAPID_SUBJECT=mailto:admin@firesantarun.com.au   (optional, defaults to this)
@@ -278,21 +339,24 @@ route's subscribers (12-hour re-send guard, expired subscriptions cleaned up on
 
 ## Seasonal Scaling (read before December!)
 
-Santa runs are hyper-seasonal, and the **Web PubSub free tier caps at 20
-concurrent connections — one popular run will exceed that on its own.** Scale
-up before your first December run and back down in January:
+Santa runs are hyper-seasonal. The Container App defaults to `minReplicas: 0`
+(scale-to-zero) — cheap for the ~11 idle months, but the first request after a
+quiet spell pays one cold start (typically a few seconds). Flip to a warm
+replica before your first December run so no viewer or broadcaster ever hits
+that delay mid-run:
 
 ```bash
-./infra/scale-season.sh --rg rg-santarun-prod-prod1 season      # ~Dec 1
-./infra/scale-season.sh --rg rg-santarun-prod-prod1 offseason   # ~Jan 7
-
-# Expecting >1,000 simultaneous viewers across all brigades on Christmas Eve:
-./infra/scale-season.sh --rg rg-santarun-prod-prod1 season --pubsub-units 2
+./infra/scale-season.sh --rg rg-santarun-prod-prod1 season      # ~Dec 1 (minReplicas=1)
+./infra/scale-season.sh --rg rg-santarun-prod-prod1 offseason   # ~Jan 7 (minReplicas=0)
 ```
 
-Cost intuition (AUD, indicative): Standard_S1 ≈ $2.40/day/unit, so a Dec 1 –
-Jan 5 season ≈ **$85/unit** vs ≈ $900 left on year-round. The App Service plan
-stays at B1 year-round because custom domains require Basic or higher.
+`maxReplicas` is fixed at 1 by the Bicep module — see "Why Container Apps"
+above and [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md#realtime-tracking)
+for why (the in-process realtime hub is per-process state).
+
+Cost intuition: a warm `minReplicas=1` replica at the smallest Consumption size
+(0.25 vCPU / 0.5 GiB) costs roughly a few dollars a month if left on; scaling to
+zero for eleven months makes that close to nothing.
 
 **Mapbox is the other seasonal cost**: every public viewer session is one map
 load; 50k loads/month are free, then ~US$5 per 1,000. Watch the Mapbox usage
@@ -302,55 +366,31 @@ public tracking page.
 
 ---
 
-## GitHub Actions Variable
-
-Add the App Service name as a **repository variable** (not a secret):
-- **Name:** `AZURE_APP_SERVICE_NAME`
-- **Value:** `santarun-web-<your-suffix>`
-
-(Settings → Secrets and variables → Actions → Variables tab)
-
----
-
-## Verifying WebSocket Support
-
-Azure App Service has WebSocket support enabled in the Bicep (`webSocketsEnabled: true`).
-The live tracking feature uses Azure Web PubSub for fan-out to multiple viewers.
+## Verifying the Deployment
 
 ```bash
-# Verify App Service WebSocket setting
-az webapp show \
+# Container App status + URL
+az containerapp show \
   --resource-group rg-santarun-dev-<suffix> \
-  --name santarun-web-<suffix> \
-  --query 'siteConfig.webSocketsEnabled'
+  --name santarun-app-<suffix> \
+  --query '{fqdn:properties.configuration.ingress.fqdn,replicas:properties.template.scale}'
 
-# Verify Web PubSub resource
-az webpubsub show \
-  --resource-group rg-santarun-dev-<suffix> \
-  --name santarun-pubsub-<suffix> \
-  --query '{sku:sku.name,status:properties.provisioningState}'
+# Health check
+curl https://<fqdn>/api/health
 
-# Test negotiate endpoint (after deployment)
-curl https://santarun-web-<suffix>.azurewebsites.net/api/negotiate?routeId=test-route
+# Realtime negotiate endpoint (viewer role, anonymous)
+curl "https://<fqdn>/api/negotiate?routeId=test-route&role=viewer"
+# → { "url": "wss://<fqdn>/api/ws?routeId=test-route&role=viewer", "role": "viewer", "routeId": "test-route" }
 ```
 
 ---
 
 ## Free Tier Limits & Constraints
 
-### App Service F1 (Free)
-- **60 CPU-minutes per day** shared — suitable for development and demos
-- No always-on: app sleeps after 20 minutes of inactivity (cold start of ~10s on wake)
-- No custom domain, no SSL termination at custom domain
-- No deployment slots (preview environments)
-- Upgrade to **B1** (~$18 AUD/month) for always-on, custom domain, and SLA
-- F1 quotas are region-scoped and subscription-scoped; if you hit `QuotaExceeded`, deploy to another region or scale to B1
-
-### Azure Web PubSub Free_F1
-- **20 concurrent WebSocket connections**
-- **20,000 messages per day**
-- Suitable for development and small-scale testing
-- Upgrade to **Standard_S1** (~$68 AUD/month) for production (1,000 connections)
+### Azure Container Apps (Consumption)
+- 180,000 vCPU-seconds + 360,000 GiB-seconds free per month, per subscription
+- `minReplicas=0` scales fully to zero between requests — near-$0 outside December
+- Custom domains and managed certificates are supported directly on the Container App (no Basic-tier requirement, unlike App Service)
 
 ### Azure Table Storage
 - First 5 GB free; first 20,000 transactions/month free
@@ -365,42 +405,10 @@ curl https://santarun-web-<suffix>.azurewebsites.net/api/negotiate?routeId=test-
 ## Upgrade Path to Production
 
 1. Switch to `prod` parameters: `./infra/deploy.sh --env prod --suffix myprod`
-   - App Service: `F1` → `B1` (always-on, custom domain, SSL)
-   - Web PubSub: `Free_F1` → `Standard_S1` (1,000 concurrent connections)
-
-2. Set custom domain in Azure Portal → App Service → Custom domains
-
-3. Configure Entra External ID for auth (Phase 7 in MASTER_PLAN.md):
-   - Add `VITE_ENTRA_CLIENT_ID`, `VITE_ENTRA_TENANT_ID`, etc. to GitHub secrets
-
-4. Scale up App Service for higher traffic:
-   - `S1` for auto-scaling, deployment slots, and traffic splitting
-
----
-
-## Real-Time Architecture (WebSockets)
-
-```
-Navigator device (GPS)
-        │ POST /api/broadcast
-        ▼
-Hono Server (App Service)
-        │ WebPubSubServiceClient.group(route_{id}).sendToAll(message)
-        ▼
-Azure Web PubSub — Hub: santa_tracking
-                   Group: route_{routeId}
-        │ wss:// push
-        ▼
-Public viewer browsers (tracking page)
-```
-
-**Negotiate flow:**
-1. Browser calls `GET /api/negotiate?routeId=abc&role=viewer`
-2. Hono server issues a Web PubSub client access token scoped to `route_abc`
-3. Browser opens native WebSocket to `wss://*.webpubsub.azure.com` using that token
-4. Browser receives location updates pushed by the navigator
-
-**Native WebSocket fallback:** App Service has `webSocketsEnabled: true`. If a future use case requires direct persistent connections to the server (e.g., low-latency two-way messaging), this can be implemented in the Hono server using Node.js `ws` or any standard WebSocket library — no reconfiguration needed.
+2. Bind a custom domain: `az containerapp hostname add` + `az containerapp hostname bind` (managed certificate) — see [Azure docs](https://learn.microsoft.com/en-us/azure/container-apps/custom-domains-managed-certificates)
+3. Configure Entra External ID for auth: add `VITE_ENTRA_CLIENT_ID`, `VITE_ENTRA_TENANT_ID`, etc. to GitHub secrets (baked into the SPA build)
+4. Flip to `minReplicas=1` for the December season (`scale-season.sh`)
+5. If a single replica is ever not enough: add a shared backplane (e.g. Redis pub/sub) for the realtime hub, then raise `maxReplicas` in `infra/modules/containerapps.bicep`
 
 ---
 
@@ -415,12 +423,15 @@ az account list --output table && az account set --subscription "<id>"
 
 **App returns 404 on direct URL loads (React Router routes):**
 The Hono server's SPA fallback (`app.get('*', serveStatic(...index.html))`) handles this.
-Confirm the server built correctly: `STATIC_FILES_PATH` env var should point to the `dist/` directory.
+Confirm the image built correctly — `dist/` (client) and `server/dist/` (server) must both be present.
 
 **WebSocket connection fails:**
-- Check that `wss://*.webpubsub.azure.com` is in your Content-Security-Policy `connect-src`
-- Verify `AZURE_WEBPUBSUB_CONNECTION_STRING` is set in App Service application settings
-- Test the negotiate endpoint returns `{ url, role, routeId, groupName }`
+- The realtime endpoint is same-origin (`wss://<your-domain>/api/ws`) — no external host to allow in CSP `connect-src` any more (`'self'` covers it).
+- Test the negotiate endpoint returns `{ url, role, routeId }` with a `wss://` URL pointing at your own domain.
+- Container Apps ingress supports WebSockets on the default `transport: auto` setting — no extra config needed.
+
+**Container App stuck on the placeholder image:**
+CI hasn't pushed a real image yet (first deploy only) — either wait for CI to run on `main`, or push one manually and run `az containerapp update --image ...` (see "Building and Pushing the Image" above).
 
 ---
 

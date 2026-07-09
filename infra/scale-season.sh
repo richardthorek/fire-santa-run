@@ -1,41 +1,42 @@
 #!/usr/bin/env bash
 # Fire Santa Run — seasonal capacity switch
 #
-# Santa runs are hyper-seasonal: December needs real capacity, the other
-# eleven months don't. This script flips the two capacity-sensitive resources
-# between "season" (December) and "offseason" profiles:
+# Santa runs are hyper-seasonal: December wants a warm, cold-start-free
+# Container App; the other eleven months are happy to scale to zero. This
+# script flips the Container App's minimum replica count between the two
+# profiles:
 #
-#   Web PubSub :  Free_F1 (20 concurrent connections — NOT enough for a live
-#                 run) ↔ Standard_S1 (1,000 concurrent connections per unit).
-#                 One popular run alone will exceed the free tier, so scaling
-#                 up before the first December run is REQUIRED, not optional.
-#   App Service:  B1 (always-on, custom domain) ↔ B1 (unchanged by default —
-#                 custom domains require Basic+, so we never drop to F1; pass
-#                 --app-sku to override).
+#   season    : minReplicas=1 — the app never scales to zero, so no viewer or
+#               broadcaster ever eats a cold-start delay (typically a few
+#               seconds) mid-run.
+#   offseason : minReplicas=0 — scale-to-zero; the next request after a quiet
+#               spell pays one cold start, then stays warm.
+#
+# maxReplicas is intentionally NOT a flag here: it is fixed at 1 in the Bicep
+# module because the realtime hub (viewer/broadcaster/editor WebSocket sets,
+# live viewer counts) lives in this process's memory — see
+# infra/modules/containerapps.bicep and docs/ARCHITECTURE.md. Raise it only
+# after adding a shared backplane for the hub.
 #
 # Usage:
 #   ./infra/scale-season.sh --rg rg-santarun-prod-prod1 season      # ~Dec 1
 #   ./infra/scale-season.sh --rg rg-santarun-prod-prod1 offseason   # ~Jan 7
-#   ./infra/scale-season.sh --rg <rg> season --pubsub-units 2       # >1k viewers
 #
-# Cost guide (AUD, indicative):
-#   Standard_S1 Web PubSub ≈ $2.40/day/unit → a Dec 1 – Jan 5 season ≈ $85/unit.
-#   Leaving it on year-round ≈ $900 — that difference is most of the app's
-#   annual running cost, hence this script.
+# Cost guide (indicative): a warm minReplicas=1 replica at the smallest
+# Consumption size (0.25 vCPU / 0.5 GiB) costs roughly USD 3–6/month if left
+# on year-round; scaling to zero for eleven months makes that cost close to
+# nothing. This script is what keeps the "warm" cost seasonal instead of
+# year-round.
 
 set -euo pipefail
 
 RESOURCE_GROUP=""
 MODE=""
-PUBSUB_UNITS=1
-APP_SKU=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --rg)            RESOURCE_GROUP="$2"; shift 2 ;;
-    --pubsub-units)  PUBSUB_UNITS="$2"; shift 2 ;;
-    --app-sku)       APP_SKU="$2"; shift 2 ;;
-    season|offseason) MODE="$1"; shift ;;
+    --rg)              RESOURCE_GROUP="$2"; shift 2 ;;
+    season|offseason)  MODE="$1"; shift ;;
     --help|-h)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'
       exit 0
@@ -45,45 +46,34 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$RESOURCE_GROUP" || -z "$MODE" ]]; then
-  echo "❌ Usage: $0 --rg <resource-group> <season|offseason> [--pubsub-units N] [--app-sku SKU]"
+  echo "❌ Usage: $0 --rg <resource-group> <season|offseason>"
   exit 1
 fi
 
-PUBSUB_NAME=$(az webpubsub list --resource-group "$RESOURCE_GROUP" --query '[0].name' --output tsv)
-if [[ -z "$PUBSUB_NAME" ]]; then
-  echo "❌ No Web PubSub resource found in $RESOURCE_GROUP"
+APP_NAME=$(az containerapp list --resource-group "$RESOURCE_GROUP" --query '[0].name' --output tsv)
+if [[ -z "$APP_NAME" ]]; then
+  echo "❌ No Container App found in $RESOURCE_GROUP"
   exit 1
 fi
 
 if [[ "$MODE" == "season" ]]; then
-  echo "🎄 Scaling UP for the season: $PUBSUB_NAME → Standard_S1 x$PUBSUB_UNITS"
-  az webpubsub update \
+  echo "🎄 Scaling UP for the season: $APP_NAME → minReplicas=1 (always warm)"
+  az containerapp update \
     --resource-group "$RESOURCE_GROUP" \
-    --name "$PUBSUB_NAME" \
-    --sku Standard_S1 \
-    --unit-count "$PUBSUB_UNITS" \
+    --name "$APP_NAME" \
+    --min-replicas 1 \
+    --max-replicas 1 \
     --output none
-  echo "✅ Web PubSub at Standard_S1 x$PUBSUB_UNITS ($((PUBSUB_UNITS * 1000)) concurrent connections)."
+  echo "✅ $APP_NAME is warm — no cold starts during runs."
 else
-  echo "🌏 Scaling DOWN for the off-season: $PUBSUB_NAME → Free_F1"
-  az webpubsub update \
+  echo "🌏 Scaling DOWN for the off-season: $APP_NAME → minReplicas=0 (scale-to-zero)"
+  az containerapp update \
     --resource-group "$RESOURCE_GROUP" \
-    --name "$PUBSUB_NAME" \
-    --sku Free_F1 \
-    --unit-count 1 \
+    --name "$APP_NAME" \
+    --min-replicas 0 \
+    --max-replicas 1 \
     --output none
-  echo "✅ Web PubSub at Free_F1 (20 concurrent connections — dev/testing only)."
-fi
-
-if [[ -n "$APP_SKU" ]]; then
-  PLAN_NAME=$(az appservice plan list --resource-group "$RESOURCE_GROUP" --query '[0].name' --output tsv)
-  echo "Scaling App Service plan $PLAN_NAME → $APP_SKU"
-  az appservice plan update \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$PLAN_NAME" \
-    --sku "$APP_SKU" \
-    --output none
-  echo "✅ App Service plan at $APP_SKU."
+  echo "✅ $APP_NAME scales to zero when idle."
 fi
 
 echo ""

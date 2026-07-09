@@ -2,7 +2,7 @@
 
 A real-time Santa tracking web application for Australian Rural Fire Service (RFS) brigades to plan, publish, and track Santa runs through their communities.
 
-> Deployment model update (Apr 2026): Production hosting now uses Azure App Service (Linux) with Bicep IaC in `infra/`. The legacy Azure Static Web Apps workflow has been reduced to quality checks only.
+> Deployment model: production hosting is **Azure Container Apps** (Consumption, scale-to-zero) running a single container image, with Bicep IaC in `infra/`. Both the earlier Azure Static Web Apps and Azure App Service deployment models are retired — see [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and [`infra/README.md`](./infra/README.md).
 
 ## Overview
 
@@ -137,9 +137,11 @@ VITE_AZURE_STORAGE_ACCOUNT_NAME=your_account_name
 VITE_ENTRA_CLIENT_ID=your_client_id
 VITE_ENTRA_TENANT_ID=your_tenant_id
 
-# Azure Web PubSub (real-time tracking)
-AZURE_WEBPUBSUB_CONNECTION_STRING=your_connection_string
-AZURE_WEBPUBSUB_HUB_NAME=santa_tracking
+# Real-time tracking is served in-process by the Hono server (no separate
+# service or connection string) — see docs/ARCHITECTURE.md#realtime-tracking.
+# Optional: sign the broadcaster/editor WebSocket token explicitly instead of
+# deriving it from the storage connection string.
+REALTIME_WS_SECRET=your_random_secret
 ```
 
 See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup instructions.
@@ -150,7 +152,7 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 - 🗺️ **[ROADMAP.md](./ROADMAP.md)** - **NEW!** 6-month product roadmap with Release 1 summary and future releases
 - 📊 **[Release 1 Summary](./docs/RELEASE_1_SUMMARY.md)** - **NEW!** Complete implementation summary and achievements
 - 📋 **[Missing Features Analysis](./docs/MISSING_FEATURES_ANALYSIS.md)** - Known gaps and future enhancements
-- 📘 **[Master Plan](./MASTER_PLAN.md)** - Comprehensive technical architecture (4,700+ lines)
+- 📘 **[Master Plan](./MASTER_PLAN.md)** - Concise forward-looking product plan: vision, current state, roadmap, decisions
 
 ### Setup Guides
 - 🚀 **[Development Mode Guide](./docs/DEV_MODE.md)** - Rapid development without auth barriers
@@ -177,16 +179,16 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 - **Frontend:** React 19 + TypeScript + Vite
 - **Mapping:** Mapbox GL JS with Draw plugin and Directions API
 - **Routing:** React Router v7
-- **Real-time:** Azure Web PubSub (WebSocket with HTTP fallback)
+- **Real-time:** native WebSocket, fanned out in-process by the Hono server (no managed pub/sub service)
 - **Storage:** LocalStorage (dev) or Azure Table Storage (production)
 - **Authentication:** Microsoft Entra External ID (production)
-- **Hosting:** Azure App Service (Linux) + Hono server (`server/`)
+- **Hosting:** Azure Container Apps (Consumption, scale-to-zero) + Hono server (`server/`)
 - **QR Codes:** qrcode.react
 - **Meta Tags:** React 19 Native Metadata (automatic hoisting to `<head>`)
 
 ### Data Models
 
-Simplified overview (see [MASTER_PLAN.md](./MASTER_PLAN.md#data-model) for complete schemas):
+Simplified overview (see `src/types/index.ts` for complete schemas, and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md#data-model--isolation) for the storage model):
 
 ```typescript
 interface Brigade {
@@ -250,11 +252,11 @@ npm run build  # (builds and type checks)
 ```
 fire-santa-run/
 ├── .github/
-│   ├── workflows/          # CI/CD pipelines (quality + App Service deploy)
+│   ├── workflows/          # CI/CD pipelines (quality + Container Apps deploy)
 │   └── copilot-instructions.md
 ├── api/                    # Azure Functions — local dev API (npm run dev) + legacy path
 │   └── src/                # API function implementations
-├── server/                 # Hono backend — PRODUCTION API on Azure App Service
+├── server/                 # Hono backend — PRODUCTION API on Azure Container Apps
 │   └── src/
 ├── infra/                  # Bicep IaC and deployment script
 │   ├── main.bicep
@@ -283,27 +285,29 @@ fire-santa-run/
 
 ## Deployment
 
-The application is deployed to **Azure App Service** with infrastructure provisioned by **Bicep** (`infra/main.bicep`) and CI/CD via GitHub Actions.
+The application is deployed to **Azure Container Apps** as a single container image (React SPA + Hono API server, built from the root `Dockerfile`), with infrastructure provisioned by **Bicep** (`infra/main.bicep`) and CI/CD via GitHub Actions.
 
 ### Automatic Deployment
 
 Deployment happens automatically when code is pushed to the repository:
-- **Production:** Merges to `main` branch deploy to production
+- **Production:** Merges to `main` branch build and push a new image, then update the Container App
 - **Pull Requests:** Quality checks and test coverage run
 - **Configuration:**
-  - `.github/workflows/deploy-app-service.yml` (App Service build/deploy)
-  - `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml` (quality gate only)
+  - `.github/workflows/deploy-container-apps.yml` (build image → push to ghcr.io → deploy)
+  - `.github/workflows/azure-static-web-apps-victorious-beach-0d2b6dc00.yml` (quality gate + failure reporting only — no deploy)
 
-### App Service + IaC Setup
+### Container Apps + IaC Setup
 
 1. Provision infra with Bicep:
   - `./infra/deploy.sh --env dev --suffix <unique> --location <region>`
-2. Configure GitHub environment (`copilot`) secrets and variables:
-  - Secret: `AZURE_APP_SERVICE_PUBLISH_PROFILE`
-  - Variable: `AZURE_APP_SERVICE_NAME`
+2. Configure GitHub environment (`copilot`) secrets and variables (OIDC — no long-lived Azure secret):
+  - Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
+  - Variables: `AZURE_CONTAINER_APP_NAME`, `AZURE_RESOURCE_GROUP`
   - Build secret: `VITE_MAPBOX_TOKEN`
 3. Push to `main` (or manually run workflow dispatch) to deploy.
 4. Optional: set Entra External ID values for production auth flows.
+
+Full one-time OIDC setup steps are in [`infra/README.md`](./infra/README.md#after-deployment--configure-ci--secrets).
 
 ### Manual Build (for testing)
 
@@ -311,11 +315,12 @@ Deployment happens automatically when code is pushed to the repository:
 # Build the application
 npm run build
 
-# The dist/ folder contains the static assets
-# The dist/ folder contains SPA assets; App Service runtime serves via server/
+# The dist/ folder contains the static SPA assets, served by server/ (Hono).
+# For a full production-shaped build, see the root Dockerfile — it builds
+# both the client and server into one container image.
 ```
 
-See deployment documentation in [MASTER_PLAN.md](./MASTER_PLAN.md#deployment--hosting) for detailed instructions.
+See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and [`infra/README.md`](./infra/README.md) for detailed deployment instructions.
 
 ## Azure Storage Setup
 
@@ -339,8 +344,8 @@ See [Azure Setup Guide](./docs/AZURE_SETUP.md) for detailed instructions.
 
 The repository includes automated CI/CD workflows:
 
-1. **`deploy-app-service.yml`** - Primary build + deploy workflow for Azure App Service
-2. **`azure-static-web-apps-victorious-beach-0d2b6dc00.yml`** - Legacy quality checks workflow (no SWA deploy)
+1. **`deploy-container-apps.yml`** - Primary workflow: quality checks, E2E, build + push the container image, deploy to Azure Container Apps
+2. **`azure-static-web-apps-victorious-beach-0d2b6dc00.yml`** - Legacy quality checks + failure-reporting workflow (no deploy)
 
 ### Required GitHub Secrets
 
@@ -353,15 +358,15 @@ Configure in Repository Settings > Secrets and variables > Actions > Environment
 - `VITE_ENTRA_AUTHORITY` - Microsoft Entra authority URL
 - `VITE_ENTRA_REDIRECT_URI` - OAuth redirect URI
 
-**App Service deployment config (required for deploy step):**
-- `AZURE_APP_SERVICE_PUBLISH_PROFILE` (environment secret)
-- `AZURE_APP_SERVICE_NAME` (environment variable)
+**Container Apps deployment config (required for deploy step, OIDC — no stored Azure secret):**
+- `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (environment secrets)
+- `AZURE_CONTAINER_APP_NAME`, `AZURE_RESOURCE_GROUP` (environment variables)
 
-**Runtime secrets (configured in Azure Portal):**
-- Azure Storage connection strings
-- Azure Web PubSub connection strings
+**Runtime secrets (seeded onto the Container App via `infra/seed-secrets.sh`, not GitHub):**
+- Azure Storage connection string
+- Stripe keys, site-admin IDs, VAPID keys, realtime WS secret
 
-See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for complete setup.
+See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) and [`infra/README.md`](./infra/README.md) for complete setup.
 
 ### CIAM (External ID) Resource Note
 
@@ -374,23 +379,21 @@ The External Configuration Tenant resource (`Microsoft.AzureActiveDirectory/ciam
 
 ## Cost Estimates
 
-### Free Tier Setup (Development)
-- **Hosting:** Azure App Service F1 (region/quota dependent)
+### Development / off-season (Container Apps `minReplicas=0`)
+- **Hosting:** Azure Container Apps Consumption, scaled to zero — within the monthly free grant for light traffic
 - **Mapbox:** 50k map loads/month free
-- **Azure Web PubSub:** Free tier (20 connections, 20K messages/day)
 - **Azure Table Storage:** $0.05 AUD/month
 - **Entra External ID:** Free (up to 50K monthly active users)
-- **Total: ~$0.05 AUD/month**
+- **Total: near $0/month**
 
-### Production Setup (100 brigades)
-- **Hosting:** Azure App Service B1 (recommended baseline)
-- **Mapbox:** $0-50 USD/month (depending on usage)
-- **Azure Web PubSub:** $49 USD/month (Standard tier, 1000 connections)
+### Production, December season (Container Apps `minReplicas=1`)
+- **Hosting:** a few USD/month for one always-warm Consumption replica (0.25 vCPU / 0.5 GiB) — see `infra/scale-season.sh`
+- **Mapbox:** $0-50 USD/month depending on public viewer volume (the main variable cost — see `infra/README.md` for the MapLibre migration trigger)
 - **Azure Table Storage:** ~$0.50 AUD/month
 - **Entra External ID:** Free (up to 50K MAU)
-- **Total:** depends on App Service SKU and traffic profile
+- **Total:** typically single-digit to low-double-digit USD/month, dominated by Mapbox at scale, not compute
 
-See cost breakdown in [MASTER_PLAN.md](./MASTER_PLAN.md#cost-management--resource-planning).
+See [`infra/README.md`](./infra/README.md#seasonal-scaling-read-before-december) and [`MASTER_PLAN.md`](./MASTER_PLAN.md#operational-readiness) for the seasonal cost model.
 
 ## Security
 

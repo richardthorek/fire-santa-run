@@ -15,34 +15,49 @@ Stripe subscription; public live tracking is always free.
 
 ```
 Browser (React SPA, PWA)
-        │ HTTPS
+        │ HTTPS + wss://
         ▼
-Azure App Service (Linux, Node 22)
+Azure Container Apps (Consumption, scale-to-zero, single container)
    ├── /api/*   →  Hono server (server/)  ── Azure Table Storage
-   │                                        ── Azure Web PubSub (realtime token + broadcast)
+   │                                        ── in-process realtime WS hub (server/src/realtime/)
    │                                        ── Stripe (checkout, portal, webhook)
    │                                        ── Web Push (VAPID, optional)
+   ├── /api/ws  →  native WebSocket upgrade — realtime fan-out (no managed pub/sub service)
    └── /*       →  static React build (dist/) with SPA fallback
 
-Azure Web PubSub (WebSockets)     Application Insights + Log Analytics
-   Hub: santa_tracking               request tracing, errors, metrics
-   Group: route_{routeId}
+Application Insights + Log Analytics
+   request tracing, errors, metrics
 ```
 
-## Two backends, one behaviour
+One container image, one process, one Container App — realtime tracking is no
+longer a separate managed service; it is fanned out in-process (see "Realtime
+tracking" below). This is the whole runtime: no Web PubSub, no App Service.
 
-There are **two API implementations that must stay in sync**:
+## Two backends, one behaviour (with one realtime exception)
+
+There are **two API implementations**:
 
 | Path | Runtime | Used by |
 | --- | --- | --- |
-| `server/` | Hono on Node.js (Azure App Service) | **Production** |
+| `server/` | Hono on Node.js (Azure Container Apps) | **Production** |
 | `api/` | Azure Functions v4 | **Local dev** (`npm run dev`) and legacy Functions path |
 
-When you change auth, entitlement, realtime, or storage logic, update **both**
-and keep them aligned. Production hosting is App Service + Hono; the historical
-Azure Static Web Apps deployment has been retired (the SWA workflow now runs
-quality checks only, and `staticwebapp.config.json` is not a production deploy
-target).
+When you change auth, entitlement, or storage logic, update **both** and keep
+them aligned. **Realtime is the one deliberate exception**: `server/` fans out
+WebSocket messages natively in-process (`server/src/realtime/`), but Azure
+Functions on the Consumption plan cannot hold a persistent native WebSocket
+connection the way a plain Node process can — that constraint is exactly why
+production moved off Functions in the first place. `api/`'s negotiate/broadcast
+routes still use the (retired-from-production) Azure Web PubSub client for that
+reason. In practice this doesn't cost local dev anything: `npm run dev` runs
+with `VITE_DEV_MODE=true`, so the client uses the `BroadcastChannel` dev-mode
+path and never calls `api/`'s realtime routes at all. Don't wire a Web PubSub
+resource back in to "fix" this — it's an intentional, harmless divergence.
+
+Production hosting is Azure Container Apps + Hono. The historical Azure Static
+Web Apps deployment and the later Azure App Service deployment are both
+retired (the legacy SWA workflow now runs quality checks only, and
+`staticwebapp.config.json` is not a production deploy target).
 
 ## Frontend
 
@@ -55,9 +70,11 @@ target).
   the HTTP adapter backs production. Add fields to both.
 - **Context** (`src/context/`) — `AuthContext` (MSAL/Entra, dev bypass) and
   `BrigadeContext` (current brigade + `isEntitled` + `refreshBrigade`).
-- **Realtime** (`src/hooks/useWebPubSub.ts`) — viewers connect read-only;
-  broadcasters/editors get privileged tokens. `enabled:false` powers the
-  simulated demo run without a backend.
+- **Realtime** (`src/hooks/useWebPubSub.ts`) — a native `WebSocket` to the
+  server's own `/api/ws` endpoint (name kept for history; no Azure Web PubSub
+  involved). Viewers connect read-only and anonymously; broadcasters/editors
+  present a short-lived signed token minted by the (authenticated) negotiate
+  call. `enabled:false` powers the simulated demo run without a backend.
 - **PWA** (`src/sw.ts`, injectManifest) — offline caching, background-sync for
   queued broadcasts, and Web Push handlers for "notify me when Santa starts".
 
@@ -96,23 +113,61 @@ requests, push subscriptions. Dev tables are prefixed `dev-`.
 
 ## Realtime tracking
 
-Navigator device POSTs GPS to `/api/broadcast`; the server fans it out via
-Azure Web PubSub group `route_{routeId}` to every viewer's WebSocket. The first
-broadcast of a run also triggers one "Santa has started" Web Push to that
-route's subscribers. See [`REALTIME_TRACKING.md`](REALTIME_TRACKING.md).
+Realtime fan-out is **in-process** — `server/src/realtime/`:
+
+- `hub.ts` — per-route sets of viewer / broadcaster / editor WebSocket
+  connections, held in memory. Fan-out is a loop over a `Set`; there is no
+  per-message cost and no separate service to configure.
+- `wsServer.ts` — the `/api/ws` upgrade handler, attached to the same Node
+  HTTP server as the API. Anonymous for viewers; broadcaster/editor
+  connections must present a signed token (see `wsToken.ts`) because browsers
+  cannot set an `Authorization` header on a WebSocket handshake — the
+  authenticated `negotiate` call mints that token and embeds it in the
+  `wss://` URL it returns. Heartbeat ping/pong drops dead connections
+  (dropped rural coverage, closed tabs) so viewer counts stay accurate.
+- `wsToken.ts` — short-lived HMAC token, `{routeId, role, exp}`, verified with
+  a timing-safe comparison. Secret resolves from `REALTIME_WS_SECRET` if set,
+  else a hash of the Storage connection string (always present in prod) —
+  no new required config.
+
+Flow: the navigator device POSTs GPS to `/api/broadcast`; the server fans it
+out via `hub.broadcastLocation()` to every open `/api/ws` viewer connection for
+that route. The first broadcast of a run also triggers one "Santa has started"
+Web Push to that route's subscribers. See
+[`REALTIME_TRACKING.md`](REALTIME_TRACKING.md).
+
+**Scaling constraint — read before raising `maxReplicas`:** the hub's state is
+per-process. The Container App is pinned to `maxReplicas: 1` (see
+`infra/modules/containerapps.bicep`) so every connection for a route lands on
+the same instance; a second replica would not see the first one's connections
+and would silently split fan-out. Raise it only after adding a shared
+backplane (e.g. Redis pub/sub) for the hub — tracked as a roadmap item in
+[`../MASTER_PLAN.md`](../MASTER_PLAN.md).
 
 ## Infrastructure
 
-Bicep IaC in `infra/` provisions App Service, Table Storage, Web PubSub, and
-Application Insights. `deploy.sh` deploys per environment (dev/prod are fully
-separate deployments, matching Stripe test vs live mode); `seed-secrets.sh`
-seeds app settings (Stripe, site-admin, VAPID) with a merge strategy that never
-blanks an existing secret; `scale-season.sh` flips Web PubSub between the
-December (Standard_S1) and off-season (Free_F1) profiles. See
-[`../infra/README.md`](../infra/README.md).
+Bicep IaC in `infra/` provisions Azure Container Apps (Consumption,
+scale-to-zero), Table Storage, and Application Insights — see
+[`../infra/README.md`](../infra/README.md) and
+[`infra/modules/containerapps.bicep`](../infra/modules/containerapps.bicep).
+
+- `Dockerfile` (repo root) — multi-stage build: React SPA (Vite), Hono server
+  (tsc), then a minimal runtime image. CI builds and pushes it to GitHub
+  Container Registry.
+- `deploy.sh` — provisions the Bicep stack per environment (dev/prod are fully
+  separate deployments, matching Stripe test vs live mode) and seeds base
+  config.
+- `seed-secrets.sh` — seeds Container App env vars (Stripe, site-admin, VAPID,
+  the realtime WS secret) with a merge strategy that never blanks an existing
+  secret.
+- `scale-season.sh` — flips the Container App's `minReplicas` between 1
+  (December — always warm, no cold starts mid-run) and 0 (off-season —
+  scale-to-zero).
+- `.github/workflows/deploy-container-apps.yml` — builds the image, pushes to
+  `ghcr.io`, and runs `az containerapp update --image ...` via OIDC.
 
 ## Testing
 
 Vitest unit/integration tests (`src/**/__tests__`), a11y tests
 (`npm run test:a11y`), and Playwright E2E (`e2e/`). Both backends typecheck;
-`npm run build` produces the client bundle the App Service serves.
+`npm run build` produces the client bundle the container serves.
