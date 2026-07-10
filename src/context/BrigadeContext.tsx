@@ -25,7 +25,7 @@ export function BrigadeProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadBrigade = useCallback(async () => {
-    if (!user || !user.brigadeId) {
+    if (!user) {
       setBrigade(null);
       setIsLoading(false);
       return;
@@ -33,7 +33,28 @@ export function BrigadeProvider({ children }: { children: ReactNode }) {
 
     setIsLoading(true);
     try {
-      let brigadeData = await storageAdapter.getBrigade(user.brigadeId);
+      let brigadeId = user.brigadeId;
+
+      // Fallback: if no brigadeId set, try to load from first active membership
+      if (!brigadeId) {
+        try {
+          const memberships = await storageAdapter.getMembershipsByUser(user.id);
+          const activeMembership = memberships?.find((m: any) => m.status === 'active');
+          if (activeMembership) {
+            brigadeId = activeMembership.brigadeId;
+          }
+        } catch (err) {
+          console.warn('Could not load memberships fallback:', err);
+        }
+      }
+
+      if (!brigadeId) {
+        setBrigade(null);
+        setIsLoading(false);
+        return;
+      }
+
+      let brigadeData = await storageAdapter.getBrigade(brigadeId);
 
       // If brigade doesn't exist in storage, create it (dev mode scenario)
       if (!brigadeData) {
