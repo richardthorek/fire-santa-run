@@ -63,8 +63,8 @@ export function BrigadeProvider({ children }: { children: ReactNode }) {
         if (isDevMode) {
           const mockBrigadeName = import.meta.env.VITE_MOCK_BRIGADE_NAME || 'Development Fire Brigade';
           brigadeData = {
-            id: user.brigadeId,
-            slug: user.brigadeId,
+            id: brigadeId,
+            slug: brigadeId,
             name: mockBrigadeName,
             location: 'Development Location',
             allowedDomains: [],
@@ -81,7 +81,9 @@ export function BrigadeProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      setBrigade(brigadeData);
+      if (brigadeData) {
+        setBrigade(brigadeData);
+      }
     } catch (error) {
       console.error('Failed to load brigade:', error);
       setBrigade(null);
