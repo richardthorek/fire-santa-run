@@ -1,6 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
+    "allow": [
+      "Bash(git push *)",
+      "Bash(az ad app federated-credential create --id de0383f9-6164-48a9-a667-3217bdbf6e35 --parameters '{ *)",
+      "Bash(az containerapp *)",
+      "Bash(STRIPE_WEBHOOK_SECRET=whsec_1pVLDSTDxhX0qfPzHV8cp8nB89asBmMk ./infra/seed-secrets.sh --env dev --suffix dev003)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'chore: automate secret seeding in CI/CD workflow *)",
+      "Bash(curl -s __TRACKED_VAR__/api/health)",
+      "Bash(git commit -m 'refactor: optimize deployment workflow for efficiency and clarity *)"
+    ],
     "deny": [
       "Read(package-lock.json)",
       "Read(**/package-lock.json)",

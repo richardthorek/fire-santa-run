@@ -83,3 +83,4 @@ server/dist
 # Deployment package (assembled during CI)
 deploy/
 appservice-deploy.zip
+.claude/settings.json
