@@ -1,7 +1,13 @@
-name: Deploy to Azure Container Apps
+name: CI/CD Pipeline
 
-# Efficient CI/CD pipeline: test → check OIDC → deploy infrastructure (if changed)
-# → build & push image → seed secrets → deploy revision.
+# Unified CI/CD Pipeline — Single workflow handles all checks and deployment.
+#
+# Every push/PR runs: change detection → lint → type-check → unit tests → E2E →
+# security scan (CodeQL). Push to main ALSO runs: OIDC validation → deploy IaC
+# (if changed) → build/push image (if code changed) → seed secrets → deploy.
+#
+# No workflow duplication. No redundant logins. Conditional execution to skip
+# unnecessary work (e.g., don't rebuild image if only IaC changed).
 #
 # Architecture:
 #   - The image is built from the root Dockerfile (multi-stage: client build,
@@ -126,6 +132,35 @@ jobs:
           VITE_MAPBOX_TOKEN: 'test-token'
 
   # ─────────────────────────────────────────────────────────────────────────
+  # SECURITY: CodeQL scanning for vulnerabilities
+  # ─────────────────────────────────────────────────────────────────────────
+  security:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    name: Security Scan (CodeQL)
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript-typescript']
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+
+  # ─────────────────────────────────────────────────────────────────────────
   # E2E: Playwright tests (always run on PR/push)
   # ─────────────────────────────────────────────────────────────────────────
   e2e:
@@ -168,7 +203,7 @@ jobs:
   # DEPLOY: infrastructure + image + secrets (only on push to main or manual)
   # ─────────────────────────────────────────────────────────────────────────
   deploy:
-    needs: [quality_checks, e2e, detect-changes]
+    needs: [quality_checks, e2e, security, detect-changes]
     if: |
       github.actor != 'dependabot[bot]' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
