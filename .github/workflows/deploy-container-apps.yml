@@ -290,12 +290,25 @@ jobs:
         if: env.CODE_CHANGED == 'true'
         env:
           EXPECTED_SHA: ${{ github.sha }}
-          APP_URL: ${{ vars.AZURE_CONTAINER_APP_URL || format('https://{0}.azurecontainerapps.io', vars.AZURE_CONTAINER_APP_NAME) }}
           MAX_WAIT_SECONDS: 120
           POLL_INTERVAL_SECONDS: 10
         run: |
           echo "🔍 Verifying deployment..."
           echo "   Expected commit: ${EXPECTED_SHA:0:8}"
+
+          # Query the Container App to get its actual FQDN (includes environment hash)
+          FQDN=$(az containerapp show \
+            --name "${{ vars.AZURE_CONTAINER_APP_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv 2>/dev/null)
+
+          if [ -z "$FQDN" ]; then
+            echo "❌ Could not retrieve Container App FQDN"
+            exit 1
+          fi
+
+          APP_URL="https://${FQDN}"
           echo "   Health check URL: ${APP_URL}/api/health"
 
           ELAPSED=0
