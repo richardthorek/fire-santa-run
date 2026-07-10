@@ -266,6 +266,7 @@ jobs:
             VITE_ENTRA_TENANT_ID=${{ secrets.VITE_ENTRA_TENANT_ID }}
             VITE_ENTRA_AUTHORITY=${{ secrets.VITE_ENTRA_AUTHORITY }}
             VITE_ENTRA_REDIRECT_URI=${{ secrets.VITE_ENTRA_REDIRECT_URI }}
+            COMMIT_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -283,6 +284,41 @@ jobs:
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --image "${{ env.IMAGE_NAME }}:${{ github.sha }}"
           echo "✅ Image deployed."
+
+      # ── Step 5b: Verify deployment via health check ─────────────────────
+      - name: Verify deployment (health check)
+        if: env.CODE_CHANGED == 'true'
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          APP_URL: ${{ vars.AZURE_CONTAINER_APP_URL || format('https://{0}.azurecontainerapps.io', vars.AZURE_CONTAINER_APP_NAME) }}
+          MAX_WAIT_SECONDS: 120
+          POLL_INTERVAL_SECONDS: 10
+        run: |
+          echo "🔍 Verifying deployment..."
+          echo "   Expected commit: ${EXPECTED_SHA:0:8}"
+          echo "   Health check URL: ${APP_URL}/api/health"
+
+          ELAPSED=0
+          while [ $ELAPSED -lt $MAX_WAIT_SECONDS ]; do
+            RESPONSE=$(curl -s "${APP_URL}/api/health" 2>/dev/null || echo '{}')
+            DEPLOYED_SHA=$(echo "$RESPONSE" | jq -r '.commitSha // empty' 2>/dev/null || echo '')
+
+            if [ "$DEPLOYED_SHA" = "$EXPECTED_SHA" ]; then
+              echo "✅ Deployment verified!"
+              echo "   Commit: $DEPLOYED_SHA"
+              exit 0
+            fi
+
+            echo "⏳ Waiting for deployment (${ELAPSED}s/${MAX_WAIT_SECONDS}s)..."
+            echo "   Current commit: ${DEPLOYED_SHA:0:8} (expected ${EXPECTED_SHA:0:8})"
+            sleep $POLL_INTERVAL_SECONDS
+            ELAPSED=$((ELAPSED + POLL_INTERVAL_SECONDS))
+          done
+
+          echo "❌ Deployment verification failed: commit SHA did not match within ${MAX_WAIT_SECONDS}s"
+          echo "   Expected: $EXPECTED_SHA"
+          echo "   Got: $DEPLOYED_SHA"
+          exit 1
 
       # ── Step 6: Seed secrets to Container App ────────────────────────────
       - name: Seed Container App environment variables

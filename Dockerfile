@@ -52,8 +52,10 @@ RUN npm run build
 
 # ---- Stage 3: runtime ----
 FROM node:22-alpine AS runtime
+ARG COMMIT_SHA=unknown
 ENV NODE_ENV=production \
-    PORT=8080
+    PORT=8080 \
+    COMMIT_SHA=${COMMIT_SHA}
 WORKDIR /app
 
 # Production server dependencies only (no devDependencies, no client toolchain).

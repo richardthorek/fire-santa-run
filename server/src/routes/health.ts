@@ -14,6 +14,7 @@ const startedAt = Date.now();
 
 // App version, surfaced for correlating deploys with incidents.
 const VERSION = process.env.APP_VERSION ?? process.env.WEBSITE_DEPLOYMENT_ID ?? 'dev';
+const COMMIT_SHA = process.env.COMMIT_SHA ?? 'unknown';
 
 export const healthRouter = new Hono();
 
@@ -22,6 +23,7 @@ healthRouter.get('/health', (c) =>
   c.json({
     status: 'ok',
     version: VERSION,
+    commitSha: COMMIT_SHA,
     uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
     timestamp: new Date().toISOString(),
   }),
