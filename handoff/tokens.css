@@ -1,0 +1,139 @@
+/* =============================================================================
+ * Fire Santa Run — Design System v2.0 · Design Tokens
+ * Drop into src/index.css :root (mostly a values swap, not a rewrite).
+ * Legacy --fire-red / --gold-accent names are preserved as aliases so existing
+ * components keep working. Coherent with Station Manager (Bushie Tools) v2.0.
+ * All text pairings below meet WCAG 2.1 AA.
+ * ============================================================================= */
+
+:root {
+  /* ---- Brand ---- */
+  --santa-red:        #D8232A;  /* primary / all primary actions — white-on-red 5.3:1 AA */
+  --santa-red-dark:   #B01620;  /* hover / pressed */
+  --santa-red-light:  #E0555A;
+
+  --summer-gold:      #F6A609;  /* accent — the sun/beach warmth; use INK text on this fill */
+  --summer-gold-dark: #B26A00;  /* gold TEXT on white (AA ~4.5:1) */
+  --summer-gold-ink:  #241A00;  /* text placed ON a gold fill */
+
+  --christmas-green:  #1E9E62;  /* festive accent AND success */
+  --christmas-green-dark: #0B5C3B;
+
+  --snow:             #FFFFFF;
+
+  /* ---- Legacy aliases — keep existing components compiling ---- */
+  --fire-red:         var(--santa-red);
+  --fire-red-dark:    var(--santa-red-dark);
+  --fire-red-light:   var(--santa-red-light);
+  --gold-accent:      var(--summer-gold);
+  --summer-gold-darker: var(--summer-gold-dark);
+  --candy-white:      var(--snow);
+  /* The old neon --rfs-yellow / lime-ish highs are retired; alias to gold. */
+  --rfs-yellow:       var(--summer-gold);
+
+  /* ---- Neutrals — cool slate (shared ramp with Station Manager) ---- */
+  --ink:        #0C1220;  /* primary text — 21:1 on white */
+  --slate-700:  #1E2637;
+  --slate-500:  #55607A;  /* secondary text — 7.1:1 on white */
+  --slate-300:  #D3DAE6;  /* strong borders */
+  --hairline:   #E6EAF1;  /* hairline borders / dividers */
+  --paper:      #F4F6F9;  /* page background */
+
+  /* Legacy neutral aliases (map old --neutral-* onto the slate ramp) */
+  --neutral-900: var(--ink);
+  --neutral-800: var(--slate-700);
+  --neutral-700: var(--slate-500);
+  --neutral-600: #6B7690;
+  --neutral-500: #8792A8;
+  --neutral-400: #AEB7C9;
+  --neutral-300: var(--slate-300);
+  --neutral-200: var(--hairline);
+  --neutral-100: #F0F3F8;
+  --neutral-50:  var(--paper);
+
+  /* ---- Semantic ---- */
+  --ui-green: #1E9E62;   /* success / pass / route completed */
+  --ui-amber: #F6A609;   /* warning / issue / scheduled */
+  --ui-blue:  #2563EB;   /* info / links / route published */
+  /* critical / error == --santa-red */
+
+  --surface-success: #E4F5EC;  --text-success-strong: #0B5C3B;
+  --surface-warning: #FDF0D6;  --text-warning-strong: #9A6800;
+  --surface-info:    #E8F0FE;  --text-info-strong:    #1B4F8F;
+  --surface-error:   #FCEBEB;  --text-error-strong:   #B01620;
+
+  /* ---- Radius ---- */
+  --radius-sm: 8px;  --radius-md: 12px;  --radius-lg: 16px;  --radius-xl: 20px;
+  /* Legacy names */
+  --border-radius:    var(--radius-xl);
+  --border-radius-md: var(--radius-lg);
+  --border-radius-sm: var(--radius-md);
+  --border-radius-xs: var(--radius-sm);
+
+  /* ---- Shadows (softer, layered) ---- */
+  --shadow-sm: 0 1px 2px rgba(16,24,40,.08);
+  --shadow-md: 0 2px 6px -2px rgba(16,24,40,.10), 0 6px 16px -6px rgba(16,24,40,.12);
+  --shadow-lg: 0 12px 30px -10px rgba(16,24,40,.16);
+  /* Legacy names */
+  --ui-shadow:          var(--shadow-md);
+  --ui-shadow-soft:     var(--shadow-sm);
+  --ui-shadow-emphasis: var(--shadow-lg);
+
+  /* ---- Typography ---- */
+  --font-display: 'Baloo 2', 'Nunito', system-ui, sans-serif;  /* festive headings + buttons */
+  --font-body:    'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;   /* codes, slugs, route IDs, ETAs */
+  /* Legacy names */
+  --font-heading: var(--font-display);
+  --font-fun:     var(--font-display);
+
+  font-family: var(--font-body);
+  line-height: 1.6;
+  color: var(--ink);
+  background-color: var(--paper);
+}
+
+/* Headings + primary buttons use the display face */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+/* Codes, slugs, route IDs, categories */
+code, .mono, .slug, .route-id, .category-code {
+  font-family: var(--font-mono);
+}
+
+/* Links */
+a       { color: var(--santa-red); font-weight: 600; text-decoration: none; }
+a:hover { color: var(--santa-red-dark); text-decoration: underline; }
+
+/* =============================================================================
+ * Dark theme — "night tracking" (the HERO theme for the public map).
+ * Mirrors Station Manager's dark ramp; brighter fills, warm santa glow.
+ * ============================================================================= */
+[data-theme="dark"] {
+  --bg-primary:   #0A0F1A;
+  --bg-secondary: #0E1522;
+  --bg-card:      #121A29;
+  --text-primary: #F3F6FB;
+  --text-secondary:#A6B0C4;
+  --border-color: #233149;
+
+  --santa-red:      #E5484D;   /* fills — brighter for dark (white-on ~4.6:1) */
+  --santa-red-dark: #F26A6E;
+  --santa-red-text: #FF8085;   /* red TEXT on dark */
+  --summer-gold:      #F6A609;
+  --summer-gold-text: #FFC759; /* gold TEXT on dark */
+  --christmas-green-text: #8BE4B5;
+
+  --surface-success:#0F2A1F; --text-success-strong:#8BE4B5;
+  --surface-warning:#2A2008; --text-warning-strong:#FFC759;
+  --surface-info:   #12233D; --text-info-strong:   #9EC5FF;
+  --surface-error:  #2A1315; --text-error-strong:  #FF8085;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 2px 6px rgba(0,0,0,.5);
+  --shadow-lg: 0 14px 34px -12px rgba(0,0,0,.65);
+}

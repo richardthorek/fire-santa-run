@@ -11,26 +11,26 @@
   <rect width="1200" height="630" fill="url(#skyGradient)"/>
   
   <!-- Sun -->
-  <circle cx="950" cy="120" r="80" fill="#FFA726" opacity="0.8"/>
-  
+  <circle cx="950" cy="120" r="80" fill="#F6A609" opacity="0.85"/>
+
   <!-- Main text background -->
   <rect x="50" y="150" width="1100" height="330" rx="30" fill="white" opacity="0.95"/>
-  
+
   <!-- Fire Santa Run title -->
-  <text x="600" y="260" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="#D32F2F" text-anchor="middle">
+  <text x="600" y="260" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="#D8232A" text-anchor="middle">
     🎅 Fire Santa Run
   </text>
-  
+
   <!-- Subtitle -->
-  <text x="600" y="340" font-family="Arial, sans-serif" font-size="36" fill="#424242" text-anchor="middle">
-    Track Santa in Real-Time
+  <text x="600" y="340" font-family="Arial, sans-serif" font-size="36" fill="#1E2637" text-anchor="middle">
+    Track Santa Live Tonight
   </text>
-  
+
   <!-- Description -->
-  <text x="600" y="400" font-family="Arial, sans-serif" font-size="28" fill="#616161" text-anchor="middle">
-    Australian Rural Fire Service • Christmas Community Service
+  <text x="600" y="400" font-family="Arial, sans-serif" font-size="28" fill="#55607A" text-anchor="middle">
+    Trusted by volunteer brigades Australia-wide • Christmas community service
   </text>
-  
+
   <!-- Bottom accent -->
-  <rect x="50" y="520" width="1100" height="8" rx="4" fill="#FFA726"/>
+  <rect x="50" y="520" width="1100" height="8" rx="4" fill="#1E9E62"/>
 </svg>
