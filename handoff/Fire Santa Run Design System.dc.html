@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Public+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  html,body{margin:0;padding:0;background:#F4F6F9;}
+  *{box-sizing:border-box;}
+  body{font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0C1220;-webkit-font-smoothing:antialiased;}
+  a{color:#D8232A;text-decoration:none;font-weight:600;}
+  a:hover{color:#B01620;text-decoration:underline;}
+  svg.lucide{width:24px;height:24px;stroke-width:2;vertical-align:middle;}
+  .ico-lg svg.lucide{width:30px;height:30px;}
+  .ico-sm svg.lucide{width:18px;height:18px;}
+  @keyframes snowfall{0%{transform:translateY(-10px);opacity:0;}10%{opacity:.9;}100%{transform:translateY(320px);opacity:0;}}
+  @keyframes livepulse{0%{box-shadow:0 0 0 0 rgba(30,158,98,.55);}70%{box-shadow:0 0 0 12px rgba(30,158,98,0);}100%{box-shadow:0 0 0 0 rgba(30,158,98,0);}}
+  @keyframes twinkle{0%,100%{opacity:.25;}50%{opacity:1;}}
+</style>
+</helmet>
+
+<div style="max-width:1180px;margin:0 auto;padding:0 24px 120px;">
+
+<!-- ============ HERO (night) ============ -->
+<section data-screen-label="Hero" style="position:relative;overflow:hidden;margin:0 -24px;padding:0;">
+  <div style="position:relative;background:radial-gradient(120% 140% at 78% 8%, #14213B 0%, #0A0F1A 60%);color:#F3F6FB;padding:88px 56px 76px;overflow:hidden;">
+    <sc-if value="{{ festiveMotion }}" hint-placeholder-val="{{ true }}">
+      <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;">
+        <span style="position:absolute;left:12%;top:0;width:6px;height:6px;border-radius:50%;background:#fff;opacity:.8;animation:snowfall 7s linear infinite;"></span>
+        <span style="position:absolute;left:34%;top:0;width:4px;height:4px;border-radius:50%;background:#fff;opacity:.7;animation:snowfall 9s linear infinite .8s;"></span>
+        <span style="position:absolute;left:58%;top:0;width:5px;height:5px;border-radius:50%;background:#fff;opacity:.75;animation:snowfall 8s linear infinite 1.6s;"></span>
+        <span style="position:absolute;left:74%;top:0;width:3px;height:3px;border-radius:50%;background:#fff;opacity:.6;animation:snowfall 10s linear infinite .4s;"></span>
+        <span style="position:absolute;left:88%;top:0;width:5px;height:5px;border-radius:50%;background:#fff;opacity:.7;animation:snowfall 7.5s linear infinite 2.2s;"></span>
+        <span style="position:absolute;left:22%;top:0;width:4px;height:4px;border-radius:50%;background:#fff;opacity:.5;animation:snowfall 11s linear infinite 3s;"></span>
+      </div>
+    </sc-if>
+    <div style="position:relative;display:flex;align-items:center;gap:28px;flex-wrap:wrap;">
+      <!-- LOGO MARK -->
+      <div style="flex:0 0 auto;">
+        <svg width="108" height="108" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style="display:block;box-shadow:0 18px 50px -12px rgba(216,35,42,.6);border-radius:112px;">
+          <rect width="512" height="512" rx="112" fill="#D8232A"/>
+          <rect width="512" height="512" rx="112" fill="url(#tileSheen)"/>
+          <defs>
+            <linearGradient id="tileSheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".16"/><stop offset=".5" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+            <linearGradient id="flameG" x1="0.5" y1="1" x2="0.5" y2="0"><stop offset="0" stop-color="#F6A609"/><stop offset="1" stop-color="#FFD166"/></linearGradient>
+          </defs>
+          <path d="M256 400c-70 0-112-48-112-101 0-43 27-70 27-70 0 32 21 48 21 48-11-37 0-74 27-95-5 27 11 43 11 43 0-32 19-64 27-85 8 21 27 53 27 85 0 0 16-16 11-43 27 21 38 58 27 95 0 0 21-16 21-48 0 0 27 27 27 70 0 53-42 101-114 101Z" fill="url(#flameG)"/>
+          <path d="M256 372c-33 0-53-26-53-58 0-24 16-40 16-40 0 17 12 26 12 26-7-20 0-40 15-52-3 15 6 24 6 24 0-17 10-35 15-46 5 11 15 29 15 46 0 0 9-9 6-24 15 12 22 32 15 52 0 0 12-9 12-26 0 0 16 16 16 40 0 32-20 58-58 58Z" fill="#FFF3C4"/>
+          <!-- santa hat -->
+          <path d="M196 150c14-46 52-78 100-78 30 0 44 20 30 44-8 14-140 60-130 34Z" fill="#E0555A"/>
+          <path d="M188 150c0-13 33-24 74-24s74 11 74 24-33 24-74 24-74-11-74-24Z" fill="#FFFFFF"/>
+          <circle cx="322" cy="70" r="19" fill="#FFFFFF"/>
+        </svg>
+      </div>
+      <div style="flex:1 1 340px;min-width:280px;">
+        <div style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#FFC759;font-weight:600;margin-bottom:14px;">
+          <span style="width:7px;height:7px;border-radius:50%;background:#FFC759;"></span>Design System · v2.0
+        </div>
+        <h1 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(38px,5.4vw,64px);line-height:1;margin:0 0 16px;letter-spacing:-.5px;">Fire Santa Run</h1>
+        <p style="font-size:clamp(17px,2vw,21px);line-height:1.5;color:#C6CFDE;max-width:620px;margin:0 0 8px;">An Aussie summer-Christmas system for tracking Santa across the neighbourhood — <strong style="color:#fff;">recognisably part of the Station Manager family</strong>, just warmer, brighter and a lot more fun.</p>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8794AC;margin:18px 0 0;">red · white · summer gold &nbsp;/&nbsp; Baloo 2 · Public Sans · JetBrains Mono &nbsp;/&nbsp; Lucide icons</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INTENT ============ -->
+<section data-screen-label="Design intent" style="padding:64px 0 8px;">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#55607A;font-weight:600;margin-bottom:10px;">01 — Design intent</div>
+  <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">Festive, but you'd trust it with your money.</h2>
+  <p style="font-size:18px;line-height:1.6;color:#55607A;max-width:720px;margin:0 0 36px;">Most of the app is public — parents on phones on a warm December night. It should feel joyful and alive. But brigades pay for it, so every surface also has to read as confident, modern and dependable.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;">
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:24px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1),0 6px 16px -6px rgba(16,24,40,.12);">
+      <div style="width:44px;height:44px;border-radius:12px;background:#FCEBEB;color:#D8232A;display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><i data-lucide="flame"></i></div>
+      <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:19px;margin:0 0 6px;">Warm, not clip-art</h3>
+      <p style="font-size:15px;line-height:1.55;color:#55607A;margin:0;">Summer-Christmas warmth from red, white and beach-sun gold — festive cues stay tasteful and sparing.</p>
+    </div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:24px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1),0 6px 16px -6px rgba(16,24,40,.12);">
+      <div style="width:44px;height:44px;border-radius:12px;background:#E8F0FE;color:#2563EB;display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><i data-lucide="layers"></i></div>
+      <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:19px;margin:0 0 6px;">One family</h3>
+      <p style="font-size:15px;line-height:1.55;color:#55607A;margin:0;">Shares Station Manager's neutrals, spacing, flat components and Lucide icons — so both tools feel built by the same team.</p>
+    </div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:24px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1),0 6px 16px -6px rgba(16,24,40,.12);">
+      <div style="width:44px;height:44px;border-radius:12px;background:#E4F5EC;color:#0B5C3B;display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><i data-lucide="smartphone"></i></div>
+      <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:19px;margin:0 0 6px;">Phone-first & night-ready</h3>
+      <p style="font-size:15px;line-height:1.55;color:#55607A;margin:0;">The public tracker is designed at 375px, in the dark, with the map as the star and a festive night theme as the hero.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LOGO ============ -->
+<section data-screen-label="Logo & brand mark" style="padding:64px 0 8px;">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#55607A;font-weight:600;margin-bottom:10px;">02 — Brand mark & favicon</div>
+  <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">The signal flame, wearing a hat.</h2>
+  <p style="font-size:18px;line-height:1.6;color:#55607A;max-width:720px;margin:0 0 36px;">A flame — the shared thread with Station Manager's signal-flame mark — capped with a Santa hat and set in the same rounded red tile. Same shape language, unmistakably Christmas.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:18px;align-items:stretch;">
+    <!-- on red already: show on light, night, gold tiles -->
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1);">
+      <svg width="96" height="96" viewBox="0 0 512 512" style="border-radius:22%;">
+        <rect width="512" height="512" rx="112" fill="#D8232A"/>
+        <defs><linearGradient id="fg2" x1="0.5" y1="1" x2="0.5" y2="0"><stop offset="0" stop-color="#F6A609"/><stop offset="1" stop-color="#FFD166"/></linearGradient></defs>
+        <path d="M256 400c-70 0-112-48-112-101 0-43 27-70 27-70 0 32 21 48 21 48-11-37 0-74 27-95-5 27 11 43 11 43 0-32 19-64 27-85 8 21 27 53 27 85 0 0 16-16 11-43 27 21 38 58 27 95 0 0 21-16 21-48 0 0 27 27 27 70 0 53-42 101-114 101Z" fill="url(#fg2)"/>
+        <path d="M196 150c14-46 52-78 100-78 30 0 44 20 30 44-8 14-140 60-130 34Z" fill="#E0555A"/>
+        <path d="M188 150c0-13 33-24 74-24s74 11 74 24-33 24-74 24-74-11-74-24Z" fill="#FFFFFF"/>
+        <circle cx="322" cy="70" r="19" fill="#FFFFFF"/>
+      </svg>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">app icon · full colour</div>
+    </div>
+    <div style="background:#0A0F1A;border:1px solid #233149;border-radius:16px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:14px;">
+      <svg width="96" height="96" viewBox="0 0 512 512" style="border-radius:22%;">
+        <rect width="512" height="512" rx="112" fill="#121A29"/>
+        <defs><linearGradient id="fg3" x1="0.5" y1="1" x2="0.5" y2="0"><stop offset="0" stop-color="#F6A609"/><stop offset="1" stop-color="#FFD166"/></linearGradient></defs>
+        <path d="M256 400c-70 0-112-48-112-101 0-43 27-70 27-70 0 32 21 48 21 48-11-37 0-74 27-95-5 27 11 43 11 43 0-32 19-64 27-85 8 21 27 53 27 85 0 0 16-16 11-43 27 21 38 58 27 95 0 0 21-16 21-48 0 0 27 27 27 70 0 53-42 101-114 101Z" fill="url(#fg3)"/>
+        <path d="M196 150c14-46 52-78 100-78 30 0 44 20 30 44-8 14-140 60-130 34Z" fill="#E5484D"/>
+        <path d="M188 150c0-13 33-24 74-24s74 11 74 24-33 24-74 24-74-11-74-24Z" fill="#FFFFFF"/>
+        <circle cx="322" cy="70" r="19" fill="#FFFFFF"/>
+      </svg>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#A6B0C4;">on night surface</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1);">
+      <svg width="96" height="96" viewBox="0 0 512 512">
+        <path d="M256 400c-70 0-112-48-112-101 0-43 27-70 27-70 0 32 21 48 21 48-11-37 0-74 27-95-5 27 11 43 11 43 0-32 19-64 27-85 8 21 27 53 27 85 0 0 16-16 11-43 27 21 38 58 27 95 0 0 21-16 21-48 0 0 27 27 27 70 0 53-42 101-114 101Z" fill="#0C1220"/>
+        <path d="M196 150c14-46 52-78 100-78 30 0 44 20 30 44-8 14-140 60-130 34Z" fill="#0C1220"/>
+        <path d="M188 150c0-13 33-24 74-24s74 11 74 24-33 24-74 24-74-11-74-24Z" fill="#0C1220"/>
+        <circle cx="322" cy="70" r="19" fill="#0C1220"/>
+      </svg>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">monochrome · 1-colour</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1);">
+      <div style="display:flex;align-items:flex-end;gap:8px;">
+        <svg width="40" height="40" viewBox="0 0 512 512" style="border-radius:22%;">
+          <rect width="512" height="512" rx="112" fill="#D8232A"/>
+          <defs><linearGradient id="fg4" x1="0.5" y1="1" x2="0.5" y2="0"><stop offset="0" stop-color="#F6A609"/><stop offset="1" stop-color="#FFD166"/></linearGradient></defs>
+          <path d="M256 400c-70 0-112-48-112-101 0-43 27-70 27-70 0 32 21 48 21 48-11-37 0-74 27-95-5 27 11 43 11 43 0-32 19-64 27-85 8 21 27 53 27 85 0 0 16-16 11-43 27 21 38 58 27 95 0 0 21-16 21-48 0 0 27 27 27 70 0 53-42 101-114 101Z" fill="url(#fg4)"/>
+          <path d="M196 150c14-46 52-78 100-78 30 0 44 20 30 44-8 14-140 60-130 34Z" fill="#E0555A"/>
+          <path d="M188 150c0-13 33-24 74-24s74 11 74 24-33 24-74 24-74-11-74-24Z" fill="#FFFFFF"/>
+          <circle cx="322" cy="70" r="19" fill="#FFFFFF"/>
+        </svg>
+        <span style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:22px;color:#0C1220;letter-spacing:-.3px;line-height:1;">Fire<br>Santa Run</span>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;margin-top:8px;">horizontal lockup</div>
+    </div>
+  </div>
+
+  <!-- before / after -->
+  <div style="margin-top:28px;background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:24px;display:flex;gap:32px;align-items:center;flex-wrap:wrap;box-shadow:0 2px 6px -2px rgba(16,24,40,.1);">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <img src="public/icon-192x192.png" alt="Current Fire Santa Run icon" width="72" height="72" style="border-radius:18px;display:block;">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9A6800;background:#FDF0D6;padding:2px 8px;border-radius:6px;display:inline-block;">Today</div>
+        <p style="font-size:14px;color:#55607A;margin:8px 0 0;max-width:220px;">Bright orange flame, floating pom-pom, corner stars — busy and not tied to Station Manager.</p>
+      </div>
+    </div>
+    <i data-lucide="arrow-right" style="color:#D3DAE6;"></i>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <svg width="72" height="72" viewBox="0 0 512 512" style="border-radius:18px;">
+        <rect width="512" height="512" rx="112" fill="#D8232A"/>
+        <defs><linearGradient id="fg5" x1="0.5" y1="1" x2="0.5" y2="0"><stop offset="0" stop-color="#F6A609"/><stop offset="1" stop-color="#FFD166"/></linearGradient></defs>
+        <path d="M256 400c-70 0-112-48-112-101 0-43 27-70 27-70 0 32 21 48 21 48-11-37 0-74 27-95-5 27 11 43 11 43 0-32 19-64 27-85 8 21 27 53 27 85 0 0 16-16 11-43 27 21 38 58 27 95 0 0 21-16 21-48 0 0 27 27 27 70 0 53-42 101-114 101Z" fill="url(#fg5)"/>
+        <path d="M196 150c14-46 52-78 100-78 30 0 44 20 30 44-8 14-140 60-130 34Z" fill="#E0555A"/>
+        <path d="M188 150c0-13 33-24 74-24s74 11 74 24-33 24-74 24-74-11-74-24Z" fill="#FFFFFF"/>
+        <circle cx="322" cy="70" r="19" fill="#FFFFFF"/>
+      </svg>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#0B5C3B;background:#E4F5EC;padding:2px 8px;border-radius:6px;display:inline-block;">v2.0</div>
+        <p style="font-size:14px;color:#55607A;margin:8px 0 0;max-width:240px;">Confident signal flame, integrated hat, Signal-Red tile. Clean at 16px, maskable-safe.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COLOUR (light) ============ -->
+<section data-screen-label="Colour" style="padding:64px 0 8px;">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#55607A;font-weight:600;margin-bottom:10px;">03 — Colour</div>
+  <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">Red, white & summer gold.</h2>
+  <p style="font-size:18px;line-height:1.6;color:#55607A;max-width:760px;margin:0 0 36px;">Signal Red is the brand and every primary action — aligned to Station Manager's red so the family reads. Beach-sun gold and a true Christmas green are the accents; everything sits on Station Manager's cool-slate neutrals. All text pairings meet WCAG AA.</p>
+
+  <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;color:#55607A;margin:0 0 14px;text-transform:uppercase;letter-spacing:1px;">Brand</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:32px;">
+    <div style="border-radius:14px;overflow:hidden;border:1px solid #E6EAF1;background:#fff;">
+      <div style="height:96px;background:#D8232A;"></div>
+      <div style="padding:12px 14px;"><div style="font-weight:700;font-size:15px;">Signal Red</div><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">--santa-red · #D8232A</div><div style="font-size:12px;color:#55607A;margin-top:4px;">primary · white 5.3:1 AA</div></div>
+    </div>
+    <div style="border-radius:14px;overflow:hidden;border:1px solid #E6EAF1;background:#fff;">
+      <div style="height:96px;background:#B01620;"></div>
+      <div style="padding:12px 14px;"><div style="font-weight:700;font-size:15px;">Red Dark</div><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">--santa-red-dark · #B01620</div><div style="font-size:12px;color:#55607A;margin-top:4px;">hover / pressed</div></div>
+    </div>
+    <div style="border-radius:14px;overflow:hidden;border:1px solid #E6EAF1;background:#fff;">
+      <div style="height:96px;background:#F6A609;"></div>
+      <div style="padding:12px 14px;"><div style="font-weight:700;font-size:15px;">Summer Gold</div><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">--summer-gold · #F6A609</div><div style="font-size:12px;color:#55607A;margin-top:4px;">accent · ink text on fill</div></div>
+    </div>
+    <div style="border-radius:14px;overflow:hidden;border:1px solid #E6EAF1;background:#fff;">
+      <div style="height:96px;background:#1E9E62;"></div>
+      <div style="padding:12px 14px;"><div style="font-weight:700;font-size:15px;">Christmas Green</div><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">--christmas-green · #1E9E62</div><div style="font-size:12px;color:#55607A;margin-top:4px;">festive accent + success</div></div>
+    </div>
+    <div style="border-radius:14px;overflow:hidden;border:1px solid #E6EAF1;background:#fff;">
+      <div style="height:96px;background:#FFFFFF;border-bottom:1px solid #E6EAF1;"></div>
+      <div style="padding:12px 14px;"><div style="font-weight:700;font-size:15px;">Snow White</div><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">--snow · #FFFFFF</div><div style="font-size:12px;color:#55607A;margin-top:4px;">cards · reversed text</div></div>
+    </div>
+  </div>
+
+  <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;color:#55607A;margin:0 0 14px;text-transform:uppercase;letter-spacing:1px;">Neutrals · cool slate</h3>
+  <div style="display:flex;border-radius:14px;overflow:hidden;border:1px solid #E6EAF1;margin-bottom:16px;flex-wrap:wrap;">
+    <div style="flex:1 1 0;min-width:90px;height:88px;background:#0C1220;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px;"><span style="font-size:11px;font-weight:700;">Ink 900</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;opacity:.8;">#0C1220</span></div>
+    <div style="flex:1 1 0;min-width:90px;height:88px;background:#1E2637;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px;"><span style="font-size:11px;font-weight:700;">Slate 700</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;opacity:.8;">#1E2637</span></div>
+    <div style="flex:1 1 0;min-width:90px;height:88px;background:#55607A;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px;"><span style="font-size:11px;font-weight:700;">Slate 500</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;opacity:.85;">#55607A</span></div>
+    <div style="flex:1 1 0;min-width:90px;height:88px;background:#D3DAE6;color:#0C1220;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px;"><span style="font-size:11px;font-weight:700;">Slate 300</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;opacity:.7;">#D3DAE6</span></div>
+    <div style="flex:1 1 0;min-width:90px;height:88px;background:#E6EAF1;color:#0C1220;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px;"><span style="font-size:11px;font-weight:700;">Hairline</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;opacity:.7;">#E6EAF1</span></div>
+    <div style="flex:1 1 0;min-width:90px;height:88px;background:#F4F6F9;color:#0C1220;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px;border-left:1px solid #E6EAF1;"><span style="font-size:11px;font-weight:700;">Paper</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;opacity:.7;">#F4F6F9</span></div>
+  </div>
+
+  <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;color:#55607A;margin:24px 0 14px;text-transform:uppercase;letter-spacing:1px;">Semantic</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;">
+    <div style="border-radius:12px;padding:16px;background:#E4F5EC;color:#0B5C3B;display:flex;align-items:center;gap:12px;"><i data-lucide="circle-check-big"></i><div><div style="font-weight:700;font-size:14px;">Success / Pass</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;">#1E9E62 · surface #E4F5EC</div></div></div>
+    <div style="border-radius:12px;padding:16px;background:#FDF0D6;color:#9A6800;display:flex;align-items:center;gap:12px;"><i data-lucide="triangle-alert"></i><div><div style="font-weight:700;font-size:14px;">Warning / Issue</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;">#F6A609 · surface #FDF0D6</div></div></div>
+    <div style="border-radius:12px;padding:16px;background:#E8F0FE;color:#1B4F8F;display:flex;align-items:center;gap:12px;"><i data-lucide="info"></i><div><div style="font-weight:700;font-size:14px;">Info / Links</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;">#2563EB · surface #E8F0FE</div></div></div>
+    <div style="border-radius:12px;padding:16px;background:#FCEBEB;color:#B01620;display:flex;align-items:center;gap:12px;"><i data-lucide="circle-alert"></i><div><div style="font-weight:700;font-size:14px;">Critical / Error</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;">#D8232A · surface #FCEBEB</div></div></div>
+  </div>
+</section>
+
+<!-- ============ NIGHT THEME ============ -->
+<section data-screen-label="Night theme" style="margin:64px -24px 0;">
+  <div style="background:radial-gradient(120% 120% at 20% 0%, #14213B 0%, #0A0F1A 60%);color:#F3F6FB;padding:56px;border-radius:0;">
+    <div style="max-width:1132px;margin:0 auto;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#FFC759;font-weight:600;margin-bottom:10px;">04 — Night tracking · the hero theme</div>
+      <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">Built for the dark.</h2>
+      <p style="font-size:18px;line-height:1.6;color:#C6CFDE;max-width:720px;margin:0 0 32px;">On the night, the tracker lives outdoors after sunset. Dark is the hero, not an afterthought — deep night-slate surfaces, brighter fills, and a warm santa-marker glow. Mirrors Station Manager's dark ramp.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;">
+        <div style="border-radius:12px;overflow:hidden;border:1px solid #233149;"><div style="height:70px;background:#0A0F1A;"></div><div style="padding:10px 12px;background:#121A29;"><div style="font-weight:700;font-size:13px;">Night BG</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#A6B0C4;">#0A0F1A</div></div></div>
+        <div style="border-radius:12px;overflow:hidden;border:1px solid #233149;"><div style="height:70px;background:#121A29;"></div><div style="padding:10px 12px;background:#121A29;"><div style="font-weight:700;font-size:13px;">Card</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#A6B0C4;">#121A29</div></div></div>
+        <div style="border-radius:12px;overflow:hidden;border:1px solid #233149;"><div style="height:70px;background:#E5484D;"></div><div style="padding:10px 12px;background:#121A29;"><div style="font-weight:700;font-size:13px;">Red fill</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#A6B0C4;">#E5484D</div></div></div>
+        <div style="border-radius:12px;overflow:hidden;border:1px solid #233149;"><div style="height:70px;background:#FFC759;"></div><div style="padding:10px 12px;background:#121A29;"><div style="font-weight:700;font-size:13px;">Gold text</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#A6B0C4;">#FFC759</div></div></div>
+        <div style="border-radius:12px;overflow:hidden;border:1px solid #233149;"><div style="height:70px;background:#8BE4B5;"></div><div style="padding:10px 12px;background:#121A29;"><div style="font-weight:700;font-size:13px;">Green text</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#A6B0C4;">#8BE4B5</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TYPE ============ -->
+<section data-screen-label="Typography" style="padding:64px 0 8px;">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#55607A;font-weight:600;margin-bottom:10px;">05 — Typography</div>
+  <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">Rounded joy, grounded body.</h2>
+  <p style="font-size:18px;line-height:1.6;color:#55607A;max-width:760px;margin:0 0 36px;">Baloo 2 is the fun — warm and rounded, but confident at 700–800. Public Sans carries body and dense UI (the thread shared with Station Manager). JetBrains Mono handles codes, slugs and route IDs.</p>
+  <div style="display:grid;gap:16px;">
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:28px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:8px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">Display · Baloo 2 · 800</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">--font-display</span></div>
+      <div style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:52px;line-height:1;letter-spacing:-.5px;">Track Santa tonight</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:28px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">Body · Public Sans · 400 / 600</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">--font-body</span></div>
+      <p style="font-size:18px;line-height:1.6;margin:0;max-width:640px;">Your brigade plans the route, publishes a shareable link, and broadcasts live on the night. Families follow along on their phones and know exactly when to head outside — <strong>no login, no fuss.</strong></p>
+    </div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:28px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">Mono · JetBrains Mono · 500</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;">--font-mono</span></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:17px;color:#0C1220;">/track/bng-2026 &nbsp;·&nbsp; ROUTE-4F2A &nbsp;·&nbsp; ETA 19:42</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ICONS ============ -->
+<section data-screen-label="Iconography" style="padding:64px 0 8px;">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#55607A;font-weight:600;margin-bottom:10px;">06 — Iconography</div>
+  <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">Lucide lines everywhere. Emoji for the party.</h2>
+  <p style="font-size:18px;line-height:1.6;color:#55607A;max-width:760px;margin:0 0 32px;">Every piece of UI uses Lucide line icons at 2px stroke and <code style="font-family:'JetBrains Mono',monospace;background:#E6EAF1;padding:1px 6px;border-radius:5px;">currentColor</code> — the same set as Station Manager. Emoji are reserved for purely festive, marketing moments (never functional UI).</p>
+
+  <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;color:#55607A;margin:0 0 14px;text-transform:uppercase;letter-spacing:1px;">Module map</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:32px;">
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;"><span class="ico-lg" style="color:#D8232A;"><i data-lucide="route"></i></span><div><div style="font-weight:700;font-size:14px;">Plan a Route</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;">route</div></div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;"><span class="ico-lg" style="color:#D8232A;"><i data-lucide="radio"></i></span><div><div style="font-weight:700;font-size:14px;">Live Tracking</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;">radio</div></div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;"><span class="ico-lg" style="color:#D8232A;"><i data-lucide="navigation"></i></span><div><div style="font-weight:700;font-size:14px;">Navigate</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;">navigation</div></div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;"><span class="ico-lg" style="color:#D8232A;"><i data-lucide="qr-code"></i></span><div><div style="font-weight:700;font-size:14px;">Share &amp; QR</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;">qr-code</div></div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;"><span class="ico-lg" style="color:#D8232A;"><i data-lucide="layout-dashboard"></i></span><div><div style="font-weight:700;font-size:14px;">Dashboard</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;">layout-dashboard</div></div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;"><span class="ico-lg" style="color:#D8232A;"><i data-lucide="search"></i></span><div><div style="font-weight:700;font-size:14px;">Find a Brigade</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;">search</div></div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;"><span class="ico-lg" style="color:#D8232A;"><i data-lucide="users"></i></span><div><div style="font-weight:700;font-size:14px;">Members</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;">users</div></div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;"><span class="ico-lg" style="color:#D8232A;"><i data-lucide="shield-check"></i></span><div><div style="font-weight:700;font-size:14px;">Claim Brigade</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;">shield-check</div></div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;"><span class="ico-lg" style="color:#D8232A;"><i data-lucide="bar-chart-3"></i></span><div><div style="font-weight:700;font-size:14px;">Analytics</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;">bar-chart-3</div></div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;"><span class="ico-lg" style="color:#D8232A;"><i data-lucide="settings-2"></i></span><div><div style="font-weight:700;font-size:14px;">Settings</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#55607A;">settings-2</div></div></div>
+  </div>
+
+  <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;color:#55607A;margin:0 0 14px;text-transform:uppercase;letter-spacing:1px;">Common UI &amp; festive line glyphs</h3>
+  <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:24px;display:flex;flex-wrap:wrap;gap:22px;color:#1E2637;margin-bottom:20px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1);">
+    <i data-lucide="map-pin"></i><i data-lucide="navigation"></i><i data-lucide="share-2"></i><i data-lucide="download"></i><i data-lucide="bell"></i><i data-lucide="clock"></i><i data-lucide="calendar-check"></i><i data-lucide="user"></i><i data-lucide="check"></i><i data-lucide="arrow-right"></i><i data-lucide="chevron-right"></i><i data-lucide="plus"></i><i data-lucide="x"></i><i data-lucide="sliders-horizontal"></i><i data-lucide="play"></i><i data-lucide="pause"></i>
+    <span style="width:1px;background:#E6EAF1;align-self:stretch;"></span>
+    <span style="color:#D8232A;"><i data-lucide="gift"></i></span><span style="color:#1E9E62;"><i data-lucide="tree-pine"></i></span><span style="color:#2563EB;"><i data-lucide="snowflake"></i></span><span style="color:#F6A609;"><i data-lucide="sparkles"></i></span><span style="color:#D8232A;"><i data-lucide="party-popper"></i></span>
+  </div>
+
+  <div style="background:#FDF0D6;border:1px solid #F2D89A;border-radius:12px;padding:16px 20px;display:flex;gap:12px;align-items:flex-start;color:#9A6800;">
+    <span style="flex:0 0 auto;margin-top:1px;"><i data-lucide="info"></i></span>
+    <div style="font-size:14px;line-height:1.55;"><strong>Emoji policy.</strong> 🎅 🎄 🎁 belong in marketing, empty-states and celebratory copy only. In functional UI — buttons, menus, status, nav — always use the Lucide equivalent (the header 🎅 becomes the flame mark; menu 👤/📊/⚙️ become <code style="font-family:'JetBrains Mono',monospace;">user</code>/<code style="font-family:'JetBrains Mono',monospace;">layout-dashboard</code>/<code style="font-family:'JetBrains Mono',monospace;">settings-2</code>).</div>
+  </div>
+</section>
+
+<!-- ============ BUTTONS ============ -->
+<section data-screen-label="Buttons" style="padding:64px 0 8px;">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#55607A;font-weight:600;margin-bottom:10px;">07 — Buttons</div>
+  <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">Flat, round-cornered, confident.</h2>
+  <p style="font-size:18px;line-height:1.6;color:#55607A;max-width:760px;margin:0 0 32px;">Gradients retired. Solid fills, 12px radius, Baloo 2 labels, a soft shadow that deepens on hover. Minimum 44px touch target. Never red-on-red.</p>
+  <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;padding:28px;box-shadow:0 2px 6px -2px rgba(16,24,40,.1);display:flex;flex-wrap:wrap;gap:14px;align-items:center;">
+    <button style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;background:#D8232A;color:#fff;border:none;border-radius:12px;padding:13px 22px;box-shadow:0 2px 6px -2px rgba(216,35,42,.4);cursor:pointer;display:inline-flex;align-items:center;gap:8px;"><span class="ico-sm"><i data-lucide="navigation"></i></span>Track Santa</button>
+    <button style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;background:#F6A609;color:#241A00;border:none;border-radius:12px;padding:13px 22px;box-shadow:0 2px 6px -2px rgba(246,166,9,.4);cursor:pointer;display:inline-flex;align-items:center;gap:8px;"><span class="ico-sm"><i data-lucide="share-2"></i></span>Share route</button>
+    <button style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;background:#1E9E62;color:#fff;border:none;border-radius:12px;padding:13px 22px;box-shadow:0 2px 6px -2px rgba(30,158,98,.4);cursor:pointer;display:inline-flex;align-items:center;gap:8px;"><span class="ico-sm"><i data-lucide="check"></i></span>Publish</button>
+    <button style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;background:transparent;color:#D8232A;border:2px solid #D8232A;border-radius:12px;padding:11px 22px;cursor:pointer;">Secondary</button>
+    <button style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;background:transparent;color:#55607A;border:none;border-radius:12px;padding:13px 18px;cursor:pointer;">Ghost</button>
+    <button style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;background:#D3DAE6;color:#8792A8;border:none;border-radius:12px;padding:13px 22px;cursor:not-allowed;">Disabled</button>
+  </div>
+</section>
+
+<!-- ============ COMPONENTS ============ -->
+<section data-screen-label="Components" style="padding:64px 0 8px;">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#55607A;font-weight:600;margin-bottom:10px;">08 — Components</div>
+  <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">Cards, badges & status.</h2>
+  <p style="font-size:18px;line-height:1.6;color:#55607A;max-width:760px;margin:0 0 32px;">Cards get one flat accent bar per module. Route status uses the real lifecycle from the codebase — <code style="font-family:'JetBrains Mono',monospace;background:#E6EAF1;padding:1px 6px;border-radius:5px;">draft → published → active → completed → archived</code> — each mapped to a semantic colour.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:28px;">
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;overflow:hidden;box-shadow:0 2px 6px -2px rgba(16,24,40,.1),0 6px 16px -6px rgba(16,24,40,.12);">
+      <div style="height:5px;background:#D8232A;"></div>
+      <div style="padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px;">
+          <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:19px;margin:0;">Bungendore Loop</h3>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#0B5C3B;background:#E4F5EC;padding:4px 10px;border-radius:999px;"><sc-if value="{{ festiveMotion }}" hint-placeholder-val="{{ true }}"><span style="width:8px;height:8px;border-radius:50%;background:#1E9E62;animation:livepulse 1.8s infinite;"></span></sc-if>ACTIVE</span>
+        </div>
+        <p style="font-size:14px;color:#55607A;margin:0 0 16px;">14 stops · 6.2 km · started 7:04 PM</p>
+        <div style="display:flex;gap:16px;font-size:13px;color:#55607A;">
+          <span style="display:inline-flex;align-items:center;gap:5px;"><span class="ico-sm" style="color:#D8232A;"><i data-lucide="map-pin"></i></span>Stop 9 of 14</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;"><span class="ico-sm" style="color:#D8232A;"><i data-lucide="clock"></i></span>ETA 8:20</span>
+        </div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;overflow:hidden;box-shadow:0 2px 6px -2px rgba(16,24,40,.1),0 6px 16px -6px rgba(16,24,40,.12);">
+      <div style="height:5px;background:#2563EB;"></div>
+      <div style="padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px;">
+          <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:19px;margin:0;">Village Streets</h3>
+          <span style="font-size:12px;font-weight:700;color:#1B4F8F;background:#E8F0FE;padding:4px 10px;border-radius:999px;">PUBLISHED</span>
+        </div>
+        <p style="font-size:14px;color:#55607A;margin:0 0 16px;">9 stops · 4.1 km · Sat 21 Dec</p>
+        <div style="display:flex;gap:16px;font-size:13px;color:#55607A;">
+          <span style="display:inline-flex;align-items:center;gap:5px;"><span class="ico-sm" style="color:#2563EB;"><i data-lucide="qr-code"></i></span>Link live</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;"><span class="ico-sm" style="color:#2563EB;"><i data-lucide="calendar-check"></i></span>Scheduled</span>
+        </div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:16px;overflow:hidden;box-shadow:0 2px 6px -2px rgba(16,24,40,.1),0 6px 16px -6px rgba(16,24,40,.12);">
+      <div style="height:5px;background:#55607A;"></div>
+      <div style="padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px;">
+          <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:19px;margin:0;">Test Run 2025</h3>
+          <span style="font-size:12px;font-weight:700;color:#55607A;background:#E6EAF1;padding:4px 10px;border-radius:999px;">DRAFT</span>
+        </div>
+        <p style="font-size:14px;color:#55607A;margin:0 0 16px;">3 stops · not scheduled</p>
+        <div style="display:flex;gap:16px;font-size:13px;color:#55607A;">
+          <span style="display:inline-flex;align-items:center;gap:5px;"><span class="ico-sm" style="color:#55607A;"><i data-lucide="sliders-horizontal"></i></span>Editing</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;color:#55607A;margin:0 0 14px;text-transform:uppercase;letter-spacing:1px;">Route status lifecycle</h3>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;">
+    <span style="font-size:13px;font-weight:700;color:#55607A;background:#E6EAF1;padding:6px 14px;border-radius:999px;">DRAFT</span>
+    <span style="font-size:13px;font-weight:700;color:#1B4F8F;background:#E8F0FE;padding:6px 14px;border-radius:999px;">PUBLISHED</span>
+    <span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#0B5C3B;background:#E4F5EC;padding:6px 14px;border-radius:999px;"><span style="width:8px;height:8px;border-radius:50%;background:#1E9E62;"></span>ACTIVE</span>
+    <span style="font-size:13px;font-weight:700;color:#0B5C3B;background:#E4F5EC;padding:6px 14px;border-radius:999px;">COMPLETED</span>
+    <span style="font-size:13px;font-weight:700;color:#55607A;background:#F4F6F9;border:1px solid #E6EAF1;padding:6px 14px;border-radius:999px;">ARCHIVED</span>
+  </div>
+</section>
+
+<!-- ============ APPLIED ============ -->
+<section data-screen-label="Applied examples" style="padding:64px 0 8px;">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#55607A;font-weight:600;margin-bottom:10px;">09 — In situ</div>
+  <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">The system, assembled.</h2>
+  <p style="font-size:18px;line-height:1.6;color:#55607A;max-width:760px;margin:0 0 32px;">The public landing header in light, and the phone tracker in the night theme.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:start;">
+    <!-- landing header light -->
+    <div style="border-radius:18px;overflow:hidden;border:1px solid #E6EAF1;box-shadow:0 12px 30px -10px rgba(16,24,40,.16);">
+      <div style="background:#0C1220;color:#fff;padding:36px 28px 40px;">
+        <div style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#FFC759;font-weight:600;margin-bottom:16px;"><span class="ico-sm"><i data-lucide="sparkles"></i></span>Christmas 2026</div>
+        <h3 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:34px;line-height:1.05;margin:0 0 12px;letter-spacing:-.4px;">Santa's coming to<br>your street.</h3>
+        <p style="font-size:16px;line-height:1.5;color:#C6CFDE;margin:0 0 22px;max-width:380px;">Follow your local brigade's Santa run live — see exactly when to bring the kids out.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <button style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:15px;background:#D8232A;color:#fff;border:none;border-radius:12px;padding:12px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;"><span class="ico-sm"><i data-lucide="navigation"></i></span>Track live</button>
+          <button style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:15px;background:transparent;color:#fff;border:2px solid rgba(255,255,255,.35);border-radius:12px;padding:10px 20px;cursor:pointer;">Find my brigade</button>
+        </div>
+      </div>
+      <div style="padding:14px 20px;background:#fff;font-size:13px;color:#55607A;display:flex;align-items:center;gap:8px;"><span class="ico-sm" style="color:#1E9E62;"><i data-lucide="shield-check"></i></span>Trusted by volunteer brigades Australia-wide</div>
+    </div>
+
+    <!-- phone night tracker -->
+    <div style="display:flex;justify-content:center;">
+      <div style="width:300px;border-radius:34px;background:#0A0F1A;border:1px solid #233149;box-shadow:0 20px 50px -12px rgba(0,0,0,.5);overflow:hidden;position:relative;">
+        <div style="height:200px;background:linear-gradient(160deg,#12233D 0%,#0A0F1A 100%);position:relative;overflow:hidden;">
+          <sc-if value="{{ festiveMotion }}" hint-placeholder-val="{{ true }}">
+            <span style="position:absolute;left:18%;top:20px;width:4px;height:4px;border-radius:50%;background:#fff;animation:twinkle 2.5s infinite;"></span>
+            <span style="position:absolute;left:70%;top:44px;width:3px;height:3px;border-radius:50%;background:#fff;animation:twinkle 3s infinite .6s;"></span>
+            <span style="position:absolute;left:44%;top:14px;width:3px;height:3px;border-radius:50%;background:#fff;animation:twinkle 2.2s infinite 1s;"></span>
+          </sc-if>
+          <!-- route line -->
+          <svg viewBox="0 0 300 200" style="position:absolute;inset:0;width:100%;height:100%;"><path d="M30 170 Q90 120 130 130 T230 60" fill="none" stroke="#F6A609" stroke-width="3" stroke-dasharray="2 8" stroke-linecap="round" opacity=".85"/></svg>
+          <div style="position:absolute;left:220px;top:44px;">
+            <sc-if value="{{ festiveMotion }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:-6px;border-radius:50%;background:rgba(246,166,9,.35);animation:livepulse 1.8s infinite;"></span></sc-if>
+            <div style="position:relative;width:34px;height:34px;border-radius:50%;background:#D8232A;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:16px;">🎅</div>
+          </div>
+        </div>
+        <div style="padding:18px;">
+          <div style="display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#8BE4B5;background:#0F2A1F;padding:4px 10px;border-radius:999px;margin-bottom:12px;"><span style="width:7px;height:7px;border-radius:50%;background:#8BE4B5;"></span>LIVE NOW</div>
+          <h3 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:22px;color:#F3F6FB;margin:0 0 4px;">Santa is 3 streets away</h3>
+          <p style="font-size:13px;color:#A6B0C4;margin:0 0 16px;">Heading down Gibraltar St · ETA ~6 min</p>
+          <button style="width:100%;font-family:'Baloo 2',sans-serif;font-weight:700;font-size:15px;background:#E5484D;color:#fff;border:none;border-radius:12px;padding:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;"><span class="ico-sm"><i data-lucide="bell"></i></span>Notify me when close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TERMINOLOGY ============ -->
+<section data-screen-label="Terminology & voice" style="padding:64px 0 8px;">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#55607A;font-weight:600;margin-bottom:10px;">10 — Terminology &amp; voice</div>
+  <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">Festive and fun — but never flaky.</h2>
+  <p style="font-size:18px;line-height:1.6;color:#55607A;max-width:760px;margin:0 0 32px;">We're asking brigades for money, so the voice is warm and celebratory without sacrificing confidence. Consistent nouns across every surface.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:28px;">
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:18px;"><div style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:17px;margin-bottom:4px;">Santa Run</div><div style="font-size:14px;color:#55607A;">the event — the night Santa visits. Not "the trip" or "the drive".</div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:18px;"><div style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:17px;margin-bottom:4px;">Route</div><div style="font-size:14px;color:#55607A;">the planned path Santa follows. One Santa Run runs a Route.</div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:18px;"><div style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:17px;margin-bottom:4px;">Stop</div><div style="font-size:14px;color:#55607A;">a point on the route. Public-facing word for "waypoint".</div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:18px;"><div style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:17px;margin-bottom:4px;">Brigade</div><div style="font-size:14px;color:#55607A;">the organisation. Say "brigade or community group" on first public mention.</div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:18px;"><div style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:17px;margin-bottom:4px;">Live Tracking</div><div style="font-size:14px;color:#55607A;">the public map experience. Not "broadcast" or "GPS feed" in UI.</div></div>
+    <div style="background:#fff;border:1px solid #E6EAF1;border-radius:12px;padding:18px;"><div style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:17px;margin-bottom:4px;">Member</div><div style="font-size:14px;color:#55607A;">a person in a brigade. "Admin" only for elevated access.</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div style="background:#E4F5EC;border:1px solid #BBE6CF;border-radius:14px;padding:20px;">
+      <div style="display:flex;align-items:center;gap:8px;color:#0B5C3B;font-weight:700;margin-bottom:12px;"><i data-lucide="check"></i>Say this</div>
+      <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.7;color:#0B5C3B;">
+        <li>"Track Santa live tonight."</li>
+        <li>"Plan your route in minutes."</li>
+        <li>"Trusted by volunteer brigades Australia-wide."</li>
+        <li>"No login needed — just tap and follow."</li>
+      </ul>
+    </div>
+    <div style="background:#FCEBEB;border:1px solid #F3C6C8;border-radius:14px;padding:20px;">
+      <div style="display:flex;align-items:center;gap:8px;color:#B01620;font-weight:700;margin-bottom:12px;"><i data-lucide="x"></i>Not this</div>
+      <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.7;color:#B01620;">
+        <li>"Broadcast your GPS via the Mapbox layer."</li>
+        <li>"Configure waypoints on the Azure route entity."</li>
+        <li>"lol Santa go brrr 🎅🎅🎅" (over-the-top)</li>
+        <li>Implementation names in user-facing copy.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ IMPLEMENTATION ============ -->
+<sc-if value="{{ showImplementation }}" hint-placeholder-val="{{ true }}">
+<section data-screen-label="Implementation" style="padding:64px 0 8px;">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#55607A;font-weight:600;margin-bottom:10px;">11 — Implementation handoff</div>
+  <h2 style="font-family:'Baloo 2',sans-serif;font-weight:800;font-size:clamp(28px,4vw,42px);margin:0 0 12px;letter-spacing:-.4px;">Drop-in tokens.</h2>
+  <p style="font-size:18px;line-height:1.6;color:#55607A;max-width:760px;margin:0 0 28px;">Map onto the existing names in <code style="font-family:'JetBrains Mono',monospace;background:#E6EAF1;padding:1px 6px;border-radius:5px;">src/index.css</code>. Legacy <code style="font-family:'JetBrains Mono',monospace;background:#E6EAF1;padding:1px 6px;border-radius:5px;">--fire-red</code> etc. stay as aliases so components keep working.</p>
+
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;margin:0 0 8px;">Google Fonts — replace the current link in index.html</div>
+  <pre style="background:#0C1220;color:#E7ECF5;border-radius:14px;padding:20px;overflow:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6;margin:0 0 24px;">&lt;link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&amp;family=Public+Sans:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"&gt;</pre>
+
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;margin:0 0 8px;">:root — light</div>
+  <pre style="background:#0C1220;color:#E7ECF5;border-radius:14px;padding:20px;overflow:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6;margin:0 0 24px;">:root {
+  /* Brand */
+  --santa-red:        #D8232A;  /* primary / actions — white 5.3:1 AA */
+  --santa-red-dark:   #B01620;  /* hover / pressed */
+  --santa-red-light:  #E0555A;
+  --summer-gold:      #F6A609;  /* accent — sun/beach; ink text on fill */
+  --summer-gold-dark: #B26A00;  /* gold TEXT on white (AA) */
+  --summer-gold-ink:  #241A00;  /* text ON gold */
+  --christmas-green:  #1E9E62;  /* festive accent + success */
+  --snow:             #FFFFFF;
+
+  /* Legacy aliases (keep existing components working) */
+  --fire-red: var(--santa-red);  --fire-red-dark: var(--santa-red-dark);
+  --gold-accent: var(--summer-gold);
+
+  /* Neutrals — cool slate (shared with Station Manager) */
+  --ink:        #0C1220;  --slate-700: #1E2637;  --slate-500: #55607A;
+  --slate-300:  #D3DAE6;  --hairline:  #E6EAF1;  --paper:     #F4F6F9;
+
+  /* Semantic */
+  --ui-green: #1E9E62;  --ui-amber: #F6A609;  --ui-blue: #2563EB;  /* critical = --santa-red */
+  --surface-success:#E4F5EC; --text-success-strong:#0B5C3B;
+  --surface-warning:#FDF0D6; --text-warning-strong:#9A6800;
+  --surface-info:   #E8F0FE; --text-info-strong:   #1B4F8F;
+  --surface-error:  #FCEBEB; --text-error-strong:  #B01620;
+
+  /* Radius + shadow */
+  --radius-sm:8px; --radius-md:12px; --radius-lg:16px; --radius-xl:20px;
+  --shadow-sm:0 1px 2px rgba(16,24,40,.08);
+  --shadow-md:0 2px 6px -2px rgba(16,24,40,.10),0 6px 16px -6px rgba(16,24,40,.12);
+  --shadow-lg:0 12px 30px -10px rgba(16,24,40,.16);
+
+  /* Type */
+  --font-display:'Baloo 2',sans-serif;
+  --font-body:'Public Sans',-apple-system,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+h1,h2,h3,h4,h5,h6{font-family:var(--font-display);font-weight:800;letter-spacing:-.4px;}
+code,.mono,.slug,.route-id{font-family:var(--font-mono);}</pre>
+
+  <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#55607A;margin:0 0 8px;">[data-theme="dark"] — night tracking</div>
+  <pre style="background:#0C1220;color:#E7ECF5;border-radius:14px;padding:20px;overflow:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6;margin:0 0 24px;">[data-theme="dark"] {
+  --bg-primary:#0A0F1A; --bg-secondary:#0E1522; --bg-card:#121A29;
+  --text-primary:#F3F6FB; --text-secondary:#A6B0C4; --border-color:#233149;
+  --santa-red:#E5484D; --santa-red-dark:#F26A6E; --santa-red-text:#FF8085;
+  --summer-gold:#F6A609; --summer-gold-text:#FFC759; --christmas-green-text:#8BE4B5;
+  --surface-success:#0F2A1F; --text-success-strong:#8BE4B5;
+  --surface-warning:#2A2008; --text-warning-strong:#FFC759;
+  --surface-info:#12233D;    --text-info-strong:#9EC5FF;
+  --surface-error:#2A1315;   --text-error-strong:#FF8085;
+}</pre>
+
+  <div style="background:#fff;border:1px solid #E6EAF1;border-radius:14px;padding:20px 22px;">
+    <div style="font-family:'Baloo 2',sans-serif;font-weight:700;font-size:16px;margin-bottom:12px;">Also do</div>
+    <ul style="margin:0;padding-left:18px;font-size:14.5px;line-height:1.8;color:#1E2637;">
+      <li><code style="font-family:'JetBrains Mono',monospace;">npm i lucide-react</code>; replace every emoji in functional UI with the mapped Lucide icon (start with <code style="font-family:'JetBrains Mono',monospace;">AppHeader.tsx</code> 🎅→flame mark, then App.tsx menus).</li>
+      <li>Flatten the gradient <code style="font-family:'JetBrains Mono',monospace;">.btn-primary/.btn-success/.btn-warning</code> to solid fills; set button + heading font to Baloo 2.</li>
+      <li>Swap <code style="font-family:'JetBrains Mono',monospace;">public/icon.svg</code> for the v2 mark; regenerate the raster + maskable set; set <code style="font-family:'JetBrains Mono',monospace;">manifest.json</code> + <code style="font-family:'JetBrains Mono',monospace;">index.html</code> theme-color to <code style="font-family:'JetBrains Mono',monospace;">#D8232A</code> and background_color to <code style="font-family:'JetBrains Mono',monospace;">#FFFFFF</code>.</li>
+      <li>Keep everything WCAG 2.1 AA; run <code style="font-family:'JetBrains Mono',monospace;">npm run test:a11y</code>.</li>
+    </ul>
+  </div>
+</section>
+</sc-if>
+
+<div style="text-align:center;padding:56px 0 0;color:#55607A;font-family:'JetBrains Mono',monospace;font-size:12px;">Fire Santa Run · Design System v2.0 — coherent with Bushie Tools / Station Manager 🎅🚒</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1180,&quot;height&quot;:900},&quot;festiveMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Showcase&quot;,&quot;label&quot;:&quot;Festive motion (snow, pulses, twinkle)&quot;},&quot;showImplementation&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Showcase&quot;,&quot;label&quot;:&quot;Show developer handoff section&quot;}}">
+class Component extends DCLogic {
+  componentDidMount() { this.renderIcons(); }
+  componentDidUpdate() { this.renderIcons(); }
+  renderIcons() {
+    let tries = 0;
+    const run = () => {
+      if (window.lucide && window.lucide.createIcons) {
+        window.lucide.createIcons();
+      } else if (tries++ < 60) {
+        setTimeout(run, 100);
+      }
+    };
+    run();
+  }
+  renderVals() {
+    return {
+      festiveMotion: this.props.festiveMotion ?? true,
+      showImplementation: this.props.showImplementation ?? true,
+    };
+  }
+}
+</script>
+</body>
+</html>
