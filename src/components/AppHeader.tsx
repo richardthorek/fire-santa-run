@@ -5,8 +5,9 @@
  * Provides access to profile settings, brigade management, and logout.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { User, LayoutDashboard, Users, Settings2, ShieldCheck, LogOut } from 'lucide-react';
 import { useAuth, useBrigade } from '../context';
 import { COLORS } from '../utils/constants';
 
@@ -94,7 +95,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
           }}
           aria-label="Fire Santa Run - Go to Dashboard"
         >
-          <span style={{ fontSize: '1.5rem' }} role="img" aria-label="Santa emoji">🎅</span>
+          <img src="/icon.svg" alt="" width={28} height={28} aria-hidden="true" />
           <span className="brand-text">
             Fire Santa Run
           </span>
@@ -231,7 +232,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
                       gap: '0.25rem',
                     }}
                   >
-                    <span>🚒</span>
+                    <ShieldCheck size={14} aria-hidden="true" />
                     <span>{brigade.name}</span>
                   </div>
                 )}
@@ -241,20 +242,20 @@ export function AppHeader({ show = true }: AppHeaderProps) {
               <div style={{ padding: '0.5rem' }}>
                 <MenuLink
                   to="/profile"
-                  icon="👤"
+                  icon={<User size={20} aria-hidden="true" />}
                   label="Your Profile"
                   onClick={() => setMenuOpen(false)}
                 />
                 <MenuLink
                   to="/dashboard"
-                  icon="📊"
+                  icon={<LayoutDashboard size={20} aria-hidden="true" />}
                   label="Dashboard"
                   onClick={() => setMenuOpen(false)}
                 />
                 {brigade && (
                   <MenuLink
                     to={`/dashboard/${brigade.id}/members`}
-                    icon="👥"
+                    icon={<Users size={20} aria-hidden="true" />}
                     label="Manage Members"
                     onClick={() => setMenuOpen(false)}
                   />
@@ -262,14 +263,14 @@ export function AppHeader({ show = true }: AppHeaderProps) {
                 {brigade && (
                   <MenuLink
                     to={`/dashboard/${brigade.id}/settings`}
-                    icon="⚙️"
+                    icon={<Settings2 size={20} aria-hidden="true" />}
                     label="Brigade Settings"
                     onClick={() => setMenuOpen(false)}
                   />
                 )}
                 <MenuLink
                   to="/brigades/claim"
-                  icon="🚒"
+                  icon={<ShieldCheck size={20} aria-hidden="true" />}
                   label={brigade ? 'Switch Brigade' : 'Claim Brigade'}
                   onClick={() => setMenuOpen(false)}
                 />
@@ -308,7 +309,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <span style={{ fontSize: '1.25rem' }} role="img" aria-label="Logout">🚪</span>
+                  <LogOut size={20} aria-hidden="true" />
                   <span>Logout</span>
                 </button>
               </div>
@@ -324,7 +325,7 @@ export function AppHeader({ show = true }: AppHeaderProps) {
 // Helper component for menu links
 interface MenuLinkProps {
   to: string;
-  icon: string;
+  icon: ReactNode;
   label: string;
   onClick?: () => void;
 }
@@ -352,7 +353,7 @@ function MenuLink({ to, icon, label, onClick }: MenuLinkProps) {
         e.currentTarget.style.backgroundColor = 'transparent';
       }}
     >
-      <span style={{ fontSize: '1.25rem' }} role="img" aria-label={`${label} icon`}>{icon}</span>
+      {icon}
       <span style={{ fontWeight: 500 }}>{label}</span>
     </Link>
   );

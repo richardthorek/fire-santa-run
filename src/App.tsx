@@ -1,5 +1,6 @@
 import { type CSSProperties, useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, Link } from 'react-router-dom';
+import { Gift, Wrench, Home, Search } from 'lucide-react';
 import './App.css';
 import { useAuth, useBrigade } from './context';
 import { storageAdapter } from './storage';
@@ -55,26 +56,27 @@ const updateBannerStyle: CSSProperties = {
   bottom: '1rem',
   left: '50%',
   transform: 'translateX(-50%)',
-  backgroundColor: '#212121',
-  color: 'white',
+  backgroundColor: 'var(--ink)',
+  color: 'var(--snow)',
   padding: '0.75rem 1.25rem',
-  borderRadius: '12px',
+  borderRadius: 'var(--radius-md)',
   display: 'flex',
   alignItems: 'center',
   gap: '0.75rem',
   zIndex: 10000,
-  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+  boxShadow: 'var(--shadow-lg)',
   fontSize: '0.875rem',
 };
 
 const updateButtonStyle: CSSProperties = {
   padding: '0.4rem 0.9rem',
-  background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
-  color: 'white',
+  background: 'var(--santa-red)',
+  color: 'var(--snow)',
   border: 'none',
-  borderRadius: '8px',
+  borderRadius: 'var(--radius-sm)',
   cursor: 'pointer',
-  fontWeight: 600,
+  fontWeight: 700,
+  fontFamily: 'var(--font-display)',
   fontSize: '0.875rem',
 };
 
@@ -124,7 +126,10 @@ function App() {
       {/* Service Worker Update Banner */}
       {isUpdateAvailable && (
         <div style={updateBannerStyle}>
-          <span>🎁 A new version is available!</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Gift size={18} aria-hidden="true" />
+            A new version is available!
+          </span>
           <button onClick={applyUpdate} style={updateButtonStyle}>
             Update
           </button>
@@ -141,15 +146,20 @@ function App() {
           top: 0,
           left: 0,
           right: 0,
-          backgroundColor: '#FFA726',
-          color: '#212121',
+          backgroundColor: 'var(--summer-gold)',
+          color: 'var(--summer-gold-ink)',
           padding: '0.5rem',
           textAlign: 'center',
           fontWeight: 'bold',
           fontSize: '0.875rem',
           zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.5rem',
         }}>
-          🛠️ Development Mode • {user?.email} • {brigade?.name}
+          <Wrench size={16} aria-hidden="true" />
+          Development Mode • {user?.email} • {brigade?.name}
         </div>
       )}
       
@@ -293,7 +303,7 @@ function NavigationViewWrapper() {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
         <h1>Route Not Found</h1>
-        <Link to="/dashboard" style={{ color: '#D32F2F' }}>← Back to Dashboard</Link>
+        <Link to="/dashboard" style={{ color: 'var(--santa-red)' }}>← Back to Dashboard</Link>
       </div>
     );
   }
@@ -346,37 +356,47 @@ function NotFound() {
       justifyContent: 'center',
     }}>
       <div style={{ fontSize: '64px', marginBottom: '1rem' }}>🎅</div>
-      <h1 style={{ marginBottom: '0.5rem', color: '#D32F2F' }}>404 - Page Not Found</h1>
-      <p style={{ marginBottom: '2rem', color: '#616161' }}>
+      <h1 style={{ marginBottom: '0.5rem', color: 'var(--santa-red)' }}>404 - Page Not Found</h1>
+      <p style={{ marginBottom: '2rem', color: 'var(--slate-500)' }}>
         Santa couldn't find this page!
       </p>
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
         <Link
           to="/"
           style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
             padding: '0.75rem 1.5rem',
-            background: 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)',
-            color: 'white',
+            background: 'var(--santa-red)',
+            color: 'var(--snow)',
             textDecoration: 'none',
-            borderRadius: '12px',
-            fontWeight: 600,
+            borderRadius: 'var(--radius-md)',
+            fontWeight: 700,
+            fontFamily: 'var(--font-display)',
           }}
         >
-          🏠 Go Home
+          <Home size={18} aria-hidden="true" />
+          Go Home
         </Link>
         <Link
           to="/brigades"
           style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
             padding: '0.75rem 1.5rem',
-            background: 'white',
-            color: '#D32F2F',
+            background: 'var(--snow)',
+            color: 'var(--santa-red)',
             textDecoration: 'none',
-            borderRadius: '12px',
-            fontWeight: 600,
-            border: '2px solid #D32F2F',
+            borderRadius: 'var(--radius-md)',
+            fontWeight: 700,
+            fontFamily: 'var(--font-display)',
+            border: '2px solid var(--santa-red)',
           }}
         >
-          🚒 Find a brigade
+          <Search size={18} aria-hidden="true" />
+          Find a Brigade
         </Link>
       </div>
     </div>
