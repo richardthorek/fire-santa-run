@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { storageAdapter, type Brigade } from '../storage';
+import type { BrigadeMembership } from '../types/membership';
 import { useAuth } from './useAuth';
 import { isBrigadeEntitledForUi } from '../utils/subscription';
 
@@ -39,7 +40,7 @@ export function BrigadeProvider({ children }: { children: ReactNode }) {
       if (!brigadeId) {
         try {
           const memberships = await storageAdapter.getMembershipsByUser(user.id);
-          const activeMembership = memberships?.find((m: any) => m.status === 'active');
+          const activeMembership = memberships?.find((m: BrigadeMembership) => m.status === 'active');
           if (activeMembership) {
             brigadeId = activeMembership.brigadeId;
           }
