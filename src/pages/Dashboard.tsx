@@ -282,6 +282,35 @@ export function Dashboard() {
             <span aria-hidden="true">🔒</span> Create New Route
           </button>
         )}
+        {brigade && (
+          <Link
+            to={`/dashboard/${brigade.id}/settings`}
+            aria-label="Brigade settings and subscription"
+            style={{
+              padding: '0.875rem 1.5rem',
+              background: 'white',
+              color: 'var(--fire-red)',
+              textDecoration: 'none',
+              borderRadius: 'var(--border-radius-sm)',
+              fontWeight: 600,
+              fontFamily: 'var(--font-body)',
+              border: '2px solid var(--fire-red)',
+              transition: 'all 0.3s ease',
+              display: 'inline-block',
+              fontSize: '1rem',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--fire-red)';
+              e.currentTarget.style.color = 'white';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'white';
+              e.currentTarget.style.color = 'var(--fire-red)';
+            }}
+          >
+            <span aria-hidden="true">⚙️</span> Settings
+          </Link>
+        )}
         <Link
           to="/templates"
           aria-label="Browse route template library"
