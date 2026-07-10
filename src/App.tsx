@@ -205,6 +205,9 @@ function App() {
                 <BrigadeSettingsPage />
               </ProtectedRoute>
             } />
+            <Route path="/dashboard/:brigadeId" element={
+              <Navigate to="/dashboard" replace />
+            } />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
