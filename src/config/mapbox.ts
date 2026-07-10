@@ -26,7 +26,11 @@ export const AUSTRALIA_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 export const MAP_STYLES = {
+  standard: 'mapbox://styles/mapbox/standard',
   streets: 'mapbox://styles/mapbox/streets-v12',
   satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
   outdoors: 'mapbox://styles/mapbox/outdoors-v12',
 };
+
+// Default map style for navigation (standard with 3D buildings and pedestrian roads visible)
+export const DEFAULT_MAP_STYLE = MAP_STYLES.standard;

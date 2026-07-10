@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { MAPBOX_CONFIG } from '../config/mapbox';
+import { MAPBOX_CONFIG, DEFAULT_MAP_STYLE } from '../config/mapbox';
 import type { Route } from '../types';
 import type { GeolocationCoordinates } from '../hooks/useGeolocation';
 
@@ -31,13 +31,22 @@ export function NavigationMap({ route, userPosition, completedWaypointIds }: Nav
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
+      style: DEFAULT_MAP_STYLE,
       center: route.waypoints[0]?.coordinates || [151.2093, -33.8688], // Default to Sydney
       zoom: 14,
       pitch: 45, // 3D perspective for navigation
       bearing: 0,
       ...MAPBOX_CONFIG,
     });
+
+    // Enable pedestrian roads visibility for the standard style
+    if (DEFAULT_MAP_STYLE.includes('standard')) {
+      map.on('styledata', () => {
+        if (map.getLayer('pedestrian')) {
+          map.setLayoutProperty('pedestrian', 'visibility', 'visible');
+        }
+      });
+    }
 
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
 

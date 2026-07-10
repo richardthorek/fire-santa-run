@@ -8,7 +8,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useWebPubSub, useReverseGeocode } from '../hooks';
 import { ShareModal, SEO, CountdownTimer, ThankYouOverlay } from '../components';
-import { MAPBOX_CONFIG } from '../config/mapbox';
+import { MAPBOX_CONFIG, DEFAULT_MAP_STYLE } from '../config/mapbox';
 import mapboxgl from 'mapbox-gl';
 import { storageAdapter } from '../storage';
 import type { Route, LocationBroadcast } from '../types';
@@ -170,13 +170,22 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
     // Create map
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
+      style: DEFAULT_MAP_STYLE,
       bounds: bounds,
       fitBoundsOptions: {
         padding: 50,
       },
       ...MAPBOX_CONFIG,
     });
+
+    // Enable pedestrian roads visibility for the standard style
+    if (DEFAULT_MAP_STYLE.includes('standard')) {
+      map.on('styledata', () => {
+        if (map.getLayer('pedestrian')) {
+          map.setLayoutProperty('pedestrian', 'visibility', 'visible');
+        }
+      });
+    }
 
     map.on('load', () => {
       setMapLoaded(true);
