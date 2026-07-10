@@ -368,6 +368,8 @@ public tracking page.
 
 ## Verifying the Deployment
 
+The CI/CD workflow automatically verifies deployments using the health endpoint:
+
 ```bash
 # Container App status + URL
 az containerapp show \
@@ -375,13 +377,26 @@ az containerapp show \
   --name santarun-app-<suffix> \
   --query '{fqdn:properties.configuration.ingress.fqdn,replicas:properties.template.scale}'
 
-# Health check
+# Health check — returns status, version, and commit SHA
 curl https://<fqdn>/api/health
+# → { "status": "ok", "version": "...", "commitSha": "abc123...", "uptimeSeconds": 45, "timestamp": "..." }
+
+# Deployment verification — the workflow polls this every 10s for up to 2 minutes
+# and verifies the commitSha matches the deployed commit before marking success.
+# If this endpoint is unreachable or the SHA doesn't match, the workflow fails.
 
 # Realtime negotiate endpoint (viewer role, anonymous)
 curl "https://<fqdn>/api/negotiate?routeId=test-route&role=viewer"
 # → { "url": "wss://<fqdn>/api/ws?routeId=test-route&role=viewer", "role": "viewer", "routeId": "test-route" }
 ```
+
+**CI/CD Deployment Verification:**
+The workflow (`.github/workflows/deploy-container-apps.yml`) includes an automatic health check step that:
+1. Polls `/api/health` every 10 seconds for up to 2 minutes after deploying the image.
+2. Verifies the returned `commitSha` matches the deployed git commit (`github.sha`).
+3. Fails the deployment if verification doesn't pass (prevents silent failures).
+
+This ensures the new image is actually running and responding before the deployment is marked complete.
 
 ---
 

@@ -72,23 +72,42 @@ Public-growth and polish shipped in the latest pass:
   audiences.
 - Printable A4 poster + QR pack per published route.
 
-Hosting/runtime consolidation shipped in this pass:
+Hosting/runtime consolidation & CI/CD hardening shipped in this pass:
 
+**Deployment Infrastructure:**
 - Retired Azure Web PubSub and Azure App Service. Production now runs a
   single Azure Container Apps (Consumption, scale-to-zero) container serving
   both the API and the static build; realtime fan-out moved in-process
   (`server/src/realtime/`) — see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-- **Intent:** Web PubSub Standard (needed each December to clear the 20
-  concurrent connection free-tier cap, ~A$50+/mo) plus a year-round App
-  Service B1 (~A$13-15/mo) were the largest fixed costs relative to a $5/yr
-  subscription price, and both were sized for December-only demand across
-  eleven largely idle months.
-- **Outcome:** no separate realtime service to size, provision, or scale for
-  December — one container image, one deploy target. Off-season cost
-  approaches $0 (Consumption scale-to-zero); `scale-season.sh` now flips
-  `minReplicas` (0 ⇄ 1) instead of a SKU. Trade-off: the in-process hub is
-  per-process state, so the Container App is pinned to `maxReplicas: 1` until
-  a shared backplane is added — tracked in the roadmap below.
+- **GitHub OIDC federated credentials** replace stored secrets for Azure
+  deployments (no long-lived credentials in GitHub).
+- **Unified CI/CD pipeline** consolidates testing, quality checks, and
+  deployment into a single efficient workflow with change detection to skip
+  unnecessary operations.
+- **Commit-hash health verification:** workflow polls `/api/health` after
+  deployment and verifies the commit SHA matches before marking deployment
+  successful — prevents silent failures.
+
+**Application Improvements:**
+- Fixed audit logging endpoint and static file serving (manifest.json,
+  registerSW.js now served with correct MIME types).
+- Brigade context now auto-loads first active membership if `brigadeId` not
+  set, fixing the case where users claim a brigade but can't access it.
+- Prominent **Settings** button on Dashboard for easy access to billing &
+  subscription options.
+- Stripe webhook and Stripe integration fully wired up for per-brigade
+  subscriptions.
+
+**Intent:** Web PubSub Standard (needed each December to clear the 20
+concurrent connection free-tier cap, ~A$50+/mo) plus a year-round App
+Service B1 (~A$13-15/mo) were the largest fixed costs relative to a $5/yr
+subscription price.
+**Outcome:** no separate realtime service to size, provision, or scale for
+December — one container image, one deploy target. Off-season cost
+approaches $0 (Consumption scale-to-zero); `scale-season.sh` now flips
+`minReplicas` (0 ⇄ 1) instead of a SKU. Trade-off: the in-process hub is
+per-process state, so the Container App is pinned to `maxReplicas: 1` until
+a shared backplane is added — tracked in the roadmap below.
 
 ## Roadmap — what's next
 

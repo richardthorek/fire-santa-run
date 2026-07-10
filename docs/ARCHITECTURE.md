@@ -64,12 +64,15 @@ retired (the legacy SWA workflow now runs quality checks only, and
 - **Pages** (`src/pages/`) are lazy-loaded route screens. Public: Landing,
   BrigadeDiscovery, TrackingView (`/track/:id`), demo (`/demo`), route poster
   (`/routes/:id/poster`). Authed: Dashboard, RouteEditor, NavigationView,
-  BrigadeSettings, MemberManagement, Analytics, Templates.
+  BrigadeSettings (includes BillingPanel with subscribe option),
+  MemberManagement, Analytics, Templates.
 - **Storage adapter pattern** (`src/storage/`) — UI code never touches
   `localStorage` or Azure SDKs directly. `LocalStorageAdapter` backs dev mode;
   the HTTP adapter backs production. Add fields to both.
 - **Context** (`src/context/`) — `AuthContext` (MSAL/Entra, dev bypass) and
-  `BrigadeContext` (current brigade + `isEntitled` + `refreshBrigade`).
+  `BrigadeContext` (current brigade + `isEntitled` + `refreshBrigade`). Brigade
+  context auto-loads first active membership if user's `brigadeId` is not set,
+  ensuring users can access their brigade immediately after claiming it.
 - **Realtime** (`src/hooks/useWebPubSub.ts`) — a native `WebSocket` to the
   server's own `/api/ws` endpoint (name kept for history; no Azure Web PubSub
   involved). Viewers connect read-only and anonymously; broadcasters/editors
@@ -77,6 +80,10 @@ retired (the legacy SWA workflow now runs quality checks only, and
   call. `enabled:false` powers the simulated demo run without a backend.
 - **PWA** (`src/sw.ts`, injectManifest) — offline caching, background-sync for
   queued broadcasts, and Web Push handlers for "notify me when Santa starts".
+- **Audit logging** (`src/utils/auditLog.ts`) — tracks security-relevant events
+  (auth, membership changes, admin actions) with server-side batch endpoint
+  (`/api/audit/batch`) for compliance. Logs are queued client-side and flushed
+  on page teardown via `sendBeacon`.
 
 ## Data model & isolation
 
@@ -152,19 +159,54 @@ scale-to-zero), Table Storage, and Application Insights — see
 [`infra/modules/containerapps.bicep`](../infra/modules/containerapps.bicep).
 
 - `Dockerfile` (repo root) — multi-stage build: React SPA (Vite), Hono server
-  (tsc), then a minimal runtime image. CI builds and pushes it to GitHub
-  Container Registry.
+  (tsc), then a minimal runtime image. Built by CI and pushed to GitHub
+  Container Registry with commit SHA as tag. Bakes `COMMIT_SHA` into the image
+  for deployment verification.
+- `.github/workflows/deploy-container-apps.yml` — unified CI/CD pipeline:
+  - Change detection: detects IaC and code changes to skip unnecessary work.
+  - Quality checks (lint, type-check, unit tests) and E2E tests (Playwright).
+  - Deployment (infrastructure + image + secrets) only on push to main.
+  - GitHub OIDC federated credentials for Azure login (no stored secrets).
+  - Health check verification: polls `/api/health` and verifies commit SHA
+    matches before marking deployment successful (prevents silent failures).
+  - Conditional execution: skips Bicep deploy if only code changed, skips
+    image build if only IaC changed.
 - `deploy.sh` — provisions the Bicep stack per environment (dev/prod are fully
   separate deployments, matching Stripe test vs live mode) and seeds base
   config.
 - `seed-secrets.sh` — seeds Container App env vars (Stripe, site-admin, VAPID,
   the realtime WS secret) with a merge strategy that never blanks an existing
-  secret.
+  secret. Called automatically by the workflow after deployment.
 - `scale-season.sh` — flips the Container App's `minReplicas` between 1
   (December — always warm, no cold starts mid-run) and 0 (off-season —
   scale-to-zero).
-- `.github/workflows/deploy-container-apps.yml` — builds the image, pushes to
-  `ghcr.io`, and runs `az containerapp update --image ...` via OIDC.
+
+## CI/CD & Deployment
+
+GitHub Actions unified pipeline (`.github/workflows/deploy-container-apps.yml`):
+
+1. **Change detection** — Git diff determines if IaC (Bicep, Dockerfile) or code changed. Allows conditional execution and cost savings by skipping unnecessary work.
+2. **Quality gates** (every push + PR):
+   - Lint (ESLint)
+   - Type check (TypeScript)
+   - Unit tests (Vitest)
+   - E2E tests (Playwright)
+3. **Deployment** (main branch push only):
+   - Validate Azure OIDC config (fail-fast).
+   - Deploy infrastructure (Bicep) if IaC changed.
+   - Build and push Docker image if code changed; image tagged with commit SHA.
+   - Deploy image revision to Container Apps.
+   - Seed secrets to Container App (Stripe, VAPID, realtime WS secret).
+   - **Health check verification:** polls `/api/health` every 10 seconds for up to 2 minutes, verifies returned `commitSha` matches deployed commit. Workflow fails if verification doesn't pass, preventing deployments with silent failures.
+
+**Security & secrets:**
+- GitHub OIDC federated credentials (workload identity federation) — no long-lived secrets stored in GitHub.
+- Secrets (Stripe keys, VAPID, site-admin IDs) sourced from:
+  - Local `infra/.env.<env>` files (gitignored) during manual runs.
+  - GitHub Actions secrets for CI/CD runs.
+- Storage connection string read live from deployed resource (no hardcoding or versioning).
+
+**Environments:** dev and prod are fully separate Azure subscriptions / deployments, matching Stripe test vs live mode.
 
 ## Testing
 
