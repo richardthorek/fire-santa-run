@@ -157,6 +157,10 @@ claimRouter.post('/claim', async (c) => {
 
     await membershipsClient.createEntity(membershipToEntity(membership));
 
+    // Set the user's brigadeId so BrigadeContext can load it automatically
+    userEntity.brigadeId = brigadeId;
+    await usersClient.updateEntity(userEntity, 'Replace');
+
     console.log(`Brigade ${brigadeId} claimed by user: ${claimData.userId}`);
     return c.json({ brigade, membership }, 200);
   } catch (error: any) {
