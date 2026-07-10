@@ -32,12 +32,34 @@ app.use(
 );
 app.use('/favicon.ico', serveStatic({ root: staticRoot, path: '/favicon.ico' }));
 
-// The service worker and manifest must revalidate so app updates roll out.
+// Service worker, manifest, and service worker registration script must
+// revalidate so app updates roll out. Explicitly route these before the
+// catch-all SPA fallback so they are not rewritten to index.html.
 app.use(
   '/sw.js',
   serveStatic({
     root: staticRoot,
     path: '/sw.js',
+    onFound: (_path, c) => {
+      c.header('Cache-Control', 'no-cache');
+    },
+  }),
+);
+app.use(
+  '/manifest.json',
+  serveStatic({
+    root: staticRoot,
+    path: '/manifest.json',
+    onFound: (_path, c) => {
+      c.header('Cache-Control', 'no-cache');
+    },
+  }),
+);
+app.use(
+  '/registerSW.js',
+  serveStatic({
+    root: staticRoot,
+    path: '/registerSW.js',
     onFound: (_path, c) => {
       c.header('Cache-Control', 'no-cache');
     },
