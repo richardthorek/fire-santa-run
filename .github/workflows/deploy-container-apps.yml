@@ -184,6 +184,26 @@ jobs:
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --image "${{ env.IMAGE_NAME }}:${{ github.sha }}"
 
+      - name: Seed Container App environment variables
+        if: env.HAS_AZURE_OIDC == 'true' && env.HAS_APP_NAME == 'true' && env.HAS_RESOURCE_GROUP == 'true'
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRICE_ID: ${{ secrets.STRIPE_PRICE_ID }}
+          SITE_ADMIN_USER_IDS: ${{ secrets.SITE_ADMIN_USER_IDS }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          REALTIME_WS_SECRET: ${{ secrets.REALTIME_WS_SECRET }}
+        run: |
+          # Detect environment from resource group name (dev or prod)
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          ENV=$(echo "$RG" | grep -oE 'dev|prod' | head -1)
+          SUFFIX=$(echo "$RG" | sed 's/.*-\([a-z0-9]*\)$/\1/')
+
+          echo "Seeding secrets to Container App ($ENV environment, suffix: $SUFFIX)..."
+          ./infra/seed-secrets.sh --env "$ENV" --suffix "$SUFFIX"
+
       - name: Fail if deployment config is missing
         if: env.HAS_AZURE_OIDC != 'true' || env.HAS_APP_NAME != 'true' || env.HAS_RESOURCE_GROUP != 'true'
         run: |
