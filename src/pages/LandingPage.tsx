@@ -107,12 +107,28 @@ export function LandingPage() {
           }}>
             {/* Title Section */}
             <div>
-              <div style={{ 
-                fontSize: 'clamp(60px, 10vw, 72px)', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '1rem',
                 marginBottom: '0.75rem',
-                textShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
               }}>
-                🎅🚒🎄
+                <img
+                  src="/icon.svg"
+                  alt="Fire Santa Run logo"
+                  width={80}
+                  height={80}
+                  style={{
+                    filter: 'drop-shadow(0 4px 20px rgba(0, 0, 0, 0.3))',
+                  }}
+                />
+                <div style={{
+                  fontSize: 'clamp(40px, 8vw, 56px)',
+                  textShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                }}>
+                  🚒🎄
+                </div>
               </div>
               <h1 style={{
                 fontFamily: 'var(--font-fun)',
