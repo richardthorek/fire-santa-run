@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { MAPBOX_CONFIG, DEFAULT_CENTER } from '../config/mapbox';
+import { MAPBOX_CONFIG, DEFAULT_CENTER, DEFAULT_MAP_STYLE } from '../config/mapbox';
 import type { Waypoint } from '../types';
 
 // Import Mapbox token from config
@@ -64,12 +64,21 @@ export function MapView({
     try {
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
+        style: DEFAULT_MAP_STYLE,
         center,
         zoom,
         interactive,
         ...MAPBOX_CONFIG,
       });
+
+      // Enable pedestrian roads visibility for the standard style
+      if (map.current && DEFAULT_MAP_STYLE.includes('standard')) {
+        map.current.on('styledata', () => {
+          if (map.current?.getLayer('pedestrian')) {
+            map.current.setLayoutProperty('pedestrian', 'visibility', 'visible');
+          }
+        });
+      }
 
       if (showControls) {
         map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-left');
