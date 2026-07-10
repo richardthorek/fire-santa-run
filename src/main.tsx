@@ -112,10 +112,7 @@ async function initializeApp() {
 
       // Handle redirect promise after login/logout and set active account from the result
       // CRITICAL: Wait for this to complete before rendering React
-      // MSAL v5: `navigateToLoginRequestUrl` moved from config to this call.
-      const result = await msalInstance.handleRedirectPromise({
-        navigateToLoginRequestUrl: false,
-      });
+      const result = await msalInstance.handleRedirectPromise();
       if (result?.account) {
         msalInstance.setActiveAccount(result.account);
         if (import.meta.env.DEV) {

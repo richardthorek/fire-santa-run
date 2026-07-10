@@ -163,12 +163,6 @@ export const msalConfig: Configuration = {
       logLevel: import.meta.env.DEV ? LogLevel.Info : LogLevel.Warning,
       piiLoggingEnabled: false, // NEVER enable PII logging in production
     },
-    
-    // Bridge timeouts for popup/iframe auth (MSAL v5 renamed these from
-    // windowHashTimeout/iframeHashTimeout; they now bound how long MSAL waits
-    // for a response from the redirect bridge over the BroadcastChannel API).
-    popupBridgeTimeout: 60000,
-    iframeBridgeTimeout: 6000,
 
     // Allow redirects to originate from iframe
     allowRedirectInIframe: false,
