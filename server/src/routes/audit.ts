@@ -6,7 +6,10 @@ const auditRouter = new Hono();
 // Logs are silently accepted; integration with Application Insights or
 // a real audit table can be added here if needed later.
 auditRouter.post('/batch', async (c) => {
-  const body = await c.req.json().catch(() => ({} as any));
+  interface AuditBatch {
+    logs?: unknown[];
+  }
+  const body = await c.req.json().catch((): AuditBatch => ({}));
   const logs = Array.isArray(body?.logs) ? body.logs : [];
 
   if (logs.length === 0) {
