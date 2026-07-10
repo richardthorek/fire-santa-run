@@ -159,7 +159,12 @@ claimRouter.post('/claim', async (c) => {
 
     // Set the user's brigadeId so BrigadeContext can load it automatically
     userEntity.brigadeId = brigadeId;
-    await usersClient.updateEntity(userEntity, 'Replace');
+    // partitionKey and rowKey are guaranteed to exist on retrieved entities
+    await usersClient.updateEntity({
+      ...userEntity,
+      partitionKey: userEntity.partitionKey!,
+      rowKey: userEntity.rowKey!,
+    }, 'Replace');
 
     console.log(`Brigade ${brigadeId} claimed by user: ${claimData.userId}`);
     return c.json({ brigade, membership }, 200);
