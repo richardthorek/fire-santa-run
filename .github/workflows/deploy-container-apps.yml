@@ -1,7 +1,7 @@
 name: Deploy to Azure Container Apps
 
-# Builds a single container image (React SPA + Hono API server) and deploys
-# it to Azure Container Apps.
+# Efficient CI/CD pipeline: test → check OIDC → deploy infrastructure (if changed)
+# → build & push image → seed secrets → deploy revision.
 #
 # Architecture:
 #   - The image is built from the root Dockerfile (multi-stage: client build,
@@ -20,17 +20,14 @@ name: Deploy to Azure Container Apps
 #
 # Optional GitHub secrets:
 #   - VITE_ENTRA_CLIENT_ID / VITE_ENTRA_TENANT_ID / VITE_ENTRA_AUTHORITY / VITE_ENTRA_REDIRECT_URI
-#   - GHCR_PULL_TOKEN : classic PAT with read:packages, only needed if the
-#       ghcr.io package is private (see infra/README.md — making the package
-#       public avoids needing this entirely).
+#   - STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_ID / SITE_ADMIN_USER_IDS
+#   - VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT / REALTIME_WS_SECRET
+#   - GHCR_PULL_TOKEN : classic PAT with read:packages (only if private package)
 #
 # Required GitHub variables (same environment):
-#   - AZURE_CONTAINER_APP_NAME : Container App name (from `infra/deploy.sh` output)
+#   - AZURE_CONTAINER_APP_NAME : Container App name
 #   - AZURE_RESOURCE_GROUP     : Resource group containing it
-#
-# Runtime environment variables (Storage, Stripe, VAPID, etc.) are seeded onto
-# the Container App by infra/seed-secrets.sh, not by this workflow — deploying
-# a new image never touches them.
+#   - AZURE_ENVIRONMENT        : dev or prod (inferred from resource group if not set)
 #
 # See infra/README.md for full setup instructions.
 
@@ -44,7 +41,59 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  REGISTRY: ghcr.io
+
 jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # DETECT CHANGES: determine what files changed to skip unnecessary steps
+  # ─────────────────────────────────────────────────────────────────────────
+  detect-changes:
+    runs-on: ubuntu-latest
+    name: Detect Changes
+    outputs:
+      iac-changed: ${{ steps.detect.outputs.iac-changed }}
+      code-changed: ${{ steps.detect.outputs.code-changed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed files
+        id: detect
+        run: |
+          # On pull requests, compare against the merge base; on pushes, compare against the previous commit
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+
+          # Default to assuming changes if we can't compute diff (first push, etc.)
+          if [[ -z "$BASE" ]] || [[ "$BASE" == "0000000000000000000000000000000000000000" ]]; then
+            echo "iac-changed=true" >> $GITHUB_OUTPUT
+            echo "code-changed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Detect IaC changes (Bicep, deploy scripts, parameters)
+          if git diff --name-only "$BASE"..HEAD | grep -qE '(infra/|Dockerfile)'; then
+            echo "iac-changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "iac-changed=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Detect code changes (everything except CI config and docs)
+          if git diff --name-only "$BASE"..HEAD | grep -qvE '(^\.github/|\.md$|\.github/|LICENSE)'; then
+            echo "code-changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "code-changed=false" >> $GITHUB_OUTPUT
+          fi
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # QUALITY: lint and unit tests (always run on PR/push)
+  # ─────────────────────────────────────────────────────────────────────────
   quality_checks:
     if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -61,11 +110,14 @@ jobs:
           node-version: '22.x'
           cache: 'npm'
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         run: npm ci
 
       - name: Lint
         run: npm run lint
+
+      - name: Type check
+        run: npx tsc -b
 
       - name: Test
         run: npm run test:coverage
@@ -73,6 +125,9 @@ jobs:
           VITE_DEV_MODE: 'true'
           VITE_MAPBOX_TOKEN: 'test-token'
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # E2E: Playwright tests (always run on PR/push)
+  # ─────────────────────────────────────────────────────────────────────────
   e2e:
     if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -109,49 +164,87 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  build_and_deploy:
-    needs: [quality_checks, e2e]
+  # ─────────────────────────────────────────────────────────────────────────
+  # DEPLOY: infrastructure + image + secrets (only on push to main or manual)
+  # ─────────────────────────────────────────────────────────────────────────
+  deploy:
+    needs: [quality_checks, e2e, detect-changes]
     if: |
       github.actor != 'dependabot[bot]' &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' ||
-       github.event_name == 'pull_request')
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    name: Build and Deploy to Container Apps
+    name: Deploy to Azure Container Apps
     environment: copilot
-    # Prevent concurrent deployments to the same Container App, which cause
-    # 409 Conflict errors from overlapping revision updates. New deployments
-    # queue rather than cancel in-progress ones so every commit is deployed
-    # in order.
     concurrency:
       group: deploy-container-apps-${{ github.ref }}
       cancel-in-progress: false
     env:
-      IMAGE_NAME: ghcr.io/${{ github.repository }}
       HAS_AZURE_OIDC: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_TENANT_ID != '' && secrets.AZURE_SUBSCRIPTION_ID != '' }}
-      HAS_APP_NAME: ${{ vars.AZURE_CONTAINER_APP_NAME != '' }}
-      HAS_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP != '' }}
+      HAS_APP_CONFIG: ${{ vars.AZURE_CONTAINER_APP_NAME != '' && vars.AZURE_RESOURCE_GROUP != '' }}
+      IAC_CHANGED: ${{ needs.detect-changes.outputs.iac-changed }}
+      CODE_CHANGED: ${{ needs.detect-changes.outputs.code-changed }}
     permissions:
       contents: read
-      pull-requests: write
       packages: write
       id-token: write
 
     steps:
       - uses: actions/checkout@v7
 
+      # ── Step 1: Validate Azure OIDC credentials (fail fast) ──────────────
+      - name: Validate Azure configuration
+        if: env.HAS_AZURE_OIDC != 'true' || env.HAS_APP_CONFIG != 'true'
+        run: |
+          echo "::error::Deployment configuration is incomplete."
+          echo "Missing in 'copilot' GitHub environment:"
+          [[ "${{ secrets.AZURE_CLIENT_ID }}" == "" ]] && echo "  - Secret: AZURE_CLIENT_ID"
+          [[ "${{ secrets.AZURE_TENANT_ID }}" == "" ]] && echo "  - Secret: AZURE_TENANT_ID"
+          [[ "${{ secrets.AZURE_SUBSCRIPTION_ID }}" == "" ]] && echo "  - Secret: AZURE_SUBSCRIPTION_ID"
+          [[ "${{ vars.AZURE_CONTAINER_APP_NAME }}" == "" ]] && echo "  - Variable: AZURE_CONTAINER_APP_NAME"
+          [[ "${{ vars.AZURE_RESOURCE_GROUP }}" == "" ]] && echo "  - Variable: AZURE_RESOURCE_GROUP"
+          echo "See infra/README.md for setup instructions."
+          exit 1
+
+      # ── Step 2: Single Azure login (reused for all Azure operations) ────
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # ── Step 3: Deploy infrastructure (only if Bicep/Dockerfile changed) ─
+      - name: Deploy infrastructure (Bicep)
+        if: env.IAC_CHANGED == 'true'
+        run: |
+          echo "🚀 Infrastructure changes detected. Deploying Bicep template..."
+
+          # Extract environment and suffix from resource group name
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+          ENV=$(echo "$RG" | grep -oE 'dev|prod' | head -1)
+          SUFFIX=$(echo "$RG" | sed 's/.*-\([a-z0-9]*\)$/\1/')
+
+          ./infra/deploy.sh --env "$ENV" --suffix "$SUFFIX"
+
+          echo "✅ Infrastructure deployment complete."
+
+      - name: Skip infrastructure deployment
+        if: env.IAC_CHANGED != 'true'
+        run: echo "⏭️  No infrastructure changes detected. Skipping Bicep deployment."
+
+      # ── Step 4: Build and push Docker image ─────────────────────────────
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Builds both the React SPA (Vite, VITE_* baked in as build args) and
-      # the Hono server in one multi-stage image — see /Dockerfile.
-      - name: Build and push image
+      - name: Build and push Docker image
+        if: env.CODE_CHANGED == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -168,24 +261,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Azure login (OIDC)
-        if: env.HAS_AZURE_OIDC == 'true'
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Skip image build (no code changes)
+        if: env.CODE_CHANGED != 'true'
+        run: echo "⏭️  No code changes detected. Skipping Docker build and image deployment."
 
+      # ── Step 5: Update Container App image revision ──────────────────────
       - name: Deploy image to Container Apps
-        if: env.HAS_AZURE_OIDC == 'true' && env.HAS_APP_NAME == 'true' && env.HAS_RESOURCE_GROUP == 'true'
+        if: env.CODE_CHANGED == 'true'
         run: |
+          echo "📦 Deploying image to Container Apps..."
           az containerapp update \
             --name "${{ vars.AZURE_CONTAINER_APP_NAME }}" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --image "${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "✅ Image deployed."
 
+      # ── Step 6: Seed secrets to Container App ────────────────────────────
       - name: Seed Container App environment variables
-        if: env.HAS_AZURE_OIDC == 'true' && env.HAS_APP_NAME == 'true' && env.HAS_RESOURCE_GROUP == 'true'
+        if: env.IAC_CHANGED == 'true' || env.CODE_CHANGED == 'true'
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
@@ -196,19 +289,32 @@ jobs:
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
           REALTIME_WS_SECRET: ${{ secrets.REALTIME_WS_SECRET }}
         run: |
-          # Detect environment from resource group name (dev or prod)
+          echo "🔐 Seeding secrets to Container App..."
+
+          # Extract environment and suffix from resource group name
           RG="${{ vars.AZURE_RESOURCE_GROUP }}"
           ENV=$(echo "$RG" | grep -oE 'dev|prod' | head -1)
           SUFFIX=$(echo "$RG" | sed 's/.*-\([a-z0-9]*\)$/\1/')
 
-          echo "Seeding secrets to Container App ($ENV environment, suffix: $SUFFIX)..."
           ./infra/seed-secrets.sh --env "$ENV" --suffix "$SUFFIX"
 
-      - name: Fail if deployment config is missing
-        if: env.HAS_AZURE_OIDC != 'true' || env.HAS_APP_NAME != 'true' || env.HAS_RESOURCE_GROUP != 'true'
+          echo "✅ Secrets seeded."
+
+      # ── Step 7: Summary ──────────────────────────────────────────────────
+      - name: Deployment summary
+        if: always()
         run: |
-          echo "::error::Deployment configuration is incomplete. The following must be set in the 'copilot' GitHub environment:"
-          echo "  - Secrets:   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID (OIDC federated credentials)"
-          echo "  - Variables: AZURE_CONTAINER_APP_NAME, AZURE_RESOURCE_GROUP"
-          echo "See infra/README.md for setup instructions."
-          exit 1
+          echo "📊 Deployment Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Infrastructure changed: ${{ env.IAC_CHANGED }}"
+          echo "Code changed:           ${{ env.CODE_CHANGED }}"
+          echo "Azure config valid:     ${{ env.HAS_AZURE_OIDC }}"
+          echo ""
+          echo "Deployed to:"
+          echo "  App:     ${{ vars.AZURE_CONTAINER_APP_NAME }}"
+          echo "  RG:      ${{ vars.AZURE_RESOURCE_GROUP }}"
+          [[ "${{ env.IAC_CHANGED }}" == "true" ]] && echo "  Status:  ✅ Infrastructure + Image deployed"
+          [[ "${{ env.IAC_CHANGED }}" != "true" && "${{ env.CODE_CHANGED }}" == "true" ]] && echo "  Status:  ✅ Image deployed"
+          [[ "${{ env.CODE_CHANGED }}" != "true" ]] && echo "  Status:  ⏭️  No changes to deploy"
+          echo ""
+          echo "Monitor: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
