@@ -5,11 +5,12 @@
       "Bash(git push *)",
       "Bash(az ad app federated-credential create --id de0383f9-6164-48a9-a667-3217bdbf6e35 --parameters '{ *)",
       "Bash(az containerapp *)",
-      "Bash(STRIPE_WEBHOOK_SECRET=whsec_1pVLDSTDxhX0qfPzHV8cp8nB89asBmMk ./infra/seed-secrets.sh --env dev --suffix dev003)",
       "Bash(git add *)",
       "Bash(git commit -m 'chore: automate secret seeding in CI/CD workflow *)",
       "Bash(curl -s __TRACKED_VAR__/api/health)",
-      "Bash(git commit -m 'refactor: optimize deployment workflow for efficiency and clarity *)"
+      "Bash(git commit -m '*)",
+      "Bash(git commit -m 'fix: explicitly serve manifest.json and registerSW.js before SPA fallback *)",
+      "Bash(git commit -m 'fix: remove manual CodeQL step, use GitHub default security setup *)"
     ],
     "deny": [
       "Read(package-lock.json)",

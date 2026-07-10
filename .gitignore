@@ -84,3 +84,4 @@ server/dist
 deploy/
 appservice-deploy.zip
 .claude/settings.json
+.claude/settings.json
