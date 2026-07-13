@@ -111,6 +111,9 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   useEffect(() => {
     if (mode === 'edit' && routeId) {
       if (loadedRouteIdRef.current === routeId) return;
+      // Don't load the route until brigade context finishes loading to ensure
+      // getRoute has access to a properly initialized user brigadeId
+      if (brigadeLoading) return;
       setIsLoading(true);
       getRoute(routeId).then(route => {
         if (route) {
@@ -127,7 +130,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
       setInitialRoute(fresh);
       resetRoute(fresh);
     }
-  }, [mode, routeId, getRoute, user, navigate, resetRoute, initialRoute]);
+  }, [mode, routeId, getRoute, user, navigate, resetRoute, initialRoute, brigadeLoading]);
 
   const handleMapClick = useCallback(async (coordinates: [number, number]) => {
     try {
