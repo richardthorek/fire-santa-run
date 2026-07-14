@@ -13,7 +13,7 @@ test.describe('Brigade discovery', () => {
     ).toBeVisible();
 
     // Seeded claimed brigade card
-    const card = page.getByRole('link', { name: /Griffith Rural Fire Brigade/i });
+    const card = page.getByRole('link', { name: /Riverside Fire Brigade/i });
     await expect(card).toBeVisible();
 
     // Search narrows results
@@ -21,16 +21,16 @@ test.describe('Brigade discovery', () => {
     await expect(page.getByText(/No brigades match your search/i)).toBeVisible();
 
     // Clearing the search restores the card
-    await page.getByPlaceholder(/Search by name or location/i).fill('griffith');
+    await page.getByPlaceholder(/Search by name or location/i).fill("riverside");
     await expect(card).toBeVisible();
   });
 
   test('a brigade card links to its public profile', async ({ page }) => {
     await page.goto('/brigades');
-    await page.getByRole('link', { name: /Griffith Rural Fire Brigade/i }).click();
-    await expect(page).toHaveURL(/\/brigade\/griffith-rfs$/);
+    await page.getByRole('link', { name: /Riverside Fire Brigade/i }).click();
+    await expect(page).toHaveURL(/\/brigade\/riverside-brigade$/);
     await expect(
-      page.getByRole('heading', { name: /Griffith Rural Fire Brigade/i }),
+      page.getByRole('heading', { name: /Riverside Fire Brigade/i }),
     ).toBeVisible();
   });
 });

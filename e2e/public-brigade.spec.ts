@@ -6,10 +6,10 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('Public brigade page', () => {
   test('shows brigade identity and an upcoming run linking to the tracker', async ({ page }) => {
-    await page.goto('/brigade/griffith-rfs');
+    await page.goto('/brigade/riverside-brigade');
 
     await expect(
-      page.getByRole('heading', { name: /Griffith Rural Fire Brigade/i }),
+      page.getByRole('heading', { name: /Riverside Fire Brigade/i }),
     ).toBeVisible();
 
     // The seeded published route appears under upcoming/live runs.
