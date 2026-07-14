@@ -13,6 +13,8 @@ infra/
 ├── seed-secrets.sh             # Idempotent Container App env var seeder (re-runnable)
 ├── scale-season.sh             # Flip minReplicas for the December season / off-season
 ├── .env.example                # Template for infra/.env.<env> secret files (gitignored)
+├── backup/
+│   └── backup-tables.sh        # Export every Table to the `backups` blob container
 ├── modules/
 │   ├── containerapps.bicep     # Container Apps environment + app (hosting + API + realtime WS)
 │   ├── storage.bicep           # Azure Table Storage (data persistence)
@@ -23,8 +25,42 @@ infra/
 
 Dockerfile                       # (repo root) multi-stage build for the container image
 .github/workflows/
-└── deploy-container-apps.yml    # Builds the image, pushes to ghcr.io, deploys via az CLI
+├── deploy-container-apps.yml    # Builds the image, pushes to ghcr.io, deploys via az CLI
+└── backup-tables.yml            # Nightly Table export to blob backup (cron 15:00 UTC)
 ```
+
+---
+
+## Backups & data protection
+
+Azure Table Storage has **no soft-delete and no point-in-time restore** — a bad
+migration or an accidental delete is unrecoverable without an external copy. So:
+
+- **Nightly export.** `.github/workflows/backup-tables.yml` runs
+  `infra/backup/backup-tables.sh` at 15:00 UTC (~02:00 AEDT), writing every
+  table's entities as JSON to the storage account's `backups` blob container,
+  timestamped `YYYY/MM/DD/HHMMSSZ/`. Run it on demand from the Actions tab, or
+  locally with `RESOURCE_GROUP=<rg> infra/backup/backup-tables.sh`.
+- **Blob soft-delete + versioning** (30 days) on the storage account protect the
+  backup blobs themselves against an accidental overwrite or delete
+  (`modules/storage.bicep`).
+- **Restore is manual and deliberate:** download the JSON for a table and replay
+  its entities. There is no auto-restore — that would risk clobbering good data.
+- **Retention of the exports** is governed by blob lifecycle/soft-delete; the
+  raw table data itself currently has no lifecycle policy (volunteer GPS trails
+  and viewer analytics persist indefinitely — a retention decision to revisit
+  alongside the privacy policy).
+
+## Deploy freeze (December)
+
+Every Santa run happens on a December evening and production runs a **single
+realtime replica** — a revision cutover drops every live viewer's WebSocket. The
+CI/CD pipeline therefore **blocks auto-deploy on push during December**
+(`freeze-check` job). Override for an intentional fix:
+
+- put `[deploy-anyway]` in the commit message, **or**
+- run the workflow manually with `force_deploy=true`, **or**
+- set repo variable `DEPLOY_FREEZE_OVERRIDE=true` for the duration.
 
 ---
 

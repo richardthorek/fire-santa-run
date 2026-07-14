@@ -48,6 +48,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Deploy even during the December freeze window'
+        type: boolean
+        default: false
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
@@ -175,10 +180,43 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   # DEPLOY: infrastructure + image + secrets (only on push to main or manual)
   # ─────────────────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────
+  # FREEZE CHECK: every Santa run happens on a December evening, and production
+  # is a single realtime replica — a revision cutover drops every live viewer's
+  # WebSocket. So during December, block auto-deploy on push. Override with a
+  # '[deploy-anyway]' commit, a workflow_dispatch force_deploy=true run, or repo
+  # variable DEPLOY_FREEZE_OVERRIDE=true.
+  # ─────────────────────────────────────────────────────────────────────────
+  freeze-check:
+    runs-on: ubuntu-latest
+    name: December deploy freeze
+    outputs:
+      frozen: ${{ steps.check.outputs.frozen }}
+    steps:
+      - name: Evaluate freeze window
+        id: check
+        run: |
+          MONTH=$(date -u +%m)
+          OVERRIDE="false"
+          [[ "${{ github.event.inputs.force_deploy }}" == "true" ]] && OVERRIDE="true"
+          [[ "${{ vars.DEPLOY_FREEZE_OVERRIDE }}" == "true" ]] && OVERRIDE="true"
+          if printf '%s' "${{ github.event.head_commit.message }}" | grep -q '\[deploy-anyway\]'; then OVERRIDE="true"; fi
+
+          FROZEN="false"
+          if [[ "$MONTH" == "12" && "$OVERRIDE" != "true" ]]; then FROZEN="true"; fi
+          echo "frozen=$FROZEN" >> "$GITHUB_OUTPUT"
+
+          if [[ "$FROZEN" == "true" ]]; then
+            echo "::warning::December deploy freeze active — skipping deploy to protect live Santa runs (single-replica realtime hub). Override with a '[deploy-anyway]' commit, workflow_dispatch force_deploy=true, or repo variable DEPLOY_FREEZE_OVERRIDE=true."
+          else
+            echo "Deploy freeze not active (month=$MONTH, override=$OVERRIDE)."
+          fi
+
   deploy:
-    needs: [quality_checks, e2e, detect-changes]
+    needs: [quality_checks, e2e, detect-changes, freeze-check]
     if: |
       github.actor != 'dependabot[bot]' &&
+      needs.freeze-check.outputs.frozen != 'true' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     name: Deploy to Azure Container Apps

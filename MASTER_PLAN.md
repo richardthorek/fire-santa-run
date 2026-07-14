@@ -150,6 +150,20 @@ is the audience and the marketing channel.
   viewer counts it becomes the dominant cost and the trigger for item 5 above.
 - **Dev and prod are fully separate deployments** matching Stripe test vs live
   mode, so test subscriptions never touch real brigade data.
+- **December deploy freeze.** Because a revision cutover drops every live
+  viewer's WebSocket on the single realtime replica, CI blocks auto-deploy on
+  push during December (override with a `[deploy-anyway]` commit, manual
+  `force_deploy`, or `DEPLOY_FREEZE_OVERRIDE`). See `infra/README.md`.
+- **Nightly backups.** Table Storage has no soft-delete or point-in-time
+  restore, so a scheduled job exports every table to the `backups` blob
+  container each night; blob soft-delete + versioning protect the exports. Raw
+  table data still has no retention policy — a decision to revisit with the
+  privacy policy.
+- **Run interruptions are handled live.** The navigator can pause the run
+  (viewers see "back shortly") or emergency-stop it if the truck is called away
+  (viewers see an explicit message; pending "Santa's starting" pushes are
+  suppressed). The realtime hub replays the last position/status on connect, so
+  a reconnect or redeploy no longer leaves a frozen or blank map.
 
 ## Open decisions
 

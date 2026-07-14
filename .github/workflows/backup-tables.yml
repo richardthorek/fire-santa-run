@@ -1,0 +1,46 @@
+name: Nightly Table Backup
+
+# Azure Table Storage has no soft-delete or point-in-time restore, so a nightly
+# export of every table to the storage account's `backups` blob container is the
+# only recovery path if data is lost. Blob soft-delete + versioning (Bicep)
+# protect the exports themselves. Restore is manual and deliberate — see
+# infra/backup/backup-tables.sh.
+
+on:
+  schedule:
+    # 15:00 UTC daily ≈ 02:00 AEDT — off-peak for Australian brigades.
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    name: Export tables to blob backup
+    environment: copilot
+    env:
+      HAS_AZURE_OIDC: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_TENANT_ID != '' && secrets.AZURE_SUBSCRIPTION_ID != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Azure configuration
+        if: env.HAS_AZURE_OIDC != 'true' || vars.AZURE_RESOURCE_GROUP == ''
+        run: |
+          echo "::error::Backup configuration is incomplete — need AZURE_CLIENT_ID/TENANT_ID/SUBSCRIPTION_ID secrets and the AZURE_RESOURCE_GROUP variable in the 'copilot' environment."
+          exit 1
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run table backup
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+        run: bash infra/backup/backup-tables.sh
