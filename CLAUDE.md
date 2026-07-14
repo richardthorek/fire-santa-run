@@ -4,7 +4,7 @@ Guidance for Claude Code working in this repo. Keep changes minimal, surgical, a
 
 ## What this is
 
-React 19 + TypeScript PWA for Australian Rural Fire Service brigades to plan and track Santa runs with real-time GPS. Public viewers follow Santa live (no login); brigade members plan routes and broadcast location.
+React 19 + TypeScript PWA for Australian fire brigades and community groups to plan and track Santa runs with real-time GPS. Public viewers follow Santa live (no login); brigade members plan routes and broadcast location.
 
 ## Commands
 

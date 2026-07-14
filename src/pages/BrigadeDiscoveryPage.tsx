@@ -1,5 +1,5 @@
 /**
- * Brigade Discovery Page — public search and browse for all RFS brigades.
+ * Brigade Discovery Page — public search and browse for all brigades.
  *
  * Accessible at /brigades (no auth required). Lets members of the public find
  * their local brigade, follow their Santa run, or prompt unclaimed brigades to

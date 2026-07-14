@@ -1,4 +1,4 @@
-# RFS Dataset Integration Examples
+# Fire Station Dataset Integration Examples
 
 This document provides practical code examples for integrating the RFS station locations dataset into various parts of the Fire Santa Run application.
 

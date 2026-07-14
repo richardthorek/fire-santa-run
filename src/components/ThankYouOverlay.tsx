@@ -59,7 +59,7 @@ export function ThankYouOverlay({ route }: ThankYouOverlayProps) {
           maxWidth: '480px',
           width: '100%',
           boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
-          border: '3px solid var(--rfs-yellow)',
+          border: '3px solid var(--summer-gold)',
           textAlign: 'center',
         }}
       >
@@ -102,7 +102,7 @@ export function ThankYouOverlay({ route }: ThankYouOverlayProps) {
         <div
           style={{
             height: '2px',
-            background: 'linear-gradient(90deg, var(--santa-red), var(--rfs-yellow), var(--christmas-green))',
+            background: 'linear-gradient(90deg, var(--santa-red), var(--summer-gold), var(--christmas-green))',
             borderRadius: '2px',
             marginBottom: '1.5rem',
           }}

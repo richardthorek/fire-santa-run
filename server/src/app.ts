@@ -6,7 +6,7 @@ import { membersRouter } from './routes/members.js';
 import { invitationsRouter } from './routes/invitations.js';
 import { negotiateRouter } from './routes/negotiate.js';
 import { broadcastRouter } from './routes/broadcast.js';
-import { rfsStationsRouter } from './routes/rfs-stations.js';
+import { fireStationsRouter } from './routes/fire-stations.js';
 import { verificationRouter } from './routes/verification.js';
 import { adminVerificationRouter } from './routes/admin-verification.js';
 import { claimRouter } from './routes/claim.js';
@@ -73,7 +73,7 @@ export function createApp() {
   app.route('/api/invitations', invitationsRouter);
   app.route('/api', negotiateRouter);
   app.route('/api', broadcastRouter);
-  app.route('/api', rfsStationsRouter);
+  app.route('/api', fireStationsRouter);
   app.route('/api/verification', verificationRouter);
   app.route('/api/site-admin/verification', adminVerificationRouter);
   app.route('/api/analytics', analyticsRouter);

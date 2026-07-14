@@ -47,7 +47,7 @@ function entityToBrigade(entity: any) {
     slug: entity.slug,
     name: entity.name,
     location: entity.location,
-    rfsStationId: entity.rfsStationId,
+    fireStationId: entity.fireStationId,
     contact: entity.contact ? JSON.parse(entity.contact) : {},
     contactEmail: entity.contactEmail,
     contactPhone: entity.contactPhone,
@@ -78,7 +78,7 @@ function brigadeToEntity(brigade: any) {
     slug: brigade.slug,
     name: brigade.name,
     location: brigade.location || '',
-    rfsStationId: brigade.rfsStationId || '',
+    fireStationId: brigade.fireStationId || '',
     contact: brigade.contact ? JSON.stringify(brigade.contact) : JSON.stringify({}),
     contactEmail: brigade.contact?.email || brigade.contactEmail || '',
     contactPhone: brigade.contact?.phone || brigade.contactPhone || '',
@@ -308,26 +308,26 @@ app.http('brigades-list', {
   handler: getBrigades
 });
 
-app.http('brigades-get-by-rfs', {
+app.http('brigades-get-by-station', {
   methods: ['GET'],
   authLevel: 'anonymous',
-  route: 'brigades/rfs/{rfsStationId}',
+  route: 'brigades/by-station/{fireStationId}',
   handler: async (request, context) => {
     try {
-      const rfsStationId = request.params.rfsStationId;
-      if (!rfsStationId) {
-        return { status: 400, jsonBody: { error: 'Missing required parameter: rfsStationId' } };
+      const fireStationId = request.params.fireStationId;
+      if (!fireStationId) {
+        return { status: 400, jsonBody: { error: 'Missing required parameter: fireStationId' } };
       }
 
       const client = await resolveBrigadesClient();
-      const entities = client.listEntities({ queryOptions: { filter: `rfsStationId eq '${escapeODataValue(rfsStationId)}'` } });
+      const entities = client.listEntities({ queryOptions: { filter: `fireStationId eq '${escapeODataValue(fireStationId)}'` } });
       for await (const entity of entities) {
         return { status: 200, jsonBody: entityToBrigade(entity) };
       }
       return { status: 404, jsonBody: { error: 'Brigade not found' } };
     } catch (error: any) {
-      context.error('Error fetching brigade by RFS ID:', error);
-      return { status: 500, jsonBody: { error: 'Failed to fetch brigade by RFS ID' } };
+      context.error('Error fetching brigade by station ID:', error);
+      return { status: 500, jsonBody: { error: 'Failed to fetch brigade by station ID' } };
     }
   }
 });
@@ -340,7 +340,7 @@ function toPublicBrigade(entity: any) {
     slug: b.slug,
     name: b.name,
     location: b.location,
-    rfsStationId: b.rfsStationId,
+    fireStationId: b.fireStationId,
     logo: b.logo,
     themeColor: b.themeColor,
     contact: b.contact,

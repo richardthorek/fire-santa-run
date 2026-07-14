@@ -209,7 +209,7 @@ export class LocalStorageAdapter implements IStorageAdapter {
     return stored ? JSON.parse(stored) : null;
   }
 
-  async getBrigadeByRFSId(rfsStationId: string): Promise<Brigade | null> {
+  async getBrigadeByStationId(fireStationId: string): Promise<Brigade | null> {
     // Since localStorage doesn't support complex queries, we need to iterate through all brigades
     // In production with Azure Table Storage, this would be an efficient query
     const allKeys = Object.keys(localStorage);
@@ -219,7 +219,7 @@ export class LocalStorageAdapter implements IStorageAdapter {
       const stored = localStorage.getItem(key);
       if (stored) {
         const brigade: Brigade = JSON.parse(stored);
-        if (brigade.rfsStationId === rfsStationId) {
+        if (brigade.fireStationId === fireStationId) {
           return brigade;
         }
       }

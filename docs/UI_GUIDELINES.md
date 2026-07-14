@@ -31,7 +31,7 @@ Key brand tokens — always reference the variable:
 - `--summer-gold` `#FFA726`; for **text** use the AA-safe
   `--summer-gold-dark` `#F57C00` / `--summer-gold-darker` `#E65100`
 - `--christmas-green` `#43A047`, `--eucalyptus-green` `#66BB6A`
-- `--santa-red` `#D62828`, `--rfs-yellow` `#FFE600` (high-vis accent),
+- `--santa-red` `#D62828`, `--summer-gold` `#FFE600` (high-vis accent),
   `--candy-white` `#FFFFFF`
 - Neutrals `--neutral-50 … --neutral-900`
 

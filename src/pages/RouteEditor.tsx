@@ -344,7 +344,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         borderRadius: '16px',
         padding: '1rem 1.5rem',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-        border: '2px solid var(--rfs-yellow)',
+        border: '2px solid var(--summer-gold)',
         zIndex: 1000,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>

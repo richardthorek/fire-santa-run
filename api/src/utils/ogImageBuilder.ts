@@ -180,7 +180,7 @@ export function buildOGImageSVG(data: OGImageData): string {
   <rect x="30" y="60" width="540" height="90" rx="24" fill="url(#bannerGrad)"/>
   <rect x="30" y="120" width="540" height="30" fill="url(#bannerGrad)"/>
 
-  <!-- RFS yellow accent line -->
+  <!-- summer-gold accent line -->
   <rect x="30" y="145" width="540" height="6" fill="#FFD600"/>
 
   <!-- Banner emoji + "Fire Santa Run" -->
@@ -200,8 +200,8 @@ export function buildOGImageSVG(data: OGImageData): string {
   <rect x="170" y="330" width="260" height="42" rx="21" fill="#D32F2F"/>
   <text x="300" y="357" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="white" text-anchor="middle">📅 ${safeDate}</text>
 
-  <!-- RFS tagline -->
-  <text x="300" y="430" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#455A64" text-anchor="middle">Rural Fire Service</text>
+  <!-- tagline -->
+  <text x="300" y="430" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#455A64" text-anchor="middle">Community Santa Run</text>
   <text x="300" y="458" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#78909C" text-anchor="middle">Christmas Community Service 🔥🎄</text>
 
   <!-- Call to action -->

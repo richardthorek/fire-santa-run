@@ -645,7 +645,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               padding: 'calc(clamp(0.75rem, 2.5vw, 1.25rem) + env(safe-area-inset-top, 0px)) clamp(1rem, 3vw, 1.5rem) clamp(0.75rem, 2.5vw, 1.25rem)',
               borderRadius: '0 0 25px 25px',
               boxShadow: 'var(--ui-shadow)',
-              borderBottom: '4px solid var(--rfs-yellow)', // RFS accent
+              borderBottom: '4px solid var(--summer-gold)', // summer-gold accent
               zIndex: 1000,
             }}
           >
@@ -684,7 +684,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                 <span
                   style={{
                     padding: '0.25rem 0.6rem',
-                    backgroundColor: 'var(--rfs-yellow)',
+                    backgroundColor: 'var(--summer-gold)',
                     color: 'var(--neutral-900)',
                     borderRadius: '999px',
                     fontSize: '0.75rem',
@@ -719,7 +719,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                     width: '8px',
                     height: '8px',
                     borderRadius: '50%',
-                    backgroundColor: 'var(--rfs-yellow)',
+                    backgroundColor: 'var(--summer-gold)',
                     animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                   }} />
                   <span>LIVE</span>
@@ -757,7 +757,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               <div
                 className="live-pulse"
                 style={{
-                  backgroundColor: effectiveConnected ? 'var(--rfs-yellow)' :
+                  backgroundColor: effectiveConnected ? 'var(--summer-gold)' :
                                    isConnecting ? 'var(--summer-gold)' :
                                    'var(--fire-red)',
                 }}
@@ -817,7 +817,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                 WebkitBackdropFilter: 'blur(12px)',
                 borderRadius: 'var(--border-radius)',
                 border: '1px solid rgba(0, 0, 0, 0.06)',
-                borderTop: '3px solid var(--rfs-yellow)',
+                borderTop: '3px solid var(--summer-gold)',
                 boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
                 fontFamily: 'var(--font-body)',
                 overflow: 'hidden',
@@ -939,7 +939,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                     padding: '1rem',
                     backgroundColor: 'rgba(255, 230, 0, 0.1)',
                     borderRadius: 'var(--border-radius-xs)',
-                    borderLeft: '4px solid var(--rfs-yellow)',
+                    borderLeft: '4px solid var(--summer-gold)',
                   }}>
                     <p style={{ 
                       margin: 0, 
@@ -1008,7 +1008,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                   padding: '0.75rem 1rem',
                   backgroundColor: 'rgba(255, 230, 0, 0.15)',
                   borderRadius: 'var(--border-radius-xs)',
-                  borderLeft: '4px solid var(--rfs-yellow)',
+                  borderLeft: '4px solid var(--summer-gold)',
                   fontSize: '0.875rem',
                   color: 'var(--neutral-900)',
                 }}

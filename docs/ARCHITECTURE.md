@@ -6,7 +6,7 @@ visual/design rules see [`UI_GUIDELINES.md`](UI_GUIDELINES.md).
 
 ## What it is
 
-A React 19 + TypeScript PWA that lets Rural Fire Service brigades (and community
+A React 19 + TypeScript PWA that lets fire brigades (and community
 groups worldwide) plan and broadcast Christmas "Santa runs" with real-time GPS,
 while the public follows Santa live with no login. Monetised with a per-brigade
 Stripe subscription; public live tracking is always free.

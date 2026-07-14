@@ -1,12 +1,12 @@
 # Fire Santa Run 🎅🚒
 
-A real-time Santa tracking web application for Australian Rural Fire Service (RFS) brigades to plan, publish, and track Santa runs through their communities.
+A real-time Santa tracking web application for Australian fire brigades and community groups to plan, publish, and track Santa runs through their communities.
 
 > Deployment model: production hosting is **Azure Container Apps** (Consumption, scale-to-zero) running a single container image, with Bicep IaC in `infra/`. Both the earlier Azure Static Web Apps and Azure App Service deployment models are retired — see [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and [`infra/README.md`](./infra/README.md).
 
 ## Overview
 
-This application enables RFS brigades to:
+This application enables fire brigades to:
 - 📍 **Plan routes** on interactive maps with waypoint management
 - 🔗 **Generate shareable links** with QR codes for community distribution
 - 📱 **Broadcast live GPS location** for public real-time tracking
@@ -196,7 +196,7 @@ interface Brigade {
   slug: string;
   name: string;
   location: string;
-  rfsStationId?: number;
+  fireStationId?: number;
   logo?: string;
   themeColor?: string;
   allowedDomains: string[];
@@ -433,13 +433,13 @@ This project is open source and available under the MIT License.
 
 ## Acknowledgments
 
-- Australian Rural Fire Service brigades for inspiration
+- Australian fire brigades and community groups for inspiration
 - Mapbox for mapping platform
 - React team for the framework
 - All contributors and supporters
 
 ---
 
-**Built with ❤️ for Australian Rural Fire Service brigades**
+**Built with ❤️ for Australian fire brigades and community groups**
 
 🎅 *Bringing Christmas joy to communities across Australia* 🚒

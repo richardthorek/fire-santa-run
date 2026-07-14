@@ -1,14 +1,14 @@
 /**
  * Brigade Claiming Page
  * 
- * Allows users to claim unclaimed brigades from the RFS dataset.
+ * Allows users to claim unclaimed brigades from the fire station dataset.
  * Requires .gov.au email for immediate claiming or verification request for others.
  */
 
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUserProfile } from '../hooks/useUserProfile';
-import { searchStationsByName, getStationsByState } from '../utils/rfsData';
+import { searchStationsByName, getStationsByState } from '../utils/fireStationData';
 import { storageAdapter } from '../storage';
 import { MembershipService } from '../services/membershipService';
 import { HttpStorageAdapter } from '../storage/http';
@@ -17,7 +17,7 @@ import { isGovernmentEmail } from '../utils/emailValidation';
 import { logBrigadeClaimed } from '../utils/auditLog';
 import { COLORS } from '../utils/constants';
 import { AppLayout } from '../components';
-import type { RFSStation } from '../types/rfs';
+import type { FireStation } from '../types/fireStation';
 
 const membershipService = new MembershipService(storageAdapter);
 
@@ -31,7 +31,7 @@ export function BrigadeClaimingPage() {
   const { user, refreshProfile } = useUserProfile();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedState, setSelectedState] = useState('');
-  const [stations, setStations] = useState<RFSStation[]>([]);
+  const [stations, setStations] = useState<FireStation[]>([]);
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +73,7 @@ export function BrigadeClaimingPage() {
   };
 
   // Claim a brigade
-  const handleClaimBrigade = async (station: RFSStation) => {
+  const handleClaimBrigade = async (station: FireStation) => {
     if (!user) {
       setError('You must be logged in to claim a brigade');
       return;
@@ -84,10 +84,10 @@ export function BrigadeClaimingPage() {
 
     try {
       // Check if brigade already exists
-      let brigade = await storageAdapter.getBrigadeByRFSId(station.id.toString());
+      let brigade = await storageAdapter.getBrigadeByStationId(station.id.toString());
 
       if (!brigade) {
-        // Create new brigade from RFS station
+        // Create new brigade from fire station
         brigade = {
           id: self.crypto.randomUUID(),
           slug: station.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
@@ -96,7 +96,7 @@ export function BrigadeClaimingPage() {
           contact: {
             email: user.email,
           },
-          rfsStationId: station.id.toString(),
+          fireStationId: station.id.toString(),
           isClaimed: false,
           requireManualApproval: !hasGovEmail, // Auto-approve for .gov.au emails
           allowedDomains: [],
@@ -411,8 +411,8 @@ export function BrigadeClaimingPage() {
 
 // Helper component for brigade cards
 interface BrigadeCardProps {
-  station: RFSStation;
-  onClaim: (station: RFSStation) => void;
+  station: FireStation;
+  onClaim: (station: FireStation) => void;
   claiming: boolean;
 }
 
@@ -422,7 +422,7 @@ function BrigadeCard({ station, onClaim, claiming }: BrigadeCardProps) {
   useEffect(() => {
     const checkBrigade = async () => {
       try {
-        const brigade = await storageAdapter.getBrigadeByRFSId(station.id.toString());
+        const brigade = await storageAdapter.getBrigadeByStationId(station.id.toString());
         setBrigadeStatus(brigade?.isClaimed ? 'claimed' : 'unclaimed');
       } catch (err) {
         console.error('Failed to check brigade status:', err);

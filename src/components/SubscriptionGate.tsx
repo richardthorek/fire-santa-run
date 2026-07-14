@@ -70,7 +70,7 @@ export function SubscriptionGate({
           width: '100%',
           textAlign: 'center',
           boxShadow: '0 12px 40px rgba(0, 0, 0, 0.25)',
-          border: '4px solid var(--rfs-yellow)',
+          border: '4px solid var(--summer-gold)',
         }}
       >
         <div style={{ fontSize: '64px', lineHeight: 1, marginBottom: '0.75rem' }} aria-hidden="true">

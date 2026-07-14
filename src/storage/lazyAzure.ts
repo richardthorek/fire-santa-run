@@ -57,7 +57,7 @@ export class LazyAzureStorageAdapter implements IStorageAdapter {
   // Brigades
   getBrigades = () => this.load().then(a => a.getBrigades());
   getBrigade = (brigadeId: string) => this.load().then(a => a.getBrigade(brigadeId));
-  getBrigadeByRFSId = (rfsStationId: string) => this.load().then(a => a.getBrigadeByRFSId(rfsStationId));
+  getBrigadeByStationId = (fireStationId: string) => this.load().then(a => a.getBrigadeByStationId(fireStationId));
   getBrigadeBySlug = (slug: string) => this.load().then(a => a.getBrigadeBySlug(slug));
   saveBrigade = (brigade: Brigade) => this.load().then(a => a.saveBrigade(brigade));
 

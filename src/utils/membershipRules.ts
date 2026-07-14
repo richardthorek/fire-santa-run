@@ -33,7 +33,7 @@ export interface ValidationResult {
  * @example
  * // Pathway 1: .gov.au email (auto-verified)
  * canBecomeAdmin(
- *   { email: 'john@rfs.nsw.gov.au', ... },
+ *   { email: 'john@fire.example.gov.au', ... },
  *   'brigade-1'
  * )
  * // { valid: true, method: 'auto-verified' }

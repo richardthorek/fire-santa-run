@@ -16,7 +16,7 @@ the next move.
 Make the community Santa run — a fire brigade or community group taking Santa
 around town at Christmas — effortless to organise and magical to follow. The
 truck moves; families watch Santa cross the map in real time on any phone, with
-no app and no login. Born in Australia (RFS brigades on fire trucks under the
+no app and no login. Born in Australia (fire brigades on fire trucks under the
 summer sun), built for Santa runs everywhere.
 
 Two users, weighted very differently on the night:

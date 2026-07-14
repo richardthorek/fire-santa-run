@@ -24,8 +24,6 @@
   --gold-accent:      var(--summer-gold);
   --summer-gold-darker: var(--summer-gold-dark);
   --candy-white:      var(--snow);
-  /* The old neon --rfs-yellow / lime-ish highs are retired; alias to gold. */
-  --rfs-yellow:       var(--summer-gold);
 
   /* Aussie-summer supporting palette — kept for LandingPage/PublicBrigadePage
    * decorative sections not yet migrated to the v2.0 system. */
@@ -358,7 +356,7 @@ input:focus, select:focus, textarea:focus {
 .live-pulse {
   width: 20px;
   height: 20px;
-  background-color: var(--rfs-yellow);
+  background-color: var(--summer-gold);
   border: 3px solid var(--candy-white);
   border-radius: 50%;
   box-shadow: 0 0 0 rgba(255, 230, 0, 0.7);

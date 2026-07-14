@@ -357,12 +357,12 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
     }
   }
 
-  async getBrigadeByRFSId(rfsStationId: string): Promise<Brigade | null> {
+  async getBrigadeByStationId(fireStationId: string): Promise<Brigade | null> {
     try {
-      // Query for brigades where rfsStationId matches
+      // Query for brigades where fireStationId matches
       const queryResults = this.brigadesClient.listEntities({
         queryOptions: {
-          filter: `rfsStationId eq '${rfsStationId}'`,
+          filter: `fireStationId eq '${fireStationId}'`,
         },
       });
       
@@ -375,8 +375,8 @@ export class AzureTableStorageAdapter implements IStorageAdapter {
       
       return null;
     } catch (error) {
-      console.error('Failed to query brigade by RFS ID from Azure Table Storage:', error);
-      throw new Error('Failed to query brigade by RFS ID');
+      console.error('Failed to query brigade by station ID from Azure Table Storage:', error);
+      throw new Error('Failed to query brigade by station ID');
     }
   }
 

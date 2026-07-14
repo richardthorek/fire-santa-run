@@ -1,16 +1,16 @@
 /**
- * RFS Station Data Types
+ * Fire Station Data Types
  * 
- * Types for Rural & Country Fire Service Facilities dataset
- * from Digital Atlas of Australia
+ * Types for national fire station facilities dataset
+ * from the Digital Atlas of Australia
  */
 
 /**
- * RFS Station Feature from ArcGIS REST API
+ * Fire Station Feature from ArcGIS REST API
  * Represents a single fire service facility
  * Supports both uppercase (old API) and lowercase (new API) field names
  */
-export interface RFSStationFeature {
+export interface FireStationFeature {
   attributes: {
     // Support both field name conventions
     objectid?: number;
@@ -57,9 +57,9 @@ export interface RFSStationFeature {
 }
 
 /**
- * Simplified RFS Station for internal use
+ * Simplified Fire Station for internal use
  */
-export interface RFSStation {
+export interface FireStation {
   id: number;
   name: string;
   address?: string;
@@ -74,8 +74,8 @@ export interface RFSStation {
 /**
  * Response from ArcGIS Feature Service query
  */
-export interface RFSFeatureServiceResponse {
-  features: RFSStationFeature[];
+export interface FireStationFeatureServiceResponse {
+  features: FireStationFeature[];
   exceededTransferLimit?: boolean;
   fieldAliases?: Record<string, string>;
   fields?: Array<{
@@ -86,9 +86,9 @@ export interface RFSFeatureServiceResponse {
 }
 
 /**
- * Query options for RFS station lookups
+ * Query options for fire station lookups
  */
-export interface RFSStationQuery {
+export interface FireStationQuery {
   state?: string;
   suburb?: string;
   postcode?: string;
@@ -101,10 +101,10 @@ export interface RFSStationQuery {
 }
 
 /**
- * Cached RFS dataset metadata
+ * Cached fire station dataset metadata
  */
-export interface RFSDatasetCache {
-  stations: RFSStation[];
+export interface FireStationDatasetCache {
+  stations: FireStation[];
   lastFetched: number; // Timestamp
   version: string; // Cache version for invalidation
 }

@@ -38,21 +38,21 @@ describe('LocalStorageAdapter.getBrigades', () => {
 
   it('returns every saved brigade', async () => {
     const adapter = new LocalStorageAdapter();
-    await adapter.saveBrigade(makeBrigade('a', 'Alpha RFS'));
-    await adapter.saveBrigade(makeBrigade('b', 'Bravo RFS'));
+    await adapter.saveBrigade(makeBrigade('a', 'Alpha Brigade'));
+    await adapter.saveBrigade(makeBrigade('b', 'Bravo Brigade'));
 
     const result = await adapter.getBrigades();
-    expect(result.map((b) => b.name).sort()).toEqual(['Alpha RFS', 'Bravo RFS']);
+    expect(result.map((b) => b.name).sort()).toEqual(['Alpha Brigade', 'Bravo Brigade']);
   });
 
   it('ignores unrelated localStorage keys', async () => {
     const adapter = new LocalStorageAdapter();
-    await adapter.saveBrigade(makeBrigade('a', 'Alpha RFS'));
+    await adapter.saveBrigade(makeBrigade('a', 'Alpha Brigade'));
     localStorage.setItem('santa_a_routes', '[]');
     localStorage.setItem('unrelated_key', 'value');
 
     const result = await adapter.getBrigades();
     expect(result).toHaveLength(1);
-    expect(result[0].name).toBe('Alpha RFS');
+    expect(result[0].name).toBe('Alpha Brigade');
   });
 });

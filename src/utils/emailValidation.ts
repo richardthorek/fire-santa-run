@@ -11,7 +11,7 @@
  * @returns true if email ends with .gov.au (case-insensitive)
  * 
  * @example
- * isGovernmentEmail('john@rfs.nsw.gov.au') // true
+ * isGovernmentEmail('john@fire.example.gov.au') // true
  * isGovernmentEmail('jane@gmail.com') // false
  */
 export function isGovernmentEmail(email: string): boolean {
@@ -23,12 +23,12 @@ export function isGovernmentEmail(email: string): boolean {
  * Used for auto-approval of membership requests.
  * 
  * @param email - Email address to check
- * @param allowedDomains - Array of allowed domains (e.g., ['@griffithrfs.org.au', '@rfs.nsw.gov.au'])
+ * @param allowedDomains - Array of allowed domains (e.g., ['@examplebrigade.org.au', '@fire.example.gov.au'])
  * @returns true if email matches any allowed domain
  * 
  * @example
- * matchesAllowedDomains('user@griffithrfs.org.au', ['@griffithrfs.org.au']) // true
- * matchesAllowedDomains('user@gmail.com', ['@griffithrfs.org.au']) // false
+ * matchesAllowedDomains('user@examplebrigade.org.au', ['@examplebrigade.org.au']) // true
+ * matchesAllowedDomains('user@gmail.com', ['@examplebrigade.org.au']) // false
  */
 export function matchesAllowedDomains(email: string, allowedDomains: string[]): boolean {
   const emailLower = email.toLowerCase();
@@ -68,9 +68,9 @@ export function isAllowedEmail(email: string, allowedEmails: string[]): boolean 
  * @returns true if member should be auto-approved
  * 
  * @example
- * isAutoApproved('user@griffithrfs.org.au', {
+ * isAutoApproved('user@examplebrigade.org.au', {
  *   requireManualApproval: false,
- *   allowedDomains: ['@griffithrfs.org.au'],
+ *   allowedDomains: ['@examplebrigade.org.au'],
  *   allowedEmails: []
  * }) // true
  */
