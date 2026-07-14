@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useWebPubSub } from './useWebPubSub';
 import { useNetworkStatus } from './useNetworkStatus';
-import type { RouteProgress, LocationBroadcast } from '../types';
+import type { RouteProgress, LocationBroadcast, RunStatus } from '../types';
 import type { GeolocationCoordinates } from './useGeolocation';
 
 interface UseLocationBroadcastOptions {
@@ -34,7 +34,7 @@ export function useLocationBroadcast({
   const lastBroadcastTimeRef = useRef(0);
   const lastPositionRef = useRef<[number, number] | null>(null);
 
-  const { sendLocation, isConnected } = useWebPubSub({
+  const { sendLocation, sendRunStatus, isConnected } = useWebPubSub({
     routeId,
     role: 'broadcaster',
   });
@@ -92,9 +92,20 @@ export function useLocationBroadcast({
     });
   }, [routeId, sendLocation]);
 
+  /**
+   * Push a live run status to viewers — pause (temporary hold), abort (called
+   * away to a real emergency), or resume (active). Completion has its own
+   * {@link broadcastRunCompleted} path that also carries the final position.
+   */
+  const broadcastRunStatus = useCallback(
+    (status: RunStatus, message?: string) => sendRunStatus(status, message),
+    [sendRunStatus],
+  );
+
   return {
     isConnected,
     isOnline,
     broadcastRunCompleted,
+    broadcastRunStatus,
   };
 }

@@ -483,7 +483,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
 
   // Connect to Web PubSub for real-time updates (skipped in demo mode — the
   // simulator below produces the same messages locally).
-  const { isConnected, isConnecting, error: connectionError, viewerCount } = useWebPubSub({
+  const { isConnected, isConnecting, error: connectionError, viewerCount, runStatus, runStatusMessage } = useWebPubSub({
     routeId,
     role: 'viewer',
     onLocationUpdate: handleLocationUpdate,
@@ -626,6 +626,63 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
       {/* Post-event Thank You Overlay (archive mode) */}
       {route.status === 'completed' && (
         <ThankYouOverlay route={route} />
+      )}
+
+      {/* Emergency stop — the truck was called away mid-run. Shown live over the
+          map so families aren't left watching a frozen Santa. */}
+      {runStatus === 'aborted' && route.status !== 'completed' && (
+        <div
+          role="alert"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1300,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: '2rem',
+            background: 'linear-gradient(160deg, rgba(183,30,30,0.96), rgba(120,20,20,0.96))',
+            color: 'var(--candy-white)',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }} aria-hidden="true">🚒</div>
+          <h2 style={{ fontFamily: 'var(--font-fun)', fontSize: 'clamp(1.4rem, 5vw, 2rem)', margin: '0 0 0.75rem' }}>
+            Santa’s been called away
+          </h2>
+          <p style={{ maxWidth: '28rem', fontSize: '1rem', lineHeight: 1.5, margin: 0 }}>
+            {runStatusMessage || 'The crew has been called to help with something urgent, so tonight’s run has stopped. We’ll share a new time as soon as we can — thank you for understanding.'}
+          </p>
+        </div>
+      )}
+
+      {/* Temporary pause — Santa's stopped for a moment. Keeps the last position
+          on the map and reassures viewers rather than looking frozen. */}
+      {runStatus === 'paused' && route.status !== 'completed' && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            top: 'calc(env(safe-area-inset-top, 0px) + 5.5rem)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1200,
+            maxWidth: 'calc(100% - 2rem)',
+            background: 'rgba(255, 167, 38, 0.97)',
+            color: '#3E2723',
+            padding: '0.55rem 1rem',
+            borderRadius: '999px',
+            fontWeight: 700,
+            fontSize: '0.9rem',
+            boxShadow: 'var(--ui-shadow)',
+            textAlign: 'center',
+          }}
+        >
+          ⏸️ {runStatusMessage || 'Santa’s taking a quick break — back on the move shortly!'}
+        </div>
       )}
 
       {/* Santa Tracker Header and Progress Panel — hidden in archive mode */}

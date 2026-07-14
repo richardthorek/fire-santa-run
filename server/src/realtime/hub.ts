@@ -26,6 +26,16 @@ interface RouteConnections {
   viewers: Set<WebSocket>;
   broadcasters: Set<WebSocket>;
   editors: Set<WebSocket>;
+  /**
+   * Last public messages seen for this route, replayed to any socket the
+   * moment it connects. Without this, a viewer joining mid-run — or every
+   * viewer reconnecting after a redeploy — stares at a blank/frozen map until
+   * the broadcaster's next update (up to 5s later). Serialized once, reused.
+   */
+  lastLocation?: string;
+  lastRunStatus?: string;
+  /** Parsed run-status value, kept for cheap server-side checks (push gating). */
+  runStatusValue?: string;
 }
 
 const routes = new Map<string, RouteConnections>();
@@ -41,6 +51,11 @@ function getRoute(routeId: string): RouteConnections {
     routes.set(routeId, conns);
   }
   return conns;
+}
+
+/** Terminal run states clear the cached position so a redeploy can't resurrect Santa. */
+function isTerminalStatus(status: string | undefined): boolean {
+  return status === 'completed' || status === 'aborted';
 }
 
 function setFor(conns: RouteConnections, role: RealtimeRole): Set<WebSocket> {
@@ -66,8 +81,15 @@ export const hub = {
   },
 
   add(routeId: string, role: RealtimeRole, ws: WebSocket): void {
-    setFor(getRoute(routeId), role).add(ws);
+    const conns = getRoute(routeId);
+    setFor(conns, role).add(ws);
     totalConnections++;
+    // Replay the last known state to just-connected viewers/broadcasters so the
+    // map is never blank on join or after a reconnect. Editors get neither.
+    if (role !== 'editor') {
+      if (conns.lastLocation) safeSend(ws, conns.lastLocation);
+      if (conns.lastRunStatus) safeSend(ws, conns.lastRunStatus);
+    }
   },
 
   remove(routeId: string, role: RealtimeRole, ws: WebSocket): void {
@@ -87,11 +109,32 @@ export const hub = {
 
   /** Fan out a Santa location / status message to viewers and the broadcaster's read side. */
   broadcastLocation(routeId: string, message: unknown): void {
-    const conns = routes.get(routeId);
-    if (!conns) return;
+    const conns = getRoute(routeId);
     const data = JSON.stringify(message);
+    // Cache as the position replayed to future joiners (unless the run is over).
+    if (!isTerminalStatus(conns.runStatusValue)) conns.lastLocation = data;
     for (const ws of conns.viewers) safeSend(ws, data);
     for (const ws of conns.broadcasters) safeSend(ws, data);
+  },
+
+  /**
+   * Set and fan out the live run status (active/paused/aborted/completed).
+   * Cached and replayed to new joiners so a viewer arriving after Santa is
+   * paused or has been called away sees that state immediately.
+   */
+  setRunStatus(routeId: string, message: { type: 'run-status'; routeId: string; status: string; message?: string; timestamp: number }): void {
+    const conns = getRoute(routeId);
+    conns.runStatusValue = message.status;
+    conns.lastRunStatus = JSON.stringify(message);
+    // Once the run is over, drop the cached position so it can't be replayed.
+    if (isTerminalStatus(message.status)) conns.lastLocation = undefined;
+    for (const ws of conns.viewers) safeSend(ws, conns.lastRunStatus);
+    for (const ws of conns.broadcasters) safeSend(ws, conns.lastRunStatus);
+  },
+
+  /** Current run status for a route, if one has been set (used to gate pushes). */
+  getRunStatus(routeId: string): string | undefined {
+    return routes.get(routeId)?.runStatusValue;
   },
 
   /** Relay an editor-presence message to the private editors set only. */

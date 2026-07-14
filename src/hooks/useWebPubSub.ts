@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { LocationBroadcast, ViewerCountMessage } from '../types';
+import type { LocationBroadcast, ViewerCountMessage, RunStatus, RunStatusMessage } from '../types';
 import { getApiAuthHeaders } from '../auth/apiToken';
 
 const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
@@ -20,6 +20,10 @@ interface WebPubSubConnectionState {
   isConnecting: boolean;
   error: string | null;
   viewerCount: number | null;
+  /** Live run status pushed from the navigator (null until one is received). */
+  runStatus: RunStatus | null;
+  /** Optional operator note attached to the current run status. */
+  runStatusMessage: string | null;
 }
 
 interface UseWebPubSubOptions {
@@ -42,7 +46,13 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     isConnecting: false,
     error: null,
     viewerCount: null,
+    runStatus: null,
+    runStatusMessage: null,
   });
+
+  const applyRunStatus = useCallback((msg: RunStatusMessage) => {
+    setState(prev => ({ ...prev, runStatus: msg.status, runStatusMessage: msg.message ?? null }));
+  }, []);
 
   const wsRef = useRef<WebSocket | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
@@ -176,6 +186,10 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
               const viewerCountMsg = data as ViewerCountMessage;
               setState(prev => ({ ...prev, viewerCount: viewerCountMsg.count }));
             }
+            // Handle live run status (paused / aborted / completed / active)
+            else if (data.type === 'run-status') {
+              applyRunStatus(data as RunStatusMessage);
+            }
             // Handle location updates
             else if (onLocationUpdateRef.current) {
               onLocationUpdateRef.current(data as LocationBroadcast);
@@ -228,9 +242,14 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
           } catch {
             return; // ignore non-JSON frames
           }
-          if (typeof data === 'object' && data !== null && 'type' in data && (data as { type?: string }).type === 'viewer-count') {
+          const msgType = typeof data === 'object' && data !== null && 'type' in data
+            ? (data as { type?: string }).type
+            : undefined;
+          if (msgType === 'viewer-count') {
             const viewerCountMsg = data as ViewerCountMessage;
             setState(prev => ({ ...prev, viewerCount: viewerCountMsg.count }));
+          } else if (msgType === 'run-status') {
+            applyRunStatus(data as RunStatusMessage);
           } else if (onLocationUpdateRef.current) {
             onLocationUpdateRef.current(data as LocationBroadcast);
           }
@@ -264,9 +283,11 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
         isConnecting: false,
         error: error instanceof Error ? error.message : 'Failed to connect',
         viewerCount: null,
+        runStatus: null,
+        runStatusMessage: null,
       });
     }
-  }, [routeId, role, logViewerJoin, fetchViewerCount]);
+  }, [routeId, role, logViewerJoin, fetchViewerCount, applyRunStatus]);
 
   /**
    * Disconnect from Web PubSub or BroadcastChannel
@@ -306,7 +327,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       broadcastChannelRef.current = null;
     }
 
-    setState({ isConnected: false, isConnecting: false, error: null, viewerCount: null });
+    setState({ isConnected: false, isConnecting: false, error: null, viewerCount: null, runStatus: null, runStatusMessage: null });
   }, [logViewerLeave]);
 
   /**
@@ -349,6 +370,36 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
   }, [role]);
 
   /**
+   * Set the live run status (broadcaster only): paused / aborted / resumed
+   * (active) / completed. Fans out to every viewer via the hub.
+   */
+  const sendRunStatus = useCallback(async (status: RunStatus, message?: string) => {
+    if (role !== 'broadcaster') {
+      console.warn('[WebPubSub] Only broadcasters can set run status');
+      return;
+    }
+    const payload: RunStatusMessage = { type: 'run-status', routeId, status, message, timestamp: Date.now() };
+    try {
+      if (isDevMode) {
+        broadcastChannelRef.current?.postMessage(payload);
+        applyRunStatus(payload); // reflect locally for the operator's own view
+      } else {
+        const response = await fetch(`${API_BASE_URL}/broadcast/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(await getApiAuthHeaders()) },
+          body: JSON.stringify({ routeId, status, message }),
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to set run status: ${response.statusText}`);
+        }
+      }
+    } catch (error) {
+      console.error('[WebPubSub] Failed to set run status:', error);
+      throw error;
+    }
+  }, [role, routeId, applyRunStatus]);
+
+  /**
    * Auto-connect on mount
    */
   useEffect(() => {
@@ -377,5 +428,6 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     connect,
     disconnect,
     sendLocation,
+    sendRunStatus,
   };
 }

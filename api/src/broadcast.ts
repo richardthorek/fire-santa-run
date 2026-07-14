@@ -215,10 +215,69 @@ export async function broadcastEditorPresence(request: HttpRequest, context: Inv
   }
 }
 
+/**
+ * Run status (#blind-spots): the navigator sets the live run state — paused,
+ * aborted (called away), completed, or active (resume) — fanned out to the
+ * route's viewer group. Local-dev parity with the production Hono endpoint.
+ */
+const VALID_RUN_STATUSES = ['active', 'paused', 'aborted', 'completed'];
+
+export async function broadcastRunStatus(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+  try {
+    const limited = checkRateLimit(request, 'broadcast', 40, 60_000);
+    if (limited) return limited;
+
+    const authResult = await validateToken(request);
+    if (!authResult.authenticated) {
+      return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
+    }
+
+    const body = await request.json() as { routeId?: string; status?: string; message?: string };
+
+    if (!body.routeId || typeof body.routeId !== 'string') {
+      return { status: 400, jsonBody: { error: 'Missing required field: routeId' } };
+    }
+    if (!body.status || !VALID_RUN_STATUSES.includes(body.status)) {
+      return { status: 400, jsonBody: { error: `Invalid status. Must be one of: ${VALID_RUN_STATUSES.join(', ')}` } };
+    }
+
+    const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
+    if (!connectionString) {
+      context.error('AZURE_WEBPUBSUB_CONNECTION_STRING is not configured');
+      return { status: 500, jsonBody: { error: 'Web PubSub service is not configured' } };
+    }
+
+    const serviceClient = new WebPubSubServiceClient(connectionString, HUB_NAME);
+    const message = {
+      type: 'run-status',
+      routeId: body.routeId,
+      status: body.status,
+      message: body.message ? String(body.message).slice(0, 160) : undefined,
+      timestamp: Date.now(),
+    };
+
+    await serviceClient.group(`route_${body.routeId}`).sendToAll(message);
+    return { status: 200, jsonBody: { success: true, routeId: body.routeId, status: body.status } };
+  } catch (error) {
+    context.error('Error broadcasting run status:', error);
+    return {
+      status: 500,
+      jsonBody: { error: 'Failed to broadcast run status', message: error instanceof Error ? error.message : 'Unknown error' },
+    };
+  }
+}
+
 app.http('broadcast', {
   methods: ['POST'],
   authLevel: 'anonymous',
   handler: broadcast
+});
+
+app.http('broadcast-run-status', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'broadcast/status',
+  handler: broadcastRunStatus
 });
 
 app.http('broadcast-editor-presence', {

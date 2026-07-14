@@ -74,7 +74,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   );
 
   // Broadcast location updates for real-time tracking
-  const { isOnline, broadcastRunCompleted } = useLocationBroadcast({
+  const { isOnline, broadcastRunCompleted, broadcastRunStatus } = useLocationBroadcast({
     routeId: route.id,
     position,
     routeProgress: {
@@ -116,6 +116,27 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
       window.history.back();
     }
   }, [stopNavigation, onExit]);
+
+  // Pause/resume: a temporary hold the public sees ("back shortly"), without
+  // stopping local navigation or GPS.
+  const [isPaused, setIsPaused] = useState(false);
+  const handleTogglePause = useCallback(() => {
+    const next = !isPaused;
+    setIsPaused(next);
+    broadcastRunStatus(next ? 'paused' : 'active');
+  }, [isPaused, broadcastRunStatus]);
+
+  // Emergency stop: the truck has been called away (e.g. a real callout). Tell
+  // viewers explicitly, then leave navigation. Guarded by a confirm because it
+  // ends the public run.
+  const handleEmergencyStop = useCallback(() => {
+    const ok = window.confirm(
+      'End the run now and tell everyone Santa has been called away? Use this if the truck has to leave for an emergency.',
+    );
+    if (!ok) return;
+    broadcastRunStatus('aborted', 'Santa has been called away to help. We’ll share a new time as soon as we can.');
+    handleStopNavigation();
+  }, [broadcastRunStatus, handleStopNavigation]);
 
   const handleCompleteWaypoint = useCallback(() => {
     if (navigationState.nextWaypoint) {
@@ -393,6 +414,87 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
           }}
         >
           ⚠️ Keep screen on manually
+        </div>
+      )}
+
+      {/* Run controls — pause (temporary hold) and emergency stop (called away).
+          Placed below the voice/screen toggles, thumb-reachable on a mounted
+          phone. Both push a live status to every public tracking page. */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '11.5rem',
+          left: '1rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem',
+          zIndex: 999,
+        }}
+      >
+        <button
+          onClick={handleTogglePause}
+          style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            border: 'none',
+            backgroundColor: isPaused ? 'rgba(67, 160, 71, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            cursor: 'pointer',
+            fontSize: '22px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          aria-label={isPaused ? 'Resume run for viewers' : 'Pause run for viewers'}
+          aria-pressed={isPaused}
+        >
+          {isPaused ? '▶️' : '⏸️'}
+        </button>
+        <button
+          onClick={handleEmergencyStop}
+          style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            border: 'none',
+            backgroundColor: 'rgba(211, 47, 47, 0.95)',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            cursor: 'pointer',
+            fontSize: '22px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          aria-label="Emergency stop — Santa called away"
+        >
+          🚨
+        </button>
+      </div>
+
+      {/* Paused indicator for the operator, so it's obvious viewers see a hold. */}
+      {isPaused && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            top: '7rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(255, 167, 38, 0.97)',
+            color: '#3E2723',
+            padding: '0.4rem 0.9rem',
+            borderRadius: '999px',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            zIndex: 999,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          }}
+        >
+          ⏸️ Paused — viewers see “back shortly”
         </div>
       )}
 

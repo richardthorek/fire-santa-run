@@ -76,8 +76,12 @@ broadcastRouter.post('/broadcast', async (c) => {
     hub.broadcastLocation(body.routeId, message);
 
     // First broadcast of a run wakes the "notify me" subscribers. Deliberately
-    // not awaited — pushes must never slow down or fail location updates.
-    void notifyRunStartOnce(body.routeId, APP_BASE_URL);
+    // not awaited — pushes must never slow down or fail location updates. Skip
+    // it if the run has been called away: nobody should be told "Santa's
+    // starting" moments after an emergency abort.
+    if (hub.getRunStatus(body.routeId) !== 'aborted') {
+      void notifyRunStartOnce(body.routeId, APP_BASE_URL);
+    }
 
     return c.json({ success: true, routeId: body.routeId, timestamp: body.timestamp }, 200);
   } catch (error: any) {
@@ -124,6 +128,43 @@ broadcastRouter.post('/broadcast/editor-presence', async (c) => {
   } catch (error: any) {
     console.error('Error broadcasting editor presence:', error);
     return c.json({ error: 'Failed to broadcast editor presence', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
+  }
+});
+
+/**
+ * Run status (#blind-spots): the navigator sets the live run state — paused
+ * (temporary hold), aborted (truck called away to a real emergency), completed,
+ * or active (resume). Cached in the hub and fanned out to viewers so tracking
+ * pages react instantly and new joiners see the current state immediately.
+ */
+const VALID_RUN_STATUSES = ['active', 'paused', 'aborted', 'completed'] as const;
+type RunStatusValue = (typeof VALID_RUN_STATUSES)[number];
+
+broadcastRouter.post('/broadcast/status', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({})) as { routeId?: string; status?: string; message?: string };
+
+    if (!body.routeId || typeof body.routeId !== 'string') {
+      return c.json({ error: 'Missing required field: routeId' }, 400);
+    }
+    if (!body.status || !VALID_RUN_STATUSES.includes(body.status as RunStatusValue)) {
+      return c.json({ error: `Invalid status. Must be one of: ${VALID_RUN_STATUSES.join(', ')}` }, 400);
+    }
+
+    const message = {
+      type: 'run-status' as const,
+      routeId: body.routeId,
+      status: body.status as RunStatusValue,
+      // Trim any operator note to a safe length before it reaches public viewers.
+      message: body.message ? String(body.message).slice(0, 160) : undefined,
+      timestamp: Date.now(),
+    };
+
+    hub.setRunStatus(body.routeId, message);
+    return c.json({ success: true, routeId: body.routeId, status: message.status }, 200);
+  } catch (error: any) {
+    console.error('Error broadcasting run status:', error);
+    return c.json({ error: 'Failed to broadcast run status', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });
 
