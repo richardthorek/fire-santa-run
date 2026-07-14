@@ -14,7 +14,7 @@ import { storageAdapter } from '../storage';
 import type { Route, LocationBroadcast } from '../types';
 import { formatDistance, getDirections } from '../utils/mapbox';
 import { calculateDistance, alongPathDistance } from '../utils/navigation';
-import { isPushSupported, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute } from '../utils/push';
+import { getPushEnvironment, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute, type PushEnvironmentKind } from '../utils/push';
 import { DEMO_ROUTE, startDemoSimulator } from '../utils/demoRoute';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -81,8 +81,10 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   const [pinBusy, setPinBusy] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
   // "Notify me": web push before the run starts. Key stays null when the
-  // deployment has no VAPID keys or the browser lacks push — UI hides itself.
+  // deployment has no VAPID keys. When the server HAS push but this browser
+  // can't (iOS Safari, in-app webviews), we show guidance instead of hiding.
   const [pushPublicKey, setPushPublicKey] = useState<string | null>(null);
+  const [pushEnv] = useState<PushEnvironmentKind>(() => getPushEnvironment());
   const [notifyState, setNotifyState] = useState<'idle' | 'busy' | 'done'>(
     () => (hasSubscribedToRoute(routeId) ? 'done' : 'idle'),
   );
@@ -388,9 +390,11 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
     }
   };
 
-  // Discover whether this deployment supports push (once per page).
+  // Discover whether this deployment offers push (once per page). Fetched even
+  // when this browser can't subscribe, so we can show install/open-in-browser
+  // guidance rather than nothing. 'unsupported' browsers get no fetch.
   useEffect(() => {
-    if (!isPushSupported()) return;
+    if (pushEnv === 'unsupported') return;
     let cancelled = false;
     getServerPublicKey().then((key) => {
       if (!cancelled) setPushPublicKey(key);
@@ -398,7 +402,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pushEnv]);
 
   const handleNotifyMe = useCallback(async () => {
     if (!pushPublicKey) return;
@@ -1078,9 +1082,39 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               </div>
             )}
 
-            {/* Notify me — web push before the run starts (hidden when the
-                deployment has no VAPID keys or the browser lacks push) */}
-            {!demo && !currentLocation && pushPublicKey && (
+            {/* Notify me — web push before the run starts. When the server offers
+                push but this browser can't subscribe (iOS Safari tab, in-app
+                webview), show guidance instead of hiding silently. */}
+            {!demo && !currentLocation && pushPublicKey && pushEnv !== 'supported' && (
+              <div
+                style={{
+                  marginTop: '0.75rem',
+                  padding: '0.7rem 1rem',
+                  backgroundColor: 'rgba(255, 167, 38, 0.12)',
+                  borderRadius: 'var(--border-radius-xs)',
+                  borderLeft: '4px solid var(--summer-gold)',
+                  fontSize: '0.85rem',
+                  color: 'var(--neutral-900)',
+                  lineHeight: 1.5,
+                }}
+              >
+                {pushEnv === 'in-app-browser' ? (
+                  <span>
+                    🔔 <strong>Want an alert when Santa starts?</strong> Open this page in
+                    your browser first — tap the ••• menu and choose “Open in browser”,
+                    then look for “Notify me”.
+                  </span>
+                ) : (
+                  <span>
+                    🔔 <strong>Want an alert when Santa starts?</strong> Add this page to
+                    your Home Screen first: tap the Share button, then “Add to Home Screen”,
+                    and open it from there to turn on notifications.
+                  </span>
+                )}
+              </div>
+            )}
+
+            {!demo && !currentLocation && pushPublicKey && pushEnv === 'supported' && (
               <div style={{ marginTop: '0.75rem' }}>
                 {notifyState === 'done' ? (
                   <p
