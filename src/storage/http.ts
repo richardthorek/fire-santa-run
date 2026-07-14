@@ -393,13 +393,13 @@ export class HttpStorageAdapter implements IStorageAdapter {
     return await this.parseJsonResponse(response);
   }
 
-  async getBrigadeByRFSId(rfsStationId: string): Promise<Brigade | null> {
-    const response = await fetch(`${this.apiBaseUrl}/brigades/rfs/${encodeURIComponent(rfsStationId)}`);
+  async getBrigadeByStationId(fireStationId: string): Promise<Brigade | null> {
+    const response = await fetch(`${this.apiBaseUrl}/brigades/by-station/${encodeURIComponent(fireStationId)}`);
     if (response.status === 404) {
       return null;
     }
     if (!response.ok) {
-      throw new Error(`Failed to fetch brigade by RFS ID: ${response.statusText}`);
+      throw new Error(`Failed to fetch brigade by station ID: ${response.statusText}`);
     }
     return await this.parseJsonResponse(response);
   }

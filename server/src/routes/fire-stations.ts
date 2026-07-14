@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 
-const RFS_API_BASE = 'https://services.ga.gov.au/gis/rest/services/Emergency_Management_Facilities/MapServer/4';
+const FIRE_STATION_API_BASE = 'https://services.ga.gov.au/gis/rest/services/Emergency_Management_Facilities/MapServer/4';
 
 // Allowlist patterns for parameters passed into the ArcGIS WHERE clause
 const VALID_STATE_RE = /^[A-Za-z]{2,3}$/;    // e.g. NSW, VIC, QLD
 const VALID_POSTCODE_RE = /^\d{4}$/;          // 4-digit Australian postcode
 
-interface RFSStationFeature {
+interface FireStationFeature {
   attributes: {
     objectid?: number;
     OBJECTID?: number;
@@ -36,7 +36,7 @@ interface RFSStationFeature {
   };
 }
 
-interface RFSStation {
+interface FireStation {
   id: number;
   name: string;
   address?: string;
@@ -49,7 +49,7 @@ interface RFSStation {
   distance?: number;
 }
 
-function convertFeatureToStation(feature: RFSStationFeature): RFSStation {
+function convertFeatureToStation(feature: FireStationFeature): FireStation {
   const { attributes, geometry } = feature;
   return {
     id: attributes.objectid || attributes.OBJECTID || 0,
@@ -83,9 +83,9 @@ function calculateDistance(coord1: [number, number], coord2: [number, number]): 
   return R * c;
 }
 
-export const rfsStationsRouter = new Hono();
+export const fireStationsRouter = new Hono();
 
-rfsStationsRouter.get('/rfs-stations', async (c) => {
+fireStationsRouter.get('/fire-stations', async (c) => {
   try {
     const state = c.req.query('state');
     const name = c.req.query('name');
@@ -140,8 +140,8 @@ rfsStationsRouter.get('/rfs-stations', async (c) => {
       }
     }
 
-    const url = `${RFS_API_BASE}/query?${params.toString()}`;
-    console.log('Fetching RFS stations:', url);
+    const url = `${FIRE_STATION_API_BASE}/query?${params.toString()}`;
+    console.log('Fetching fire stations:', url);
 
     const response = await fetch(url);
 
@@ -152,10 +152,10 @@ rfsStationsRouter.get('/rfs-stations', async (c) => {
     const data = await response.json() as any;
 
     if (!data.features || !Array.isArray(data.features)) {
-      throw new Error('Invalid response from RFS API');
+      throw new Error('Invalid response from fire station API');
     }
 
-    let stations: RFSStation[] = data.features.map(convertFeatureToStation);
+    let stations: FireStation[] = data.features.map(convertFeatureToStation);
 
     if (name) {
       const nameLower = name.toLowerCase();
@@ -181,7 +181,7 @@ rfsStationsRouter.get('/rfs-stations', async (c) => {
 
     stations = stations.slice(0, limit);
 
-    console.log(`Returning ${stations.length} RFS stations`);
+    console.log(`Returning ${stations.length} fire stations`);
 
     return new Response(JSON.stringify({ stations, count: stations.length }), {
       status: 200,
@@ -191,7 +191,7 @@ rfsStationsRouter.get('/rfs-stations', async (c) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching RFS stations:', error);
-    return c.json({ error: 'Failed to fetch RFS stations', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
+    console.error('Error fetching fire stations:', error);
+    return c.json({ error: 'Failed to fetch fire stations', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });

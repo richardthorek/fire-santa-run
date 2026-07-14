@@ -19,14 +19,14 @@ function daysFromToday(offset: number): string {
  */
 export const mockBrigade: Brigade = {
   id: 'dev-brigade-1',
-  slug: 'griffith-rfs',
-  name: 'Griffith Rural Fire Brigade',
-  location: 'Griffith, NSW',
-  stationCoordinates: [146.0391, -34.2908], // Griffith Fire Station
-  rfsStationId: undefined,
+  slug: 'riverside-brigade',
+  name: 'Riverside Fire Brigade',
+  location: 'Riverside, NSW',
+  stationCoordinates: [146.0391, -34.2908], // Riverside Fire Station
+  fireStationId: undefined,
   logo: undefined,
   themeColor: '#D32F2F',
-  allowedDomains: ['@griffithrfs.org.au', '@rfs.nsw.gov.au'],
+  allowedDomains: ['@examplebrigade.org.au', '@fire.example.gov.au'],
   allowedEmails: ['dev@example.com'],
   requireManualApproval: false,
   adminUserIds: ['dev-user-1'],
@@ -34,9 +34,9 @@ export const mockBrigade: Brigade = {
   claimedAt: '2024-12-01T00:00:00.000Z',
   claimedBy: 'dev-user-1',
   contact: {
-    email: 'griffith@rfs.nsw.gov.au',
+    email: 'santa@examplebrigade.org.au',
     phone: '02 6962 1234',
-    website: 'https://www.rfs.nsw.gov.au',
+    website: 'https://www.examplebrigade.org.au',
   },
   createdAt: '2024-12-01T00:00:00.000Z',
   updatedAt: '2024-12-01T00:00:00.000Z',
@@ -57,8 +57,8 @@ export const mockRoutes: Route[] = [
     waypoints: [
       {
         id: 'wp_1',
-        coordinates: [146.0391, -34.2908], // Griffith Fire Station
-        address: 'Griffith Fire Station, Benerembah St, Griffith NSW 2680',
+        coordinates: [146.0391, -34.2908], // Riverside Fire Station
+        address: 'Riverside Fire Station, Benerembah St, Riverside NSW 2680',
         name: 'Fire Station (Start)',
         order: 0,
         isCompleted: false,
@@ -66,7 +66,7 @@ export const mockRoutes: Route[] = [
       {
         id: 'wp_2',
         coordinates: [146.0445, -34.2845],
-        address: 'Jubilee Park, Griffith NSW 2680',
+        address: 'Jubilee Park, Riverside NSW 2680',
         name: 'Jubilee Park',
         order: 1,
         isCompleted: false,
@@ -74,7 +74,7 @@ export const mockRoutes: Route[] = [
       {
         id: 'wp_3',
         coordinates: [146.0521, -34.2756],
-        address: 'Griffith Shopping Centre, Banna Ave, Griffith NSW 2680',
+        address: 'Riverside Shopping Centre, Banna Ave, Riverside NSW 2680',
         name: 'Shopping Centre',
         order: 2,
         isCompleted: false,
@@ -82,7 +82,7 @@ export const mockRoutes: Route[] = [
       {
         id: 'wp_4',
         coordinates: [146.0389, -34.2634],
-        address: 'Pioneer Park Museum, Griffith NSW 2680',
+        address: 'Pioneer Park Museum, Riverside NSW 2680',
         name: 'Pioneer Park',
         order: 3,
         isCompleted: false,
@@ -101,8 +101,8 @@ export const mockRoutes: Route[] = [
     waypoints: [
       {
         id: 'wp_5',
-        coordinates: [146.0391, -34.2908], // Griffith Fire Station
-        address: 'Griffith Fire Station, Benerembah St, Griffith NSW 2680',
+        coordinates: [146.0391, -34.2908], // Riverside Fire Station
+        address: 'Riverside Fire Station, Benerembah St, Riverside NSW 2680',
         name: 'Fire Station (Start)',
         order: 0,
         isCompleted: false,
@@ -110,7 +110,7 @@ export const mockRoutes: Route[] = [
       {
         id: 'wp_6',
         coordinates: [146.0321, -34.3021],
-        address: 'South Griffith Residential Area',
+        address: 'South Riverside Residential Area',
         name: 'South Residential',
         order: 1,
         isCompleted: false,
@@ -118,7 +118,7 @@ export const mockRoutes: Route[] = [
       {
         id: 'wp_7',
         coordinates: [146.0189, -34.3134],
-        address: 'Lake Wyangan, Griffith NSW 2680',
+        address: 'Lake Wyangan, Riverside NSW 2680',
         name: 'Lake Wyangan',
         order: 2,
         isCompleted: false,
@@ -140,7 +140,7 @@ export const mockRoutes: Route[] = [
       {
         id: 'wp_8',
         coordinates: [146.0391, -34.2908],
-        address: 'Griffith Fire Station, Benerembah St, Griffith NSW 2680',
+        address: 'Riverside Fire Station, Benerembah St, Riverside NSW 2680',
         name: 'Fire Station (Start)',
         order: 0,
         isCompleted: true,
@@ -148,7 +148,7 @@ export const mockRoutes: Route[] = [
       {
         id: 'wp_9',
         coordinates: [146.0452, -34.2881],
-        address: 'Banna Ave, Griffith NSW 2680',
+        address: 'Banna Ave, Riverside NSW 2680',
         name: 'Banna Avenue',
         order: 1,
         isCompleted: true,
@@ -156,7 +156,7 @@ export const mockRoutes: Route[] = [
       {
         id: 'wp_10',
         coordinates: [146.0501, -34.2839],
-        address: 'City Park, Griffith NSW 2680',
+        address: 'City Park, Riverside NSW 2680',
         name: 'City Park',
         order: 2,
         isCompleted: true,
@@ -253,7 +253,7 @@ export function generateMockAnalytics(routeId: string): RouteAnalytics {
       other: 4,
     },
     viewersByLocation: [
-      { country: 'Australia', city: 'Griffith', count: 210 },
+      { country: 'Australia', city: 'Riverside', count: 210 },
       { country: 'Australia', city: 'Sydney', count: 18 },
       { country: 'Australia', city: 'Melbourne', count: 12 },
       { country: 'Australia', city: 'Brisbane', count: 5 },

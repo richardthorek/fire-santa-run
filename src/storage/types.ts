@@ -8,20 +8,20 @@ export interface Brigade {
   /** Unique brigade identifier (UUID) */
   id: string;
   
-  /** URL-friendly identifier (e.g., "griffith-rfs") */
+  /** URL-friendly identifier (e.g., "riverside-brigade") */
   slug: string;
   
-  /** Official brigade name (e.g., "Griffith Rural Fire Service") */
+  /** Official brigade name (e.g., "Riverside Fire Brigade") */
   name: string;
   
-  /** Location (e.g., "Griffith, NSW") */
+  /** Location (e.g., "Riverside, NSW") */
   location: string;
   
   /** Station coordinates [longitude, latitude] for map display */
   stationCoordinates?: [number, number];
   
-  /** Reference to RFS dataset station (for verification) */
-  rfsStationId?: string;
+  /** Reference to fire station dataset entry (for verification) */
+  fireStationId?: string;
   
   /** URL or base64 encoded logo */
   logo?: string;
@@ -29,7 +29,7 @@ export interface Brigade {
   /** Custom theme color (hex) */
   themeColor?: string;
   
-  /** Email domains for auto-approval (e.g., ['@griffithrfs.org.au']) */
+  /** Email domains for auto-approval (e.g., ['@examplebrigade.org.au']) */
   allowedDomains: string[];
   
   /** Specific approved email addresses */
@@ -118,7 +118,7 @@ export interface IStorageAdapter {
   // Brigade operations
   getBrigades(): Promise<Brigade[]>;
   getBrigade(brigadeId: string): Promise<Brigade | null>;
-  getBrigadeByRFSId(rfsStationId: string): Promise<Brigade | null>;
+  getBrigadeByStationId(fireStationId: string): Promise<Brigade | null>;
   /** Look up a brigade by its public URL slug (for /brigade/:slug). */
   getBrigadeBySlug(slug: string): Promise<Brigade | null>;
   saveBrigade(brigade: Brigade): Promise<void>;

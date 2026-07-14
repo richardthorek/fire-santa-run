@@ -21,6 +21,52 @@ export function isPushSupported(): boolean {
   );
 }
 
+/** True when the page is running as an installed PWA (home-screen / standalone). */
+export function isStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    // iOS Safari exposes this non-standard flag for home-screen web apps.
+    (navigator as unknown as { standalone?: boolean }).standalone === true
+  );
+}
+
+function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  // iPadOS 13+ reports as Macintosh, so also treat a touch-capable Mac as iOS.
+  return /iphone|ipad|ipod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+/**
+ * Detect embedded webviews (Facebook, Instagram, Messenger, Twitter, TikTok,
+ * LINE, Snapchat, Pinterest). Most shared links open here, and these webviews
+ * support neither Web Push nor Add-to-Home-Screen — so we must point people out
+ * to a real browser rather than silently showing nothing.
+ */
+function isInAppBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  return /FBAN|FBAV|FB_IAB|Instagram|Messenger|Line\/|Twitter|TikTok|musical_ly|Snapchat|Pinterest|GSA\//i.test(ua);
+}
+
+/**
+ * Why a viewer can or can't sign up for the "notify me" push, so the UI can
+ * either show the button or explain what to do instead of hiding silently:
+ * - `supported`         — Web Push works here; show the button.
+ * - `in-app-browser`    — open in Safari/Chrome first.
+ * - `ios-needs-install` — iOS only allows push from a home-screen install.
+ * - `unsupported`       — no push here (e.g. an older desktop browser).
+ */
+export type PushEnvironmentKind = 'supported' | 'in-app-browser' | 'ios-needs-install' | 'unsupported';
+
+export function getPushEnvironment(): PushEnvironmentKind {
+  if (isPushSupported()) return 'supported';
+  if (isInAppBrowser()) return 'in-app-browser';
+  if (isIOS() && !isStandalone()) return 'ios-needs-install';
+  return 'unsupported';
+}
+
 export function hasSubscribedToRoute(routeId: string): boolean {
   try {
     const stored = JSON.parse(localStorage.getItem(SUBSCRIBED_KEY) || '[]') as string[];

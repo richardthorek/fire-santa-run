@@ -14,14 +14,14 @@ import {
 describe('emailValidation', () => {
   describe('isGovernmentEmail', () => {
     it('should return true for .gov.au emails', () => {
-      expect(isGovernmentEmail('admin@rfs.nsw.gov.au')).toBe(true);
+      expect(isGovernmentEmail('admin@fire.example.gov.au')).toBe(true);
       expect(isGovernmentEmail('user@fire.qld.gov.au')).toBe(true);
       expect(isGovernmentEmail('test@vic.gov.au')).toBe(true);
     });
 
     it('should be case-insensitive', () => {
-      expect(isGovernmentEmail('admin@RFS.NSW.GOV.AU')).toBe(true);
-      expect(isGovernmentEmail('Admin@Rfs.Nsw.Gov.Au')).toBe(true);
+      expect(isGovernmentEmail('admin@FIRE.EXAMPLE.GOV.AU')).toBe(true);
+      expect(isGovernmentEmail('Admin@Fire.Example.Gov.Au')).toBe(true);
     });
 
     it('should return false for non-government emails', () => {
@@ -32,24 +32,24 @@ describe('emailValidation', () => {
     });
 
     it('should handle emails with subdomains', () => {
-      expect(isGovernmentEmail('user@subdomain.rfs.nsw.gov.au')).toBe(true);
+      expect(isGovernmentEmail('user@subdomain.fire.example.gov.au')).toBe(true);
       expect(isGovernmentEmail('admin@many.sub.domains.gov.au')).toBe(true);
     });
   });
 
   describe('matchesAllowedDomains', () => {
     it('should match emails against allowed domains', () => {
-      const domains = ['@griffithrfs.org.au', '@rfs.nsw.gov.au'];
+      const domains = ['@examplebrigade.org.au', '@fire.example.gov.au'];
       
-      expect(matchesAllowedDomains('user@griffithrfs.org.au', domains)).toBe(true);
-      expect(matchesAllowedDomains('admin@rfs.nsw.gov.au', domains)).toBe(true);
+      expect(matchesAllowedDomains('user@examplebrigade.org.au', domains)).toBe(true);
+      expect(matchesAllowedDomains('admin@fire.example.gov.au', domains)).toBe(true);
     });
 
     it('should be case-insensitive', () => {
-      const domains = ['@griffithrfs.org.au'];
+      const domains = ['@examplebrigade.org.au'];
       
-      expect(matchesAllowedDomains('USER@GRIFFITHRFS.ORG.AU', domains)).toBe(true);
-      expect(matchesAllowedDomains('user@GriffithRFS.Org.Au', domains)).toBe(true);
+      expect(matchesAllowedDomains('USER@EXAMPLEBRIGADE.ORG.AU', domains)).toBe(true);
+      expect(matchesAllowedDomains('user@ExampleBrigade.Org.Au', domains)).toBe(true);
     });
 
     it('should handle domains with and without @ prefix', () => {
@@ -61,7 +61,7 @@ describe('emailValidation', () => {
     });
 
     it('should return false for non-matching emails', () => {
-      const domains = ['@griffithrfs.org.au'];
+      const domains = ['@examplebrigade.org.au'];
       
       expect(matchesAllowedDomains('user@gmail.com', domains)).toBe(false);
       expect(matchesAllowedDomains('user@example.com', domains)).toBe(false);
@@ -112,11 +112,11 @@ describe('emailValidation', () => {
     it('should auto-approve when requireManualApproval is false and domain matches', () => {
       const config = {
         requireManualApproval: false,
-        allowedDomains: ['@griffithrfs.org.au'],
+        allowedDomains: ['@examplebrigade.org.au'],
         allowedEmails: [],
       };
       
-      expect(isAutoApproved('user@griffithrfs.org.au', config)).toBe(true);
+      expect(isAutoApproved('user@examplebrigade.org.au', config)).toBe(true);
     });
 
     it('should auto-approve when requireManualApproval is false and email is allowed', () => {
@@ -132,18 +132,18 @@ describe('emailValidation', () => {
     it('should not auto-approve when requireManualApproval is true', () => {
       const config = {
         requireManualApproval: true,
-        allowedDomains: ['@griffithrfs.org.au'],
+        allowedDomains: ['@examplebrigade.org.au'],
         allowedEmails: ['dev@example.com'],
       };
       
-      expect(isAutoApproved('user@griffithrfs.org.au', config)).toBe(false);
+      expect(isAutoApproved('user@examplebrigade.org.au', config)).toBe(false);
       expect(isAutoApproved('dev@example.com', config)).toBe(false);
     });
 
     it('should not auto-approve when email does not match any criteria', () => {
       const config = {
         requireManualApproval: false,
-        allowedDomains: ['@griffithrfs.org.au'],
+        allowedDomains: ['@examplebrigade.org.au'],
         allowedEmails: ['dev@example.com'],
       };
       
@@ -166,7 +166,7 @@ describe('emailValidation', () => {
   describe('isValidEmailFormat', () => {
     it('should validate correct email formats', () => {
       expect(isValidEmailFormat('user@example.com')).toBe(true);
-      expect(isValidEmailFormat('admin@rfs.nsw.gov.au')).toBe(true);
+      expect(isValidEmailFormat('admin@fire.example.gov.au')).toBe(true);
       expect(isValidEmailFormat('test.user@example.co.uk')).toBe(true);
       expect(isValidEmailFormat('user+tag@example.com')).toBe(true);
     });

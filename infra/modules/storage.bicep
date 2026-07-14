@@ -41,6 +41,35 @@ resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-01-0
   name: 'default'
 }
 
+// Blob service hosts the nightly Table backups (see infra/backup/). Azure Table
+// Storage has no soft-delete or point-in-time restore, so the exported JSON in
+// this container IS the recovery path. Soft-delete + versioning protect the
+// backups themselves (and any future blob data) against an accidental delete
+// or overwrite for 30 days.
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
+  parent: storageAccount
+  name: 'default'
+  properties: {
+    isVersioningEnabled: true
+    deleteRetentionPolicy: {
+      enabled: true
+      days: 30
+    }
+    containerDeleteRetentionPolicy: {
+      enabled: true
+      days: 30
+    }
+  }
+}
+
+resource backupsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  parent: blobService
+  name: 'backups'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 // Production tables (no prefix)
 resource prodTables 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-01-01' = [
   for tableName in tables: if (environment == 'prod') {

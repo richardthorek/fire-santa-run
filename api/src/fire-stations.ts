@@ -1,7 +1,7 @@
 /**
- * /api/rfs-stations - Fetch RFS station data
+ * /api/fire-stations - Fetch fire station data
  * 
- * Provides access to Rural & Country Fire Service Facilities dataset.
+ * Provides access to national fire station facilities dataset.
  * Supports querying by state, name, location, etc.
  * 
  * Query Parameters:
@@ -15,11 +15,11 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 
-// ArcGIS REST API endpoint for RFS facilities
+// ArcGIS REST API endpoint for fire station facilities
 // Using Geoscience Australia's Emergency Management Facilities MapServer
-const RFS_API_BASE = 'https://services.ga.gov.au/gis/rest/services/Emergency_Management_Facilities/MapServer/4';
+const FIRE_STATION_API_BASE = 'https://services.ga.gov.au/gis/rest/services/Emergency_Management_Facilities/MapServer/4';
 
-interface RFSStationFeature {
+interface FireStationFeature {
   attributes: {
     objectid?: number;
     OBJECTID?: number;
@@ -48,7 +48,7 @@ interface RFSStationFeature {
   };
 }
 
-interface RFSStation {
+interface FireStation {
   id: number;
   name: string;
   address?: string;
@@ -60,7 +60,7 @@ interface RFSStation {
   lastUpdated?: string;
 }
 
-function convertFeatureToStation(feature: RFSStationFeature): RFSStation {
+function convertFeatureToStation(feature: FireStationFeature): FireStation {
   const { attributes, geometry } = feature;
   return {
     id: attributes.objectid || attributes.OBJECTID || 0,
@@ -94,7 +94,7 @@ function calculateDistance(coord1: [number, number], coord2: [number, number]): 
   return R * c;
 }
 
-export async function rfsStations(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+export async function fireStations(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
     // Parse query parameters
     const state = request.query.get('state');
@@ -152,8 +152,8 @@ export async function rfsStations(request: HttpRequest, context: InvocationConte
     }
 
     // Fetch from ArcGIS API
-    const url = `${RFS_API_BASE}/query?${params.toString()}`;
-    context.log('Fetching RFS stations:', url);
+    const url = `${FIRE_STATION_API_BASE}/query?${params.toString()}`;
+    context.log('Fetching fire stations:', url);
     
     const response = await fetch(url);
     
@@ -164,11 +164,11 @@ export async function rfsStations(request: HttpRequest, context: InvocationConte
     const data = await response.json();
     
     if (!data.features || !Array.isArray(data.features)) {
-      throw new Error('Invalid response from RFS API');
+      throw new Error('Invalid response from fire station API');
     }
 
     // Convert features to simplified format
-    let stations: RFSStation[] = data.features.map(convertFeatureToStation);
+    let stations: FireStation[] = data.features.map(convertFeatureToStation);
 
     // Apply client-side filters
     if (name) {
@@ -201,7 +201,7 @@ export async function rfsStations(request: HttpRequest, context: InvocationConte
     // Apply limit
     stations = stations.slice(0, limit);
 
-    context.log(`Returning ${stations.length} RFS stations`);
+    context.log(`Returning ${stations.length} fire stations`);
 
     return {
       status: 200,
@@ -216,19 +216,19 @@ export async function rfsStations(request: HttpRequest, context: InvocationConte
     };
 
   } catch (error) {
-    context.error('Error fetching RFS stations:', error);
+    context.error('Error fetching fire stations:', error);
     return {
       status: 500,
       jsonBody: {
-        error: 'Failed to fetch RFS stations',
+        error: 'Failed to fetch fire stations',
         message: error instanceof Error ? error.message : 'Unknown error'
       }
     };
   }
 }
 
-app.http('rfs-stations', {
+app.http('fire-stations', {
   methods: ['GET'],
   authLevel: 'anonymous',
-  handler: rfsStations
+  handler: fireStations
 });

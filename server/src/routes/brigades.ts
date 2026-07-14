@@ -27,7 +27,7 @@ function entityToBrigade(entity: any) {
     slug: entity.slug,
     name: entity.name,
     location: entity.location,
-    rfsStationId: entity.rfsStationId,
+    fireStationId: entity.fireStationId,
     contact: entity.contact ? JSON.parse(entity.contact) : {},
     contactEmail: entity.contactEmail,
     contactPhone: entity.contactPhone,
@@ -60,7 +60,7 @@ function brigadeToEntity(brigade: any) {
     slug: brigade.slug,
     name: brigade.name,
     location: brigade.location || '',
-    rfsStationId: brigade.rfsStationId || '',
+    fireStationId: brigade.fireStationId || '',
     contact: brigade.contact ? JSON.stringify(brigade.contact) : JSON.stringify({}),
     contactEmail: brigade.contact?.email || brigade.contactEmail || '',
     contactPhone: brigade.contact?.phone || brigade.contactPhone || '',
@@ -110,18 +110,18 @@ brigadesRouter.get('/', async (c) => {
   }
 });
 
-brigadesRouter.get('/rfs/:rfsStationId', async (c) => {
+brigadesRouter.get('/by-station/:fireStationId', async (c) => {
   try {
-    const rfsStationId = c.req.param('rfsStationId');
+    const fireStationId = c.req.param('fireStationId');
     const client = await getTableClient(BRIGADES_TABLE);
-    const entities = client.listEntities({ queryOptions: { filter: `rfsStationId eq '${escapeODataValue(rfsStationId)}'` } });
+    const entities = client.listEntities({ queryOptions: { filter: `fireStationId eq '${escapeODataValue(fireStationId)}'` } });
     for await (const entity of entities) {
       return c.json(entityToBrigade(entity));
     }
     return c.json({ error: 'Brigade not found' }, 404);
   } catch (error) {
-    console.error('Error fetching brigade by RFS ID:', error);
-    return c.json({ error: 'Failed to fetch brigade by RFS ID' }, 500);
+    console.error('Error fetching brigade by station ID:', error);
+    return c.json({ error: 'Failed to fetch brigade by station ID' }, 500);
   }
 });
 
@@ -134,7 +134,7 @@ function toPublicBrigade(entity: any) {
     slug: b.slug,
     name: b.name,
     location: b.location,
-    rfsStationId: b.rfsStationId,
+    fireStationId: b.fireStationId,
     logo: b.logo,
     themeColor: b.themeColor,
     contact: b.contact,

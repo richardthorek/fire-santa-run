@@ -14,7 +14,7 @@ import { storageAdapter } from '../storage';
 import type { Route, LocationBroadcast } from '../types';
 import { formatDistance, getDirections } from '../utils/mapbox';
 import { calculateDistance, alongPathDistance } from '../utils/navigation';
-import { isPushSupported, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute } from '../utils/push';
+import { getPushEnvironment, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute, type PushEnvironmentKind } from '../utils/push';
 import { DEMO_ROUTE, startDemoSimulator } from '../utils/demoRoute';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -81,8 +81,10 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   const [pinBusy, setPinBusy] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
   // "Notify me": web push before the run starts. Key stays null when the
-  // deployment has no VAPID keys or the browser lacks push — UI hides itself.
+  // deployment has no VAPID keys. When the server HAS push but this browser
+  // can't (iOS Safari, in-app webviews), we show guidance instead of hiding.
   const [pushPublicKey, setPushPublicKey] = useState<string | null>(null);
+  const [pushEnv] = useState<PushEnvironmentKind>(() => getPushEnvironment());
   const [notifyState, setNotifyState] = useState<'idle' | 'busy' | 'done'>(
     () => (hasSubscribedToRoute(routeId) ? 'done' : 'idle'),
   );
@@ -388,9 +390,11 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
     }
   };
 
-  // Discover whether this deployment supports push (once per page).
+  // Discover whether this deployment offers push (once per page). Fetched even
+  // when this browser can't subscribe, so we can show install/open-in-browser
+  // guidance rather than nothing. 'unsupported' browsers get no fetch.
   useEffect(() => {
-    if (!isPushSupported()) return;
+    if (pushEnv === 'unsupported') return;
     let cancelled = false;
     getServerPublicKey().then((key) => {
       if (!cancelled) setPushPublicKey(key);
@@ -398,7 +402,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pushEnv]);
 
   const handleNotifyMe = useCallback(async () => {
     if (!pushPublicKey) return;
@@ -483,7 +487,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
 
   // Connect to Web PubSub for real-time updates (skipped in demo mode — the
   // simulator below produces the same messages locally).
-  const { isConnected, isConnecting, error: connectionError, viewerCount } = useWebPubSub({
+  const { isConnected, isConnecting, error: connectionError, viewerCount, runStatus, runStatusMessage } = useWebPubSub({
     routeId,
     role: 'viewer',
     onLocationUpdate: handleLocationUpdate,
@@ -628,6 +632,63 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
         <ThankYouOverlay route={route} />
       )}
 
+      {/* Emergency stop — the truck was called away mid-run. Shown live over the
+          map so families aren't left watching a frozen Santa. */}
+      {runStatus === 'aborted' && route.status !== 'completed' && (
+        <div
+          role="alert"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1300,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: '2rem',
+            background: 'linear-gradient(160deg, rgba(183,30,30,0.96), rgba(120,20,20,0.96))',
+            color: 'var(--candy-white)',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }} aria-hidden="true">🚒</div>
+          <h2 style={{ fontFamily: 'var(--font-fun)', fontSize: 'clamp(1.4rem, 5vw, 2rem)', margin: '0 0 0.75rem' }}>
+            Santa’s been called away
+          </h2>
+          <p style={{ maxWidth: '28rem', fontSize: '1rem', lineHeight: 1.5, margin: 0 }}>
+            {runStatusMessage || 'The crew has been called to help with something urgent, so tonight’s run has stopped. We’ll share a new time as soon as we can — thank you for understanding.'}
+          </p>
+        </div>
+      )}
+
+      {/* Temporary pause — Santa's stopped for a moment. Keeps the last position
+          on the map and reassures viewers rather than looking frozen. */}
+      {runStatus === 'paused' && route.status !== 'completed' && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            top: 'calc(env(safe-area-inset-top, 0px) + 5.5rem)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1200,
+            maxWidth: 'calc(100% - 2rem)',
+            background: 'rgba(255, 167, 38, 0.97)',
+            color: '#3E2723',
+            padding: '0.55rem 1rem',
+            borderRadius: '999px',
+            fontWeight: 700,
+            fontSize: '0.9rem',
+            boxShadow: 'var(--ui-shadow)',
+            textAlign: 'center',
+          }}
+        >
+          ⏸️ {runStatusMessage || 'Santa’s taking a quick break — back on the move shortly!'}
+        </div>
+      )}
+
       {/* Santa Tracker Header and Progress Panel — hidden in archive mode */}
       {route.status !== 'completed' && (
         <>
@@ -645,7 +706,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               padding: 'calc(clamp(0.75rem, 2.5vw, 1.25rem) + env(safe-area-inset-top, 0px)) clamp(1rem, 3vw, 1.5rem) clamp(0.75rem, 2.5vw, 1.25rem)',
               borderRadius: '0 0 25px 25px',
               boxShadow: 'var(--ui-shadow)',
-              borderBottom: '4px solid var(--rfs-yellow)', // RFS accent
+              borderBottom: '4px solid var(--summer-gold)', // summer-gold accent
               zIndex: 1000,
             }}
           >
@@ -684,7 +745,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                 <span
                   style={{
                     padding: '0.25rem 0.6rem',
-                    backgroundColor: 'var(--rfs-yellow)',
+                    backgroundColor: 'var(--summer-gold)',
                     color: 'var(--neutral-900)',
                     borderRadius: '999px',
                     fontSize: '0.75rem',
@@ -719,7 +780,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                     width: '8px',
                     height: '8px',
                     borderRadius: '50%',
-                    backgroundColor: 'var(--rfs-yellow)',
+                    backgroundColor: 'var(--summer-gold)',
                     animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                   }} />
                   <span>LIVE</span>
@@ -757,7 +818,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               <div
                 className="live-pulse"
                 style={{
-                  backgroundColor: effectiveConnected ? 'var(--rfs-yellow)' :
+                  backgroundColor: effectiveConnected ? 'var(--summer-gold)' :
                                    isConnecting ? 'var(--summer-gold)' :
                                    'var(--fire-red)',
                 }}
@@ -817,7 +878,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                 WebkitBackdropFilter: 'blur(12px)',
                 borderRadius: 'var(--border-radius)',
                 border: '1px solid rgba(0, 0, 0, 0.06)',
-                borderTop: '3px solid var(--rfs-yellow)',
+                borderTop: '3px solid var(--summer-gold)',
                 boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
                 fontFamily: 'var(--font-body)',
                 overflow: 'hidden',
@@ -939,7 +1000,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                     padding: '1rem',
                     backgroundColor: 'rgba(255, 230, 0, 0.1)',
                     borderRadius: 'var(--border-radius-xs)',
-                    borderLeft: '4px solid var(--rfs-yellow)',
+                    borderLeft: '4px solid var(--summer-gold)',
                   }}>
                     <p style={{ 
                       margin: 0, 
@@ -1008,7 +1069,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                   padding: '0.75rem 1rem',
                   backgroundColor: 'rgba(255, 230, 0, 0.15)',
                   borderRadius: 'var(--border-radius-xs)',
-                  borderLeft: '4px solid var(--rfs-yellow)',
+                  borderLeft: '4px solid var(--summer-gold)',
                   fontSize: '0.875rem',
                   color: 'var(--neutral-900)',
                 }}
@@ -1021,9 +1082,39 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               </div>
             )}
 
-            {/* Notify me — web push before the run starts (hidden when the
-                deployment has no VAPID keys or the browser lacks push) */}
-            {!demo && !currentLocation && pushPublicKey && (
+            {/* Notify me — web push before the run starts. When the server offers
+                push but this browser can't subscribe (iOS Safari tab, in-app
+                webview), show guidance instead of hiding silently. */}
+            {!demo && !currentLocation && pushPublicKey && pushEnv !== 'supported' && (
+              <div
+                style={{
+                  marginTop: '0.75rem',
+                  padding: '0.7rem 1rem',
+                  backgroundColor: 'rgba(255, 167, 38, 0.12)',
+                  borderRadius: 'var(--border-radius-xs)',
+                  borderLeft: '4px solid var(--summer-gold)',
+                  fontSize: '0.85rem',
+                  color: 'var(--neutral-900)',
+                  lineHeight: 1.5,
+                }}
+              >
+                {pushEnv === 'in-app-browser' ? (
+                  <span>
+                    🔔 <strong>Want an alert when Santa starts?</strong> Open this page in
+                    your browser first — tap the ••• menu and choose “Open in browser”,
+                    then look for “Notify me”.
+                  </span>
+                ) : (
+                  <span>
+                    🔔 <strong>Want an alert when Santa starts?</strong> Add this page to
+                    your Home Screen first: tap the Share button, then “Add to Home Screen”,
+                    and open it from there to turn on notifications.
+                  </span>
+                )}
+              </div>
+            )}
+
+            {!demo && !currentLocation && pushPublicKey && pushEnv === 'supported' && (
               <div style={{ marginTop: '0.75rem' }}>
                 {notifyState === 'done' ? (
                   <p

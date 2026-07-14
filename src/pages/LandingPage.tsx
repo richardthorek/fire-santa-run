@@ -307,7 +307,7 @@ export function LandingPage() {
                 borderRadius: '20px',
                 boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
                 textAlign: 'center',
-                border: '4px solid var(--rfs-yellow)',
+                border: '4px solid var(--summer-gold)',
                 position: 'relative',
                 overflow: 'hidden',
                 display: 'flex',

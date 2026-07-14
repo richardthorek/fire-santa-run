@@ -152,6 +152,29 @@ export interface ViewerCountMessage {
   type: 'viewer-count';
 }
 
+/**
+ * Live status of a run as the navigator experiences it — distinct from the
+ * route's stored lifecycle {@link RouteStatus}. Broadcast in real time so
+ * public tracking pages react instantly:
+ * - `active`    — Santa is out and moving normally.
+ * - `paused`    — a temporary hold (long stop, quick break); viewers see a
+ *                 "back shortly" banner, the last position stays on the map.
+ * - `aborted`   — the truck was called away (e.g. a real callout). Viewers see
+ *                 an explicit message and the run ends; pending run-start pushes
+ *                 are suppressed so nobody is told Santa is coming after a stop.
+ * - `completed` — the run finished normally (thank-you state).
+ */
+export type RunStatus = 'active' | 'paused' | 'aborted' | 'completed';
+
+export interface RunStatusMessage {
+  type: 'run-status';
+  routeId: string;
+  status: RunStatus;
+  /** Optional short human message shown to viewers (e.g. an emergency note). */
+  message?: string;
+  timestamp: number;
+}
+
 export interface ViewerSession {
   id: string;
   routeId: string;

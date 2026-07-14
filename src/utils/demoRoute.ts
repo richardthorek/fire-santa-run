@@ -13,7 +13,7 @@ import { calculateDistance } from './navigation';
 
 export const DEMO_ROUTE_ID = 'demo';
 
-/** A friendly fictional town loop (Griffith NSW — matches the sample data). */
+/** A friendly fictional town loop (Riverside NSW — matches the sample data). */
 export const DEMO_ROUTE: Route = {
   id: DEMO_ROUTE_ID,
   brigadeId: 'demo-brigade',

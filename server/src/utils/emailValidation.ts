@@ -37,7 +37,7 @@ export function isGovAuEmail(email: string): boolean {
  * - 'user@example.com.malicious.com' → No match ❌ (not a subdomain)
  * 
  * Security: Subdomain matching is intentional to support organizational
- * structures like 'fire.nsw.gov.au', 'rfs.nsw.gov.au', etc.
+ * structures like 'fire.nsw.gov.au', 'parks.example.gov.au', etc.
  */
 export function isAllowedDomain(email: string, allowedDomains: string[]): boolean {
   if (!allowedDomains || allowedDomains.length === 0) {

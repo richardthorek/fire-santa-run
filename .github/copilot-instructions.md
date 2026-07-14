@@ -20,7 +20,7 @@ All architectural decisions, feature specifications, implementation sequences, d
 - Testing strategies (Section 26)
 
 ## Project Overview
-React + TypeScript web application for Australian Rural Fire Service brigades to plan and track Santa runs with real-time GPS tracking.
+React + TypeScript web application for Australian fire brigades and community groups to plan and track Santa runs with real-time GPS tracking.
 
 ## Key Technologies
 - React 19 + TypeScript

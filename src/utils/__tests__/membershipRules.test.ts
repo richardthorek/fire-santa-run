@@ -25,7 +25,7 @@ describe('membershipRules - Critical Business Logic', () => {
     it('should allow .gov.au email to become admin (auto-verified)', () => {
       const user: User = {
         id: 'user-1',
-        email: 'john@rfs.nsw.gov.au',
+        email: 'john@fire.example.gov.au',
         name: 'John Smith',
         entraUserId: 'entra-123',
         emailVerified: true,
@@ -125,7 +125,7 @@ describe('membershipRules - Critical Business Logic', () => {
       const brigade: Brigade = {
         id: 'brigade-1',
         name: 'Test Brigade',
-        rfsStationId: 'NSW-12345',
+        fireStationId: 'NSW-12345',
         location: { address: '123 Fire St', coordinates: [0, 0] },
         adminUserIds: ['user-1'],
         membershipRules: {
@@ -146,7 +146,7 @@ describe('membershipRules - Critical Business Logic', () => {
       const brigade: Brigade = {
         id: 'brigade-1',
         name: 'Test Brigade',
-        rfsStationId: 'NSW-12345',
+        fireStationId: 'NSW-12345',
         location: { address: '123 Fire St', coordinates: [0, 0] },
         adminUserIds: ['user-1', 'user-2'],
         membershipRules: {
@@ -167,7 +167,7 @@ describe('membershipRules - Critical Business Logic', () => {
       const brigade: Brigade = {
         id: 'brigade-1',
         name: 'Test Brigade',
-        rfsStationId: 'NSW-12345',
+        fireStationId: 'NSW-12345',
         location: { address: '123 Fire St', coordinates: [0, 0] },
         adminUserIds: [],
         membershipRules: {
@@ -189,7 +189,7 @@ describe('membershipRules - Critical Business Logic', () => {
       const brigade: Brigade = {
         id: 'brigade-1',
         name: 'Test Brigade',
-        rfsStationId: 'NSW-12345',
+        fireStationId: 'NSW-12345',
         location: { address: '123 Fire St', coordinates: [0, 0] },
         adminUserIds: ['user-1', 'user-2', 'user-3'],
         membershipRules: {
@@ -212,7 +212,7 @@ describe('membershipRules - Critical Business Logic', () => {
     const brigade: Brigade = {
       id: 'brigade-1',
       name: 'Test Brigade',
-      rfsStationId: 'NSW-12345',
+      fireStationId: 'NSW-12345',
       location: { address: '123 Fire St', coordinates: [0, 0] },
       adminUserIds: ['user-1'],
       membershipRules: {
@@ -280,7 +280,7 @@ describe('membershipRules - Critical Business Logic', () => {
     const brigade: Brigade = {
       id: 'brigade-1',
       name: 'Test Brigade',
-      rfsStationId: 'NSW-12345',
+      fireStationId: 'NSW-12345',
       location: { address: '123 Fire St', coordinates: [0, 0] },
       adminUserIds: ['user-1'],
       membershipRules: {
@@ -409,7 +409,7 @@ describe('membershipRules - Critical Business Logic', () => {
     it('should reject promotion when brigade already has 2 admins', () => {
       const user: User = {
         id: 'user-3',
-        email: 'john@rfs.nsw.gov.au',
+        email: 'john@fire.example.gov.au',
         name: 'John Smith',
         entraUserId: 'entra-123',
         emailVerified: true,
@@ -430,7 +430,7 @@ describe('membershipRules - Critical Business Logic', () => {
       const brigade: Brigade = {
         id: 'brigade-1',
         name: 'Test Brigade',
-        rfsStationId: 'NSW-12345',
+        fireStationId: 'NSW-12345',
         location: { address: '123 Fire St', coordinates: [0, 0] },
         adminUserIds: ['user-1', 'user-2'], // Already 2 admins
         membershipRules: {
@@ -472,7 +472,7 @@ describe('membershipRules - Critical Business Logic', () => {
       const brigade: Brigade = {
         id: 'brigade-1',
         name: 'Test Brigade',
-        rfsStationId: 'NSW-12345',
+        fireStationId: 'NSW-12345',
         location: { address: '123 Fire St', coordinates: [0, 0] },
         adminUserIds: ['user-1'],
         membershipRules: {
@@ -493,7 +493,7 @@ describe('membershipRules - Critical Business Logic', () => {
     it('should allow promotion for .gov.au email when slots available', () => {
       const user: User = {
         id: 'user-3',
-        email: 'john@rfs.nsw.gov.au',
+        email: 'john@fire.example.gov.au',
         name: 'John Smith',
         entraUserId: 'entra-123',
         emailVerified: true,
@@ -514,7 +514,7 @@ describe('membershipRules - Critical Business Logic', () => {
       const brigade: Brigade = {
         id: 'brigade-1',
         name: 'Test Brigade',
-        rfsStationId: 'NSW-12345',
+        fireStationId: 'NSW-12345',
         location: { address: '123 Fire St', coordinates: [0, 0] },
         adminUserIds: ['user-1'], // Only 1 admin, slot available
         membershipRules: {
@@ -547,7 +547,7 @@ describe('membershipRules - Critical Business Logic', () => {
       const brigade: Brigade = {
         id: 'brigade-1',
         name: 'Test Brigade',
-        rfsStationId: 'NSW-12345',
+        fireStationId: 'NSW-12345',
         location: { address: '123 Fire St', coordinates: [0, 0] },
         adminUserIds: ['user-1'], // Only 1 admin
         membershipRules: {
@@ -579,7 +579,7 @@ describe('membershipRules - Critical Business Logic', () => {
       const brigade: Brigade = {
         id: 'brigade-1',
         name: 'Test Brigade',
-        rfsStationId: 'NSW-12345',
+        fireStationId: 'NSW-12345',
         location: { address: '123 Fire St', coordinates: [0, 0] },
         adminUserIds: ['user-1', 'user-2'], // 2 admins
         membershipRules: {

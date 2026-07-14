@@ -46,11 +46,11 @@ describe('routeExport', () => {
 
   describe('routesToBackupJSON', () => {
     it('wraps routes in a versioned backup envelope', () => {
-      const backup = JSON.parse(routesToBackupJSON([makeRoute()], { id: 'brigade-1', name: 'Griffith RFS' }));
+      const backup = JSON.parse(routesToBackupJSON([makeRoute()], { id: 'brigade-1', name: 'Riverside Brigade' }));
       expect(backup.format).toBe(BACKUP_FORMAT);
       expect(backup.version).toBe(1);
       expect(backup.brigadeId).toBe('brigade-1');
-      expect(backup.brigadeName).toBe('Griffith RFS');
+      expect(backup.brigadeName).toBe('Riverside Brigade');
       expect(backup.routes).toHaveLength(1);
       expect(backup.routes[0].waypoints).toHaveLength(2);
     });

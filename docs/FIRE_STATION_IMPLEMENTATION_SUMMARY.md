@@ -1,4 +1,4 @@
-# RFS Station Locations Dataset Integration - Implementation Summary
+# Fire Station Locations Dataset Integration - Implementation Summary
 
 ## Overview
 Successfully integrated the Rural & Country Fire Service (RFS) Facilities dataset from Digital Atlas of Australia into the Fire Santa Run application. This provides comprehensive spatial reference data for brigade names, locations, and onboarding workflows.
@@ -306,7 +306,7 @@ const exactMatch = matches.find(s =>
 ### Internal Documentation
 - `docs/RFS_DATASET.md` - Complete API reference
 - `docs/RFS_INTEGRATION_EXAMPLES.md` - Code examples
-- `MASTER_PLAN.md` - Section 12a (RFS Dataset)
+- `MASTER_PLAN.md` - Section 12a (Fire Station Dataset)
 
 ### External Resources
 - [Digital Atlas Dataset](https://digitalatlas-digitalatlas.hub.arcgis.com/datasets/digitalatlas::rural-country-fire-service-facilities/about)

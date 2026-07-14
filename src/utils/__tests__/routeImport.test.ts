@@ -46,7 +46,7 @@ describe('routeImport', () => {
   describe('JSON backup round-trip', () => {
     it('re-imports a backup produced by routesToBackupJSON', () => {
       const original = makeRoute();
-      const backup = routesToBackupJSON([original], { id: 'brigade-1', name: 'Griffith' });
+      const backup = routesToBackupJSON([original], { id: 'brigade-1', name: 'Riverside' });
       const result = parseImportFile('backup.json', backup);
       expect(result.source).toBe('backup');
       expect(result.errors).toHaveLength(0);

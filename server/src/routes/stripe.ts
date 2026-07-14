@@ -13,6 +13,8 @@
  * Configuration (all server-side, never VITE_-prefixed):
  *   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID
  *   APP_BASE_URL (redirect target; falls back to CORS_ORIGIN)
+ *   STRIPE_AUTOMATIC_TAX ('true' to add GST via Stripe Tax — requires Tax to be
+ *     activated in the Stripe dashboard first, or Checkout will error)
  */
 
 import { Hono } from 'hono';
@@ -29,6 +31,9 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || '';
 const APP_BASE_URL = (process.env.APP_BASE_URL || process.env.CORS_ORIGIN || 'https://firesantarun.com.au').replace(/\/$/, '');
+// GST via Stripe Tax is opt-in: enabling automatic_tax when Tax isn't activated
+// in the dashboard makes Checkout fail, so gate it behind an explicit flag.
+const STRIPE_AUTOMATIC_TAX = process.env.STRIPE_AUTOMATIC_TAX === 'true';
 
 // Lazily construct the SDK so the server still boots (and health checks pass)
 // when Stripe is not configured — the routes below return 503 in that case.
@@ -187,6 +192,15 @@ stripeRouter.post('/create-checkout-session', async (c) => {
       success_url: `${APP_BASE_URL}/dashboard?checkout=success`,
       cancel_url: `${APP_BASE_URL}/dashboard?checkout=cancelled`,
       allow_promotion_codes: true,
+      // Australian brigades are quasi-government bodies that need a compliant
+      // tax invoice with their ABN. Collect a billing address and let the payer
+      // enter a business tax ID (ABN); persist both back onto the customer so
+      // the auto-generated subscription invoice carries them.
+      billing_address_collection: 'required',
+      tax_id_collection: { enabled: true },
+      customer_update: { address: 'auto', name: 'auto' },
+      // GST line via Stripe Tax — only when the account has Tax activated.
+      ...(STRIPE_AUTOMATIC_TAX ? { automatic_tax: { enabled: true } } : {}),
     });
 
     return c.json({ url: session.url }, 200);

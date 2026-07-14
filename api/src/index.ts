@@ -3,7 +3,7 @@
 
 import './health';
 import './brigades';
-import './rfs-stations';
+import './fire-stations';
 import './routes';
 import './users';
 import './members';

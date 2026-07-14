@@ -4,7 +4,7 @@
 
 .public-header {
   background: linear-gradient(135deg, var(--santa-red, #d62828) 0%, var(--fire-red-dark, #b71c1c) 100%);
-  border-bottom: 3px solid var(--rfs-yellow, #ffe600);
+  border-bottom: 3px solid var(--summer-gold, #ffe600);
 }
 
 .public-header__inner {
