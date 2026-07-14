@@ -218,7 +218,7 @@ SETTINGS=(
 # WebSocket connections present — optional (falls back to a hash of the
 # storage connection string) but worth setting explicitly in prod.
 MISSING_SECRETS=()
-for name in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PRICE_ID SITE_ADMIN_USER_IDS VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET; do
+for name in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PRICE_ID STRIPE_AUTOMATIC_TAX SITE_ADMIN_USER_IDS VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET; do
   val="$(resolve "$name")"
   if [[ -n "$val" ]]; then
     SETTINGS+=("$name=$val")
