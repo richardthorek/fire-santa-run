@@ -276,7 +276,8 @@ you provide.
 | `AZURE_STORAGE_CONNECTION_STRING` | Storage account primary connection string | read live from Azure |
 | `DEV_MODE` | `false` | fixed |
 | `NODE_ENV` / `PORT` | `production` / `8080` | fixed |
-| `CORS_ORIGIN` / `APP_BASE_URL` | Public origin (prod: `https://firesantarun.com.au`; dev: the Container App's auto-generated FQDN, or `APP_ORIGIN` override) | derived |
+| `APP_BASE_URL` | Public origin used for generated links (prod: `https://firesantarun.com.au`; dev: the Container App's auto-generated FQDN, or `APP_ORIGIN` override) | derived |
+| `CORS_ORIGIN` | Comma-separated CORS allowlist (prod default: `https://firesantarun.com.au,https://santa.stationkit.com.au` during the suite rebrand transition; dev: same as `APP_BASE_URL`) | derived, override with `CORS_ORIGIN` |
 | `STRIPE_SECRET_KEY` | Stripe secret key — **test** for dev, **live** for prod | `infra/.env.<env>` |
 | `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) for that environment's webhook endpoint | `infra/.env.<env>` |
 | `STRIPE_PRICE_ID` | Price id (`price_…`) of the subscription price (test vs live mode) | `infra/.env.<env>` |

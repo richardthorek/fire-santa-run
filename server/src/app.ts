@@ -18,7 +18,15 @@ import { pushRouter } from './routes/push.js';
 import { auditRouter } from './routes/audit.js';
 
 const isDevMode = process.env.DEV_MODE === 'true';
-const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || 'https://firesantarun.com.au';
+// CORS_ORIGIN may be a comma-separated list. Default covers both the current
+// production domain and the incoming stationkit.com.au subdomain during the
+// suite rebrand transition — drop firesantarun.com.au once DNS for
+// santa.stationkit.com.au is live and traffic has cut over.
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'https://firesantarun.com.au,https://santa.stationkit.com.au')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+const isAllowedOrigin = (origin: string | undefined): boolean => !!origin && ALLOWED_ORIGINS.includes(origin);
 
 export function createApp() {
   const app = new Hono();
@@ -28,8 +36,8 @@ export function createApp() {
   app.options('*', (c) => {
     const origin = c.req.header('origin');
     const headers = new Headers({ Vary: 'Origin' });
-    if (isDevMode || origin === ALLOWED_ORIGIN) {
-      headers.set('Access-Control-Allow-Origin', isDevMode ? (origin ?? '*') : ALLOWED_ORIGIN);
+    if (isDevMode || isAllowedOrigin(origin)) {
+      headers.set('Access-Control-Allow-Origin', isDevMode ? (origin ?? '*') : (origin as string));
       headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
       headers.set('Access-Control-Allow-Headers', 'Authorization,Content-Type');
       headers.set('Access-Control-Max-Age', '86400');
@@ -49,8 +57,8 @@ export function createApp() {
     if (!isDevMode) {
       c.res.headers.set('Vary', 'Origin');
       const origin = c.req.header('origin');
-      if (origin === ALLOWED_ORIGIN) {
-        c.res.headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+      if (isAllowedOrigin(origin)) {
+        c.res.headers.set('Access-Control-Allow-Origin', origin as string);
       }
     }
   });

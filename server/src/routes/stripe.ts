@@ -12,7 +12,7 @@
  *
  * Configuration (all server-side, never VITE_-prefixed):
  *   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID
- *   APP_BASE_URL (redirect target; falls back to CORS_ORIGIN)
+ *   APP_BASE_URL (redirect target; falls back to the first origin in CORS_ORIGIN)
  *   STRIPE_AUTOMATIC_TAX ('true' to add GST via Stripe Tax — requires Tax to be
  *     activated in the Stripe dashboard first, or Checkout will error)
  */
@@ -30,7 +30,12 @@ const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || '';
-const APP_BASE_URL = (process.env.APP_BASE_URL || process.env.CORS_ORIGIN || 'https://firesantarun.com.au').replace(/\/$/, '');
+// CORS_ORIGIN may be a comma-separated allowlist (see app.ts) — only its
+// first entry is a valid redirect target, so take that when APP_BASE_URL
+// isn't set explicitly.
+const APP_BASE_URL = (
+  process.env.APP_BASE_URL || process.env.CORS_ORIGIN?.split(',')[0]?.trim() || 'https://firesantarun.com.au'
+).replace(/\/$/, '');
 // GST via Stripe Tax is opt-in: enabling automatic_tax when Tax isn't activated
 // in the dashboard makes Checkout fail, so gate it behind an explicit flag.
 const STRIPE_AUTOMATIC_TAX = process.env.STRIPE_AUTOMATIC_TAX === 'true';
