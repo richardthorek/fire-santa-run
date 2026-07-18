@@ -140,6 +140,22 @@ is the audience and the marketing channel.
 
 ## Operational readiness
 
+- **Domain move to `santa.stationkit.com.au` (in progress, 2026-07-18).** Station
+  Manager's public branding/URL moved to `stationkit.com.au`; this app is moving
+  from its independent `firesantarun.com.au` domain to a `stationkit.com.au`
+  subdomain to match. **Shipped:** `server/src/app.ts`'s CORS allowlist now
+  accepts a comma-separated `CORS_ORIGIN` and defaults (prod) to both
+  `firesantarun.com.au` and `santa.stationkit.com.au` during the transition;
+  `infra/seed-secrets.sh` seeds that same two-origin default unless
+  `CORS_ORIGIN` is overridden. `APP_BASE_URL` (used to build outbound links —
+  SMS broadcasts, Stripe redirects, VAPID subject) deliberately still defaults
+  to `firesantarun.com.au` — don't flip it until DNS for the new subdomain is
+  actually live, or generated links 404. **Still open (infra/ops, not code):**
+  Cloudflare DNS + TLS for `santa.stationkit.com.au` and its Container Apps
+  custom-domain binding; once live, flip `APP_BASE_URL` and narrow
+  `CORS_ORIGIN` back to the single new origin, retiring `firesantarun.com.au`.
+  No functional Station Manager SSO integration exists in this repo today (no
+  code coupling beyond this domain/CORS alignment).
 - **Container Apps scale-to-zero.** `minReplicas: 0` off-season, flipped to
   1 for December via [`infra/scale-season.sh`](infra/scale-season.sh) so the
   first visitor of the season isn't stuck with a cold start mid-run.

@@ -184,15 +184,23 @@ echo "✅ Storage connection string retrieved."
 
 if [[ "$ENVIRONMENT" == "prod" ]]; then
   DEFAULT_ORIGIN="https://firesantarun.com.au"
+  # CORS accepts both the current domain and the incoming stationkit.com.au
+  # subdomain during the suite rebrand transition — narrow this back to a
+  # single origin once DNS for santa.stationkit.com.au is live and traffic
+  # has cut over.
+  DEFAULT_CORS_ORIGIN="https://firesantarun.com.au,https://santa.stationkit.com.au"
 else
   CONTAINER_FQDN=$(az containerapp show \
     --name "$APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --query properties.configuration.ingress.fqdn --output tsv 2>/dev/null || true)
   DEFAULT_ORIGIN="${CONTAINER_FQDN:+https://$CONTAINER_FQDN}"
+  DEFAULT_CORS_ORIGIN="$DEFAULT_ORIGIN"
 fi
 APP_ORIGIN="$(resolve APP_ORIGIN)"
 APP_ORIGIN="${APP_ORIGIN:-$DEFAULT_ORIGIN}"
+CORS_ORIGIN_VALUE="$(resolve CORS_ORIGIN)"
+CORS_ORIGIN_VALUE="${CORS_ORIGIN_VALUE:-$DEFAULT_CORS_ORIGIN}"
 
 if [[ -z "$APP_ORIGIN" ]]; then
   echo "❌ Could not determine the app origin. Pass APP_ORIGIN=https://... or confirm the app deployed."
@@ -208,7 +216,7 @@ SETTINGS=(
   "DEV_MODE=false"
   "NODE_ENV=production"
   "PORT=8080"
-  "CORS_ORIGIN=$APP_ORIGIN"
+  "CORS_ORIGIN=$CORS_ORIGIN_VALUE"
   "APP_BASE_URL=$APP_ORIGIN"
 )
 
