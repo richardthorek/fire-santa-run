@@ -9,13 +9,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 // Direct imports: the components/hooks barrels drag mapbox-gl into this public page's chunk.
 import { SEO } from '../components/SEO';
-import { useSubscriptionPrice } from '../hooks/useSubscriptionPrice';
 
 export function LandingPage() {
   const { isAuthenticated, isLoading } = useAuth();
-  // Live price from Stripe (falls back to the static $5 AUD/year) so the page
-  // never goes stale when the price changes in the Stripe dashboard.
-  const { price, amount, currency } = useSubscriptionPrice();
   const navigate = useNavigate();
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 
@@ -1007,13 +1003,13 @@ export function LandingPage() {
                   color: 'var(--fire-red)',
                   margin: '1rem 0 0.25rem',
                 }}>
-                  {amount}
-                  <span style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--neutral-600)' }}>/{price.interval}</span>
+                  $10
+                  <span style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--neutral-600)' }}>/year</span>
                 </div>
                 <p style={{ color: 'var(--neutral-600)', fontSize: '0.9rem', margin: '0.5rem 0 1.5rem' }}>
-                  One simple price per brigade — less than a coffee, covers the whole year.
+                  Unlimited use, less than a coffee — or $15 for a one-off month.
                   <span style={{ display: 'block', fontSize: '0.8rem', marginTop: '0.25rem', color: 'var(--neutral-500)' }}>
-                    Billed in {currency}.
+                    Included free with Station Manager&apos;s Basic and AI Pro plans.
                   </span>
                 </p>
                 <ul style={{
@@ -1132,7 +1128,10 @@ export function LandingPage() {
                     What does it cost?
                   </h4>
                   <p style={{ color: 'var(--neutral-700)', margin: 0, fontSize: '0.95rem' }}>
-                    {amount} {currency} a year per brigade — just enough to keep the servers running. You can explore the app and set up your brigade before subscribing; the subscription unlocks route planning and live broadcasting.
+                    $10/year (unlimited use) or $15 for a one-off month — just enough to keep the servers
+                    running. It&apos;s also included free with Station Manager&apos;s Basic and AI Pro plans.
+                    You can explore the app and set up your brigade before enabling it; enabling it unlocks
+                    route planning and live broadcasting.
                   </p>
                 </div>
 

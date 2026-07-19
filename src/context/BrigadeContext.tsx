@@ -2,14 +2,16 @@
 import { createContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { storageAdapter, type Brigade } from '../storage';
 import { useAuth } from './useAuth';
-import { isBrigadeEntitledForUi } from '../utils/subscription';
 
 export interface BrigadeContextType {
   brigade: Brigade | null;
   isLoading: boolean;
-  /** Whether the brigade may use paid features (planning + broadcasting). */
+  /**
+   * Whether the organisation has Fire Santa Run enabled (mirrors
+   * `useAuth().santaRunEnabled` — Fire Santa Run has no billing of its own).
+   */
   isEntitled: boolean;
-  /** Re-fetch the brigade record (e.g. after returning from Stripe checkout, or switching brigades). */
+  /** Re-fetch the brigade record (e.g. after switching organisations). */
   refreshBrigade: () => Promise<void>;
 }
 
@@ -71,7 +73,7 @@ export function BrigadeProvider({ children }: { children: ReactNode }) {
   const value: BrigadeContextType = {
     brigade,
     isLoading,
-    isEntitled: isBrigadeEntitledForUi(brigade) || santaRunEnabled,
+    isEntitled: santaRunEnabled,
     refreshBrigade: loadBrigade,
   };
 

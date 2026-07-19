@@ -15,7 +15,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context';
 import { storageAdapter } from '../storage';
 import { safeImageSrc } from '../utils/publicBrigade';
-import { AppLayout, SEO, BillingPanel } from '../components';
+import { AppLayout, SEO } from '../components';
+import { SUITE_AUTH_URL } from '../auth/suiteAuth';
 import type { Brigade } from '../storage/types';
 import './BrigadeSettingsPage.css';
 
@@ -84,7 +85,7 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 export function BrigadeSettingsPage() {
   const { brigadeId } = useParams<{ brigadeId: string }>();
   const navigate = useNavigate();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, santaRunEnabled, isLoading: authLoading } = useAuth();
 
   const [brigade, setBrigade] = useState<Brigade | null>(null);
   const [loading, setLoading] = useState(true);
@@ -370,8 +371,40 @@ export function BrigadeSettingsPage() {
             </div>
           </section>
 
-          {/* Subscription & billing */}
-          <BillingPanel brigade={brigade} />
+          {/* Fire Santa Run access — no billing of its own; entitlement comes
+              entirely from the organisation's Station Manager plan/add-on. */}
+          <section className="bsp__section" aria-labelledby="bsp-access">
+            <h2 className="bsp__section-title" id="bsp-access">Fire Santa Run Access</h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 1rem' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  padding: '0.25rem 0.7rem',
+                  borderRadius: '999px',
+                  background: santaRunEnabled ? 'rgba(67, 160, 71, 0.15)' : 'var(--neutral-100, #f0f0f0)',
+                  color: santaRunEnabled ? 'var(--christmas-green, #43A047)' : 'var(--neutral-700, #555)',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                }}
+              >
+                {santaRunEnabled ? 'Enabled' : 'Not enabled'}
+              </span>
+              <span style={{ color: 'var(--neutral-700, #555)', fontSize: '0.9rem' }}>
+                {santaRunEnabled
+                  ? 'Route planning and live broadcasting are unlocked for your organisation.'
+                  : 'Enable Fire Santa Run in Station Manager to unlock route planning and live broadcasting.'}
+              </span>
+            </div>
+            <p className="bsp__hint">
+              Fire Santa Run has no billing of its own — it&apos;s included with Station Manager&apos;s
+              Basic and AI Pro plans, or available standalone for $10/year (unlimited use) or $15 for
+              a one-off month.{' '}
+              <a href={`${SUITE_AUTH_URL}/admin/organization`} target="_blank" rel="noopener noreferrer">
+                Manage in Station Manager
+              </a>
+              .
+            </p>
+          </section>
 
           {/* Save */}
           <div className="bsp__actions">

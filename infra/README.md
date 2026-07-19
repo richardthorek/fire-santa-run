@@ -213,7 +213,7 @@ az containerapp update \
   --image ghcr.io/<owner>/fire-santa-run:manual
 ```
 
-`VITE_*` build args are baked into the SPA bundle at **build time** (Vite requirement) — pass the ones your deployment needs (see the Dockerfile header comment). They are not secrets that need runtime protection; the real secrets (Stripe keys, storage connection string, VAPID keys) are set as Container App environment variables at **runtime**, never baked into the image.
+`VITE_*` build args are baked into the SPA bundle at **build time** (Vite requirement) — pass the ones your deployment needs (see the Dockerfile header comment). They are not secrets that need runtime protection; the real secrets (storage connection string, VAPID keys) are set as Container App environment variables at **runtime**, never baked into the image.
 
 ### GHCR package visibility
 
@@ -266,7 +266,7 @@ az role assignment create --assignee "$APP_ID" --role Contributor \
 
 `deploy.sh` calls **`seed-secrets.sh`** at the end of a deploy to populate these.
 The seeder reads the Storage connection string **live from the deployed
-resource** (so it needs no deployment output) and pulls the Stripe / admin /
+resource** (so it needs no deployment output) and pulls the suite-auth /
 VAPID secrets from a gitignored `infra/.env.<env>` file (or the shell env). It
 is idempotent — `az containerapp update --set-env-vars` only touches the keys
 you provide.
@@ -278,16 +278,13 @@ you provide.
 | `NODE_ENV` / `PORT` | `production` / `8080` | fixed |
 | `APP_BASE_URL` | Public origin used for generated links (prod: `https://firesantarun.com.au`; dev: the Container App's auto-generated FQDN, or `APP_ORIGIN` override) | derived |
 | `CORS_ORIGIN` | Comma-separated CORS allowlist (prod default: `https://firesantarun.com.au,https://santa.stationkit.com.au` during the suite rebrand transition; dev: same as `APP_BASE_URL`) | derived, override with `CORS_ORIGIN` |
-| `STRIPE_SECRET_KEY` | Stripe secret key — **test** for dev, **live** for prod | `infra/.env.<env>` |
-| `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) for that environment's webhook endpoint | `infra/.env.<env>` |
-| `STRIPE_PRICE_ID` | Price id (`price_…`) of the subscription price (test vs live mode) | `infra/.env.<env>` |
-| `SUITE_AUTH_URL` | Station Manager base URL used to validate suite bearer tokens (`GET /api/auth/me`) | `infra/.env.<env>` |
+| `SUITE_AUTH_URL` | Station Manager base URL used to validate suite bearer tokens (`GET /api/auth/me`) — Fire Santa Run has no billing of its own; entitlement (`santaRunEnabled`) comes entirely from the caller's Station Manager organisation | `infra/.env.<env>` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push keys for "notify me when Santa starts" (optional — hides the button when unset) | `infra/.env.<env>` |
 | `VAPID_SUBJECT` | Contact URI sent to push services (optional; defaults to a `mailto:`) | `infra/.env.<env>` |
 | `REALTIME_WS_SECRET` | Signs the short-lived tokens broadcaster/editor WebSocket connections present (optional — falls back to a hash of the storage connection string) | `infra/.env.<env>` |
 
-**Re-seed without a full redeploy** (e.g. after rotating a Stripe key or adding a
-webhook secret):
+**Re-seed without a full redeploy** (e.g. after rotating a VAPID key or changing
+`SUITE_AUTH_URL`):
 
 ```bash
 cp infra/.env.example infra/.env.dev     # first time only, then edit
@@ -313,45 +310,15 @@ the matching parameter file:
 ```
 
 Separate environments (rather than a slot) are the right choice here because
-the app is stateful (Table Storage) and because Stripe has distinct **test**
-and **live** modes: the dev environment points at Stripe test mode with its
-own storage, so test subscriptions never touch real brigade data.
+the app is stateful (Table Storage) — dev gets its own storage account so
+local/test data never touches production brigade data.
 
-### Stripe configuration per environment
-
-The `/api/stripe` routes return `503` until fully configured, and the paywall
-treats brigades as unentitled until the webhook records a subscription. Put the
-environment-appropriate values in a gitignored `infra/.env.<env>` file (copied
-from `infra/.env.example`); `deploy.sh`/`seed-secrets.sh` load them automatically:
-
-```bash
-# DEV — Stripe test mode
-cp infra/.env.example infra/.env.dev
-#   STRIPE_SECRET_KEY=sk_test_...
-#   STRIPE_WEBHOOK_SECRET=whsec_...   # from the dev (test-mode) webhook endpoint
-#   STRIPE_PRICE_ID=price_...         # subscription price, TEST mode
-./infra/deploy.sh --env dev --suffix dev001    # deploy + seed
-#   ./infra/seed-secrets.sh --env dev           # or re-seed only, no redeploy
-
-# PROD — Stripe live mode (live keys, live price, live webhook secret)
-cp infra/.env.example infra/.env.prod          # fill with sk_live_ / live price / live whsec_
-./infra/deploy.sh --env prod --suffix prod1
-```
-
-Secrets set in the shell env still override the file, so CI can inject them
-without committing anything. These files are gitignored (`infra/.env.dev`,
-`infra/.env.prod`) — only `infra/.env.example` is tracked.
-
-Point each environment's Stripe webhook at `https://<origin>/api/stripe/webhook`
-and subscribe to `checkout.session.completed` and `customer.subscription.*`.
-Locally you can forward events with the Stripe CLI:
-
-```bash
-stripe listen --forward-to localhost:8080/api/stripe/webhook
-```
-
-Note: local dev (`DEV_MODE=true`) bypasses billing entirely — every brigade is
-treated as entitled — so Stripe is only needed against deployed environments.
+Fire Santa Run has no billing of its own — entitlement (`santaRunEnabled`)
+comes entirely from the caller's Station Manager organisation via
+`SUITE_AUTH_URL` (see the settings table above). Secrets set in the shell env
+override the gitignored `infra/.env.<env>` file, so CI can inject them without
+committing anything. Local dev (`DEV_MODE=true`) bypasses entitlement
+entirely — every session is treated as entitled.
 
 ### Web Push ("notify me when Santa starts")
 

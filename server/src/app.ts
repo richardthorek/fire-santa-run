@@ -8,7 +8,6 @@ import { fireStationsRouter } from './routes/fire-stations.js';
 import { analyticsRouter } from './routes/analytics.js';
 import { healthRouter } from './routes/health.js';
 import { telemetryRouter } from './routes/telemetry.js';
-import { stripeRouter } from './routes/stripe.js';
 import { pushRouter } from './routes/push.js';
 import { auditRouter } from './routes/audit.js';
 
@@ -70,7 +69,6 @@ export function createApp() {
   app.route('/api', broadcastRouter);
   app.route('/api', fireStationsRouter);
   app.route('/api/analytics', analyticsRouter);
-  app.route('/api/stripe', stripeRouter);
   app.route('/api/push', pushRouter);
   app.route('/api/audit', auditRouter);
 

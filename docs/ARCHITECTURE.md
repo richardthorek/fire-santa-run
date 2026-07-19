@@ -8,8 +8,10 @@ visual/design rules see [`UI_GUIDELINES.md`](UI_GUIDELINES.md).
 
 A React 19 + TypeScript PWA that lets fire brigades (and community
 groups worldwide) plan and broadcast Christmas "Santa runs" with real-time GPS,
-while the public follows Santa live with no login. Monetised with a per-brigade
-Stripe subscription; public live tracking is always free.
+while the public follows Santa live with no login. Route planning and
+broadcasting require an organisation with Fire Santa Run enabled (via Station
+Manager, the StationKit suite identity/licensing provider — see "Billing &
+entitlement" below); public live tracking is always free.
 
 ## High-level shape
 
@@ -20,7 +22,7 @@ Browser (React SPA, PWA)
 Azure Container Apps (Consumption, scale-to-zero, single container)
    ├── /api/*   →  Hono server (server/)  ── Azure Table Storage
    │                                        ── in-process realtime WS hub (server/src/realtime/)
-   │                                        ── Stripe (checkout, portal, webhook)
+   │                                        ── Station Manager (entitlement + identity, no local billing)
    │                                        ── Web Push (VAPID, optional)
    ├── /api/ws  →  native WebSocket upgrade — realtime fan-out (no managed pub/sub service)
    └── /*       →  static React build (dist/) with SPA fallback
@@ -64,8 +66,9 @@ retired (the legacy SWA workflow now runs quality checks only, and
 - **Pages** (`src/pages/`) are lazy-loaded route screens. Public: Landing,
   BrigadeDiscovery, TrackingView (`/track/:id`), demo (`/demo`), route poster
   (`/routes/:id/poster`). Authed: Dashboard, RouteEditor, NavigationView,
-  BrigadeSettings (includes BillingPanel with subscribe option), Analytics,
-  Templates, Profile (account info + brigade switcher for multi-org users).
+  BrigadeSettings (shows Fire Santa Run access status, links to Station
+  Manager to change it), Analytics, Templates, Profile (account info +
+  brigade switcher for multi-org users).
 - **Storage adapter pattern** (`src/storage/`) — UI code never touches
   `localStorage` or Azure SDKs directly. `LocalStorageAdapter` backs dev mode;
   the HTTP adapter backs production. Add fields to both.
@@ -132,28 +135,24 @@ provider for all three suite apps.
 
 ## Billing & entitlement
 
-Two independent-but-OR'd entitlement paths, reflecting that Santa Run sells
-both as a suite add-on and as a standalone product:
+Fire Santa Run has **no billing of its own** (its per-brigade Stripe
+subscription was retired 2026-07-19). Entitlement is a single flag,
+`santaRunEnabled`, owned entirely by Station Manager:
 
-- **Suite entitlement** — Station Manager orgs on a paying plan (`basic`/`ai`)
-  get `santaRunEnabled: true` for free; `community`-plan orgs can buy it as a
+- Station Manager orgs on a paying plan (`basic`/`ai`) get
+  `santaRunEnabled: true` for free; `community`-plan orgs can buy it as a
   standalone add-on ($10/year or $15/one-off month) from their SM
-  organization settings. Either way, the SM `/api/auth/me` response's
-  `santaRunEnabled` flag is OR'd into every entitlement check
-  (`!authResult.santaRunEnabled && !(await isBrigadeEntitled(...))`).
-- **Per-brigade subscription** (pre-existing, kept as-is) — Stripe Checkout,
-  SAQ-A, scoped to a single brigade regardless of suite plan. The
-  **signature-verified webhook is the only writer** of entitlement fields on
-  the brigade record (`subscriptionStatus`, `subscribedUntil`, `stripe*`).
-  Brigade PUTs never touch those fields. This path is unaffected by the suite
-  auth migration — it exists so a brigade can use Santa Run without any
-  Station Manager subscription at all.
-- Entitlement is enforced server-side (402 on route create/edit and
-  broadcaster/editor negotiate) and mirrored client-side to drive UX — the
-  `SubscriptionGate` stops unentitled brigades at the editor door instead of
-  letting them hit a wall on save.
-- Live price is read from Stripe (`/api/stripe/price`) so the UI never goes
-  stale; a static fallback prevents a blank price.
+  organization settings. Either way, it's just a boolean on the SM
+  `/api/auth/me` (and `/api/auth/session`) response — Fire Santa Run never
+  talks to Stripe.
+- Enforced server-side with a single check, `!authResult.santaRunEnabled`
+  (402 on route create/edit and broadcaster/editor negotiate — see
+  `server/src/routes/{routes,negotiate}.ts` / the `api/` mirrors), and
+  mirrored client-side via `useBrigade().isEntitled` to drive UX —
+  `EntitlementGate` stops unentitled organisations at the editor door instead
+  of letting them hit a wall on save; `EntitlementBanner` prompts on the
+  dashboard. Both link out to Station Manager's `/admin/organization` rather
+  than starting a checkout here.
 
 ## Realtime tracking
 
@@ -209,9 +208,9 @@ scale-to-zero), Table Storage, and Application Insights — see
   - Conditional execution: skips Bicep deploy if only code changed, skips
     image build if only IaC changed.
 - `deploy.sh` — provisions the Bicep stack per environment (dev/prod are fully
-  separate deployments, matching Stripe test vs live mode) and seeds base
-  config.
-- `seed-secrets.sh` — seeds Container App env vars (Stripe, site-admin, VAPID,
+  separate deployments, each with its own Table Storage account) and seeds
+  base config.
+- `seed-secrets.sh` — seeds Container App env vars (`SUITE_AUTH_URL`, VAPID,
   the realtime WS secret) with a merge strategy that never blanks an existing
   secret. Called automatically by the workflow after deployment.
 - `scale-season.sh` — flips the Container App's `minReplicas` between 1
@@ -233,17 +232,17 @@ GitHub Actions unified pipeline (`.github/workflows/deploy-container-apps.yml`):
    - Deploy infrastructure (Bicep) if IaC changed.
    - Build and push Docker image if code changed; image tagged with commit SHA.
    - Deploy image revision to Container Apps.
-   - Seed secrets to Container App (Stripe, VAPID, realtime WS secret).
+   - Seed secrets to Container App (`SUITE_AUTH_URL`, VAPID, realtime WS secret).
    - **Health check verification:** polls `/api/health` every 10 seconds for up to 2 minutes, verifies returned `commitSha` matches deployed commit. Workflow fails if verification doesn't pass, preventing deployments with silent failures.
 
 **Security & secrets:**
 - GitHub OIDC federated credentials (workload identity federation) — no long-lived secrets stored in GitHub.
-- Secrets (Stripe keys, VAPID, site-admin IDs) sourced from:
+- Secrets (`SUITE_AUTH_URL`, VAPID keys) sourced from:
   - Local `infra/.env.<env>` files (gitignored) during manual runs.
   - GitHub Actions secrets for CI/CD runs.
 - Storage connection string read live from deployed resource (no hardcoding or versioning).
 
-**Environments:** dev and prod are fully separate Azure subscriptions / deployments, matching Stripe test vs live mode.
+**Environments:** dev and prod are fully separate Azure subscriptions / deployments, each with its own Table Storage account so test data never touches production brigade data.
 
 ## Testing
 

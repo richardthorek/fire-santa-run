@@ -140,7 +140,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               value: appInsightsConnectionString
             }
-            // All other settings (Storage, Stripe, VAPID, CORS_ORIGIN,
+            // All other settings (Storage, VAPID, CORS_ORIGIN,
             // APP_BASE_URL, SUITE_AUTH_URL, REALTIME_WS_SECRET) are
             // applied post-deploy via `az containerapp update --set-env-vars`
             // / `az containerapp secret set` — see infra/seed-secrets.sh.

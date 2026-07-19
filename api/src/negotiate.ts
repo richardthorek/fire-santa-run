@@ -16,7 +16,6 @@ import { WebPubSubServiceClient } from '@azure/web-pubsub';
 import { checkRateLimit } from './rateLimit';
 import { validateToken, checkBrigadeAccess } from './utils/auth';
 import { getTableClient, isDevMode } from './utils/storage';
-import { isBrigadeEntitled } from './utils/subscription';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
@@ -76,8 +75,9 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
       }
 
       // Broadcaster/editor tokens are privileged: the route must belong to a
-      // brigade the user can act on, and that brigade must be subscribed.
-      // Resolved once per session (negotiate), not per location update.
+      // brigade the user can act on, and that brigade's organisation must have
+      // Fire Santa Run enabled. Resolved once per session (negotiate), not per
+      // location update.
       const brigadeId = await getRouteBrigadeId(routeId);
       if (!brigadeId) {
         return { status: 404, jsonBody: { error: 'Route not found' } };
@@ -87,8 +87,8 @@ export async function negotiate(request: HttpRequest, context: InvocationContext
       if (!permission.authorized) {
         return { status: 403, jsonBody: { error: 'Forbidden', message: permission.error || 'Insufficient permissions' } };
       }
-      if (!authResult.santaRunEnabled && !(await isBrigadeEntitled(brigadeId))) {
-        return { status: 402, jsonBody: { error: 'Payment required', message: 'An active brigade subscription is required to broadcast' } };
+      if (!authResult.santaRunEnabled) {
+        return { status: 402, jsonBody: { error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' } };
       }
     }
 

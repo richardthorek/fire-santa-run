@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useRoutes } from '../hooks';
-import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist, ImportModal, ExportMenu, SubscriptionBanner } from '../components';
+import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist, ImportModal, ExportMenu, EntitlementBanner } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import {
@@ -199,8 +199,8 @@ export function Dashboard() {
         {/* Christmas Lights Divider at top */}
         <div className="christmas-lights" style={{ marginBottom: '2rem' }} />
 
-        {/* Subscription prompt — shown when the brigade is not entitled */}
-        <SubscriptionBanner />
+        {/* Entitlement prompt — shown when the organisation is not entitled */}
+        <EntitlementBanner />
 
         {/* Onboarding checklist — shows once until dismissed (manages its own visibility) */}
         {brigade && <OnboardingChecklist brigade={brigade} routes={routes} />}
@@ -259,12 +259,12 @@ export function Dashboard() {
             <span aria-hidden="true">➕</span> Create New Route
           </Link>
         ) : (
-          // Not entitled: soft-gate the action so members hit the Subscribe prompt
-          // (rendered in SubscriptionBanner above) rather than a 402 in the editor.
+          // Not entitled: soft-gate the action so members hit the entitlement prompt
+          // (rendered in EntitlementBanner above) rather than a 402 in the editor.
           <button
             type="button"
-            aria-label="Subscribe to create new Santa Run routes"
-            title="An active brigade subscription is required to create routes"
+            aria-label="Enable Fire Santa Run to create new routes"
+            title="Fire Santa Run must be enabled for your organisation to create routes"
             disabled
             style={{
               padding: '0.875rem 1.75rem',
@@ -285,7 +285,7 @@ export function Dashboard() {
         {brigade && (
           <Link
             to={`/dashboard/${brigade.id}/settings`}
-            aria-label="Brigade settings and subscription"
+            aria-label="Brigade settings"
             style={{
               padding: '0.875rem 1.5rem',
               background: 'white',

@@ -23,14 +23,6 @@ function entityToBrigade(entity: any) {
     themeColor: entity.themeColor,
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt,
-    // Entitlement state the UI needs to render the paywall. Non-sensitive, so
-    // it is safe on the unauthenticated brigade GET. The Stripe customer/
-    // subscription IDs are deliberately NOT projected here (they are read
-    // straight off the table entity by the Stripe routes when needed), and
-    // these fields are written only by the webhook — never by brigadeToEntity —
-    // so a settings PUT (Merge) can never clobber them.
-    subscriptionStatus: entity.subscriptionStatus || 'none',
-    subscribedUntil: entity.subscribedUntil || undefined,
   };
 }
 

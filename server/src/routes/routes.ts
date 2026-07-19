@@ -2,7 +2,6 @@
 import { Hono } from 'hono';
 import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
-import { isBrigadeEntitled } from '../utils/subscription.js';
 
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
 
@@ -139,8 +138,8 @@ routesRouter.post('/', async (c) => {
     if (!route.id || !route.brigadeId) return c.json({ error: 'Missing required fields: id, brigadeId' }, 400);
     const permissionCheck = checkBrigadeAccess(authResult, route.brigadeId, 'manage_routes');
     if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
-    if (!authResult.santaRunEnabled && !(await isBrigadeEntitled(route.brigadeId))) {
-      return c.json({ error: 'Payment required', message: 'An active brigade subscription is required to create routes' }, 402);
+    if (!authResult.santaRunEnabled) {
+      return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
     const client = await getTableClient(ROUTES_TABLE);
     await client.createEntity(routeToEntity(route));
@@ -162,8 +161,8 @@ routesRouter.put('/:id', async (c) => {
     if (!routeId || !route.brigadeId) return c.json({ error: 'Missing required fields: id, brigadeId' }, 400);
     const permissionCheck = checkBrigadeAccess(authResult, route.brigadeId, 'manage_routes');
     if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
-    if (!authResult.santaRunEnabled && !(await isBrigadeEntitled(route.brigadeId))) {
-      return c.json({ error: 'Payment required', message: 'An active brigade subscription is required to edit routes' }, 402);
+    if (!authResult.santaRunEnabled) {
+      return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
     const client = await getTableClient(ROUTES_TABLE);
     await client.updateEntity(routeToEntity({ ...route, id: routeId }), 'Merge');

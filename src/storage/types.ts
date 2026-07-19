@@ -48,28 +48,6 @@ export interface Brigade {
 
   /** Number of days after completion before a route is auto-archived (default: 90) */
   archiveThresholdDays?: number;
-
-  // --- Subscription (Stripe, per-brigade billing) ---
-
-  /**
-   * Subscription lifecycle status for this brigade, mirrored from Stripe by the
-   * webhook. 'none' = never subscribed. Planning and broadcasting require an
-   * entitled status (see isBrigadeEntitled); public tracking is always free.
-   */
-  subscriptionStatus?: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled';
-
-  /** Stripe Customer id (cus_…) — reused across checkouts for this brigade. */
-  stripeCustomerId?: string;
-
-  /** Stripe Subscription id (sub_…) of the current/most-recent subscription. */
-  stripeSubscriptionId?: string;
-
-  /**
-   * End of the paid period (ISO 8601), from the subscription's
-   * current_period_end. Access is retained until this instant even if the
-   * subscription is set to cancel at period end.
-   */
-  subscribedUntil?: string;
 }
 
 export interface IStorageAdapter {

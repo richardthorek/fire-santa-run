@@ -3,7 +3,6 @@ import { Hono } from 'hono';
 import { rateLimit } from '../utils/rateLimit.js';
 import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
-import { isBrigadeEntitled } from '../utils/subscription.js';
 import { signWsToken } from '../realtime/wsToken.js';
 
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
@@ -71,9 +70,10 @@ async function handleNegotiate(c: any) {
       }
 
       // A broadcaster is actively running a route, so it must belong to a brigade
-      // the user can navigate for, and that brigade must be subscribed. Editor
-      // (route planning presence) is gated the same way. Resolve the owning
-      // brigade once here — negotiate happens once per session, not per update.
+      // the user can navigate for, and that brigade's organisation must have Fire
+      // Santa Run enabled. Editor (route planning presence) is gated the same
+      // way. Resolve the owning brigade once here — negotiate happens once per
+      // session, not per update.
       const brigadeId = await getRouteBrigadeId(routeId);
       if (!brigadeId) {
         return c.json({ error: 'Route not found' }, 404);
@@ -83,8 +83,8 @@ async function handleNegotiate(c: any) {
       if (!permission.authorized) {
         return c.json({ error: 'Forbidden', message: permission.error || 'Insufficient permissions' }, 403);
       }
-      if (!authResult.santaRunEnabled && !(await isBrigadeEntitled(brigadeId))) {
-        return c.json({ error: 'Payment required', message: 'An active brigade subscription is required to broadcast' }, 402);
+      if (!authResult.santaRunEnabled) {
+        return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
       }
     }
 

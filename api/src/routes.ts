@@ -16,7 +16,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { validateToken, checkBrigadeAccess } from './utils/auth';
 import { getTableClient, isDevMode } from './utils/storage';
-import { isBrigadeEntitled } from './utils/subscription';
 
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
 
@@ -207,10 +206,10 @@ async function createRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
-    if (!authResult.santaRunEnabled && !(await isBrigadeEntitled(route.brigadeId))) {
+    if (!authResult.santaRunEnabled) {
       return {
         status: 402,
-        jsonBody: { error: 'Payment required', message: 'An active brigade subscription is required to create routes' }
+        jsonBody: { error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }
       };
     }
 
@@ -279,10 +278,10 @@ async function updateRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
-    if (!authResult.santaRunEnabled && !(await isBrigadeEntitled(route.brigadeId))) {
+    if (!authResult.santaRunEnabled) {
       return {
         status: 402,
-        jsonBody: { error: 'Payment required', message: 'An active brigade subscription is required to edit routes' }
+        jsonBody: { error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }
       };
     }
 
