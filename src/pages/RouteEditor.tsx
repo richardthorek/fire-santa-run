@@ -4,7 +4,7 @@ import { useAuth, useBrigade } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
 import { useTemplates } from '../hooks/useTemplates';
 import { useEditingPresence } from '../hooks/useEditingPresence';
-import { MapView, WaypointList, AddressSearch, ShareModal, SubscriptionGate } from '../components';
+import { MapView, WaypointList, AddressSearch, ShareModal, EntitlementGate } from '../components';
 import { createNewRoute, generateShareableLink, canPublishRoute, generateWaypointId, generateTemplateId, DEFAULT_NAVIGATION_SETTINGS } from '../utils/routeHelpers';
 import { reverseGeocode, getDirections, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
@@ -236,8 +236,8 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         navigate('/dashboard');
       }
     } catch (error) {
-      // Billing/permission rejection (entitlement lapsed mid-session): swap to
-      // the subscribe screen rather than leaving them staring at a toast.
+      // Entitlement/permission rejection (lapsed mid-session): swap to the
+      // entitlement gate rather than leaving them staring at a toast.
       const status = (error as { status?: number })?.status;
       if (status === 402 || status === 403) {
         setPaywalled(true);
@@ -295,15 +295,16 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     );
   }
 
-  // Soft paywall: an unentitled brigade is stopped at the door with a subscribe
-  // screen rather than being allowed to fill in a route and hit a 402 on save.
-  // isEntitled is always true in dev mode, so this never blocks local work.
-  // `paywalled` covers the rarer case of entitlement lapsing mid-edit.
+  // Soft gate: an unentitled organisation is stopped at the door with an
+  // "enable in Station Manager" screen rather than being allowed to fill in a
+  // route and hit a 402 on save. isEntitled is always true in dev mode, so
+  // this never blocks local work. `paywalled` covers the rarer case of
+  // entitlement lapsing mid-edit.
   if (!isEntitled || paywalled) {
     return (
-      <SubscriptionGate
-        title={mode === 'new' ? 'Subscribe to create a Santa run' : 'Subscribe to edit this Santa run'}
-        message="Planning routes and broadcasting a live run needs an active brigade subscription. Public live tracking is always free."
+      <EntitlementGate
+        title={mode === 'new' ? 'Enable Fire Santa Run to create a run' : 'Enable Fire Santa Run to edit this run'}
+        message="Planning routes and broadcasting a live run needs an organisation with Fire Santa Run enabled. Public live tracking is always free."
       />
     );
   }

@@ -4,20 +4,22 @@ import { getTableClient, isDevMode } from '../utils/storage.js';
 import { validateToken } from '../utils/auth.js';
 
 const USERS_TABLE = isDevMode ? 'dev-users' : 'users';
-const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
+/**
+ * Local profile fields that aren't already covered by the Station Manager
+ * session (which supplies id/email/name fresh on every request) — currently
+ * just an avatar. organizationId is never persisted here; it always comes
+ * from the caller's own SM token.
+ */
 function entityToUser(entity: any) {
   return {
     id: entity.rowKey,
     email: entity.email,
     name: entity.name,
-    entraUserId: entity.entraUserId,
     emailVerified: entity.emailVerified === true,
-    verifiedBrigades: entity.verifiedBrigades ? JSON.parse(entity.verifiedBrigades) : [],
     createdAt: entity.createdAt,
     lastLoginAt: entity.lastLoginAt,
     profilePicture: entity.profilePicture,
-    brigadeId: entity.brigadeId,
   };
 }
 
@@ -27,32 +29,10 @@ function userToEntity(user: any) {
     rowKey: user.id,
     email: user.email,
     name: user.name,
-    entraUserId: user.entraUserId,
     emailVerified: user.emailVerified,
-    verifiedBrigades: user.verifiedBrigades ? JSON.stringify(user.verifiedBrigades) : JSON.stringify([]),
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
     profilePicture: user.profilePicture,
-    brigadeId: user.brigadeId,
-  };
-}
-
-function entityToMembership(entity: any) {
-  return {
-    id: entity.rowKey,
-    brigadeId: entity.partitionKey,
-    userId: entity.userId,
-    role: entity.role,
-    status: entity.status,
-    invitedBy: entity.invitedBy,
-    invitedAt: entity.invitedAt,
-    approvedBy: entity.approvedBy,
-    approvedAt: entity.approvedAt,
-    joinedAt: entity.joinedAt,
-    removedAt: entity.removedAt,
-    removedBy: entity.removedBy,
-    createdAt: entity.createdAt,
-    updatedAt: entity.updatedAt,
   };
 }
 
@@ -62,9 +42,9 @@ function escapeODataValue(value: string): string {
 
 export const usersRouter = new Hono<{ Variables: { userId?: string } }>();
 
-// The user directory holds emails and Entra IDs — every route requires a valid
-// token so it can never be enumerated or mutated anonymously. Writes are
-// additionally restricted to the authenticated user's own record below.
+// The user directory holds emails — every route requires a valid token so it
+// can never be enumerated or mutated anonymously. Writes are additionally
+// restricted to the authenticated user's own record below.
 usersRouter.use('*', async (c, next) => {
   const authResult = await validateToken(c.req.raw);
   if (!authResult.authenticated) {
@@ -80,7 +60,7 @@ usersRouter.post('/register', async (c) => {
     if (!user.id || !user.email || !user.name) return c.json({ error: 'Missing required fields: id, email, name' }, 400);
     if (user.id !== c.get('userId')) return c.json({ error: 'Forbidden', message: 'You can only register your own account' }, 403);
     const client = await getTableClient(USERS_TABLE);
-    const entity = userToEntity({ ...user, emailVerified: false, verifiedBrigades: [], createdAt: new Date().toISOString() });
+    const entity = userToEntity({ ...user, emailVerified: false, createdAt: new Date().toISOString() });
     await client.createEntity(entity);
     console.log(`Registered user: ${user.id} (${user.email})`);
     return c.json(entityToUser(entity), 201);
@@ -116,22 +96,6 @@ usersRouter.get('/by-email/:email', async (c) => {
   } catch (error) {
     console.error('Error retrieving user by email:', error);
     return c.json({ error: 'Failed to retrieve user by email', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
-  }
-});
-
-usersRouter.get('/:userId/memberships', async (c) => {
-  try {
-    const userId = c.req.param('userId');
-    const client = await getTableClient(MEMBERSHIPS_TABLE);
-    const escapedUserId = escapeODataValue(userId);
-    const entities = client.listEntities({ queryOptions: { filter: `userId eq '${escapedUserId}'` } });
-    const memberships = [];
-    for await (const entity of entities) memberships.push(entityToMembership(entity));
-    console.log(`Retrieved ${memberships.length} memberships for user: ${userId}`);
-    return c.json(memberships);
-  } catch (error) {
-    console.error('Error retrieving user memberships:', error);
-    return c.json({ error: 'Failed to retrieve user memberships', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });
 
@@ -188,7 +152,6 @@ usersRouter.patch('/:userId', async (c) => {
       name: updates.name !== undefined ? updates.name : existingUser.name,
       profilePicture: updates.profilePicture !== undefined ? updates.profilePicture : existingUser.profilePicture,
       lastLoginAt: updates.lastLoginAt !== undefined ? updates.lastLoginAt : existingUser.lastLoginAt,
-      brigadeId: updates.brigadeId !== undefined ? updates.brigadeId : existingUser.brigadeId,
     };
     await client.updateEntity(userToEntity(updatedUser), 'Merge');
     console.log(`Updated user: ${userId}`);

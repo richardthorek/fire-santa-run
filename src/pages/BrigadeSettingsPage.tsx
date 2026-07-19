@@ -13,11 +13,10 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context';
-import { useUserProfile } from '../hooks/useUserProfile';
 import { storageAdapter } from '../storage';
-import { canEditBrigadeSettings } from '../utils/permissions';
 import { safeImageSrc } from '../utils/publicBrigade';
-import { AppLayout, SEO, BillingPanel } from '../components';
+import { AppLayout, SEO } from '../components';
+import { SUITE_AUTH_URL } from '../auth/suiteAuth';
 import type { Brigade } from '../storage/types';
 import './BrigadeSettingsPage.css';
 
@@ -86,8 +85,7 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 export function BrigadeSettingsPage() {
   const { brigadeId } = useParams<{ brigadeId: string }>();
   const navigate = useNavigate();
-  useAuth();
-  const { memberships, isLoading: membershipsLoading } = useUserProfile();
+  const { user, santaRunEnabled, isLoading: authLoading } = useAuth();
 
   const [brigade, setBrigade] = useState<Brigade | null>(null);
   const [loading, setLoading] = useState(true);
@@ -139,14 +137,14 @@ export function BrigadeSettingsPage() {
     void load();
   }, [brigadeId, navigate]);
 
-  // Check permission once the brigade and the membership list have both loaded.
-  // Wait for membership loading to finish before deciding — otherwise an empty
-  // (still-loading) list would let the admin form render to a non-admin.
+  // Only owners/admins of the brigade's own organization may edit settings.
+  // Wait for auth to finish loading before deciding — otherwise a not-yet-
+  // populated user would incorrectly deny access.
   useEffect(() => {
-    if (!brigade || membershipsLoading) return;
-    const membership = memberships.find((m) => m.brigadeId === brigade.id);
-    setAccessDenied(!canEditBrigadeSettings(membership ?? null));
-  }, [brigade, memberships, membershipsLoading]);
+    if (!brigade || authLoading) return;
+    const canEdit = user?.brigadeId === brigade.id && (user?.role === 'owner' || user?.role === 'admin');
+    setAccessDenied(!canEdit);
+  }, [brigade, user, authLoading]);
 
   async function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -205,7 +203,7 @@ export function BrigadeSettingsPage() {
     }
   }
 
-  if (loading || membershipsLoading) {
+  if (loading || authLoading) {
     return (
       <AppLayout>
         <div className="bsp__loading" role="status" aria-live="polite">
@@ -373,8 +371,40 @@ export function BrigadeSettingsPage() {
             </div>
           </section>
 
-          {/* Subscription & billing */}
-          <BillingPanel brigade={brigade} />
+          {/* Fire Santa Run access — no billing of its own; entitlement comes
+              entirely from the organisation's Station Manager plan/add-on. */}
+          <section className="bsp__section" aria-labelledby="bsp-access">
+            <h2 className="bsp__section-title" id="bsp-access">Fire Santa Run Access</h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 1rem' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  padding: '0.25rem 0.7rem',
+                  borderRadius: '999px',
+                  background: santaRunEnabled ? 'rgba(67, 160, 71, 0.15)' : 'var(--neutral-100, #f0f0f0)',
+                  color: santaRunEnabled ? 'var(--christmas-green, #43A047)' : 'var(--neutral-700, #555)',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                }}
+              >
+                {santaRunEnabled ? 'Enabled' : 'Not enabled'}
+              </span>
+              <span style={{ color: 'var(--neutral-700, #555)', fontSize: '0.9rem' }}>
+                {santaRunEnabled
+                  ? 'Route planning and live broadcasting are unlocked for your organisation.'
+                  : 'Enable Fire Santa Run in Station Manager to unlock route planning and live broadcasting.'}
+              </span>
+            </div>
+            <p className="bsp__hint">
+              Fire Santa Run has no billing of its own — it&apos;s included with Station Manager&apos;s
+              Basic and AI Pro plans, or available standalone for $10/year (unlimited use) or $15 for
+              a one-off month.{' '}
+              <a href={`${SUITE_AUTH_URL}/admin/organization`} target="_blank" rel="noopener noreferrer">
+                Manage in Station Manager
+              </a>
+              .
+            </p>
+          </section>
 
           {/* Save */}
           <div className="bsp__actions">

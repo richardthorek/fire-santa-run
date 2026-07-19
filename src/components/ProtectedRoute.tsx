@@ -8,13 +8,13 @@ interface ProtectedRouteProps {
 
 /**
  * ProtectedRoute component that wraps authenticated pages.
- * 
+ *
  * In dev mode (VITE_DEV_MODE=true):
  * - Automatically allows access with mock authentication
  * - No redirects, instant access
- * 
+ *
  * In production mode (VITE_DEV_MODE=false):
- * - Requires actual Microsoft Entra External ID authentication
+ * - Requires a Station Manager (StationKit suite) sign-in
  * - Redirects to /login if not authenticated
  * - Preserves return URL for post-login redirect
  */

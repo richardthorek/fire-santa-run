@@ -8,8 +8,10 @@ visual/design rules see [`UI_GUIDELINES.md`](UI_GUIDELINES.md).
 
 A React 19 + TypeScript PWA that lets fire brigades (and community
 groups worldwide) plan and broadcast Christmas "Santa runs" with real-time GPS,
-while the public follows Santa live with no login. Monetised with a per-brigade
-Stripe subscription; public live tracking is always free.
+while the public follows Santa live with no login. Route planning and
+broadcasting require an organisation with Fire Santa Run enabled (via Station
+Manager, the StationKit suite identity/licensing provider — see "Billing &
+entitlement" below); public live tracking is always free.
 
 ## High-level shape
 
@@ -20,7 +22,7 @@ Browser (React SPA, PWA)
 Azure Container Apps (Consumption, scale-to-zero, single container)
    ├── /api/*   →  Hono server (server/)  ── Azure Table Storage
    │                                        ── in-process realtime WS hub (server/src/realtime/)
-   │                                        ── Stripe (checkout, portal, webhook)
+   │                                        ── Station Manager (entitlement + identity, no local billing)
    │                                        ── Web Push (VAPID, optional)
    ├── /api/ws  →  native WebSocket upgrade — realtime fan-out (no managed pub/sub service)
    └── /*       →  static React build (dist/) with SPA fallback
@@ -64,15 +66,18 @@ retired (the legacy SWA workflow now runs quality checks only, and
 - **Pages** (`src/pages/`) are lazy-loaded route screens. Public: Landing,
   BrigadeDiscovery, TrackingView (`/track/:id`), demo (`/demo`), route poster
   (`/routes/:id/poster`). Authed: Dashboard, RouteEditor, NavigationView,
-  BrigadeSettings (includes BillingPanel with subscribe option),
-  MemberManagement, Analytics, Templates.
+  BrigadeSettings (shows Fire Santa Run access status, links to Station
+  Manager to change it), Analytics, Templates, Profile (account info +
+  brigade switcher for multi-org users).
 - **Storage adapter pattern** (`src/storage/`) — UI code never touches
   `localStorage` or Azure SDKs directly. `LocalStorageAdapter` backs dev mode;
   the HTTP adapter backs production. Add fields to both.
-- **Context** (`src/context/`) — `AuthContext` (MSAL/Entra, dev bypass) and
-  `BrigadeContext` (current brigade + `isEntitled` + `refreshBrigade`). Brigade
-  context auto-loads first active membership if user's `brigadeId` is not set,
-  ensuring users can access their brigade immediately after claiming it.
+- **Context** (`src/context/`) — `AuthContext` wraps `src/auth/suiteAuth.ts`,
+  the StationKit suite auth client (see "Auth & authorisation" below); dev mode
+  bypasses it with a mock admin session. `BrigadeContext` (current brigade +
+  `isEntitled` + `refreshBrigade`) auto-provisions the brigade row for the
+  user's organization on first load if one doesn't exist yet — see "Brigade =
+  organization" below.
 - **Realtime** (`src/hooks/useWebPubSub.ts`) — a native `WebSocket` to the
   server's own `/api/ws` endpoint (name kept for history; no Azure Web PubSub
   involved). Viewers connect read-only and anonymously; broadcasters/editors
@@ -89,34 +94,73 @@ retired (the legacy SWA workflow now runs quality checks only, and
 
 Azure Table Storage, partitioned by `brigadeId` for multi-brigade isolation —
 data must never leak across brigades. Core entities: brigades, routes,
-waypoints (two-table split), memberships, invitations, users, verification
-requests, push subscriptions. Dev tables are prefixed `dev-`.
+waypoints (two-table split), users (local profile only — see below), push
+subscriptions. Dev tables are prefixed `dev-`. There is no membership,
+invitation, or verification-request table: brigade membership and role are
+governed entirely by Station Manager (see below).
 
 ## Auth & authorisation
 
-- Microsoft Entra External ID (CIAM) tokens, validated server-side; `DEV_MODE`
-  bypasses auth and uses localStorage.
+Fire Santa Run has **no identity system of its own**. It is a member of the
+StationKit suite, and Station Manager is the suite's identity/licensing
+provider for all three suite apps.
+
+- **Bearer-token federation** — every request carries a Station Manager JWT.
+  `validateToken()` (`server/src/utils/auth.ts` / `api/src/utils/auth.ts`)
+  validates it by calling `GET {SUITE_AUTH_URL}/api/auth/me` on Station
+  Manager (60s in-memory cache); the response's `organizationId` and `role`
+  (`owner | admin | viewer`) become the request's `AuthResult`. `DEV_MODE`
+  bypasses this with a mock `owner`/`admin` session.
+- **Silent cross-subdomain SSO** — the client first tries
+  `GET {SUITE_AUTH_URL}/api/auth/session` with `credentials: 'include'`
+  (`src/auth/suiteAuth.ts` → `restoreSession()`), which reads Station
+  Manager's shared `sk_session` httpOnly cookie (scoped to
+  `.stationkit.com.au`) and returns a fresh bearer token — no separate Santa
+  Run login needed if the visitor is already signed in elsewhere in the
+  suite. Falls back to a locally stored token, then to the login page.
+- **Brigade = organization** — a brigade's `id` **is** the Station Manager
+  `organizationId`; there is no separate claiming step. `BrigadeContext`
+  auto-provisions the brigade row (name/branding placeholders) the first time
+  a user from that organization loads the app.
+- **Passkey sign-in, additive to password** — `LoginPage`'s "Sign in with a
+  passkey" button (`auth/suiteAuth.ts`'s `signInWithPasskey()`) runs the
+  WebAuthn ceremony directly on this page (`@simplewebauthn/browser`), which
+  works because the Relying Party ID is the same shared `.stationkit.com.au`
+  parent domain the SSO cookie uses. The assertion is POSTed to Station
+  Manager's `/api/auth/passkey/login/verify` cross-origin, which returns the
+  same token/cookie shape as `/login`. **Registration is Station-Manager-only**
+  (its own account settings) — no registration UI exists here.
 - Public read paths stay anonymous (tracking, viewer negotiate, analytics
   counts, brigade discovery).
-- Write/privileged paths require a valid token plus one of: **self-match**
-  (act only on your own user record), **brigade permission** (role-based via
-  `checkBrigadePermission`), or the **site-admin allowlist**
-  (`SITE_ADMIN_USER_IDS`) for verification review.
+- Write/privileged paths require a valid token plus `checkBrigadeAccess()`:
+  the token's `organizationId` must equal the target `brigadeId`, and its
+  `role` must carry the required permission (`ROLE_PERMISSIONS`: `owner`/
+  `admin` can manage routes, edit settings, and start navigation; `viewer`
+  cannot). There is no per-user membership row to look up — the SM token's
+  own claims are the source of truth.
 - Realtime broadcaster/editor tokens additionally require route ownership and
   brigade entitlement.
 
 ## Billing & entitlement
 
-- Per-brigade subscription (Stripe Checkout, SAQ-A). The **signature-verified
-  webhook is the only writer** of entitlement fields on the brigade record
-  (`subscriptionStatus`, `subscribedUntil`, `stripe*`). Brigade PUTs never
-  touch those fields.
-- Entitlement is enforced server-side (402 on route create/edit and
-  broadcaster/editor negotiate) and mirrored client-side to drive UX — the
-  `SubscriptionGate` stops unentitled brigades at the editor door instead of
-  letting them hit a wall on save.
-- Live price is read from Stripe (`/api/stripe/price`) so the UI never goes
-  stale; a static fallback prevents a blank price.
+Fire Santa Run has **no billing of its own** (its per-brigade Stripe
+subscription was retired 2026-07-19). Entitlement is a single flag,
+`santaRunEnabled`, owned entirely by Station Manager:
+
+- Station Manager orgs on a paying plan (`basic`/`ai`) get
+  `santaRunEnabled: true` for free; `community`-plan orgs can buy it as a
+  standalone add-on ($10/year or $15/one-off month) from their SM
+  organization settings. Either way, it's just a boolean on the SM
+  `/api/auth/me` (and `/api/auth/session`) response — Fire Santa Run never
+  talks to Stripe.
+- Enforced server-side with a single check, `!authResult.santaRunEnabled`
+  (402 on route create/edit and broadcaster/editor negotiate — see
+  `server/src/routes/{routes,negotiate}.ts` / the `api/` mirrors), and
+  mirrored client-side via `useBrigade().isEntitled` to drive UX —
+  `EntitlementGate` stops unentitled organisations at the editor door instead
+  of letting them hit a wall on save; `EntitlementBanner` prompts on the
+  dashboard. Both link out to Station Manager's `/admin/organization` rather
+  than starting a checkout here.
 
 ## Realtime tracking
 
@@ -172,9 +216,9 @@ scale-to-zero), Table Storage, and Application Insights — see
   - Conditional execution: skips Bicep deploy if only code changed, skips
     image build if only IaC changed.
 - `deploy.sh` — provisions the Bicep stack per environment (dev/prod are fully
-  separate deployments, matching Stripe test vs live mode) and seeds base
-  config.
-- `seed-secrets.sh` — seeds Container App env vars (Stripe, site-admin, VAPID,
+  separate deployments, each with its own Table Storage account) and seeds
+  base config.
+- `seed-secrets.sh` — seeds Container App env vars (`SUITE_AUTH_URL`, VAPID,
   the realtime WS secret) with a merge strategy that never blanks an existing
   secret. Called automatically by the workflow after deployment.
 - `scale-season.sh` — flips the Container App's `minReplicas` between 1
@@ -196,17 +240,17 @@ GitHub Actions unified pipeline (`.github/workflows/deploy-container-apps.yml`):
    - Deploy infrastructure (Bicep) if IaC changed.
    - Build and push Docker image if code changed; image tagged with commit SHA.
    - Deploy image revision to Container Apps.
-   - Seed secrets to Container App (Stripe, VAPID, realtime WS secret).
+   - Seed secrets to Container App (`SUITE_AUTH_URL`, VAPID, realtime WS secret).
    - **Health check verification:** polls `/api/health` every 10 seconds for up to 2 minutes, verifies returned `commitSha` matches deployed commit. Workflow fails if verification doesn't pass, preventing deployments with silent failures.
 
 **Security & secrets:**
 - GitHub OIDC federated credentials (workload identity federation) — no long-lived secrets stored in GitHub.
-- Secrets (Stripe keys, VAPID, site-admin IDs) sourced from:
+- Secrets (`SUITE_AUTH_URL`, VAPID keys) sourced from:
   - Local `infra/.env.<env>` files (gitignored) during manual runs.
   - GitHub Actions secrets for CI/CD runs.
 - Storage connection string read live from deployed resource (no hardcoding or versioning).
 
-**Environments:** dev and prod are fully separate Azure subscriptions / deployments, matching Stripe test vs live mode.
+**Environments:** dev and prod are fully separate Azure subscriptions / deployments, each with its own Table Storage account so test data never touches production brigade data.
 
 ## Testing
 

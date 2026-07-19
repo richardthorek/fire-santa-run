@@ -1,11 +1,6 @@
 import type { Route, RouteTemplate, Waypoint } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
 import type { User } from '../types/user';
-import type { BrigadeMembership } from '../types/membership';
-import type { MemberInvitation } from '../types/invitation';
-import type { AdminVerificationRequest } from '../types/verification';
-import type { PublicClientApplication } from '@azure/msal-browser';
-import { tokenRequest } from '../auth/msalConfig';
 import { getApiAuthHeaders } from '../auth/apiToken';
 
 /** Error thrown by route writes, tagging the HTTP status so callers can react
@@ -43,105 +38,6 @@ async function routeWriteError(response: Response, verb: 'create' | 'update'): P
   return new RouteWriteError(serverMessage || `Failed to ${verb} route: ${response.statusText}`, response.status);
 }
 
-// Access token helper for API calls in production mode.
-async function getAccessToken(): Promise<string | null> {
-  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-  const clientId = import.meta.env.VITE_ENTRA_CLIENT_ID;
-  
-  // In dev mode, authentication should be bypassed by the backend
-  // So we don't need to attach tokens
-  if (isDevMode) {
-    console.log('[HTTP] Dev mode enabled. No token required for API calls.');
-    return null;
-  }
-  
-  // In production mode, we need a client ID to be configured
-  if (!clientId) {
-    console.error(
-      '[HTTP] Production mode detected (VITE_DEV_MODE=false or not set) but VITE_ENTRA_CLIENT_ID is not configured.\n' +
-      'To fix this:\n' +
-      '1. For local development: Create .env.local and set VITE_DEV_MODE=true\n' +
-      '2. For production testing: Set VITE_ENTRA_CLIENT_ID and other Entra variables in .env.local\n' +
-      'See .env.example for configuration template.'
-    );
-    return null;
-  }
-
-  if (typeof window === 'undefined') {
-    console.warn('[HTTP] getAccessToken: Not in browser environment');
-    return null;
-  }
-
-  const msalWindow = window as unknown as { __msalInstance?: PublicClientApplication };
-  const msalInstance = msalWindow.__msalInstance;
-  if (!msalInstance) {
-    console.error('[HTTP] getAccessToken: MSAL instance not found on window');
-    return null;
-  }
-
-  const account = msalInstance.getActiveAccount();
-  if (!account) {
-    console.error('[HTTP] getAccessToken: No active account found. User may not be logged in.');
-    return null;
-  }
-
-  try {
-    console.log('[HTTP] Attempting to acquire token with scopes:', tokenRequest.scopes);
-    const response = await msalInstance.acquireTokenSilent({
-      ...tokenRequest,
-      account,
-    });
-    // `idTokenClaims` may be present on the response; safely access without using `any`
-    const idTokenClaims = (response as unknown as { idTokenClaims?: Record<string, unknown> }).idTokenClaims;
-    console.log('[HTTP] Token acquired successfully. Audience:', idTokenClaims?.aud);
-    return response.accessToken;
-  } catch (error) {
-    // Normalize error information without using `any`
-    const errObj = error as unknown;
-    let errMessage = '';
-    if (errObj instanceof Error) {
-      errMessage = errObj.message;
-    } else if (typeof errObj === 'object' && errObj !== null) {
-      errMessage = String((errObj as Record<string, unknown>)['message'] ?? '');
-    } else {
-      errMessage = String(errObj);
-    }
-
-    console.warn('[HTTP] Failed to acquire access token for API request (silent):', errMessage);
-
-    // If interaction is required, try an interactive popup to allow consent/login
-    try {
-      const errRecord = (errObj as Record<string, unknown> | null);
-      const isInteractionRequired = (errObj instanceof Error && errObj.name === 'InteractionRequiredAuthError')
-        || (errRecord && String(errRecord['errorCode']) === 'interaction_required');
-
-      if (isInteractionRequired) {
-        try {
-          const popupResponse = await msalInstance.acquireTokenPopup({ ...tokenRequest, account });
-          console.info('[HTTP] Acquired token via popup for API request');
-          return popupResponse.accessToken;
-        } catch (popupErr) {
-          const popupMsg = popupErr instanceof Error ? popupErr.message : String(popupErr);
-          console.warn('[HTTP] acquireTokenPopup failed or was blocked:', popupMsg);
-          return null;
-        }
-      }
-
-      // If not interaction-required, log details for diagnosis
-      console.debug('[HTTP] MSAL error details:', {
-        name: errObj instanceof Error ? errObj.name : String((errRecord && errRecord['name']) ?? ''),
-        errorCode: errRecord ? String(errRecord['errorCode'] ?? '') : '',
-        subError: errRecord ? String(errRecord['subError'] ?? '') : '',
-        message: errMessage,
-      });
-    } catch (e) {
-      console.warn('[HTTP] Error handling token acquisition failure:', e);
-    }
-
-    return null;
-  }
-}
-
 /**
  * HTTP API storage adapter for production mode.
  * Calls Azure Functions API endpoints instead of directly accessing Azure Table Storage.
@@ -168,22 +64,7 @@ export class HttpStorageAdapter implements IStorageAdapter {
   }
 
   private async getAuthHeaders(): Promise<HeadersInit> {
-    const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-    const token = await getAccessToken();
-    
-    // In production mode, if we can't get a token, this is a critical error
-    if (!token && !isDevMode) {
-      throw new Error(
-        'Cannot make authenticated API request: No access token available.\n' +
-        'This usually means:\n' +
-        '1. User is not logged in (check AuthContext.isAuthenticated)\n' +
-        '2. Token acquisition failed (check browser console for MSAL errors)\n' +
-        '3. MSAL configuration is incorrect\n\n' +
-        'Please log in and try again.'
-      );
-    }
-    
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return getApiAuthHeaders();
   }
 
   // Routes
@@ -493,96 +374,4 @@ export class HttpStorageAdapter implements IStorageAdapter {
     return await this.parseJsonResponse(response);
   }
 
-  // Membership operations
-  async saveMembership(_membership: BrigadeMembership): Promise<void> {
-    throw new Error('Membership operations not yet implemented in HTTP adapter');
-  }
-
-  async getMembership(_brigadeId: string, _userId: string): Promise<BrigadeMembership | null> {
-    throw new Error('Membership operations not yet implemented in HTTP adapter');
-  }
-
-  async getMembershipById(_membershipId: string): Promise<BrigadeMembership | null> {
-    throw new Error('Membership operations not yet implemented in HTTP adapter');
-  }
-
-  async deleteMembership(_brigadeId: string, _userId: string): Promise<void> {
-    throw new Error('Membership operations not yet implemented in HTTP adapter');
-  }
-
-  async getMembershipsByUser(userId: string): Promise<BrigadeMembership[]> {
-    const response = await fetch(`${this.apiBaseUrl}/users/${encodeURIComponent(userId)}/memberships`, {
-      headers: await getApiAuthHeaders(),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch user memberships: ${response.statusText}`);
-    }
-    return await this.parseJsonResponse(response);
-  }
-
-  async getMembershipsByBrigade(brigadeId: string): Promise<BrigadeMembership[]> {
-    const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigadeId)}/members`, {
-      headers: await getApiAuthHeaders(),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch brigade memberships: ${response.statusText}`);
-    }
-    return await response.json();
-  }
-
-  async getPendingMembershipsByBrigade(brigadeId: string): Promise<BrigadeMembership[]> {
-    const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigadeId)}/members/pending`, {
-      headers: await getApiAuthHeaders(),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch pending brigade memberships: ${response.statusText}`);
-    }
-    return await response.json();
-  }
-
-  // Invitation operations (Phase 6a - API endpoints to be implemented in Phase 7)
-  async saveInvitation(_invitation: MemberInvitation): Promise<void> {
-    throw new Error('Invitation operations not yet implemented in HTTP adapter');
-  }
-
-  async getInvitation(_invitationId: string): Promise<MemberInvitation | null> {
-    throw new Error('Invitation operations not yet implemented in HTTP adapter');
-  }
-
-  async getInvitationByToken(_token: string): Promise<MemberInvitation | null> {
-    throw new Error('Invitation operations not yet implemented in HTTP adapter');
-  }
-
-  async getPendingInvitationsByBrigade(_brigadeId: string): Promise<MemberInvitation[]> {
-    throw new Error('Invitation operations not yet implemented in HTTP adapter');
-  }
-
-  async expireInvitations(): Promise<void> {
-    throw new Error('Invitation operations not yet implemented in HTTP adapter');
-  }
-
-  // Verification operations (Phase 6a - API endpoints to be implemented in Phase 7)
-  async saveVerificationRequest(_request: AdminVerificationRequest): Promise<void> {
-    throw new Error('Verification operations not yet implemented in HTTP adapter');
-  }
-
-  async getVerificationRequest(_requestId: string): Promise<AdminVerificationRequest | null> {
-    throw new Error('Verification operations not yet implemented in HTTP adapter');
-  }
-
-  async getVerificationsByUser(_userId: string): Promise<AdminVerificationRequest[]> {
-    throw new Error('Verification operations not yet implemented in HTTP adapter');
-  }
-
-  async getPendingVerifications(): Promise<AdminVerificationRequest[]> {
-    throw new Error('Verification operations not yet implemented in HTTP adapter');
-  }
-
-  async approveVerification(_requestId: string, _reviewedBy: string, _reviewNotes?: string): Promise<void> {
-    throw new Error('Verification operations not yet implemented in HTTP adapter');
-  }
-
-  async rejectVerification(_requestId: string, _reviewedBy: string, _reviewNotes: string): Promise<void> {
-    throw new Error('Verification operations not yet implemented in HTTP adapter');
-  }
 }

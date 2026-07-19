@@ -1,188 +1,204 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useState, useEffect, type ReactNode } from 'react';
-import { useMsal } from '@azure/msal-react';
-import { InteractionStatus } from '@azure/msal-browser';
-import { loginRequest, isMsalConfigured } from '../auth/msalConfig';
-import { refreshToken } from '../auth/tokenManager';
+import { createContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import {
+  restoreSession,
+  signIn as suiteSignIn,
+  signInWithPasskey as suiteSignInWithPasskey,
+  signUp as suiteSignUp,
+  signOut as suiteSignOut,
+  switchOrg as suiteSwitchOrg,
+  type SuiteSession,
+  type SuiteMembership,
+  type SignUpInput,
+} from '../auth/suiteAuth';
 import { logLogin, logLogout, logLoginFailed } from '../utils/auditLog';
 
 export interface User {
-  id: string;        // User ID (from Entra or generated in dev mode)
+  /** Station Manager user id. */
+  id: string;
   email: string;
-  name?: string;
-  brigadeId?: string; // Default/current brigade ID (for backwards compatibility)
+  name: string;
+  /**
+   * The active brigade — 1:1 with the user's current Station Manager
+   * organizationId. Named `brigadeId` (this app's own domain vocabulary)
+   * throughout the rest of the codebase.
+   */
+  brigadeId?: string;
+  role?: 'owner' | 'admin' | 'viewer';
 }
+
+export type AuthMembership = SuiteMembership;
 
 export interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
   isLoading: boolean;
-  setActiveBrigadeId: (brigadeId: string | null) => void;
+  /** Whether the active brigade's Station Manager org grants Fire Santa Run. */
+  santaRunEnabled: boolean;
+  organizationName: string | null;
+  planCode: string | null;
+  /** Every StationKit organisation this user belongs to (multi-brigade membership). */
+  memberships: AuthMembership[];
+  login: (username: string, password: string) => Promise<void>;
+  /** Sign in with a passkey — no username needed, the browser's own picker shows every passkey it holds. */
+  loginWithPasskey: () => Promise<void>;
+  signup: (input: SignUpInput) => Promise<void>;
+  logout: () => Promise<void>;
+  /** Switch the active brigade for a multi-brigade member; reissues the session. */
+  switchBrigade: (organizationId: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
+function sessionToUser(session: SuiteSession): User {
+  return {
+    id: session.userId,
+    email: session.email ?? '',
+    name: session.username,
+    brigadeId: session.organizationId,
+    role: session.role,
+  };
+}
+
 /**
- * Authentication context with development mode support and MSAL integration.
- * 
+ * Authentication context backed by Station Manager (the StationKit suite
+ * identity provider) — replaces the previous Microsoft Entra External ID
+ * integration.
+ *
  * In dev mode (VITE_DEV_MODE=true):
  * - Automatically provides a mock authenticated user
  * - No actual authentication required
- * - Instant access to all features
- * 
- * In production mode (VITE_DEV_MODE=false):
- * - Requires Microsoft Entra External ID authentication
- * - Full security controls and domain validation
- * - Uses MSAL for authentication flows
+ *
+ * In production mode:
+ * - On load, silently resumes an existing Station Manager sign-in via the
+ *   cross-subdomain SSO cookie (no redirect); falls back to a stored token.
+ * - `login`/`signup` call Station Manager directly.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-  const [isLoading, setIsLoading] = useState(!isDevMode);
+  const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
-  
-  // MSAL hooks (only used in production mode)
-  const { instance, accounts, inProgress } = useMsal();
+  const [santaRunEnabled, setSantaRunEnabled] = useState(false);
+  const [organizationName, setOrganizationName] = useState<string | null>(null);
+  const [planCode, setPlanCode] = useState<string | null>(null);
+  const [memberships, setMemberships] = useState<AuthMembership[]>([]);
+
+  const applySession = useCallback((session: SuiteSession) => {
+    setUser(sessionToUser(session));
+    setSantaRunEnabled(session.santaRunEnabled);
+    setOrganizationName(session.organizationName ?? null);
+    setPlanCode(session.planCode);
+    setMemberships(session.memberships);
+  }, []);
+
+  const clearSession = useCallback(() => {
+    setUser(null);
+    setSantaRunEnabled(false);
+    setOrganizationName(null);
+    setPlanCode(null);
+    setMemberships([]);
+  }, []);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      if (isDevMode) {
-        // In dev mode, automatically provide mock user
-        const mockBrigadeId = import.meta.env.VITE_MOCK_BRIGADE_ID || 'dev-brigade-1';
-        setUser({
-          id: 'dev-user-1',
-          email: 'dev@example.com',
-          name: 'Development User',
-          brigadeId: mockBrigadeId,
-        });
-        setIsLoading(false);
-      } else if (isMsalConfigured()) {
-        // In production mode with MSAL configured, check for authenticated user
-        if (inProgress === InteractionStatus.None) {
-          if (accounts && accounts.length > 0) {
-            // User is authenticated
-            const account = accounts[0];
-            const authenticatedUser = {
-              id: account.homeAccountId, // Unique user identifier from Entra
-              email: account.username,
-              name: account.name || account.username,
-              brigadeId: undefined, // Will be set by BrigadeContext
-            };
-            setUser(authenticatedUser);
-            
-            // Log successful login
-            logLogin(authenticatedUser.id, authenticatedUser.email);
-            
-            // Start token refresh interval (refresh every 30 minutes)
-            const refreshInterval = setInterval(async () => {
-              try {
-                await refreshToken(instance, account);
-              } catch (error) {
-                console.error('[Auth] Token refresh failed:', error);
-              }
-            }, 30 * 60 * 1000); // 30 minutes
-            
-            setIsLoading(false);
-            return () => clearInterval(refreshInterval);
-          } else {
-            // No authenticated user
-            setUser(null);
-            setIsLoading(false);
-          }
-        } else {
-          // Authentication in progress, keep loading
-          setIsLoading(true);
-        }
-      } else {
-        // Production mode but MSAL not configured
-        console.warn(
-          '[Auth] Production mode enabled but MSAL not configured. ' +
-          'Set VITE_DEV_MODE=true for development or configure Entra External ID.'
-        );
-        setIsLoading(false);
-        setUser(null);
-      }
-    };
-    
-    initializeAuth();
-  }, [isDevMode, accounts, inProgress, instance]);
-
-  const login = async () => {
     if (isDevMode) {
-      // In dev mode, login is instant
-      return Promise.resolve();
-    }
-    
-    if (!isMsalConfigured()) {
-      const error = new Error(
-        'Production authentication not configured. ' +
-        'Set VITE_DEV_MODE=true for development or configure Entra External ID. ' +
-        'See docs/ENTRA_EXTERNAL_ID_SETUP.md for setup instructions.'
-      );
-      logLoginFailed('unknown', error.message);
-      throw error;
+      const mockBrigadeId = import.meta.env.VITE_MOCK_BRIGADE_ID || 'dev-brigade-1';
+      setUser({
+        id: 'dev-user-1',
+        email: 'dev@example.com',
+        name: 'Development User',
+        brigadeId: mockBrigadeId,
+        role: 'admin',
+      });
+      setSantaRunEnabled(true);
+      setOrganizationName('Development Brigade');
+      setIsLoading(false);
+      return;
     }
 
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await restoreSession();
+        if (cancelled) return;
+        if (session) {
+          applySession(session);
+          logLogin(session.userId, session.email ?? session.username);
+        } else {
+          clearSession();
+        }
+      } catch (error) {
+        console.error('[Auth] Failed to restore session:', error);
+        clearSession();
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isDevMode, applySession, clearSession]);
+
+  const login = async (username: string, password: string) => {
+    if (isDevMode) return;
     try {
-      setIsLoading(true);
-      // Use redirect flow (recommended for SPAs)
-      await instance.loginRedirect(loginRequest);
-      // After redirect, user will be redirected back to the app
-      // and the auth state will be updated automatically
+      const session = await suiteSignIn(username, password);
+      applySession(session);
+      logLogin(session.userId, session.email ?? session.username);
     } catch (error) {
-      console.error('[Auth] Login failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logLoginFailed('unknown', errorMessage);
-      setIsLoading(false);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logLoginFailed(username, message);
       throw error;
     }
+  };
+
+  const loginWithPasskey = async () => {
+    if (isDevMode) return;
+    const session = await suiteSignInWithPasskey();
+    applySession(session);
+    logLogin(session.userId, session.email ?? session.username);
+  };
+
+  const signup = async (input: SignUpInput) => {
+    if (isDevMode) return;
+    const session = await suiteSignUp(input);
+    applySession(session);
+    logLogin(session.userId, session.email ?? session.username);
   };
 
   const logout = async () => {
     if (isDevMode) {
-      // In dev mode, logout does nothing
-      return Promise.resolve();
-    }
-    
-    if (!isMsalConfigured()) {
-      setUser(null);
       return;
     }
-
+    if (user) {
+      logLogout(user.id, user.email);
+    }
     try {
-      setIsLoading(true);
-      
-      // Log logout before clearing session
-      if (user) {
-        logLogout(user.id, user.email);
-      }
-      
-      // Use redirect flow for logout
-      await instance.logoutRedirect({
-        postLogoutRedirectUri: window.location.origin,
-      });
-    } catch (error) {
-      console.error('[Auth] Logout failed:', error);
-      setIsLoading(false);
-      throw error;
+      await suiteSignOut();
+    } finally {
+      clearSession();
     }
   };
 
-  const setActiveBrigadeId = (brigadeId: string | null) => {
-    setUser(prev => {
-      if (!prev) return prev;
-      return { ...prev, brigadeId: brigadeId ?? undefined };
-    });
+  const switchBrigade = async (organizationId: string) => {
+    if (isDevMode) return;
+    const session = await suiteSwitchOrg(organizationId);
+    applySession(session);
   };
 
   const value: AuthContextType = {
     isAuthenticated: !!user,
     user,
-    login,
-    logout,
     isLoading,
-    setActiveBrigadeId,
+    santaRunEnabled,
+    organizationName,
+    planCode,
+    memberships,
+    login,
+    loginWithPasskey,
+    signup,
+    logout,
+    switchBrigade,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

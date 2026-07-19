@@ -31,15 +31,26 @@ Two users, weighted very differently on the night:
 
 - **Public tracking is free, forever.** It is both the right thing and the
   growth engine — every shared link and QR poster markets the paid side.
-- **Brigades pay a small annual subscription** (currently A$5/yr per brigade,
-  set in Stripe and adjustable without a code change) to unlock route planning
-  and live broadcasting. One price, per brigade, whole year.
-- Entitlement is enforced server-side and mirrored in the UI; the price shown
-  everywhere is read live from Stripe.
+- **Fire Santa Run has no billing of its own** (retired 2026-07-19 — see
+  "StationKit suite identity" below; the prior A$5/yr per-brigade Stripe
+  subscription is gone). Route planning and live broadcasting are unlocked
+  entirely by `santaRunEnabled` on the caller's Station Manager organisation.
+- **Suite entitlement (StationKit) is the only path.** Station Manager orgs
+  on a paying plan (`basic`/`ai`) get Santa Run included free; `community`-plan
+  orgs can add it standalone for **$10/year (unlimited use) or $15 for a
+  one-off month** — bought from the org's Station Manager billing page, not
+  from this repo. There is no other way to unlock a brigade: an organisation
+  that never subscribes to anything in Station Manager cannot use planning or
+  broadcasting, only public tracking.
+- Entitlement is enforced server-side (a single `!authResult.santaRunEnabled`
+  check) and mirrored client-side via `EntitlementGate`/`EntitlementBanner`,
+  which link out to Station Manager rather than starting a checkout here.
 
-> Pricing note: $5/yr sits below the annual infrastructure floor until roughly
-> the first ~80 brigades. It is intentionally accessible for now and can be
-> revised later purely in the Stripe dashboard — see "Operational readiness".
+> Pricing note: the $10/yr suite add-on was set deliberately low to undercut
+> competitors charging per-event fees and to make December a low-friction
+> trial for brigades already in the Station Manager ecosystem. It's set and
+> adjustable in Station Manager's Stripe account, not this repo — see that
+> repo's own plan for pricing changes.
 
 ## Current state — v1 (shipped)
 
@@ -51,14 +62,73 @@ Core product is complete and live-capable:
 - Real-time public tracking via an in-process WebSocket hub (no managed
   pub/sub service): live Santa marker, route path, progress, viewer count,
   countdown, "follow Santa" camera, thank-you state.
-- Multi-brigade isolation, member management + roles, brigade claiming with
-  admin verification, public brigade discovery, analytics.
-- Per-brigade Stripe subscription (Checkout + billing portal + webhook), soft
-  paywall that routes unentitled brigades to a subscribe screen, self-service
-  billing panel.
+- Multi-brigade isolation, public brigade discovery, analytics. Membership,
+  roles, and brigade identity are now governed entirely by Station Manager —
+  see "StationKit suite identity" below (this replaced Santa Run's own
+  member-management/claiming/verification system, retired 2026-07-19).
+- Soft gate that routes unentitled organisations to an "enable in Station
+  Manager" screen instead of a hard wall on save — see "StationKit suite
+  identity" below (this replaced Santa Run's own per-brigade Stripe billing,
+  retired 2026-07-19).
 - PWA: offline caching, background-sync for broadcasts, installable.
 - Security hardening: every write/privileged endpoint authenticated with
-  self-match / permission / site-admin checks, realtime rate-limited.
+  self-match / brigade-permission checks, realtime rate-limited.
+
+### StationKit suite identity (shipped 2026-07-19)
+
+Santa Run's own Microsoft Entra External ID (CIAM) sign-in, and its entire
+member-management/invitation/admin-verification system, are **retired**.
+Sign-in, brigades, and roles are now delegated entirely to **Station
+Manager**, the StationKit suite's identity/licensing provider:
+
+- **Brigade = organization.** A brigade's `id` is literally the Station
+  Manager `organizationId` — no separate claiming flow. The brigade record
+  auto-provisions on first sign-in from a Station-Manager-authenticated user
+  whose org doesn't have one yet.
+- **Bearer-token federation, no shared secret.** Both backends (`server/`,
+  `api/`) validate every request by calling Station Manager's
+  `GET /api/auth/me`; the response's `organizationId`/`role` drive
+  authorization (`checkBrigadeAccess`) directly — no local membership table.
+- **Silent cross-subdomain SSO.** The client tries Station Manager's
+  `GET /api/auth/session` (its shared `sk_session` httpOnly cookie on
+  `.stationkit.com.au`) before falling back to a stored token or the login
+  page — a user already signed into Station Manager or Fire Break Calculator
+  lands in Santa Run already authenticated.
+- **Roles map onto Station Manager's three** (`owner`/`admin`/`viewer`);
+  Santa Run's old `operator` role folded into `admin`.
+- **Independent sign-up preserved** — `src/pages/auth/LoginPage.tsx` supports
+  creating a brand-new Station Manager organization from within Santa Run, so
+  brigades that never touch the rest of the suite can still sign up directly.
+- **Passkey sign-in (2026-07-19), additive to password.** `LoginPage` gained a
+  "Sign in with a passkey" button (feature-detected via `browserSupportsWebAuthn()`)
+  and `auth/suiteAuth.ts` a `signInWithPasskey()` that runs the WebAuthn
+  ceremony (`@simplewebauthn/browser`) directly on this page — it works because
+  the Relying Party ID is the shared `.stationkit.com.au` parent domain, the
+  same one the SSO cookie uses — then POSTs the assertion to Station Manager's
+  `/api/auth/passkey/login/verify` cross-origin, which behaves exactly like
+  `/login` (token + `sk_session` cookie). Usernameless/discoverable flow — no
+  username field, the browser's own picker shows every passkey it holds.
+  **Registration only happens in Station Manager's own account settings** —
+  no "Add a passkey" UI in this app, since Station Manager is the suite's sole
+  identity provider.
+- **Per-brigade Stripe billing retired 2026-07-19.** Initially kept intact
+  as a safety fallback in case real brigades were paying on it; the owner
+  confirmed the existing Stripe subscriptions on the shared account were
+  their own dev-testing ones, not real customers, so it was safe to remove.
+  Deleted: `server/src/routes/stripe.ts`, both `utils/subscription.ts` files,
+  `BillingPanel`/`SubscriptionBanner`/`SubscriptionGate`/
+  `useSubscriptionPrice`, the `stripe` npm dependency, and the
+  `subscriptionStatus`/`stripeCustomerId`/`stripeSubscriptionId`/
+  `subscribedUntil` Brigade fields. Replaced with `EntitlementGate`/
+  `EntitlementBanner`, which link out to Station Manager's
+  `/admin/organization` instead of starting a local checkout. Every
+  `!authResult.santaRunEnabled && !(await isBrigadeEntitled(...))` check
+  collapsed to the single `!authResult.santaRunEnabled`.
+- Config: `VITE_SUITE_AUTH_URL` (client) / `SUITE_AUTH_URL` (server) point at
+  the Station Manager deployment; both default to `https://stationkit.com.au`.
+- Companion work: Station Manager (`santaRunEnabled` entitlement + standalone
+  add-on billing, `richardthorek/station-manager` PR #686) and Fire Break
+  Calculator (matching silent-SSO client) — see those repos' own plans.
 
 Public-growth and polish shipped in the latest pass:
 
@@ -91,12 +161,8 @@ Hosting/runtime consolidation & CI/CD hardening shipped in this pass:
 **Application Improvements:**
 - Fixed audit logging endpoint and static file serving (manifest.json,
   registerSW.js now served with correct MIME types).
-- Brigade context now auto-loads first active membership if `brigadeId` not
-  set, fixing the case where users claim a brigade but can't access it.
-- Prominent **Settings** button on Dashboard for easy access to billing &
-  subscription options.
-- Stripe webhook and Stripe integration fully wired up for per-brigade
-  subscriptions.
+- Prominent **Settings** button on Dashboard for easy access to Fire Santa Run
+  access status (now via Station Manager — see "StationKit suite identity").
 
 **Intent:** Web PubSub Standard (needed each December to clear the 20
 concurrent connection free-tier cap, ~A$50+/mo) plus a year-round App
@@ -112,8 +178,16 @@ a shared backplane is added — tracked in the roadmap below.
 ## Roadmap — what's next
 
 Ordered by leverage. Public-side items move the needle most because the public
-is the audience and the marketing channel.
+is the audience and the marketing channel. One exception: item 0 below is a
+correctness/infra gap left by the StationKit SSO migration and should land
+before relying on the unified suite login in production.
 
+0. **Cross-repo SSO end-to-end verification** — manually confirm silent SSO
+   actually works across Station Manager, Fire Santa Run, and Fire Break
+   Calculator once all three are deployed with the `.stationkit.com.au`
+   cookie domain live: sign in once, land authenticated in all three; sign out
+   in one, confirm the others still behave sanely; confirm the independent
+   Santa Run sign-up path still works standalone. Not yet done.
 1. **Proximity push** — extend "notify me" to "Santa is ~10 min from your pin".
    The route + live position + personal ETA already exist; this is the highest
    emotional-value feature and the clearest differentiator over "we post on
@@ -148,14 +222,18 @@ is the audience and the marketing channel.
   `firesantarun.com.au` and `santa.stationkit.com.au` during the transition;
   `infra/seed-secrets.sh` seeds that same two-origin default unless
   `CORS_ORIGIN` is overridden. `APP_BASE_URL` (used to build outbound links —
-  SMS broadcasts, Stripe redirects, VAPID subject) deliberately still defaults
+  SMS broadcasts, VAPID subject) deliberately still defaults
   to `firesantarun.com.au` — don't flip it until DNS for the new subdomain is
   actually live, or generated links 404. **Still open (infra/ops, not code):**
   Cloudflare DNS + TLS for `santa.stationkit.com.au` and its Container Apps
   custom-domain binding; once live, flip `APP_BASE_URL` and narrow
   `CORS_ORIGIN` back to the single new origin, retiring `firesantarun.com.au`.
-  No functional Station Manager SSO integration exists in this repo today (no
-  code coupling beyond this domain/CORS alignment).
+  As of 2026-07-19 the StationKit SSO integration itself is fully wired (see
+  "StationKit suite identity" above) — the cross-subdomain silent-SSO cookie
+  only actually reaches Santa Run once this domain move lands, since the
+  cookie is scoped to `.stationkit.com.au`; until then, users fall back to a
+  stored bearer token or an explicit login. See roadmap item 0 for the
+  outstanding end-to-end verification.
 - **Container Apps scale-to-zero.** `minReplicas: 0` off-season, flipped to
   1 for December via [`infra/scale-season.sh`](infra/scale-season.sh) so the
   first visitor of the season isn't stuck with a cold start mid-run.
@@ -164,8 +242,8 @@ is the audience and the marketing channel.
 - **Mapbox is the sleeper cost**: every public viewer session is a map load;
   free to 50k/month, then usage-priced. Watch it through December — at large
   viewer counts it becomes the dominant cost and the trigger for item 5 above.
-- **Dev and prod are fully separate deployments** matching Stripe test vs live
-  mode, so test subscriptions never touch real brigade data.
+- **Dev and prod are fully separate deployments**, each with its own Table
+  Storage account, so test data never touches real brigade data.
 - **December deploy freeze.** Because a revision cutover drops every live
   viewer's WebSocket on the single realtime replica, CI blocks auto-deploy on
   push during December (override with a `[deploy-anyway]` commit, manual
@@ -183,9 +261,6 @@ is the audience and the marketing channel.
 
 ## Open decisions
 
-- Final public price (keep A$5, or move toward cost recovery ~A$25 with a
-  founding-brigade discount). No brigade has subscribed yet, so there's no
-  grandfathering cost to changing it.
 - When to migrate the public map to open tiles (driven by Mapbox usage).
 - Whether to add a district/multi-brigade tier (the landing page already
   signals "coming soon").

@@ -4,23 +4,15 @@
  * Features: Hero section, comprehensive feature grid (advent calendar style), sign in/sign up
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 // Direct imports: the components/hooks barrels drag mapbox-gl into this public page's chunk.
 import { SEO } from '../components/SEO';
-import { useSubscriptionPrice } from '../hooks/useSubscriptionPrice';
-import { COLORS } from '../utils/constants';
 
 export function LandingPage() {
-  const { isAuthenticated, isLoading, login } = useAuth();
-  // Live price from Stripe (falls back to the static $5 AUD/year) so the page
-  // never goes stale when the price changes in the Stripe dashboard.
-  const { price, amount, currency } = useSubscriptionPrice();
+  const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 
   // Redirect if already authenticated
@@ -30,22 +22,8 @@ export function LandingPage() {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
-  const handleLogin = async () => {
-    setIsLoggingIn(true);
-    setLoginError(null);
-    
-    try {
-      await login();
-      // After successful login redirect, MSAL will handle the redirect
-    } catch (error) {
-      console.error('Login failed:', error);
-      setLoginError(
-        error instanceof Error 
-          ? error.message 
-          : 'An unexpected error occurred during login. Please try again.'
-      );
-      setIsLoggingIn(false);
-    }
+  const handleLogin = () => {
+    navigate('/login');
   };
 
   if (isLoading) {
@@ -199,23 +177,6 @@ export function LandingPage() {
                 </Link>
               </p>
 
-              {loginError && (
-                <div style={{
-                  padding: '0.75rem',
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  borderRadius: '10px',
-                  marginBottom: '1rem',
-                }}>
-                  <p style={{
-                    fontSize: '0.875rem',
-                    color: COLORS.fireRedDark,
-                    margin: 0,
-                  }}>
-                    {loginError}
-                  </p>
-                </div>
-              )}
-
               {isDevMode ? (
                 <div style={{
                   padding: '1.25rem',
@@ -243,10 +204,9 @@ export function LandingPage() {
                 /* One organizer CTA — sign-in and sign-up share the same flow */
                 <button
                   onClick={handleLogin}
-                  disabled={isLoggingIn}
                   className="btn btn-secondary-white btn-block"
                 >
-                  {isLoggingIn ? '🚒 Signing in...' : '🚒 Run a Santa run — brigade sign in'}
+                  🚒 Run a Santa run — brigade sign in
                 </button>
               )}
 
@@ -1043,13 +1003,13 @@ export function LandingPage() {
                   color: 'var(--fire-red)',
                   margin: '1rem 0 0.25rem',
                 }}>
-                  {amount}
-                  <span style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--neutral-600)' }}>/{price.interval}</span>
+                  $10
+                  <span style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--neutral-600)' }}>/year</span>
                 </div>
                 <p style={{ color: 'var(--neutral-600)', fontSize: '0.9rem', margin: '0.5rem 0 1.5rem' }}>
-                  One simple price per brigade — less than a coffee, covers the whole year.
+                  Unlimited use, less than a coffee — or $15 for a one-off month.
                   <span style={{ display: 'block', fontSize: '0.8rem', marginTop: '0.25rem', color: 'var(--neutral-500)' }}>
-                    Billed in {currency}.
+                    Included free with Station Manager&apos;s Basic and AI Pro plans.
                   </span>
                 </p>
                 <ul style={{
@@ -1071,7 +1031,6 @@ export function LandingPage() {
 
                 <button
                   onClick={handleLogin}
-                  disabled={isLoggingIn}
                   style={{
                     width: '100%',
                     padding: '0.75rem 1.5rem',
@@ -1081,14 +1040,13 @@ export function LandingPage() {
                     borderRadius: '12px',
                     fontSize: '1rem',
                     fontWeight: 'bold',
-                    cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-                    opacity: isLoggingIn ? 0.7 : 1,
+                    cursor: 'pointer',
                     transition: 'all 0.2s',
                   }}
-                  onMouseEnter={(e) => !isLoggingIn && (e.currentTarget.style.opacity = '0.9')}
-                  onMouseLeave={(e) => !isLoggingIn && (e.currentTarget.style.opacity = '1')}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                 >
-                  {isLoggingIn ? '🎅 Setting up...' : '🎅 Get Started'}
+                  🎅 Get Started
                 </button>
               </div>
 
@@ -1170,7 +1128,10 @@ export function LandingPage() {
                     What does it cost?
                   </h4>
                   <p style={{ color: 'var(--neutral-700)', margin: 0, fontSize: '0.95rem' }}>
-                    {amount} {currency} a year per brigade — just enough to keep the servers running. You can explore the app and set up your brigade before subscribing; the subscription unlocks route planning and live broadcasting.
+                    $10/year (unlimited use) or $15 for a one-off month — just enough to keep the servers
+                    running. It&apos;s also included free with Station Manager&apos;s Basic and AI Pro plans.
+                    You can explore the app and set up your brigade before enabling it; enabling it unlocks
+                    route planning and live broadcasting.
                   </p>
                 </div>
 

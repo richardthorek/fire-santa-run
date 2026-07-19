@@ -1,25 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
-import { validateToken, checkBrigadePermission } from '../utils/auth.js';
+import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
-import { isBrigadeEntitled } from '../utils/subscription.js';
 
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
-const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
 function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");
-}
-
-async function getUserMembership(userId: string, brigadeId: string): Promise<any> {
-  const client = await getTableClient(MEMBERSHIPS_TABLE);
-  const entities = client.listEntities({
-    queryOptions: { filter: `PartitionKey eq '${escapeODataValue(brigadeId)}' and userId eq '${escapeODataValue(userId)}'` }
-  });
-  for await (const entity of entities) {
-    return { id: entity.rowKey, brigadeId: entity.partitionKey, userId: entity.userId, role: entity.role, status: entity.status };
-  }
-  return null;
 }
 
 function entityToRoute(entity: any) {
@@ -149,10 +136,10 @@ routesRouter.post('/', async (c) => {
     if (!authResult.authenticated) return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
     const route = await c.req.json() as any;
     if (!route.id || !route.brigadeId) return c.json({ error: 'Missing required fields: id, brigadeId' }, 400);
-    const permissionCheck = await checkBrigadePermission(authResult.userId!, route.brigadeId, 'manage_routes', getUserMembership);
+    const permissionCheck = checkBrigadeAccess(authResult, route.brigadeId, 'manage_routes');
     if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
-    if (!(await isBrigadeEntitled(route.brigadeId))) {
-      return c.json({ error: 'Payment required', message: 'An active brigade subscription is required to create routes' }, 402);
+    if (!authResult.santaRunEnabled) {
+      return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
     const client = await getTableClient(ROUTES_TABLE);
     await client.createEntity(routeToEntity(route));
@@ -172,10 +159,10 @@ routesRouter.put('/:id', async (c) => {
     const routeId = c.req.param('id');
     const route = await c.req.json() as any;
     if (!routeId || !route.brigadeId) return c.json({ error: 'Missing required fields: id, brigadeId' }, 400);
-    const permissionCheck = await checkBrigadePermission(authResult.userId!, route.brigadeId, 'manage_routes', getUserMembership);
+    const permissionCheck = checkBrigadeAccess(authResult, route.brigadeId, 'manage_routes');
     if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
-    if (!(await isBrigadeEntitled(route.brigadeId))) {
-      return c.json({ error: 'Payment required', message: 'An active brigade subscription is required to edit routes' }, 402);
+    if (!authResult.santaRunEnabled) {
+      return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
     const client = await getTableClient(ROUTES_TABLE);
     await client.updateEntity(routeToEntity({ ...route, id: routeId }), 'Merge');
@@ -195,7 +182,7 @@ routesRouter.delete('/:id', async (c) => {
     const routeId = c.req.param('id');
     const brigadeId = c.req.query('brigadeId');
     if (!routeId || !brigadeId) return c.json({ error: 'Missing required parameters: id, brigadeId' }, 400);
-    const permissionCheck = await checkBrigadePermission(authResult.userId!, brigadeId, 'manage_routes', getUserMembership);
+    const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'manage_routes');
     if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
     const client = await getTableClient(ROUTES_TABLE);
     await client.deleteEntity(brigadeId, routeId);

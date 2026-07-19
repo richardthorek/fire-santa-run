@@ -13,7 +13,6 @@
  *   with one clear message instead of scattered runtime failures.
  */
 
-import { initializeMsalConfig } from '../auth/msalConfig';
 import { EXAMPLE_MAPBOX_TOKEN } from './mapbox';
 
 /** Aggregated, human-readable configuration error. */
@@ -63,16 +62,6 @@ function checkMapboxToken(problems: string[], isProd: boolean): void {
   }
 }
 
-function checkEntraConfig(problems: string[]): void {
-  // initializeMsalConfig() validates Entra vars and throws a descriptive error
-  // in production mode; in dev mode it is a no-op aside from logging.
-  try {
-    initializeMsalConfig();
-  } catch (error) {
-    problems.push(error instanceof Error ? error.message : String(error));
-  }
-}
-
 /**
  * Validate the client environment. Throws `EnvironmentConfigError` in
  * production mode when required configuration is missing or invalid.
@@ -82,7 +71,6 @@ export function validateClientEnv(): void {
   const problems: string[] = [];
 
   checkMapboxToken(problems, isProd);
-  checkEntraConfig(problems);
 
   if (problems.length > 0) {
     throw new EnvironmentConfigError(problems);

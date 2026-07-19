@@ -6,9 +6,9 @@
 #   1. Live Azure resources  — the Storage connection string is read back from
 #      the deployed Storage account (no deployment output needed), so this
 #      script is fully re-runnable independent of a fresh `deploy.sh` run.
-#   2. A local secrets file   — Stripe keys, site-admin ids, VAPID keys, and
-#      the realtime WS signing secret come from infra/.env.<env> (gitignored)
-#      or, failing that, the current shell env.
+#   2. A local secrets file   — SUITE_AUTH_URL, VAPID keys, and the realtime WS
+#      signing secret come from infra/.env.<env> (gitignored) or, failing
+#      that, the current shell env.
 #
 # It is idempotent: `az containerapp update --set-env-vars` replaces only the
 # keys given; every other env var already on the revision is left untouched.
@@ -21,10 +21,7 @@
 #   ./infra/seed-secrets.sh --help
 #
 # Secrets file (infra/.env.<env>) — copy infra/.env.example and fill in:
-#   STRIPE_SECRET_KEY=sk_test_... (dev) / sk_live_... (prod)
-#   STRIPE_WEBHOOK_SECRET=whsec_...
-#   STRIPE_PRICE_ID=price_...
-#   SITE_ADMIN_USER_IDS=oid1,oid2
+#   SUITE_AUTH_URL=https://stationkit.com.au
 #   VAPID_PUBLIC_KEY=... / VAPID_PRIVATE_KEY=... / VAPID_SUBJECT=mailto:...
 #   REALTIME_WS_SECRET=...              # optional — see docs/ARCHITECTURE.md
 #   APP_ORIGIN=https://...              # optional public origin override
@@ -53,7 +50,7 @@ Options:
   --dry-run                  Show which settings would be applied (values masked)
   --help,   -h               Show this help message
 
-Reads Stripe/admin/VAPID secrets from infra/.env.<env> (gitignored) or the
+Reads SUITE_AUTH_URL/VAPID secrets from infra/.env.<env> (gitignored) or the
 shell env, and pulls the Storage connection string live from the deployed
 Storage account. Safe to re-run; existing untouched env vars are preserved.
 HELP
@@ -220,13 +217,13 @@ SETTINGS=(
   "APP_BASE_URL=$APP_ORIGIN"
 )
 
-# Optional secrets — Stripe TEST keys for dev, LIVE keys for prod.
+# Optional secrets — SUITE_AUTH_URL points at the Station Manager deployment.
 # VAPID_* enables the "notify me when Santa starts" web push (see README).
 # REALTIME_WS_SECRET signs the short-lived tokens broadcaster/editor
 # WebSocket connections present — optional (falls back to a hash of the
 # storage connection string) but worth setting explicitly in prod.
 MISSING_SECRETS=()
-for name in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PRICE_ID STRIPE_AUTOMATIC_TAX SITE_ADMIN_USER_IDS VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET; do
+for name in SUITE_AUTH_URL VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET; do
   val="$(resolve "$name")"
   if [[ -n "$val" ]]; then
     SETTINGS+=("$name=$val")

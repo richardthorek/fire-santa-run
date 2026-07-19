@@ -19,12 +19,9 @@
     "@azure/identity": "^4.13.0",
     "@azure/storage-blob": "^12.33.0",
     "@azure/web-pubsub": "^1.2.0",
-    "jsonwebtoken": "^9.0.3",
-    "jwks-rsa": "^4.1.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.0.1",
     "@types/web-push": "^3.6.4",
     "azure-functions-core-tools": "^4.12.1",

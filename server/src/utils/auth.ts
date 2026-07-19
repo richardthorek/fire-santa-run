@@ -1,86 +1,52 @@
 /**
- * Authentication utilities for validating JWT tokens from Microsoft Entra External ID.
+ * Authentication utilities — validates Station Manager (StationKit suite IdP)
+ * bearer tokens.
  *
- * Accepts the web-standard `Request` object (used by Hono via `c.req.raw`),
- * so there is no dependency on the Azure Functions SDK.
+ * Fire Santa Run no longer runs its own identity provider (Microsoft Entra
+ * External ID has been retired) — every user is a Station Manager account,
+ * and a "brigade" here is 1:1 with a Station Manager Organization
+ * (brigade.id === organizationId). This validates the caller's SM-issued JWT
+ * by calling back into SM's GET /api/auth/me — the same approach the Fire
+ * Break Calculator sibling app uses (its services/suiteAuthService.ts) —
+ * rather than verifying a signature locally, since SM is the source of truth
+ * for identity, org membership, and entitlements. Contract:
+ * docs/wiki/developer/suite-token-validation.md in the Station-Manager repo.
  */
 
-import * as jwt from 'jsonwebtoken';
-import * as jwksClient from 'jwks-rsa';
-import type { BrigadeMembership } from '../types/membership.js';
-
-const ENTRA_TENANT_ID = process.env.VITE_ENTRA_TENANT_ID || '50fcb752-2a4e-4efd-bdc2-e18a5042c5a8';
-const ENTRA_CLIENT_ID = process.env.VITE_ENTRA_CLIENT_ID || '';
-const ENTRA_AUTHORITY = (process.env.VITE_ENTRA_AUTHORITY || '').replace(/\/$/, '') || `https://login.microsoftonline.com/${ENTRA_TENANT_ID}`;
-const ALT_TENANT_AUTHORITY = `https://${ENTRA_TENANT_ID}.ciamlogin.com/${ENTRA_TENANT_ID}`;
-
-const BASE_AUTHORITIES = [ENTRA_AUTHORITY, ALT_TENANT_AUTHORITY].map(a => a.replace(/\/$/, ''));
-const ISSUER_CANDIDATES = BASE_AUTHORITIES.map(a => `${a}/v2.0`) as [string, ...string[]];
-
+const SUITE_AUTH_URL = (process.env.SUITE_AUTH_URL || 'https://stationkit.com.au').trim().replace(/\/+$/, '');
 const isDevMode = process.env.DEV_MODE === 'true';
 
-const jwksClients = BASE_AUTHORITIES.map(authority => {
-  const jwksUri = `${authority}/discovery/v2.0/keys`;
-  return {
-    authority,
-    issuer: `${authority}/v2.0`,
-    client: jwksClient.default({
-      jwksUri,
-      cache: true,
-      cacheMaxAge: 86400000,
-      rateLimit: true,
-      jwksRequestsPerMinute: 10,
-    }),
-  };
-});
-
-function selectJwksClient(token: string) {
-  const decoded = jwt.decode(token, { complete: true }) as jwt.Jwt | null;
-  const iss = (decoded?.payload as jwt.JwtPayload | undefined)?.iss?.toLowerCase();
-  if (iss) {
-    const match = jwksClients.find(entry => entry.issuer.toLowerCase() === iss);
-    if (match) return match.client;
-  }
-  return jwksClients[0].client;
-}
-
-function getKeyForToken(token: string) {
-  const client = selectJwksClient(token);
-  return (header: jwt.JwtHeader, callback: jwt.SigningKeyCallback): void => {
-    client.getSigningKey(header.kid as string, (err, key) => {
-      if (err) { callback(err); return; }
-      callback(null, key?.getPublicKey());
-    });
-  };
-}
-
-export interface DecodedToken {
-  oid: string;
-  sub: string;
-  tid?: string;
-  email?: string;
-  name?: string;
-  preferred_username?: string;
-  given_name?: string;
-  family_name?: string;
-  aud: string;
-  iss: string;
-  iat: number;
-  exp: number;
-}
+export type SuiteRole = 'owner' | 'admin' | 'viewer';
 
 export interface AuthResult {
   authenticated: boolean;
   userId?: string;
   email?: string;
   name?: string;
+  /** Station Manager Organization id — the brigade id in this app. */
+  organizationId?: string;
+  /** The caller's role within that organization, as issued by Station Manager. */
+  role?: SuiteRole;
+  /** Whether the org's plan (or standalone add-on) grants Fire Santa Run. */
+  santaRunEnabled?: boolean;
   error?: string;
-  token?: DecodedToken;
 }
 
-function buildHomeAccountId(oid?: string, tid?: string): string | undefined {
-  if (!oid) return undefined;
-  return tid ? `${oid}.${tid}` : oid;
+interface CacheEntry {
+  result: AuthResult;
+  expiresAt: number;
+}
+
+/** Positive results cache briefly so a burst of requests in one page load
+ * makes one round-trip to Station Manager, not one per request. Failures are
+ * not cached: a just-upgraded plan or recovered network should apply at once. */
+const CACHE_TTL_MS = 60_000;
+const tokenCache = new Map<string, CacheEntry>();
+const MAX_CACHE_ENTRIES = 500;
+
+/** Test seam: clear the token cache. */
+export function _clearAuthCache(): void {
+  tokenCache.clear();
 }
 
 /**
@@ -95,12 +61,21 @@ export function extractToken(request: Request): string | null {
 }
 
 /**
- * Validate JWT token from a web-standard Request.
- * In dev mode returns a mock authenticated user; in production validates against Entra External ID.
+ * Validate a bearer token against Station Manager. In dev mode returns a mock
+ * authenticated user with Santa Run entitled, matching the pre-migration
+ * dev-mode bypass.
  */
 export async function validateToken(request: Request): Promise<AuthResult> {
   if (isDevMode) {
-    return { authenticated: true, userId: 'dev-user-1', email: 'dev@example.gov.au', name: 'Dev User' };
+    return {
+      authenticated: true,
+      userId: 'dev-user-1',
+      email: 'dev@example.com',
+      name: 'Development User',
+      organizationId: 'dev-brigade-1',
+      role: 'admin',
+      santaRunEnabled: true,
+    };
   }
 
   const token = extractToken(request);
@@ -108,103 +83,96 @@ export async function validateToken(request: Request): Promise<AuthResult> {
     return { authenticated: false, error: 'No authorization token provided' };
   }
 
-  if (!ENTRA_CLIENT_ID) {
-    console.warn('[Auth] VITE_ENTRA_CLIENT_ID not set. Skipping audience check.');
-  }
+  const cached = tokenCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) return cached.result;
 
+  let res: Response;
   try {
-    const decoded = await new Promise<DecodedToken>((resolve, reject) => {
-      const validAudiences: [string, string] | undefined = ENTRA_CLIENT_ID
-        ? [ENTRA_CLIENT_ID, `api://${ENTRA_CLIENT_ID}`]
-        : undefined;
-
-      jwt.verify(
-        token,
-        getKeyForToken(token),
-        {
-          ...(validAudiences ? { audience: validAudiences } : {}),
-          issuer: ISSUER_CANDIDATES,
-          algorithms: ['RS256'],
-        },
-        (err: jwt.VerifyErrors | null, decoded: unknown) => {
-          if (err) reject(err); else resolve(decoded as DecodedToken);
-        }
-      );
+    res = await fetch(`${SUITE_AUTH_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10_000),
     });
-
-    const oid = decoded.oid || decoded.sub;
-    const tenantId = decoded.tid || ENTRA_TENANT_ID;
-    const userId = buildHomeAccountId(oid, tenantId);
-    const email = decoded.email || decoded.preferred_username;
-    const name = decoded.name || `${decoded.given_name || ''} ${decoded.family_name || ''}`.trim();
-
-    return { authenticated: true, userId, email, name, token: decoded };
-
-  } catch (error: unknown) {
-    let errorMessage = 'Invalid or expired token';
-    if (error instanceof Error) {
-      if (error.name === 'TokenExpiredError') errorMessage = 'Token has expired';
-      else if (error.name === 'JsonWebTokenError') errorMessage = 'Invalid token';
-      else if (error.name === 'NotBeforeError') errorMessage = 'Token not yet valid';
-    }
-    const decoded = jwt.decode(token) as DecodedToken | null;
-    return {
-      authenticated: false,
-      error: `${errorMessage} (iss=${decoded?.iss || 'n/a'}, aud=${decoded?.aud || 'n/a'}, tid=${decoded?.tid || 'n/a'})`,
-    };
+  } catch {
+    return { authenticated: false, error: 'Station Manager unreachable' };
   }
-}
 
-export interface BrigadePermissionCheck {
-  authorized: boolean;
-  membership?: BrigadeMembership;
-  error?: string;
-}
+  if (res.status === 401 || res.status === 403) {
+    return { authenticated: false, error: 'Invalid or expired token' };
+  }
+  if (!res.ok) {
+    return { authenticated: false, error: 'Station Manager unavailable' };
+  }
 
-export const ROLE_PERMISSIONS = {
-  admin: ['manage_routes','manage_members','invite_members','approve_members','remove_members','promote_admin','demote_admin','edit_settings','start_navigation','view_members','cancel_invitation'],
-  operator: ['manage_routes','start_navigation','view_members'],
-  viewer: ['view_members'],
-};
+  let body: {
+    id?: unknown;
+    username?: unknown;
+    email?: unknown;
+    organizationId?: unknown;
+    role?: unknown;
+    entitlements?: { santaRunEnabled?: unknown } | null;
+  };
+  try {
+    body = await res.json();
+  } catch {
+    return { authenticated: false, error: 'Station Manager returned an invalid response' };
+  }
 
-export function hasPermission(role: string, permission: string): boolean {
-  const permissions = ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS];
-  return permissions ? permissions.includes(permission) : false;
+  if (typeof body?.id !== 'string' || typeof body?.username !== 'string') {
+    return { authenticated: false, error: 'Station Manager returned an unexpected response' };
+  }
+
+  const result: AuthResult = {
+    authenticated: true,
+    userId: body.id,
+    email: typeof body.email === 'string' ? body.email : undefined,
+    name: body.username,
+    organizationId: typeof body.organizationId === 'string' ? body.organizationId : undefined,
+    role: (body.role === 'owner' || body.role === 'admin' || body.role === 'viewer') ? body.role : undefined,
+    santaRunEnabled: body.entitlements?.santaRunEnabled === true,
+  };
+
+  if (tokenCache.size >= MAX_CACHE_ENTRIES) tokenCache.clear();
+  tokenCache.set(token, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+  return result;
 }
 
 /**
- * Site administrators authorised to review brigade verification requests.
- * Configured via the SITE_ADMIN_USER_IDS env var (comma-separated Entra user
- * IDs, i.e. `oid.tid`). In dev mode the mock user is always treated as admin.
+ * Role-based permissions. Station Manager's 'owner' and 'admin' roles both map
+ * onto full brigade-admin permissions here (Santa Run's old three-tier
+ * admin/operator/viewer collapses onto SM's owner/admin/viewer — 'operator'
+ * folds into 'admin'); 'viewer' is read-only plus navigation.
  */
-export function getSiteAdminIds(): string[] {
-  return (process.env.SITE_ADMIN_USER_IDS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+export const ROLE_PERMISSIONS: Record<SuiteRole, string[]> = {
+  owner: ['manage_routes', 'edit_settings', 'start_navigation'],
+  admin: ['manage_routes', 'edit_settings', 'start_navigation'],
+  viewer: [],
+};
+
+/** Whether a role has a specific brigade permission. */
+export function hasPermission(role: SuiteRole | undefined, permission: string): boolean {
+  if (!role) return false;
+  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
 }
 
-export function isSiteAdmin(userId: string | undefined): boolean {
-  if (isDevMode) return true;
-  if (!userId) return false;
-  return getSiteAdminIds().includes(userId);
+export interface BrigadeAccessCheck {
+  authorized: boolean;
+  error?: string;
 }
 
-export async function checkBrigadePermission(
-  userId: string,
-  brigadeId: string,
-  requiredPermission: string,
-  getMembership: (userId: string, brigadeId: string) => Promise<BrigadeMembership | null>
-): Promise<BrigadePermissionCheck> {
-  try {
-    const membership = await getMembership(userId, brigadeId);
-    if (!membership) return { authorized: false, error: 'User is not a member of this brigade' };
-    if (membership.status !== 'active') return { authorized: false, error: 'User membership is not active' };
-    if (!hasPermission(membership.role, requiredPermission)) {
-      return { authorized: false, error: `User role '${membership.role}' does not have '${requiredPermission}' permission` };
-    }
-    return { authorized: true, membership };
-  } catch (error: unknown) {
-    return { authorized: false, error: error instanceof Error ? error.message : 'Failed to check brigade permission' };
+/**
+ * Replaces the old membership-table lookup (checkBrigadePermission): since a
+ * brigade IS a Station Manager Organization and the caller's own token
+ * already carries their organizationId + role for their current org, "is this
+ * user a member of brigade X with permission Y" reduces to "does brigade X
+ * equal their token's organizationId, and does their token's role grant Y" —
+ * no database round-trip needed.
+ */
+export function checkBrigadeAccess(authResult: AuthResult, brigadeId: string, permission: string): BrigadeAccessCheck {
+  if (!authResult.organizationId || authResult.organizationId !== brigadeId) {
+    return { authorized: false, error: 'You are not a member of this brigade' };
   }
+  if (!hasPermission(authResult.role, permission)) {
+    return { authorized: false, error: `Role '${authResult.role}' does not have '${permission}' permission` };
+  }
+  return { authorized: true };
 }

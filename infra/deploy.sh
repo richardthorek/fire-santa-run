@@ -227,8 +227,8 @@ if storage_conn:
 
   # ── Seed Container App environment variables ─────────────────────────────
   # Delegated to seed-secrets.sh so the same idempotent logic can be re-run
-  # standalone (e.g. after rotating a Stripe key) without a full redeploy. It
-  # reads the live Storage connection string itself and pulls Stripe/admin/
+  # standalone (e.g. after changing SUITE_AUTH_URL) without a full redeploy. It
+  # reads the live Storage connection string itself and pulls suite-auth/
   # VAPID secrets from infra/.env.$ENVIRONMENT (gitignored) or the shell env.
   echo "Seeding Container App environment variables..."
   SEED_ARGS=(--env "$ENVIRONMENT")

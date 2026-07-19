@@ -1,14 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import { rateLimit } from '../utils/rateLimit.js';
-import { validateToken, checkBrigadePermission } from '../utils/auth.js';
+import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
-import { isBrigadeEntitled } from '../utils/subscription.js';
 import { signWsToken } from '../realtime/wsToken.js';
-import type { BrigadeMembership } from '../types/membership.js';
 
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
-const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
 /**
  * Build the wss:// base for this deployment from APP_BASE_URL (the public
@@ -43,17 +40,6 @@ async function getRouteBrigadeId(routeId: string): Promise<string | null> {
   return null;
 }
 
-async function getUserMembership(userId: string, brigadeId: string): Promise<BrigadeMembership | null> {
-  const client = await getTableClient(MEMBERSHIPS_TABLE);
-  const entities = client.listEntities({
-    queryOptions: { filter: `PartitionKey eq '${escapeODataValue(brigadeId)}' and userId eq '${escapeODataValue(userId)}'` },
-  });
-  for await (const entity of entities) {
-    return { id: entity.rowKey, brigadeId: entity.partitionKey, userId: entity.userId, role: entity.role, status: entity.status } as unknown as BrigadeMembership;
-  }
-  return null;
-}
-
 export const negotiateRouter = new Hono();
 
 // Launch hardening (#345): cap connection-token requests per client.
@@ -84,20 +70,21 @@ async function handleNegotiate(c: any) {
       }
 
       // A broadcaster is actively running a route, so it must belong to a brigade
-      // the user can navigate for, and that brigade must be subscribed. Editor
-      // (route planning presence) is gated the same way. Resolve the owning
-      // brigade once here — negotiate happens once per session, not per update.
+      // the user can navigate for, and that brigade's organisation must have Fire
+      // Santa Run enabled. Editor (route planning presence) is gated the same
+      // way. Resolve the owning brigade once here — negotiate happens once per
+      // session, not per update.
       const brigadeId = await getRouteBrigadeId(routeId);
       if (!brigadeId) {
         return c.json({ error: 'Route not found' }, 404);
       }
       const requiredPermission = role === 'broadcaster' ? 'start_navigation' : 'manage_routes';
-      const permission = await checkBrigadePermission(authResult.userId!, brigadeId, requiredPermission, getUserMembership);
+      const permission = checkBrigadeAccess(authResult, brigadeId, requiredPermission);
       if (!permission.authorized) {
         return c.json({ error: 'Forbidden', message: permission.error || 'Insufficient permissions' }, 403);
       }
-      if (!(await isBrigadeEntitled(brigadeId))) {
-        return c.json({ error: 'Payment required', message: 'An active brigade subscription is required to broadcast' }, 402);
+      if (!authResult.santaRunEnabled) {
+        return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
       }
     }
 

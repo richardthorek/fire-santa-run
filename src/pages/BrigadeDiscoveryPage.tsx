@@ -2,9 +2,8 @@
  * Brigade Discovery Page — public search and browse for all brigades.
  *
  * Accessible at /brigades (no auth required). Lets members of the public find
- * their local brigade, follow their Santa run, or prompt unclaimed brigades to
- * register. Filters are client-side over the brigade list returned by the
- * existing GET /api/brigades endpoint.
+ * their local brigade and follow their Santa run. Filters are client-side
+ * over the brigade list returned by the existing GET /api/brigades endpoint.
  */
 
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
@@ -61,9 +60,6 @@ function BrigadeCard({ brigade, distanceMeters }: { brigade: Brigade; distanceMe
         )}
         {state && <span className="bdp__state-badge">{state}</span>}
       </div>
-      {!brigade.isClaimed && (
-        <span className="bdp__unclaimed-badge">Unclaimed</span>
-      )}
     </Link>
   );
 }
@@ -75,7 +71,6 @@ export function BrigadeDiscoveryPage() {
   const [error, setError] = useState(false);
   const [query, setQuery] = useState('');
   const [stateFilter, setStateFilter] = useState('');
-  const [showUnclaimed, setShowUnclaimed] = useState(false);
   // "Near me": browser geolocation → sort by distance to each brigade station.
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locating, setLocating] = useState(false);
@@ -150,7 +145,6 @@ export function BrigadeDiscoveryPage() {
   const filtered = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     const list = brigades.filter((b) => {
-      if (!showUnclaimed && !b.isClaimed) return false;
       if (stateFilter && extractState(b.location) !== stateFilter) return false;
       if (q && !b.name.toLowerCase().includes(q) && !(b.location ?? '').toLowerCase().includes(q)) return false;
       return true;
@@ -168,7 +162,7 @@ export function BrigadeDiscoveryPage() {
       });
     }
     return list;
-  }, [brigades, deferredQuery, stateFilter, showUnclaimed, userLocation, distances]);
+  }, [brigades, deferredQuery, stateFilter, userLocation, distances]);
 
   const statesWithBrigades = useMemo(() => {
     const present = new Set(brigades.map((b) => extractState(b.location)).filter(Boolean));
@@ -236,14 +230,6 @@ export function BrigadeDiscoveryPage() {
               ))}
             </select>
           </div>
-          <label className="bdp__toggle">
-            <input
-              type="checkbox"
-              checked={showUnclaimed}
-              onChange={(e) => setShowUnclaimed(e.target.checked)}
-            />
-            <span>Show unclaimed brigades</span>
-          </label>
         </div>
 
         {/* Results */}
@@ -273,21 +259,12 @@ export function BrigadeDiscoveryPage() {
                 <div className="bdp__state-emoji">🔍</div>
                 <p>
                   No brigades found{hasActiveFilters ? ' for that search' : ''}. Try a
-                  different name or state{!showUnclaimed ? ', or show unclaimed brigades' : ''}.
+                  different name or state.
                 </p>
                 <div className="bdp__state-actions">
                   {hasActiveFilters && (
                     <button type="button" className="bdp__state-btn" onClick={clearFilters}>
                       Clear search
-                    </button>
-                  )}
-                  {!showUnclaimed && (
-                    <button
-                      type="button"
-                      className="bdp__state-btn"
-                      onClick={() => setShowUnclaimed(true)}
-                    >
-                      Show unclaimed brigades
                     </button>
                   )}
                 </div>
@@ -303,9 +280,9 @@ export function BrigadeDiscoveryPage() {
         )}
 
         <div className="bdp__claim-cta">
-          <p>Can&apos;t find your brigade, or is it unclaimed?</p>
-          <Link to="/brigades/claim" className="bdp__claim-link">
-            🔑 Claim your brigade
+          <p>Can&apos;t find your brigade?</p>
+          <Link to="/login" className="bdp__claim-link">
+            🎅 Sign up to get started
           </Link>
         </div>
       </div>

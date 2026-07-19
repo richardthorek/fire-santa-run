@@ -4,7 +4,6 @@ import { cacheRoutes, getCachedRoutes } from '../storage/offlineCache';
 import { enqueueAction } from '../storage/syncQueue';
 import type { Route } from '../types';
 import { useAuth } from '../context';
-import { useUserProfile } from './useUserProfile';
 import { archiveRoute, restoreRoute, isEligibleForAutoArchive, DEFAULT_ARCHIVE_THRESHOLD_DAYS } from '../utils/routeHelpers';
 
 /**
@@ -13,14 +12,12 @@ import { archiveRoute, restoreRoute, isEligibleForAutoArchive, DEFAULT_ARCHIVE_T
  */
 export function useRoutes() {
   const { user } = useAuth();
-  const { memberships } = useUserProfile();
   const [routes, setRoutes] = useState<Route[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [isFromCache, setIsFromCache] = useState(false);
 
-  // Determine active brigadeId: prefer auth user's brigadeId, fallback to first active membership
-  const activeBrigadeId = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
+  const activeBrigadeId = user?.brigadeId;
 
   const loadRoutes = useCallback(async () => {
     if (!activeBrigadeId) {
@@ -93,7 +90,7 @@ export function useRoutes() {
   }, [activeBrigadeId, loadRoutes]);
 
   const saveRoute = useCallback(async (route: Route) => {
-    const brigadeIdToUse = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
+    const brigadeIdToUse = user?.brigadeId;
     if (!brigadeIdToUse) {
       throw new Error('User must be authenticated with a brigade to save routes');
     }
@@ -135,10 +132,10 @@ export function useRoutes() {
       setError(error);
       throw error;
     }
-  }, [user, memberships, loadRoutes]);
+  }, [user, loadRoutes]);
 
   const deleteRoute = useCallback(async (routeId: string) => {
-    const brigadeIdToUse = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
+    const brigadeIdToUse = user?.brigadeId;
     if (!brigadeIdToUse) {
       throw new Error('User must be authenticated with a brigade to delete routes');
     }
@@ -157,10 +154,10 @@ export function useRoutes() {
       setError(error);
       throw error;
     }
-  }, [user, memberships, loadRoutes]);
+  }, [user, loadRoutes]);
 
   const getRoute = useCallback(async (routeId: string): Promise<Route | null> => {
-    const brigadeIdToUse = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
+    const brigadeIdToUse = user?.brigadeId;
     if (!brigadeIdToUse) {
       return null;
     }
@@ -172,10 +169,10 @@ export function useRoutes() {
       setError(error);
       throw error;
     }
-  }, [user, memberships]);
+  }, [user]);
 
   const archiveRouteById = useCallback(async (routeId: string) => {
-    const brigadeIdToUse = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
+    const brigadeIdToUse = user?.brigadeId;
     if (!brigadeIdToUse) {
       throw new Error('User must be authenticated with a brigade to archive routes');
     }
@@ -190,10 +187,10 @@ export function useRoutes() {
       setError(error);
       throw error;
     }
-  }, [user, memberships, loadRoutes]);
+  }, [user, loadRoutes]);
 
   const restoreRouteById = useCallback(async (routeId: string) => {
-    const brigadeIdToUse = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
+    const brigadeIdToUse = user?.brigadeId;
     if (!brigadeIdToUse) {
       throw new Error('User must be authenticated with a brigade to restore routes');
     }
@@ -208,7 +205,7 @@ export function useRoutes() {
       setError(error);
       throw error;
     }
-  }, [user, memberships, loadRoutes]);
+  }, [user, loadRoutes]);
 
   return {
     routes,
