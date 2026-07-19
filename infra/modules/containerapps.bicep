@@ -141,7 +141,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: appInsightsConnectionString
             }
             // All other settings (Storage, Stripe, VAPID, CORS_ORIGIN,
-            // APP_BASE_URL, SITE_ADMIN_USER_IDS, REALTIME_WS_SECRET) are
+            // APP_BASE_URL, SUITE_AUTH_URL, REALTIME_WS_SECRET) are
             // applied post-deploy via `az containerapp update --set-env-vars`
             // / `az containerapp secret set` — see infra/seed-secrets.sh.
             // Kept out of Bicep so re-running `az deployment sub create`

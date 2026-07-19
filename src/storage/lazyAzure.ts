@@ -1,9 +1,6 @@
 import type { Route, RouteTemplate, Waypoint } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
 import type { User } from '../types/user';
-import type { BrigadeMembership } from '../types/membership';
-import type { MemberInvitation } from '../types/invitation';
-import type { AdminVerificationRequest } from '../types/verification';
 
 /**
  * Lazily-loading facade over AzureTableStorageAdapter.
@@ -65,30 +62,4 @@ export class LazyAzureStorageAdapter implements IStorageAdapter {
   saveUser = (user: User) => this.load().then(a => a.saveUser(user));
   getUser = (userId: string) => this.load().then(a => a.getUser(userId));
   getUserByEmail = (email: string) => this.load().then(a => a.getUserByEmail(email));
-
-  // Memberships
-  saveMembership = (membership: BrigadeMembership) => this.load().then(a => a.saveMembership(membership));
-  getMembership = (brigadeId: string, userId: string) => this.load().then(a => a.getMembership(brigadeId, userId));
-  getMembershipById = (membershipId: string) => this.load().then(a => a.getMembershipById(membershipId));
-  deleteMembership = (brigadeId: string, userId: string) => this.load().then(a => a.deleteMembership(brigadeId, userId));
-  getMembershipsByUser = (userId: string) => this.load().then(a => a.getMembershipsByUser(userId));
-  getMembershipsByBrigade = (brigadeId: string) => this.load().then(a => a.getMembershipsByBrigade(brigadeId));
-  getPendingMembershipsByBrigade = (brigadeId: string) => this.load().then(a => a.getPendingMembershipsByBrigade(brigadeId));
-
-  // Invitations
-  saveInvitation = (invitation: MemberInvitation) => this.load().then(a => a.saveInvitation(invitation));
-  getInvitation = (invitationId: string) => this.load().then(a => a.getInvitation(invitationId));
-  getInvitationByToken = (token: string) => this.load().then(a => a.getInvitationByToken(token));
-  getPendingInvitationsByBrigade = (brigadeId: string) => this.load().then(a => a.getPendingInvitationsByBrigade(brigadeId));
-  expireInvitations = () => this.load().then(a => a.expireInvitations());
-
-  // Verification
-  saveVerificationRequest = (request: AdminVerificationRequest) => this.load().then(a => a.saveVerificationRequest(request));
-  getVerificationRequest = (requestId: string) => this.load().then(a => a.getVerificationRequest(requestId));
-  getVerificationsByUser = (userId: string) => this.load().then(a => a.getVerificationsByUser(userId));
-  getPendingVerifications = () => this.load().then(a => a.getPendingVerifications());
-  approveVerification = (requestId: string, reviewedBy: string, reviewNotes?: string) =>
-    this.load().then(a => a.approveVerification(requestId, reviewedBy, reviewNotes));
-  rejectVerification = (requestId: string, reviewedBy: string, reviewNotes: string) =>
-    this.load().then(a => a.rejectVerification(requestId, reviewedBy, reviewNotes));
 }

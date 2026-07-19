@@ -281,7 +281,7 @@ you provide.
 | `STRIPE_SECRET_KEY` | Stripe secret key — **test** for dev, **live** for prod | `infra/.env.<env>` |
 | `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) for that environment's webhook endpoint | `infra/.env.<env>` |
 | `STRIPE_PRICE_ID` | Price id (`price_…`) of the subscription price (test vs live mode) | `infra/.env.<env>` |
-| `SITE_ADMIN_USER_IDS` | Comma-separated Entra `oid.tid` IDs allowed to review brigade verification | `infra/.env.<env>` |
+| `SUITE_AUTH_URL` | Station Manager base URL used to validate suite bearer tokens (`GET /api/auth/me`) | `infra/.env.<env>` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push keys for "notify me when Santa starts" (optional — hides the button when unset) | `infra/.env.<env>` |
 | `VAPID_SUBJECT` | Contact URI sent to push services (optional; defaults to a `mailto:`) | `infra/.env.<env>` |
 | `REALTIME_WS_SECRET` | Signs the short-lived tokens broadcaster/editor WebSocket connections present (optional — falls back to a hash of the storage connection string) | `infra/.env.<env>` |
@@ -330,7 +330,6 @@ cp infra/.env.example infra/.env.dev
 #   STRIPE_SECRET_KEY=sk_test_...
 #   STRIPE_WEBHOOK_SECRET=whsec_...   # from the dev (test-mode) webhook endpoint
 #   STRIPE_PRICE_ID=price_...         # subscription price, TEST mode
-#   SITE_ADMIN_USER_IDS=oid.tid,oid2.tid2
 ./infra/deploy.sh --env dev --suffix dev001    # deploy + seed
 #   ./infra/seed-secrets.sh --env dev           # or re-seed only, no redeploy
 
@@ -458,7 +457,7 @@ This ensures the new image is actually running and responding before the deploym
 
 1. Switch to `prod` parameters: `./infra/deploy.sh --env prod --suffix myprod`
 2. Bind a custom domain: `az containerapp hostname add` + `az containerapp hostname bind` (managed certificate) — see [Azure docs](https://learn.microsoft.com/en-us/azure/container-apps/custom-domains-managed-certificates)
-3. Configure Entra External ID for auth: add `VITE_ENTRA_CLIENT_ID`, `VITE_ENTRA_TENANT_ID`, etc. to GitHub secrets (baked into the SPA build)
+3. Set `VITE_SUITE_AUTH_URL`/`SUITE_AUTH_URL` to the production Station Manager origin (GitHub secrets, baked into the SPA build and passed to the container) — sign-in is entirely delegated to Station Manager, the StationKit suite identity provider (see `../docs/ARCHITECTURE.md`)
 4. Flip to `minReplicas=1` for the December season (`scale-season.sh`)
 5. If a single replica is ever not enough: add a shared backplane (e.g. Redis pub/sub) for the realtime hub, then raise `maxReplicas` in `infra/modules/containerapps.bicep`
 

@@ -20,12 +20,10 @@
 import { Hono } from 'hono';
 import Stripe from 'stripe';
 import { getTableClient, isDevMode } from '../utils/storage.js';
-import { validateToken, checkBrigadePermission } from '../utils/auth.js';
-import type { BrigadeMembership } from '../types/membership.js';
+import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { updateBrigadeSubscription } from '../utils/subscription.js';
 
 const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
-const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
@@ -47,21 +45,6 @@ function getStripe(): Stripe | null {
   if (!STRIPE_SECRET_KEY) return null;
   if (!stripeClient) stripeClient = new Stripe(STRIPE_SECRET_KEY);
   return stripeClient;
-}
-
-function escapeODataValue(value: string): string {
-  return value.replace(/'/g, "''");
-}
-
-async function getUserMembership(userId: string, brigadeId: string): Promise<BrigadeMembership | null> {
-  const client = await getTableClient(MEMBERSHIPS_TABLE);
-  const entities = client.listEntities({
-    queryOptions: { filter: `PartitionKey eq '${escapeODataValue(brigadeId)}' and userId eq '${escapeODataValue(userId)}'` },
-  });
-  for await (const entity of entities) {
-    return { id: entity.rowKey, brigadeId: entity.partitionKey, userId: entity.userId, role: entity.role, status: entity.status } as any;
-  }
-  return null;
 }
 
 async function getBrigadeEntity(brigadeId: string): Promise<any | null> {
@@ -165,7 +148,7 @@ stripeRouter.post('/create-checkout-session', async (c) => {
   if (!brigadeId) return c.json({ error: 'Missing required field: brigadeId' }, 400);
 
   // Managing billing is an admin-settings action.
-  const permission = await checkBrigadePermission(authResult.userId!, brigadeId, 'edit_settings', getUserMembership);
+  const permission = checkBrigadeAccess(authResult, brigadeId, 'edit_settings');
   if (!permission.authorized) return c.json({ error: 'Forbidden', message: permission.error || 'Insufficient permissions' }, 403);
 
   const brigade = await getBrigadeEntity(brigadeId);
@@ -226,7 +209,7 @@ stripeRouter.post('/create-portal-session', async (c) => {
   const { brigadeId } = await c.req.json().catch(() => ({} as any));
   if (!brigadeId) return c.json({ error: 'Missing required field: brigadeId' }, 400);
 
-  const permission = await checkBrigadePermission(authResult.userId!, brigadeId, 'edit_settings', getUserMembership);
+  const permission = checkBrigadeAccess(authResult, brigadeId, 'edit_settings');
   if (!permission.authorized) return c.json({ error: 'Forbidden', message: permission.error || 'Insufficient permissions' }, 403);
 
   const brigade = await getBrigadeEntity(brigadeId);

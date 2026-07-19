@@ -10,7 +10,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { HttpStorageAdapter } from '../http';
 import type { User } from '../../types/user';
-import type { BrigadeMembership } from '../../types/membership';
 
 describe('HttpStorageAdapter - User Operations', () => {
   let adapter: HttpStorageAdapter;
@@ -173,117 +172,6 @@ describe('HttpStorageAdapter - User Operations', () => {
       const result = await adapter.getUser('nonexistent');
 
       expect(result).toBeNull();
-    });
-  });
-});
-
-describe('HttpStorageAdapter - Membership Operations', () => {
-  let adapter: HttpStorageAdapter;
-  let fetchMock: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    fetchMock = vi.fn();
-    global.fetch = fetchMock;
-    
-    adapter = new HttpStorageAdapter('/api');
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  describe('getMembershipsByUser', () => {
-    it('should fetch user memberships successfully', async () => {
-      const mockMemberships: BrigadeMembership[] = [
-        {
-          id: 'member-1',
-          brigadeId: 'brigade-1',
-          userId: 'user-123',
-          role: 'admin',
-          status: 'active',
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z',
-        },
-      ];
-
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        headers: new Headers({ 'content-type': 'application/json' }),
-        text: async () => JSON.stringify(mockMemberships),
-        json: async () => mockMemberships,
-      });
-
-      const result = await adapter.getMembershipsByUser('user-123');
-
-      expect(fetchMock).toHaveBeenCalledWith('/api/users/user-123/memberships', { headers: {} });
-      expect(result).toEqual(mockMemberships);
-    });
-
-    it('should throw error on failure', async () => {
-      fetchMock.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-      });
-
-      await expect(adapter.getMembershipsByUser('user-123')).rejects.toThrow(
-        'Failed to fetch user memberships: Internal Server Error'
-      );
-    });
-  });
-
-  describe('getMembershipsByBrigade', () => {
-    it('should fetch brigade memberships successfully', async () => {
-      const mockMemberships: BrigadeMembership[] = [
-        {
-          id: 'member-1',
-          brigadeId: 'brigade-1',
-          userId: 'user-123',
-          role: 'admin',
-          status: 'active',
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z',
-        },
-      ];
-
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => mockMemberships,
-      });
-
-      const result = await adapter.getMembershipsByBrigade('brigade-1');
-
-      expect(fetchMock).toHaveBeenCalledWith('/api/brigades/brigade-1/members', { headers: {} });
-      expect(result).toEqual(mockMemberships);
-    });
-  });
-
-  describe('getPendingMembershipsByBrigade', () => {
-    it('should fetch pending memberships successfully', async () => {
-      const mockMemberships: BrigadeMembership[] = [
-        {
-          id: 'member-2',
-          brigadeId: 'brigade-1',
-          userId: 'user-456',
-          role: 'operator',
-          status: 'pending',
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:00:00Z',
-        },
-      ];
-
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => mockMemberships,
-      });
-
-      const result = await adapter.getPendingMembershipsByBrigade('brigade-1');
-
-      expect(fetchMock).toHaveBeenCalledWith('/api/brigades/brigade-1/members/pending', { headers: {} });
-      expect(result).toEqual(mockMemberships);
     });
   });
 });

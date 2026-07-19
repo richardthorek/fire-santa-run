@@ -190,11 +190,7 @@ export function PublicBrigadePage() {
                 {brigade.location}
               </p>
             )}
-            <span
-              className={`pbp__badge ${brigade.isClaimed ? 'pbp__badge--claimed' : 'pbp__badge--unclaimed'}`}
-            >
-              {brigade.isClaimed ? '✓ Verified brigade' : 'Unclaimed brigade'}
-            </span>
+            <span className="pbp__badge pbp__badge--claimed">✓ Verified brigade</span>
 
             <div className="pbp__contact">
               {websiteUrl && (
@@ -207,11 +203,6 @@ export function PublicBrigadePage() {
               )}
               {contact.phone && (
                 <a href={`tel:${encodeURIComponent(contact.phone)}`}>📞 Call</a>
-              )}
-              {!brigade.isClaimed && (
-                <Link className="pbp__claim" to="/brigades/claim">
-                  🔑 Claim this brigade
-                </Link>
               )}
             </div>
           </div>

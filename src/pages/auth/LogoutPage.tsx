@@ -5,10 +5,11 @@ import { COLORS } from '../../utils/constants';
 
 /**
  * Logout Page
- * 
+ *
  * Handles user logout and shows confirmation message.
  * Automatically logs out in dev mode.
- * In production mode, redirects to Entra logout.
+ * In production mode, signs the user out of Station Manager (the StationKit
+ * suite identity provider).
  */
 export function LogoutPage() {
   const { logout } = useAuth();
@@ -36,14 +37,11 @@ export function LogoutPage() {
     try {
       await logout();
       setLogoutComplete(true);
-      
-      // In production mode, MSAL will handle the redirect
-      // In dev mode, redirect to landing page after a short delay
-      if (isDevMode) {
-        setTimeout(() => {
-          navigate('/', { replace: true });
-        }, 2000);
-      }
+
+      // Redirect to the landing page after a short delay.
+      setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 2000);
     } catch (error) {
       console.error('Logout failed:', error);
       setIsLoggingOut(false);

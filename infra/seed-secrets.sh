@@ -24,7 +24,7 @@
 #   STRIPE_SECRET_KEY=sk_test_... (dev) / sk_live_... (prod)
 #   STRIPE_WEBHOOK_SECRET=whsec_...
 #   STRIPE_PRICE_ID=price_...
-#   SITE_ADMIN_USER_IDS=oid1,oid2
+#   SUITE_AUTH_URL=https://stationkit.com.au
 #   VAPID_PUBLIC_KEY=... / VAPID_PRIVATE_KEY=... / VAPID_SUBJECT=mailto:...
 #   REALTIME_WS_SECRET=...              # optional — see docs/ARCHITECTURE.md
 #   APP_ORIGIN=https://...              # optional public origin override
@@ -226,7 +226,7 @@ SETTINGS=(
 # WebSocket connections present — optional (falls back to a hash of the
 # storage connection string) but worth setting explicitly in prod.
 MISSING_SECRETS=()
-for name in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PRICE_ID STRIPE_AUTOMATIC_TAX SITE_ADMIN_USER_IDS VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET; do
+for name in STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PRICE_ID STRIPE_AUTOMATIC_TAX SUITE_AUTH_URL VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET; do
   val="$(resolve "$name")"
   if [[ -n "$val" ]]; then
     SETTINGS+=("$name=$val")

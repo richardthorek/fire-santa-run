@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { storageAdapter } from '../storage';
 import type { RouteTemplate } from '../types';
 import { useAuth } from '../context';
-import { useUserProfile } from './useUserProfile';
 import { mergeBuiltInTemplates } from '../utils/defaultTemplates';
 
 /**
@@ -11,12 +10,11 @@ import { mergeBuiltInTemplates } from '../utils/defaultTemplates';
  */
 export function useTemplates() {
   const { user } = useAuth();
-  const { memberships } = useUserProfile();
   const [templates, setTemplates] = useState<RouteTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const activeBrigadeId = user?.brigadeId ?? memberships.find(m => m.status === 'active')?.brigadeId;
+  const activeBrigadeId = user?.brigadeId;
 
   const loadTemplates = useCallback(async () => {
     if (!activeBrigadeId) {

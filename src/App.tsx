@@ -25,13 +25,10 @@ const TrackingView = lazy(() => import('./pages/TrackingView').then(m => ({ defa
 const PublicBrigadePage = lazy(() => import('./pages/PublicBrigadePage').then(m => ({ default: m.PublicBrigadePage })));
 const RouteDetail = lazy(() => import('./pages/RouteDetail').then(m => ({ default: m.RouteDetail })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
-const BrigadeClaimingPage = lazy(() => import('./pages/BrigadeClaimingPage').then(m => ({ default: m.BrigadeClaimingPage })));
-const MemberManagementPage = lazy(() => import('./pages/MemberManagementPage').then(m => ({ default: m.MemberManagementPage })));
 const BrigadeSettingsPage = lazy(() => import('./pages/BrigadeSettingsPage').then(m => ({ default: m.BrigadeSettingsPage })));
 const BrigadeDiscoveryPage = lazy(() => import('./pages/BrigadeDiscoveryPage').then(m => ({ default: m.BrigadeDiscoveryPage })));
-const InvitationAcceptancePage = lazy(() => import('./pages/InvitationAcceptancePage').then(m => ({ default: m.InvitationAcceptancePage })));
+const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(m => ({ default: m.LoginPage })));
 const LogoutPage = lazy(() => import('./pages/auth/LogoutPage').then(m => ({ default: m.LogoutPage })));
-const CallbackPage = lazy(() => import('./pages/auth/CallbackPage').then(m => ({ default: m.CallbackPage })));
 const TemplateLibrary = lazy(() => import('./pages/TemplateLibrary').then(m => ({ default: m.TemplateLibrary })));
 const AnalyticsDashboard = lazy(() => import('./pages/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
@@ -94,8 +91,7 @@ function App() {
         try {
           await initializeMockData(
             storageAdapter.saveBrigade.bind(storageAdapter),
-            storageAdapter.saveRoute.bind(storageAdapter),
-            storageAdapter.saveMembership.bind(storageAdapter)
+            storageAdapter.saveRoute.bind(storageAdapter)
           );
         } catch (err) {
           // Seeding failure must not brick the dev app on the loading screen.
@@ -185,29 +181,13 @@ function App() {
             <Route path="/help" element={<HelpPage />} />
             
             {/* Authentication Routes */}
-            <Route path="/login" element={<Navigate to={`/${window.location.search}`} replace />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/logout" element={<LogoutPage />} />
-            <Route path="/auth/callback" element={<CallbackPage />} />
-            
+
             {/* Protected Routes - Require authentication (except in dev mode) */}
             <Route path="/profile" element={
               <ProtectedRoute>
                 <ProfilePage />
-              </ProtectedRoute>
-            } />
-            <Route path="/brigades/claim" element={
-              <ProtectedRoute>
-                <BrigadeClaimingPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/invitations/:token" element={
-              <ProtectedRoute>
-                <InvitationAcceptancePage />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/:brigadeId/members" element={
-              <ProtectedRoute>
-                <MemberManagementPage />
               </ProtectedRoute>
             } />
             <Route path="/dashboard/:brigadeId/settings" element={

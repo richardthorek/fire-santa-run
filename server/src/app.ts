@@ -2,14 +2,9 @@ import { Hono } from 'hono';
 import { brigadesRouter } from './routes/brigades.js';
 import { routesRouter } from './routes/routes.js';
 import { usersRouter } from './routes/users.js';
-import { membersRouter } from './routes/members.js';
-import { invitationsRouter } from './routes/invitations.js';
 import { negotiateRouter } from './routes/negotiate.js';
 import { broadcastRouter } from './routes/broadcast.js';
 import { fireStationsRouter } from './routes/fire-stations.js';
-import { verificationRouter } from './routes/verification.js';
-import { adminVerificationRouter } from './routes/admin-verification.js';
-import { claimRouter } from './routes/claim.js';
 import { analyticsRouter } from './routes/analytics.js';
 import { healthRouter } from './routes/health.js';
 import { telemetryRouter } from './routes/telemetry.js';
@@ -71,19 +66,9 @@ export function createApp() {
   app.route('/api/brigades', brigadesRouter);
   app.route('/api/routes', routesRouter);
   app.route('/api/users', usersRouter);
-
-  // Members are scoped under brigade — clone brigadeId from the mount path
-  const brigadeScoped = new Hono();
-  brigadeScoped.route('/:brigadeId/members', membersRouter);
-  brigadeScoped.route('/:brigadeId', claimRouter);
-  app.route('/api/brigades', brigadeScoped);
-
-  app.route('/api/invitations', invitationsRouter);
   app.route('/api', negotiateRouter);
   app.route('/api', broadcastRouter);
   app.route('/api', fireStationsRouter);
-  app.route('/api/verification', verificationRouter);
-  app.route('/api/site-admin/verification', adminVerificationRouter);
   app.route('/api/analytics', analyticsRouter);
   app.route('/api/stripe', stripeRouter);
   app.route('/api/push', pushRouter);

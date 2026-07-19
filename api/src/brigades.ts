@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /api/brigades - Brigades CRUD API
- * 
+ *
  * Handles all brigade operations through Azure Table Storage backend.
  * Brigades are stored with brigadeId as both partition and row key.
- * 
+ * A brigade is 1:1 with a Station Manager Organization (brigade.id ===
+ * organizationId) — see utils/auth.ts.
+ *
  * Endpoints:
  * - GET /api/brigades - List all brigades
  * - GET /api/brigades/{id} - Get single brigade
@@ -15,9 +17,8 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getTableClient, isDevMode } from './utils/storage';
-import { validateToken, checkBrigadePermission } from './utils/auth';
+import { validateToken, checkBrigadeAccess } from './utils/auth';
 const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
-const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
 function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");
@@ -25,19 +26,6 @@ function escapeODataValue(value: string): string {
 
 async function resolveBrigadesClient() {
   return getTableClient(BRIGADES_TABLE);
-}
-
-async function getUserMembership(userId: string, brigadeId: string): Promise<any> {
-  const client = await getTableClient(MEMBERSHIPS_TABLE);
-  const entities = client.listEntities({
-    queryOptions: {
-      filter: `PartitionKey eq '${escapeODataValue(brigadeId)}' and userId eq '${escapeODataValue(userId)}'`,
-    },
-  });
-  for await (const entity of entities) {
-    return { id: entity.rowKey, brigadeId: entity.partitionKey, userId: entity.userId, role: entity.role, status: entity.status };
-  }
-  return null;
 }
 
 // Helper to convert Table entity to Brigade object
@@ -51,13 +39,6 @@ function entityToBrigade(entity: any) {
     contact: entity.contact ? JSON.parse(entity.contact) : {},
     contactEmail: entity.contactEmail,
     contactPhone: entity.contactPhone,
-    allowedDomains: entity.allowedDomains ? JSON.parse(entity.allowedDomains) : [],
-    allowedEmails: entity.allowedEmails ? JSON.parse(entity.allowedEmails) : [],
-    requireManualApproval: entity.requireManualApproval === true,
-    adminUserIds: entity.adminUserIds ? JSON.parse(entity.adminUserIds) : [],
-    isClaimed: entity.isClaimed === true,
-    claimedAt: entity.claimedAt,
-    claimedBy: entity.claimedBy,
     logo: entity.logo,
     themeColor: entity.themeColor,
     createdAt: entity.createdAt,
@@ -82,13 +63,6 @@ function brigadeToEntity(brigade: any) {
     contact: brigade.contact ? JSON.stringify(brigade.contact) : JSON.stringify({}),
     contactEmail: brigade.contact?.email || brigade.contactEmail || '',
     contactPhone: brigade.contact?.phone || brigade.contactPhone || '',
-    allowedDomains: JSON.stringify(brigade.allowedDomains || []),
-    allowedEmails: JSON.stringify(brigade.allowedEmails || []),
-    requireManualApproval: brigade.requireManualApproval ?? false,
-    adminUserIds: JSON.stringify(brigade.adminUserIds || []),
-    isClaimed: brigade.isClaimed ?? false,
-    claimedAt: brigade.claimedAt || '',
-    claimedBy: brigade.claimedBy || '',
     logo: brigade.logo || '',
     themeColor: brigade.themeColor || '',
     createdAt: brigade.createdAt || new Date().toISOString(),
@@ -145,7 +119,9 @@ async function getBrigades(request: HttpRequest, context: InvocationContext): Pr
   }
 }
 
-// POST /api/brigades
+// POST /api/brigades — brigade.id must equal the caller's own Station
+// Manager organizationId; a brigade is 1:1 with an SM Organization, so there
+// is no separate "claiming" step.
 async function createBrigade(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
     const authResult = await validateToken(request);
@@ -159,6 +135,9 @@ async function createBrigade(request: HttpRequest, context: InvocationContext): 
         status: 400,
         jsonBody: { error: 'Missing required fields: id, name' }
       };
+    }
+    if (brigade.id !== authResult.organizationId) {
+      return { status: 403, jsonBody: { error: 'Forbidden', message: 'A brigade id must match your own organization' } };
     }
 
     const client = await resolveBrigadesClient();
@@ -176,7 +155,7 @@ async function createBrigade(request: HttpRequest, context: InvocationContext): 
 
   } catch (error: any) {
     context.error('Error creating brigade:', error);
-    
+
     if (error.statusCode === 409) {
       return {
         status: 409,
@@ -210,7 +189,7 @@ async function updateBrigade(request: HttpRequest, context: InvocationContext): 
     if (!authResult.authenticated) {
       return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
     }
-    const permissionCheck = await checkBrigadePermission(authResult.userId!, brigadeId, 'edit_settings', getUserMembership);
+    const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'edit_settings');
     if (!permissionCheck.authorized) {
       return { status: 403, jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' } };
     }
@@ -231,7 +210,7 @@ async function updateBrigade(request: HttpRequest, context: InvocationContext): 
 
   } catch (error: any) {
     context.error('Error updating brigade:', error);
-    
+
     if (error.statusCode === 404) {
       return {
         status: 404,
@@ -265,7 +244,7 @@ async function deleteBrigade(request: HttpRequest, context: InvocationContext): 
     if (!authResult.authenticated) {
       return { status: 401, jsonBody: { error: 'Unauthorized', message: authResult.error || 'Authentication required' } };
     }
-    const permissionCheck = await checkBrigadePermission(authResult.userId!, brigadeId, 'edit_settings', getUserMembership);
+    const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'edit_settings');
     if (!permissionCheck.authorized) {
       return { status: 403, jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' } };
     }
@@ -282,7 +261,7 @@ async function deleteBrigade(request: HttpRequest, context: InvocationContext): 
 
   } catch (error: any) {
     context.error('Error deleting brigade:', error);
-    
+
     if (error.statusCode === 404) {
       return {
         status: 404,
@@ -344,7 +323,6 @@ function toPublicBrigade(entity: any) {
     logo: b.logo,
     themeColor: b.themeColor,
     contact: b.contact,
-    isClaimed: b.isClaimed,
     createdAt: b.createdAt,
   };
 }

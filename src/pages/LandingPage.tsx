@@ -4,23 +4,19 @@
  * Features: Hero section, comprehensive feature grid (advent calendar style), sign in/sign up
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context';
 // Direct imports: the components/hooks barrels drag mapbox-gl into this public page's chunk.
 import { SEO } from '../components/SEO';
 import { useSubscriptionPrice } from '../hooks/useSubscriptionPrice';
-import { COLORS } from '../utils/constants';
 
 export function LandingPage() {
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   // Live price from Stripe (falls back to the static $5 AUD/year) so the page
   // never goes stale when the price changes in the Stripe dashboard.
   const { price, amount, currency } = useSubscriptionPrice();
   const navigate = useNavigate();
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 
   // Redirect if already authenticated
@@ -30,22 +26,8 @@ export function LandingPage() {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
-  const handleLogin = async () => {
-    setIsLoggingIn(true);
-    setLoginError(null);
-    
-    try {
-      await login();
-      // After successful login redirect, MSAL will handle the redirect
-    } catch (error) {
-      console.error('Login failed:', error);
-      setLoginError(
-        error instanceof Error 
-          ? error.message 
-          : 'An unexpected error occurred during login. Please try again.'
-      );
-      setIsLoggingIn(false);
-    }
+  const handleLogin = () => {
+    navigate('/login');
   };
 
   if (isLoading) {
@@ -199,23 +181,6 @@ export function LandingPage() {
                 </Link>
               </p>
 
-              {loginError && (
-                <div style={{
-                  padding: '0.75rem',
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  borderRadius: '10px',
-                  marginBottom: '1rem',
-                }}>
-                  <p style={{
-                    fontSize: '0.875rem',
-                    color: COLORS.fireRedDark,
-                    margin: 0,
-                  }}>
-                    {loginError}
-                  </p>
-                </div>
-              )}
-
               {isDevMode ? (
                 <div style={{
                   padding: '1.25rem',
@@ -243,10 +208,9 @@ export function LandingPage() {
                 /* One organizer CTA — sign-in and sign-up share the same flow */
                 <button
                   onClick={handleLogin}
-                  disabled={isLoggingIn}
                   className="btn btn-secondary-white btn-block"
                 >
-                  {isLoggingIn ? '🚒 Signing in...' : '🚒 Run a Santa run — brigade sign in'}
+                  🚒 Run a Santa run — brigade sign in
                 </button>
               )}
 
@@ -1071,7 +1035,6 @@ export function LandingPage() {
 
                 <button
                   onClick={handleLogin}
-                  disabled={isLoggingIn}
                   style={{
                     width: '100%',
                     padding: '0.75rem 1.5rem',
@@ -1081,14 +1044,13 @@ export function LandingPage() {
                     borderRadius: '12px',
                     fontSize: '1rem',
                     fontWeight: 'bold',
-                    cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-                    opacity: isLoggingIn ? 0.7 : 1,
+                    cursor: 'pointer',
                     transition: 'all 0.2s',
                   }}
-                  onMouseEnter={(e) => !isLoggingIn && (e.currentTarget.style.opacity = '0.9')}
-                  onMouseLeave={(e) => !isLoggingIn && (e.currentTarget.style.opacity = '1')}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                 >
-                  {isLoggingIn ? '🎅 Setting up...' : '🎅 Get Started'}
+                  🎅 Get Started
                 </button>
               </div>
 

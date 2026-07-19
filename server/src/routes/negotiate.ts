@@ -1,14 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import { rateLimit } from '../utils/rateLimit.js';
-import { validateToken, checkBrigadePermission } from '../utils/auth.js';
+import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { isBrigadeEntitled } from '../utils/subscription.js';
 import { signWsToken } from '../realtime/wsToken.js';
-import type { BrigadeMembership } from '../types/membership.js';
 
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
-const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
 /**
  * Build the wss:// base for this deployment from APP_BASE_URL (the public
@@ -39,17 +37,6 @@ async function getRouteBrigadeId(routeId: string): Promise<string | null> {
   const entities = client.listEntities({ queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` } });
   for await (const entity of entities) {
     return typeof entity.partitionKey === 'string' ? entity.partitionKey : null;
-  }
-  return null;
-}
-
-async function getUserMembership(userId: string, brigadeId: string): Promise<BrigadeMembership | null> {
-  const client = await getTableClient(MEMBERSHIPS_TABLE);
-  const entities = client.listEntities({
-    queryOptions: { filter: `PartitionKey eq '${escapeODataValue(brigadeId)}' and userId eq '${escapeODataValue(userId)}'` },
-  });
-  for await (const entity of entities) {
-    return { id: entity.rowKey, brigadeId: entity.partitionKey, userId: entity.userId, role: entity.role, status: entity.status } as unknown as BrigadeMembership;
   }
   return null;
 }
@@ -92,11 +79,11 @@ async function handleNegotiate(c: any) {
         return c.json({ error: 'Route not found' }, 404);
       }
       const requiredPermission = role === 'broadcaster' ? 'start_navigation' : 'manage_routes';
-      const permission = await checkBrigadePermission(authResult.userId!, brigadeId, requiredPermission, getUserMembership);
+      const permission = checkBrigadeAccess(authResult, brigadeId, requiredPermission);
       if (!permission.authorized) {
         return c.json({ error: 'Forbidden', message: permission.error || 'Insufficient permissions' }, 403);
       }
-      if (!(await isBrigadeEntitled(brigadeId))) {
+      if (!authResult.santaRunEnabled && !(await isBrigadeEntitled(brigadeId))) {
         return c.json({ error: 'Payment required', message: 'An active brigade subscription is required to broadcast' }, 402);
       }
     }

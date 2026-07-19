@@ -13,9 +13,7 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context';
-import { useUserProfile } from '../hooks/useUserProfile';
 import { storageAdapter } from '../storage';
-import { canEditBrigadeSettings } from '../utils/permissions';
 import { safeImageSrc } from '../utils/publicBrigade';
 import { AppLayout, SEO, BillingPanel } from '../components';
 import type { Brigade } from '../storage/types';
@@ -86,8 +84,7 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 export function BrigadeSettingsPage() {
   const { brigadeId } = useParams<{ brigadeId: string }>();
   const navigate = useNavigate();
-  useAuth();
-  const { memberships, isLoading: membershipsLoading } = useUserProfile();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [brigade, setBrigade] = useState<Brigade | null>(null);
   const [loading, setLoading] = useState(true);
@@ -139,14 +136,14 @@ export function BrigadeSettingsPage() {
     void load();
   }, [brigadeId, navigate]);
 
-  // Check permission once the brigade and the membership list have both loaded.
-  // Wait for membership loading to finish before deciding — otherwise an empty
-  // (still-loading) list would let the admin form render to a non-admin.
+  // Only owners/admins of the brigade's own organization may edit settings.
+  // Wait for auth to finish loading before deciding — otherwise a not-yet-
+  // populated user would incorrectly deny access.
   useEffect(() => {
-    if (!brigade || membershipsLoading) return;
-    const membership = memberships.find((m) => m.brigadeId === brigade.id);
-    setAccessDenied(!canEditBrigadeSettings(membership ?? null));
-  }, [brigade, memberships, membershipsLoading]);
+    if (!brigade || authLoading) return;
+    const canEdit = user?.brigadeId === brigade.id && (user?.role === 'owner' || user?.role === 'admin');
+    setAccessDenied(!canEdit);
+  }, [brigade, user, authLoading]);
 
   async function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -205,7 +202,7 @@ export function BrigadeSettingsPage() {
     }
   }
 
-  if (loading || membershipsLoading) {
+  if (loading || authLoading) {
     return (
       <AppLayout>
         <div className="bsp__loading" role="status" aria-live="polite">

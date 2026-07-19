@@ -1,7 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { storageAdapter, type Brigade } from '../storage';
-import type { BrigadeMembership } from '../types/membership';
 import { useAuth } from './useAuth';
 import { isBrigadeEntitledForUi } from '../utils/subscription';
 
@@ -10,23 +9,28 @@ export interface BrigadeContextType {
   isLoading: boolean;
   /** Whether the brigade may use paid features (planning + broadcasting). */
   isEntitled: boolean;
-  /** Re-fetch the brigade record (e.g. after returning from Stripe checkout). */
+  /** Re-fetch the brigade record (e.g. after returning from Stripe checkout, or switching brigades). */
   refreshBrigade: () => Promise<void>;
 }
 
 export const BrigadeContext = createContext<BrigadeContextType | null>(null);
 
 /**
- * Brigade context that provides the current brigade's data.
- * Automatically loads brigade based on the authenticated user's brigadeId.
+ * Brigade context: provides the current brigade's data.
+ *
+ * A brigade is 1:1 with a Station Manager Organization — `user.brigadeId`
+ * (from AuthContext) IS the organizationId. This auto-provisions the brigade
+ * row the first time a Santa-entitled StationKit organisation opens the app
+ * (there's no separate "claiming" step any more — see suite-token-validation.md
+ * in the Station-Manager repo).
  */
 export function BrigadeProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, organizationName, santaRunEnabled } = useAuth();
   const [brigade, setBrigade] = useState<Brigade | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadBrigade = useCallback(async () => {
-    if (!user) {
+    if (!user?.brigadeId) {
       setBrigade(null);
       setIsLoading(false);
       return;
@@ -34,63 +38,31 @@ export function BrigadeProvider({ children }: { children: ReactNode }) {
 
     setIsLoading(true);
     try {
-      let brigadeId = user.brigadeId;
-
-      // Fallback: if no brigadeId set, try to load from first active membership
-      if (!brigadeId) {
-        try {
-          const memberships = await storageAdapter.getMembershipsByUser(user.id);
-          const activeMembership = memberships?.find((m: BrigadeMembership) => m.status === 'active');
-          if (activeMembership) {
-            brigadeId = activeMembership.brigadeId;
-          }
-        } catch (err) {
-          console.warn('Could not load memberships fallback:', err);
-        }
-      }
-
-      if (!brigadeId) {
-        setBrigade(null);
-        setIsLoading(false);
-        return;
-      }
-
+      const brigadeId = user.brigadeId;
       let brigadeData = await storageAdapter.getBrigade(brigadeId);
 
-      // If brigade doesn't exist in storage, create it (dev mode scenario)
       if (!brigadeData) {
         const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-        if (isDevMode) {
-          const mockBrigadeName = import.meta.env.VITE_MOCK_BRIGADE_NAME || 'Development Fire Brigade';
-          brigadeData = {
-            id: brigadeId,
-            slug: brigadeId,
-            name: mockBrigadeName,
-            location: 'Development Location',
-            allowedDomains: [],
-            allowedEmails: [],
-            requireManualApproval: false,
-            adminUserIds: [user.id],
-            isClaimed: true,
-            claimedAt: new Date().toISOString(),
-            claimedBy: user.id,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          await storageAdapter.saveBrigade(brigadeData);
-        }
+        const now = new Date().toISOString();
+        brigadeData = {
+          id: brigadeId,
+          slug: brigadeId,
+          name: organizationName || (isDevMode ? (import.meta.env.VITE_MOCK_BRIGADE_NAME || 'Development Fire Brigade') : 'My Brigade'),
+          location: '',
+          createdAt: now,
+          updatedAt: now,
+        };
+        await storageAdapter.saveBrigade(brigadeData);
       }
 
-      if (brigadeData) {
-        setBrigade(brigadeData);
-      }
+      setBrigade(brigadeData);
     } catch (error) {
       console.error('Failed to load brigade:', error);
       setBrigade(null);
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user?.brigadeId, organizationName]);
 
   useEffect(() => {
     loadBrigade();
@@ -99,7 +71,7 @@ export function BrigadeProvider({ children }: { children: ReactNode }) {
   const value: BrigadeContextType = {
     brigade,
     isLoading,
-    isEntitled: isBrigadeEntitledForUi(brigade),
+    isEntitled: isBrigadeEntitledForUi(brigade) || santaRunEnabled,
     refreshBrigade: loadBrigade,
   };
 

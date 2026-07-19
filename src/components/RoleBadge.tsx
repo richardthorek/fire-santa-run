@@ -1,29 +1,31 @@
 import { COLORS } from '../utils/constants';
-import type { MemberRole } from '../types/membership';
+
+/** StationKit suite role (Station Manager owner/admin/viewer). */
+export type SuiteRole = 'owner' | 'admin' | 'viewer';
 
 export interface RoleBadgeProps {
-  role: MemberRole;
+  role: SuiteRole;
   size?: 'small' | 'medium';
 }
 
 /**
  * RoleBadge Component
- * 
- * Displays a styled badge for brigade member roles.
+ *
+ * Displays a styled badge for a member's StationKit role.
  * Each role has a distinct color matching the design system.
  */
 export function RoleBadge({ role, size = 'medium' }: RoleBadgeProps) {
-  const getBadgeStyle = (role: MemberRole) => {
+  const getBadgeStyle = (role: SuiteRole) => {
     const styles = {
-      admin: {
+      owner: {
         backgroundColor: COLORS.fireRed,
         color: 'white',
-        label: 'Admin',
+        label: 'Owner',
       },
-      operator: {
+      admin: {
         backgroundColor: COLORS.summerGold,
         color: 'white',
-        label: 'Operator',
+        label: 'Admin',
       },
       viewer: {
         backgroundColor: COLORS.neutral700,
@@ -31,7 +33,7 @@ export function RoleBadge({ role, size = 'medium' }: RoleBadgeProps) {
         label: 'Viewer',
       },
     };
-    
+
     return styles[role] || styles.viewer;
   };
 

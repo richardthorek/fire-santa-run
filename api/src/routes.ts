@@ -14,41 +14,14 @@
  */
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { validateToken, checkBrigadePermission } from './utils/auth';
+import { validateToken, checkBrigadeAccess } from './utils/auth';
 import { getTableClient, isDevMode } from './utils/storage';
 import { isBrigadeEntitled } from './utils/subscription';
 
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
-const MEMBERSHIPS_TABLE = isDevMode ? 'dev-memberships' : 'memberships';
 
 async function getRoutesTableClient() {
   return getTableClient(ROUTES_TABLE);
-}
-
-async function getMembershipsTableClient() {
-  return getTableClient(MEMBERSHIPS_TABLE);
-}
-
-// Helper to get user's membership in a brigade
-async function getUserMembership(userId: string, brigadeId: string): Promise<any> {
-  const client = await getMembershipsTableClient();
-  const entities = client.listEntities({
-    queryOptions: { 
-      filter: `PartitionKey eq '${brigadeId}' and userId eq '${userId}'` 
-    }
-  });
-
-  for await (const entity of entities) {
-    return {
-      id: entity.rowKey,
-      brigadeId: entity.partitionKey,
-      userId: entity.userId,
-      role: entity.role,
-      status: entity.status,
-    };
-  }
-
-  return null;
 }
 
 // Helper to convert Table entity to Route object
@@ -225,12 +198,7 @@ async function createRoute(request: HttpRequest, context: InvocationContext): Pr
     }
 
     // Check brigade permission
-    const permissionCheck = await checkBrigadePermission(
-      authResult.userId!,
-      route.brigadeId,
-      'manage_routes',
-      getUserMembership
-    );
+    const permissionCheck = checkBrigadeAccess(authResult, route.brigadeId, 'manage_routes');
 
     if (!permissionCheck.authorized) {
       return {
@@ -239,7 +207,7 @@ async function createRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
-    if (!(await isBrigadeEntitled(route.brigadeId))) {
+    if (!authResult.santaRunEnabled && !(await isBrigadeEntitled(route.brigadeId))) {
       return {
         status: 402,
         jsonBody: { error: 'Payment required', message: 'An active brigade subscription is required to create routes' }
@@ -302,12 +270,7 @@ async function updateRoute(request: HttpRequest, context: InvocationContext): Pr
     }
 
     // Check brigade permission
-    const permissionCheck = await checkBrigadePermission(
-      authResult.userId!,
-      route.brigadeId,
-      'manage_routes',
-      getUserMembership
-    );
+    const permissionCheck = checkBrigadeAccess(authResult, route.brigadeId, 'manage_routes');
 
     if (!permissionCheck.authorized) {
       return {
@@ -316,7 +279,7 @@ async function updateRoute(request: HttpRequest, context: InvocationContext): Pr
       };
     }
 
-    if (!(await isBrigadeEntitled(route.brigadeId))) {
+    if (!authResult.santaRunEnabled && !(await isBrigadeEntitled(route.brigadeId))) {
       return {
         status: 402,
         jsonBody: { error: 'Payment required', message: 'An active brigade subscription is required to edit routes' }
@@ -379,12 +342,7 @@ async function deleteRoute(request: HttpRequest, context: InvocationContext): Pr
     }
 
     // Check brigade permission
-    const permissionCheck = await checkBrigadePermission(
-      authResult.userId!,
-      brigadeId,
-      'manage_routes',
-      getUserMembership
-    );
+    const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'manage_routes');
 
     if (!permissionCheck.authorized) {
       return {

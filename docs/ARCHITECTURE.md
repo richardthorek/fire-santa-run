@@ -64,15 +64,17 @@ retired (the legacy SWA workflow now runs quality checks only, and
 - **Pages** (`src/pages/`) are lazy-loaded route screens. Public: Landing,
   BrigadeDiscovery, TrackingView (`/track/:id`), demo (`/demo`), route poster
   (`/routes/:id/poster`). Authed: Dashboard, RouteEditor, NavigationView,
-  BrigadeSettings (includes BillingPanel with subscribe option),
-  MemberManagement, Analytics, Templates.
+  BrigadeSettings (includes BillingPanel with subscribe option), Analytics,
+  Templates, Profile (account info + brigade switcher for multi-org users).
 - **Storage adapter pattern** (`src/storage/`) — UI code never touches
   `localStorage` or Azure SDKs directly. `LocalStorageAdapter` backs dev mode;
   the HTTP adapter backs production. Add fields to both.
-- **Context** (`src/context/`) — `AuthContext` (MSAL/Entra, dev bypass) and
-  `BrigadeContext` (current brigade + `isEntitled` + `refreshBrigade`). Brigade
-  context auto-loads first active membership if user's `brigadeId` is not set,
-  ensuring users can access their brigade immediately after claiming it.
+- **Context** (`src/context/`) — `AuthContext` wraps `src/auth/suiteAuth.ts`,
+  the StationKit suite auth client (see "Auth & authorisation" below); dev mode
+  bypasses it with a mock admin session. `BrigadeContext` (current brigade +
+  `isEntitled` + `refreshBrigade`) auto-provisions the brigade row for the
+  user's organization on first load if one doesn't exist yet — see "Brigade =
+  organization" below.
 - **Realtime** (`src/hooks/useWebPubSub.ts`) — a native `WebSocket` to the
   server's own `/api/ws` endpoint (name kept for history; no Azure Web PubSub
   involved). Viewers connect read-only and anonymously; broadcasters/editors
@@ -89,28 +91,63 @@ retired (the legacy SWA workflow now runs quality checks only, and
 
 Azure Table Storage, partitioned by `brigadeId` for multi-brigade isolation —
 data must never leak across brigades. Core entities: brigades, routes,
-waypoints (two-table split), memberships, invitations, users, verification
-requests, push subscriptions. Dev tables are prefixed `dev-`.
+waypoints (two-table split), users (local profile only — see below), push
+subscriptions. Dev tables are prefixed `dev-`. There is no membership,
+invitation, or verification-request table: brigade membership and role are
+governed entirely by Station Manager (see below).
 
 ## Auth & authorisation
 
-- Microsoft Entra External ID (CIAM) tokens, validated server-side; `DEV_MODE`
-  bypasses auth and uses localStorage.
+Fire Santa Run has **no identity system of its own**. It is a member of the
+StationKit suite, and Station Manager is the suite's identity/licensing
+provider for all three suite apps.
+
+- **Bearer-token federation** — every request carries a Station Manager JWT.
+  `validateToken()` (`server/src/utils/auth.ts` / `api/src/utils/auth.ts`)
+  validates it by calling `GET {SUITE_AUTH_URL}/api/auth/me` on Station
+  Manager (60s in-memory cache); the response's `organizationId` and `role`
+  (`owner | admin | viewer`) become the request's `AuthResult`. `DEV_MODE`
+  bypasses this with a mock `owner`/`admin` session.
+- **Silent cross-subdomain SSO** — the client first tries
+  `GET {SUITE_AUTH_URL}/api/auth/session` with `credentials: 'include'`
+  (`src/auth/suiteAuth.ts` → `restoreSession()`), which reads Station
+  Manager's shared `sk_session` httpOnly cookie (scoped to
+  `.stationkit.com.au`) and returns a fresh bearer token — no separate Santa
+  Run login needed if the visitor is already signed in elsewhere in the
+  suite. Falls back to a locally stored token, then to the login page.
+- **Brigade = organization** — a brigade's `id` **is** the Station Manager
+  `organizationId`; there is no separate claiming step. `BrigadeContext`
+  auto-provisions the brigade row (name/branding placeholders) the first time
+  a user from that organization loads the app.
 - Public read paths stay anonymous (tracking, viewer negotiate, analytics
   counts, brigade discovery).
-- Write/privileged paths require a valid token plus one of: **self-match**
-  (act only on your own user record), **brigade permission** (role-based via
-  `checkBrigadePermission`), or the **site-admin allowlist**
-  (`SITE_ADMIN_USER_IDS`) for verification review.
+- Write/privileged paths require a valid token plus `checkBrigadeAccess()`:
+  the token's `organizationId` must equal the target `brigadeId`, and its
+  `role` must carry the required permission (`ROLE_PERMISSIONS`: `owner`/
+  `admin` can manage routes, edit settings, and start navigation; `viewer`
+  cannot). There is no per-user membership row to look up — the SM token's
+  own claims are the source of truth.
 - Realtime broadcaster/editor tokens additionally require route ownership and
   brigade entitlement.
 
 ## Billing & entitlement
 
-- Per-brigade subscription (Stripe Checkout, SAQ-A). The **signature-verified
-  webhook is the only writer** of entitlement fields on the brigade record
-  (`subscriptionStatus`, `subscribedUntil`, `stripe*`). Brigade PUTs never
-  touch those fields.
+Two independent-but-OR'd entitlement paths, reflecting that Santa Run sells
+both as a suite add-on and as a standalone product:
+
+- **Suite entitlement** — Station Manager orgs on a paying plan (`basic`/`ai`)
+  get `santaRunEnabled: true` for free; `community`-plan orgs can buy it as a
+  standalone add-on ($10/year or $15/one-off month) from their SM
+  organization settings. Either way, the SM `/api/auth/me` response's
+  `santaRunEnabled` flag is OR'd into every entitlement check
+  (`!authResult.santaRunEnabled && !(await isBrigadeEntitled(...))`).
+- **Per-brigade subscription** (pre-existing, kept as-is) — Stripe Checkout,
+  SAQ-A, scoped to a single brigade regardless of suite plan. The
+  **signature-verified webhook is the only writer** of entitlement fields on
+  the brigade record (`subscriptionStatus`, `subscribedUntil`, `stripe*`).
+  Brigade PUTs never touch those fields. This path is unaffected by the suite
+  auth migration — it exists so a brigade can use Santa Run without any
+  Station Manager subscription at all.
 - Entitlement is enforced server-side (402 on route create/edit and
   broadcaster/editor negotiate) and mirrored client-side to drive UX — the
   `SubscriptionGate` stops unentitled brigades at the editor door instead of

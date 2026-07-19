@@ -81,7 +81,7 @@
         color: #0C1220;
       }
       /* Loading screen styles */
-      #msal-loading {
+      #auth-loading {
         position: fixed;
         top: 0;
         left: 0;
@@ -93,14 +93,14 @@
         justify-content: center;
         z-index: 9999;
       }
-      #msal-loading > div {
+      #auth-loading > div {
         text-align: center;
       }
-      #msal-loading .emoji {
+      #auth-loading .emoji {
         font-size: 64px;
         margin-bottom: 1rem;
       }
-      #msal-loading p {
+      #auth-loading p {
         font-size: 1.125rem;
         color: #55607A;
       }
@@ -126,7 +126,7 @@
     <div id="root"></div>
     
     <!-- Loading screen shown while MSAL initializes (removed when React mounts) -->
-    <div id="msal-loading">
+    <div id="auth-loading">
       <div>
         <div class="emoji">🎅</div>
         <p>Loading Fire Santa Run...</p>

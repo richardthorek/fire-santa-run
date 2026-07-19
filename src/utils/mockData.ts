@@ -1,6 +1,5 @@
 import type { Route, RouteAnalytics } from '../types';
 import type { Brigade } from '../storage';
-import type { BrigadeMembership } from '../types/membership';
 
 /**
  * Format a date offset from today as YYYY-MM-DD, so demo routes always look
@@ -26,13 +25,6 @@ export const mockBrigade: Brigade = {
   fireStationId: undefined,
   logo: undefined,
   themeColor: '#D32F2F',
-  allowedDomains: ['@examplebrigade.org.au', '@fire.example.gov.au'],
-  allowedEmails: ['dev@example.com'],
-  requireManualApproval: false,
-  adminUserIds: ['dev-user-1'],
-  isClaimed: true,
-  claimedAt: '2024-12-01T00:00:00.000Z',
-  claimedBy: 'dev-user-1',
   contact: {
     email: 'santa@examplebrigade.org.au',
     phone: '02 6962 1234',
@@ -170,34 +162,17 @@ export const mockRoutes: Route[] = [
 ];
 
 /**
- * Mock membership: the dev user is an active admin of the mock brigade, so
- * Brigade Settings and Member Management are usable in dev mode.
- */
-export const mockMembership: BrigadeMembership = {
-  id: 'dev-membership-1',
-  brigadeId: 'dev-brigade-1',
-  userId: 'dev-user-1',
-  role: 'admin',
-  status: 'active',
-  approvedBy: 'dev-user-1',
-  joinedAt: '2024-12-01T00:00:00.000Z',
-  createdAt: '2024-12-01T00:00:00.000Z',
-  updatedAt: '2024-12-01T00:00:00.000Z',
-};
-
-/**
  * Initialize mock data in storage.
  * Call this on app startup in dev mode.
  */
 // Bump when the mock dataset changes shape so existing dev browsers re-seed
 // instead of keeping stale demo data forever.
-const MOCK_SEED_VERSION = '2';
+const MOCK_SEED_VERSION = '3';
 const MOCK_SEED_VERSION_KEY = 'santa_mock_seed_version';
 
 export async function initializeMockData(
   saveBrigade: (brigade: Brigade) => Promise<void>,
-  saveRoute: (brigadeId: string, route: Route) => Promise<void>,
-  saveMembership?: (membership: BrigadeMembership) => Promise<void>
+  saveRoute: (brigadeId: string, route: Route) => Promise<void>
 ): Promise<void> {
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 
@@ -219,11 +194,6 @@ export async function initializeMockData(
   // Save mock routes
   for (const route of mockRoutes) {
     await saveRoute(mockBrigade.id, route);
-  }
-
-  // Make the dev user an active admin so member/settings pages are usable
-  if (saveMembership) {
-    await saveMembership(mockMembership);
   }
 
   localStorage.setItem(MOCK_SEED_VERSION_KEY, MOCK_SEED_VERSION);

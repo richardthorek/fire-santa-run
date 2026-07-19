@@ -1,8 +1,4 @@
-// StrictMode removed temporarily to diagnose remount loop in ProfilePage
-// import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MsalProvider } from '@azure/msal-react'
-import { PublicClientApplication, EventType } from '@azure/msal-browser'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider, BrigadeProvider } from './context'
@@ -11,8 +7,6 @@ import { AuthProvider, BrigadeProvider } from './context'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { installGlobalErrorHandlers, installClientErrorReporter } from './utils/errorLogger'
 import { validateClientEnv, EnvironmentConfigError, isProductionMode } from './config/env'
-import { msalConfig, isMsalConfigured } from './auth/msalConfig'
-import './utils/fontLoader' // Initialize async font loading (CSP-compliant)
 
 // Capture uncaught errors and unhandled promise rejections app-wide.
 installGlobalErrorHandlers();
@@ -21,27 +15,6 @@ installGlobalErrorHandlers();
 if (isProductionMode()) {
   installClientErrorReporter();
 }
-
-// Create MSAL instance
-// In dev mode or when MSAL is not configured, we create a minimal instance
-// that won't be used (AuthContext will bypass MSAL in these cases)
-const msalInstance = isMsalConfigured() 
-  ? new PublicClientApplication(msalConfig)
-  : new PublicClientApplication({
-      auth: {
-        clientId: 'dev-mode-bypass',
-        authority: 'https://login.microsoftonline.com/common',
-      },
-      cache: {
-        cacheLocation: 'sessionStorage',
-      },
-    });
-
-// Expose MSAL instance globally so non-React modules (e.g., HTTP storage adapter)
-// can acquire tokens for API calls in production mode.
-// This is a safe, minimal bridge and only used when VITE_DEV_MODE=false.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(window as any).__msalInstance = msalInstance;
 
 /**
  * Render a minimal, dependency-free fatal-configuration screen directly into
@@ -71,16 +44,13 @@ function renderFatalConfigError(error: unknown): void {
   }
 
   try {
-    document.getElementById('msal-loading')?.remove();
+    document.getElementById('auth-loading')?.remove();
   } catch {
     /* no-op */
   }
 }
 
-// Initialize MSAL and render app
-// CRITICAL: We must wait for handleRedirectPromise() to complete BEFORE rendering React
-// This prevents race conditions on iOS Safari where the app renders before auth completes
-async function initializeApp() {
+function initializeApp(): void {
   // Fail fast on invalid configuration with a clear, user-visible message.
   try {
     validateClientEnv();
@@ -90,41 +60,6 @@ async function initializeApp() {
     return;
   }
 
-  if (isMsalConfigured()) {
-    try {
-      // Initialize MSAL instance
-      await msalInstance.initialize();
-      
-      // Account selection logic is app dependent
-      const accounts = msalInstance.getAllAccounts();
-      if (accounts.length > 0) {
-        msalInstance.setActiveAccount(accounts[0]);
-      }
-
-      // Optional - Listen to authentication events
-      msalInstance.addEventCallback((event) => {
-        if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
-          // @ts-expect-error - MSAL event payload types are complex
-          const account = event.payload.account;
-          msalInstance.setActiveAccount(account);
-        }
-      });
-
-      // Handle redirect promise after login/logout and set active account from the result
-      // CRITICAL: Wait for this to complete before rendering React
-      const result = await msalInstance.handleRedirectPromise();
-      if (result?.account) {
-        msalInstance.setActiveAccount(result.account);
-        if (import.meta.env.DEV) {
-          console.log('[MSAL] Redirect handled successfully, account:', result.account.homeAccountId);
-        }
-      }
-    } catch (error) {
-      console.error('[MSAL] Error during initialization:', error);
-    }
-  }
-
-  // Render React app after MSAL initialization completes
   const rootElement = document.getElementById('root');
   if (!rootElement) {
     console.error('[App] Root element not found. Cannot render application.');
@@ -133,23 +68,19 @@ async function initializeApp() {
 
   createRoot(rootElement).render(
     <ErrorBoundary fullScreen>
-      <MsalProvider instance={msalInstance}>
-        <AuthProvider>
-          <BrigadeProvider>
-            <App />
-          </BrigadeProvider>
-        </AuthProvider>
-      </MsalProvider>
+      <AuthProvider>
+        <BrigadeProvider>
+          <App />
+        </BrigadeProvider>
+      </AuthProvider>
     </ErrorBoundary>,
   );
 
-  // Remove the loading screen after React has mounted
   try {
-    document.getElementById('msal-loading')?.remove();
+    document.getElementById('auth-loading')?.remove();
   } catch (error) {
     console.warn('[App] Failed to remove loading screen:', error);
   }
 }
 
-// Start the app
 initializeApp();
