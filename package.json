@@ -35,6 +35,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@mapbox/mapbox-gl-draw": "^1.5.1",
     "@mapbox/mapbox-gl-geocoder": "^5.1.2",
+    "@simplewebauthn/browser": "^13.3.0",
     "date-fns": "^4.4.0",
     "lucide-react": "^1.24.0",
     "mapbox-gl": "^3.25.0",

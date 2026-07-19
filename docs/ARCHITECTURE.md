@@ -122,6 +122,14 @@ provider for all three suite apps.
   `organizationId`; there is no separate claiming step. `BrigadeContext`
   auto-provisions the brigade row (name/branding placeholders) the first time
   a user from that organization loads the app.
+- **Passkey sign-in, additive to password** — `LoginPage`'s "Sign in with a
+  passkey" button (`auth/suiteAuth.ts`'s `signInWithPasskey()`) runs the
+  WebAuthn ceremony directly on this page (`@simplewebauthn/browser`), which
+  works because the Relying Party ID is the same shared `.stationkit.com.au`
+  parent domain the SSO cookie uses. The assertion is POSTed to Station
+  Manager's `/api/auth/passkey/login/verify` cross-origin, which returns the
+  same token/cookie shape as `/login`. **Registration is Station-Manager-only**
+  (its own account settings) — no registration UI exists here.
 - Public read paths stay anonymous (tracking, viewer negotiate, analytics
   counts, brigade discovery).
 - Write/privileged paths require a valid token plus `checkBrigadeAccess()`:

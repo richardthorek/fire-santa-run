@@ -3,6 +3,7 @@ import { createContext, useState, useEffect, useCallback, type ReactNode } from 
 import {
   restoreSession,
   signIn as suiteSignIn,
+  signInWithPasskey as suiteSignInWithPasskey,
   signUp as suiteSignUp,
   signOut as suiteSignOut,
   switchOrg as suiteSwitchOrg,
@@ -39,6 +40,8 @@ export interface AuthContextType {
   /** Every StationKit organisation this user belongs to (multi-brigade membership). */
   memberships: AuthMembership[];
   login: (username: string, password: string) => Promise<void>;
+  /** Sign in with a passkey — no username needed, the browser's own picker shows every passkey it holds. */
+  loginWithPasskey: () => Promise<void>;
   signup: (input: SignUpInput) => Promise<void>;
   logout: () => Promise<void>;
   /** Switch the active brigade for a multi-brigade member; reissues the session. */
@@ -149,6 +152,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithPasskey = async () => {
+    if (isDevMode) return;
+    const session = await suiteSignInWithPasskey();
+    applySession(session);
+    logLogin(session.userId, session.email ?? session.username);
+  };
+
   const signup = async (input: SignUpInput) => {
     if (isDevMode) return;
     const session = await suiteSignUp(input);
@@ -185,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     planCode,
     memberships,
     login,
+    loginWithPasskey,
     signup,
     logout,
     switchBrigade,

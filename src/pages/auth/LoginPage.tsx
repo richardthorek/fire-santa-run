@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { browserSupportsWebAuthn } from '@simplewebauthn/browser';
 import { COLORS } from '../../utils/constants';
 
 type Mode = 'login' | 'signup';
@@ -31,13 +32,15 @@ const labelStyle: React.CSSProperties = {
  * In dev mode, automatically redirects authenticated users.
  */
 export function LoginPage() {
-  const { isAuthenticated, login, signup, isLoading } = useAuth();
+  const { isAuthenticated, login, loginWithPasskey, signup, isLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>('login');
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPasskeySubmitting, setIsPasskeySubmitting] = useState(false);
+  const passkeySupported = browserSupportsWebAuthn();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -68,6 +71,23 @@ export function LoginPage() {
       console.error(`${mode} failed:`, error);
       setSubmitError(error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.');
       setIsSubmitting(false);
+    }
+  };
+
+  const handlePasskeyLogin = async () => {
+    setSubmitError(null);
+    setIsPasskeySubmitting(true);
+    try {
+      await loginWithPasskey();
+    } catch (error) {
+      // A cancelled OS prompt throws NotAllowedError — not a real failure.
+      if (error instanceof Error && error.name === 'NotAllowedError') {
+        setIsPasskeySubmitting(false);
+        return;
+      }
+      console.error('Passkey sign-in failed:', error);
+      setSubmitError(error instanceof Error ? error.message : 'Passkey sign-in failed. Please try again.');
+      setIsPasskeySubmitting(false);
     }
   };
 
@@ -190,6 +210,29 @@ export function LoginPage() {
             >
               {isSubmitting ? (mode === 'login' ? 'Signing in…' : 'Creating account…') : (mode === 'login' ? 'Sign In' : 'Create Account')}
             </button>
+
+            {mode === 'login' && passkeySupported && (
+              <button
+                type="button"
+                onClick={() => void handlePasskeyLogin()}
+                disabled={isPasskeySubmitting}
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: COLORS.fireRed,
+                  background: 'white',
+                  border: `2px solid ${COLORS.fireRed}`,
+                  borderRadius: '12px',
+                  cursor: isPasskeySubmitting ? 'not-allowed' : 'pointer',
+                  opacity: isPasskeySubmitting ? 0.7 : 1,
+                  marginBottom: '1rem',
+                }}
+              >
+                {isPasskeySubmitting ? 'Waiting for passkey…' : '🔑 Sign in with a passkey'}
+              </button>
+            )}
 
             <p style={{ fontSize: '0.875rem', color: COLORS.neutral700, textAlign: 'center', margin: 0 }}>
               {mode === 'login' ? (

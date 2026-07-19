@@ -99,6 +99,18 @@ Manager**, the StationKit suite's identity/licensing provider:
 - **Independent sign-up preserved** — `src/pages/auth/LoginPage.tsx` supports
   creating a brand-new Station Manager organization from within Santa Run, so
   brigades that never touch the rest of the suite can still sign up directly.
+- **Passkey sign-in (2026-07-19), additive to password.** `LoginPage` gained a
+  "Sign in with a passkey" button (feature-detected via `browserSupportsWebAuthn()`)
+  and `auth/suiteAuth.ts` a `signInWithPasskey()` that runs the WebAuthn
+  ceremony (`@simplewebauthn/browser`) directly on this page — it works because
+  the Relying Party ID is the shared `.stationkit.com.au` parent domain, the
+  same one the SSO cookie uses — then POSTs the assertion to Station Manager's
+  `/api/auth/passkey/login/verify` cross-origin, which behaves exactly like
+  `/login` (token + `sk_session` cookie). Usernameless/discoverable flow — no
+  username field, the browser's own picker shows every passkey it holds.
+  **Registration only happens in Station Manager's own account settings** —
+  no "Add a passkey" UI in this app, since Station Manager is the suite's sole
+  identity provider.
 - **Per-brigade Stripe billing retired 2026-07-19.** Initially kept intact
   as a safety fallback in case real brigades were paying on it; the owner
   confirmed the existing Stripe subscriptions on the shared account were
