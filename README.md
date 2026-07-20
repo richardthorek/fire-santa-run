@@ -148,30 +148,26 @@ See [Secrets Management Guide](./docs/SECRETS_MANAGEMENT.md) for detailed setup 
 
 ## Documentation
 
-### Product Planning & Roadmap
-- 🗺️ **[ROADMAP.md](./ROADMAP.md)** - **NEW!** 6-month product roadmap with Release 1 summary and future releases
-- 📊 **[Release 1 Summary](./docs/RELEASE_1_SUMMARY.md)** - **NEW!** Complete implementation summary and achievements
-- 📋 **[Missing Features Analysis](./docs/MISSING_FEATURES_ANALYSIS.md)** - Known gaps and future enhancements
-- 📘 **[Master Plan](./MASTER_PLAN.md)** - Concise forward-looking product plan: vision, current state, roadmap, decisions
+### Product Planning
+- 📘 **[Master Plan](./MASTER_PLAN.md)** - The single forward-looking product plan: vision, current state, roadmap, decisions
+- 🗂️ **[docs/INDEX.md](./docs/INDEX.md)** - Topic map for the rest of `docs/`
 
 ### Setup Guides
 - 🚀 **[Development Mode Guide](./docs/DEV_MODE.md)** - Rapid development without auth barriers
 - 🔐 **[Secrets Management](./docs/SECRETS_MANAGEMENT.md)** - API keys and environment variables setup
-- ☁️ **[Azure Storage Setup](./docs/AZURE_SETUP.md)** - Step-by-step Azure Table Storage configuration
+- ☁️ **[Infrastructure & deployment](./infra/README.md)** - Azure infra (Bicep), secrets seeding, Entra setup, seasonal scaling
 - 🤖 **[GitHub Copilot Instructions](./.github/copilot-instructions.md)** - Guidelines for AI-assisted development
 
 ### For Developers
 - **Current Status:** Preparing **v1.0 public launch** (target July 2026). Releases 1–3.2 shipped: route planning, turn-by-turn navigation, public real-time tracking, PWA/offline, analytics, route optimisation, templates, social previews, production Entra auth, brigade claiming/membership. Launch hardening in progress — public brigade pages & discovery, logo/branding, onboarding, ETA schedule indicator, E2E suite, security review (see launch epic #345).
 - **Launch docs:** [Brigade Admin Onboarding](./docs/BRIGADE_ADMIN_ONBOARDING.md) · [Security Review](./docs/SECURITY_REVIEW_LAUNCH.md) · [Privacy](/privacy) · [Terms](/terms)
-- Architecture overview and data models in [MASTER_PLAN.md](./MASTER_PLAN.md)
-- Implementation phases documented in [docs/RELEASE_1_SUMMARY.md](./docs/RELEASE_1_SUMMARY.md)
+- Architecture overview and data models in [MASTER_PLAN.md](./MASTER_PLAN.md) and [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - TypeScript interfaces in `src/types/`
 - Storage adapter pattern in `src/storage/` (supports localStorage and Azure)
 
 ### For Brigades
-- Admin guide: [docs/ADMIN_USER_GUIDE.md](./docs/ADMIN_USER_GUIDE.md)
+- Onboarding & admin guide: [docs/BRIGADE_ADMIN_ONBOARDING.md](./docs/BRIGADE_ADMIN_ONBOARDING.md) (membership/roles are now managed in Station Manager — see that guide)
 - Navigation quick reference: [docs/NAVIGATION_QUICK_REFERENCE.md](./docs/NAVIGATION_QUICK_REFERENCE.md)
-- Share panel visual guide: [docs/SHARE_PANEL_VISUAL_GUIDE.md](./docs/SHARE_PANEL_VISUAL_GUIDE.md)
 
 ## Architecture
 
@@ -338,7 +334,7 @@ For production data persistence across devices:
 
 3. Copy the connection string to your environment variables
 
-See [Azure Setup Guide](./docs/AZURE_SETUP.md) for detailed instructions.
+See [`infra/README.md`](./infra/README.md) for detailed instructions.
 
 ## GitHub Actions Setup
 

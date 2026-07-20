@@ -144,8 +144,6 @@ The turn-by-turn navigation now includes a **manual "NEXT" button** and shows bo
 - `src/utils/__tests__/navigation.test.ts` - 9 unit tests
 
 **Documentation:**
-- `docs/NAVIGATION_UI_CHANGES.md` - Technical details
-- `docs/NAVIGATION_UI_MOCKUP.md` - Visual mockups
 - This file - Quick reference
 
 ## Questions?

@@ -7,9 +7,6 @@ Quick reference guide to all accessibility documentation for Fire Santa Run.
 ### 🔍 [ACCESSIBILITY_AUDIT.md](./ACCESSIBILITY_AUDIT.md)
 Main tracking document for WCAG 2.1 AA compliance audit and remediation.
 
-### 🎨 [COLOR_CONTRAST_FIX.md](./COLOR_CONTRAST_FIX.md)  
-Color contrast issues, WCAG AA compliant alternatives, and implementation guide.
-
 ### ⌨️ [KEYBOARD_NAVIGATION.md](./KEYBOARD_NAVIGATION.md)
 Complete keyboard navigation guide for users. All shortcuts and accessibility features.
 
@@ -21,7 +18,7 @@ Comprehensive manual testing checklist for keyboard, screen reader, and visual t
 ### For Developers
 - Run tests: `npm run test:a11y`
 - Check status: [ACCESSIBILITY_AUDIT.md](./ACCESSIBILITY_AUDIT.md)
-- Fix colors: [COLOR_CONTRAST_FIX.md](./COLOR_CONTRAST_FIX.md)
+- Colour tokens (WCAG AA compliant): [UI_GUIDELINES.md](./UI_GUIDELINES.md)
 
 ### For Testers
 - Testing guide: [MANUAL_TESTING_CHECKLIST.md](./MANUAL_TESTING_CHECKLIST.md)
