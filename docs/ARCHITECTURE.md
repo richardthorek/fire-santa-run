@@ -184,8 +184,7 @@ Realtime fan-out is **in-process** — `server/src/realtime/`:
 Flow: the navigator device POSTs GPS to `/api/broadcast`; the server fans it
 out via `hub.broadcastLocation()` to every open `/api/ws` viewer connection for
 that route. The first broadcast of a run also triggers one "Santa has started"
-Web Push to that route's subscribers. See
-[`REALTIME_TRACKING.md`](REALTIME_TRACKING.md).
+Web Push to that route's subscribers.
 
 **Scaling constraint — read before raising `maxReplicas`:** the hub's state is
 per-process. The Container App is pinned to `maxReplicas: 1` (see

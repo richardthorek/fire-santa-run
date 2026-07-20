@@ -113,7 +113,7 @@ These are not required for the initial deployment but enable advanced features.
 ## Related Documentation
 
 - [Secrets Management Guide](./SECRETS_MANAGEMENT.md) - Complete secrets documentation
-- [Azure Setup Guide](./AZURE_SETUP.md) - Azure Storage and Web PubSub setup
+- [Infrastructure & deployment](../infra/README.md) - Azure infra, Entra, seasonal scaling
 - [Development Mode Guide](./DEV_MODE.md) - Local development without secrets
 
 ## Need Help?

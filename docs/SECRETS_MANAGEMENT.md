@@ -45,7 +45,7 @@ This guide explains how to properly manage secrets and API keys for the Fire San
 **Purpose:** Persist routes and brigade data across devices
 
 **How to obtain:**
-- Follow the [Azure Setup Guide](./AZURE_SETUP.md)
+- Follow [`infra/README.md`](../infra/README.md)
 - Or run: `./scripts/setup-azure-storage.sh`
 
 **Secrets needed:**

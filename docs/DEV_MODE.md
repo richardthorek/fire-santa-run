@@ -562,4 +562,4 @@ Development mode enables rapid, friction-free development of Fire Santa Run's co
 - [MASTER_PLAN.md](../MASTER_PLAN.md) - Full implementation phases
 - [.env.example](../.env.example) - Environment variable reference
 - [GitHub Copilot Instructions](../.github/copilot-instructions.md) - Development guidelines
-- [Azure Setup Guide](./AZURE_SETUP.md) - Production deployment setup
+- [Infrastructure & deployment](../infra/README.md) - Production deployment setup

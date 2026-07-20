@@ -211,6 +211,21 @@ before relying on the unified suite login in production.
    `maxReplicas` can go above 1. Not needed at current or projected traffic;
    revisit only if a run's viewer count approaches the practical ceiling of
    one instance.
+8. **Write a "brigade membership under Station Manager" user doc.** The
+   2026-07-19 docs cleanup deleted `ADMIN_USER_GUIDE.md`,
+   `MEMBERSHIP_SYSTEM.md`, `API_AUTHENTICATION.md`,
+   `AUTHENTICATION_BUSINESS_RULES.md`, and `AUTHENTICATION_TROUBLESHOOTING.md`
+   because they described the local Entra CIAM/membership system #388
+   retired — none had been updated when #388 shipped, so they were actively
+   wrong rather than merely stale. There's currently no replacement doc
+   explaining brigade membership/roles/invitations from a Fire Santa Run
+   admin's point of view now that it's delegated to Station Manager
+   (`BRIGADE_ADMIN_ONBOARDING.md` was patched to stop describing the old
+   flow, but only points at Station Manager rather than explaining it).
+   Consider whether this belongs as Fire Santa Run doc at all, or whether
+   Station Manager's own admin guide is the single source of truth suite-wide
+   (see `richardthorek/station-manager`'s in-app wiki work, shipped
+   2026-07-19, which would be the natural place).
 
 ## Operational readiness
 

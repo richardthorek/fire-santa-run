@@ -323,7 +323,7 @@ New task: [describe task]
 ### Within This Repository
 - **MASTER_PLAN.md** - Complete project documentation (ALWAYS CHECK FIRST)
 - **docs/DEV_MODE.md** - Development mode detailed guide
-- **docs/AZURE_SETUP.md** - Azure infrastructure setup
+- **infra/README.md** - Azure infrastructure setup, deployment, Entra config
 - **docs/SECRETS_MANAGEMENT.md** - Environment variables and secrets
 
 ### External Documentation
