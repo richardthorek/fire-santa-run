@@ -3,9 +3,9 @@
  *
  * POST /api/stripe/webhook — Stripe webhook (no auth, verified by signature)
  *
- * Stripe webhooks require access to the raw request body for signature
- * verification. This is handled as a raw body route in app.ts before
- * global JSON parsing middleware.
+ * Stripe webhooks require the raw request body for signature verification.
+ * Hono's body() method will parse JSON by default, but we can access the
+ * raw body via the native request stream if needed for full implementation.
  */
 
 import { Hono } from 'hono';
@@ -13,8 +13,11 @@ import { Hono } from 'hono';
 const router = new Hono();
 
 /**
- * POST /stripe/webhook — Stripe webhook endpoint
- * Receives raw Buffer body for signature verification.
+ * POST /webhook — Stripe webhook endpoint
+ *
+ * Returns 200 immediately to prevent Stripe from retrying.
+ * Webhook verification and event processing should be implemented
+ * when Stripe SDK integration is added.
  */
 router.post('/webhook', async (c) => {
   const sig = c.req.header('stripe-signature');
@@ -30,10 +33,19 @@ router.post('/webhook', async (c) => {
   }
 
   try {
-    // TODO: Implement Stripe webhook signature verification and processing
-    // when the Stripe SDK is available. For now, acknowledge the webhook
-    // so Stripe stops retrying.
-    console.info('Stripe webhook received', { timestamp: new Date().toISOString() });
+    // Get request body (JSON) — for full Stripe signature verification,
+    // we would need the raw bytes, which requires accessing the native
+    // request stream before JSON parsing. This is marked as TODO pending
+    // Stripe SDK integration and raw body handling setup in main.ts.
+    const body = await c.req.json().catch(() => ({}));
+
+    console.info('Stripe webhook acknowledged', {
+      timestamp: new Date().toISOString(),
+      hasSignature: !!sig,
+      bodySize: JSON.stringify(body).length,
+    });
+
+    // Return 200 so Stripe stops retrying this event
     return c.json({ received: true }, 200);
   } catch (error) {
     console.error('Error processing Stripe webhook', { error });
@@ -43,7 +55,3 @@ router.post('/webhook', async (c) => {
 });
 
 export { router as billingRouter };
-
-export function attachStripeWebhook(): void {
-  // Placeholder for legacy API (now handled in app.ts routing)
-}
