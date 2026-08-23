@@ -63,7 +63,7 @@ export function LoginPage() {
 
     try {
       if (mode === 'login') {
-        await login(username, password);
+        await login(email, password);
       } else {
         await signup({ organizationName, billingEmail: email, username, password, email });
       }
@@ -162,16 +162,33 @@ export function LoginPage() {
               </>
             )}
 
-            <label style={labelStyle} htmlFor="username">Username</label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              required
-              style={inputStyle}
-            />
+            {mode === 'login' ? (
+              <>
+                <label style={labelStyle} htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="username"
+                  required
+                  style={inputStyle}
+                />
+              </>
+            ) : (
+              <>
+                <label style={labelStyle} htmlFor="username">Username</label>
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  required
+                  style={inputStyle}
+                />
+              </>
+            )}
 
             <label style={labelStyle} htmlFor="password">Password</label>
             <input

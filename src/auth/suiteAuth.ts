@@ -44,8 +44,7 @@ export interface SuiteMembership {
 export interface SuiteSession {
   token: string;
   userId: string;
-  username: string;
-  email: string | null;
+  email: string;
   organizationId?: string;
   organizationName?: string;
   role?: 'owner' | 'admin' | 'viewer';
@@ -87,8 +86,7 @@ export function authHeader(): Record<string, string> {
 
 interface MeResponse {
   id: string;
-  username: string;
-  email?: string | null;
+  email: string;
   organizationId?: string;
   role?: 'owner' | 'admin' | 'viewer';
   organization?: { name?: string; planCode?: string } | null;
@@ -100,8 +98,7 @@ function toSession(token: string, me: MeResponse): SuiteSession {
   return {
     token,
     userId: me.id,
-    username: me.username,
-    email: me.email ?? null,
+    email: me.email,
     organizationId: me.organizationId,
     organizationName: me.organization?.name,
     role: me.role,
@@ -123,19 +120,19 @@ async function fetchSession(token: string): Promise<SuiteSession | null> {
 }
 
 /** Sign in with Station Manager credentials. Throws with a friendly message on failure. */
-export async function signIn(username: string, password: string): Promise<SuiteSession> {
+export async function signIn(email: string, password: string): Promise<SuiteSession> {
   let res: Response;
   try {
     res = await fetch(`${SUITE_AUTH_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ email, password }),
     });
   } catch {
     throw new Error('Could not reach the account service. Check your connection.');
   }
-  if (res.status === 401) throw new Error('Invalid username or password');
+  if (res.status === 401) throw new Error('Invalid email or password');
   if (res.status === 429) throw new Error('Too many attempts — wait a minute and try again');
   if (!res.ok) throw new Error('Sign-in failed. Try again shortly.');
 
