@@ -105,7 +105,6 @@ export async function validateToken(request: Request): Promise<AuthResult> {
 
   let body: {
     id?: unknown;
-    username?: unknown;
     email?: unknown;
     organizationId?: unknown;
     role?: unknown;
@@ -117,15 +116,15 @@ export async function validateToken(request: Request): Promise<AuthResult> {
     return { authenticated: false, error: 'Station Manager returned an invalid response' };
   }
 
-  if (typeof body?.id !== 'string' || typeof body?.username !== 'string') {
+  if (typeof body?.id !== 'string' || typeof body?.email !== 'string') {
     return { authenticated: false, error: 'Station Manager returned an unexpected response' };
   }
 
   const result: AuthResult = {
     authenticated: true,
     userId: body.id,
-    email: typeof body.email === 'string' ? body.email : undefined,
-    name: body.username,
+    email: body.email,
+    name: body.email,
     organizationId: typeof body.organizationId === 'string' ? body.organizationId : undefined,
     role: (body.role === 'owner' || body.role === 'admin' || body.role === 'viewer') ? body.role : undefined,
     santaRunEnabled: body.entitlements?.santaRunEnabled === true,

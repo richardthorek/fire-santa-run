@@ -39,7 +39,7 @@ export interface AuthContextType {
   planCode: string | null;
   /** Every StationKit organisation this user belongs to (multi-brigade membership). */
   memberships: AuthMembership[];
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   /** Sign in with a passkey — no username needed, the browser's own picker shows every passkey it holds. */
   loginWithPasskey: () => Promise<void>;
   signup: (input: SignUpInput) => Promise<void>;
@@ -53,8 +53,8 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 function sessionToUser(session: SuiteSession): User {
   return {
     id: session.userId,
-    email: session.email ?? '',
-    name: session.username,
+    email: session.email,
+    name: session.email,
     brigadeId: session.organizationId,
     role: session.role,
   };
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         if (session) {
           applySession(session);
-          logLogin(session.userId, session.email ?? session.username);
+          logLogin(session.userId, session.email);
         } else {
           clearSession();
         }
@@ -139,15 +139,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [isDevMode, applySession, clearSession]);
 
-  const login = async (username: string, password: string) => {
+  const login = async (email: string, password: string) => {
     if (isDevMode) return;
     try {
-      const session = await suiteSignIn(username, password);
+      const session = await suiteSignIn(email, password);
       applySession(session);
-      logLogin(session.userId, session.email ?? session.username);
+      logLogin(session.userId, session.email);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logLoginFailed(username, message);
+      logLoginFailed(email, message);
       throw error;
     }
   };
@@ -156,14 +156,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isDevMode) return;
     const session = await suiteSignInWithPasskey();
     applySession(session);
-    logLogin(session.userId, session.email ?? session.username);
+    logLogin(session.userId, session.email);
   };
 
   const signup = async (input: SignUpInput) => {
     if (isDevMode) return;
     const session = await suiteSignUp(input);
     applySession(session);
-    logLogin(session.userId, session.email ?? session.username);
+    logLogin(session.userId, session.email);
   };
 
   const logout = async () => {
