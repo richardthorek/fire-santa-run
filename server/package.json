@@ -15,7 +15,7 @@
   "dependencies": {
     "@azure/data-tables": "^13.3.2",
     "@azure/identity": "^4.13.0",
-    "@hono/node-server": "^2.0.8",
+    "@hono/node-server": "^2.0.10",
     "hono": "^4.12.27",
     "web-push": "^3.6.7",
     "ws": "^8.21.0"
