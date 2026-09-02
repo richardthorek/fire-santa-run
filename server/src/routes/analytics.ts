@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { hub } from '../realtime/hub.js';
+import { emitMetric } from '../utils/telemetryMetrics.js';
 
 // Two bugs found here during the 2026-09 api/ removal:
 // 1. This file's dev table names didn't match the rest of server/src/, so in
@@ -99,6 +100,12 @@ analyticsRouter.post('/viewer-session', async (c) => {
     };
 
     await tableClient.upsertEntity(entity);
+
+    // Only the join half of this endpoint's join/leave upsert is a distinct
+    // usage event — a leave update (leftAt set) re-upserts the same session.
+    if (!body.leftAt) {
+      emitMetric('tracking_viewer_joined', { routeId: body.routeId });
+    }
 
     return c.json({ success: true, sessionId }, 201);
   } catch (error: any) {
@@ -256,6 +263,7 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
       lastUpdated: new Date().toISOString(),
     };
 
+    emitMetric('route_analytics_viewed', { routeId, brigadeId });
     return c.json(analytics, 200);
   } catch (error: any) {
     console.error('Error fetching route analytics:', error);
