@@ -413,6 +413,31 @@ up publicly and raised a content-safety question. Full detail:
   Client helpers (`shouldListInDirectory`,
   `LocalStorageAdapter.getBrigades` filtering) are covered.
 
+### Suite-wide consumption telemetry (2026-09-02)
+
+Key user actions now emit a `METRIC {"metric":...}` structured log line —
+the same cross-app contract Fire Break Calculator already uses — so Station
+Manager's new platform-admin weekly consumption summary (built in a parallel
+Station Manager session; that repo owns the actual summary job, admin emails,
+and Azure Cost Management pull) can query this repo's Application Insights
+`traces` table cross-resource via Azure Log Analytics. This repo's only job
+was making the metrics visible; no summary/email logic lives here.
+
+- New `server/src/utils/telemetryMetrics.ts` (`emitMetric`, PII-free fields
+  only) and `server/src/utils/appInsights.ts` (initializes the
+  `applicationinsights` Node SDK from `APPLICATIONINSIGHTS_CONNECTION_STRING`
+  at server bootstrap — Container Apps' log forwarding alone lands console
+  output in Log Analytics' `ContainerAppConsoleLogs_CL` table, not
+  Application Insights' `traces`, so the SDK is needed here unlike a
+  Functions app; safe no-op when the connection string is unset). See
+  `infra/README.md`'s env var table for the new var (already wired by
+  `containerapps.bicep`, just never read until now).
+- Metrics emitted: `route_created` (organiser saves a new route),
+  `tracking_session_started` (a run's status first goes `active` — Santa's
+  truck goes live, not a resume-from-pause), `tracking_viewer_joined` (a
+  public viewer's session join, not the leave half of the same endpoint),
+  `route_analytics_viewed` (organiser opens a route's analytics).
+
 ## Roadmap — what's next
 
 Ordered by leverage. Public-side items move the needle most because the public
