@@ -393,11 +393,15 @@ up publicly and raised a content-safety question. Full detail:
   `PLATFORM_ADMIN_EMAILS` bridge. New `server/src/routes/admin.ts`
   (`/api/admin/*`), `src/pages/admin/`.
 - **Content safety** via **Azure AI Content Safety** (new
-  `infra/modules/contentsafety.bicep`, S0 tier, ~$0 at this volume). Run names,
-  brigade names and brigade logos are screened when they go public;
-  a definite flag blocks the publish/upload (HTTP 422), a service outage fails
-  open but records a `pending` flag. `moderationflags` table is the audit +
-  review queue; an admin can approve (false positive), remove, or dismiss.
+  `infra/modules/contentsafety.bicep`, S0 tier, ~$0 at this volume). Run names
+  (every save, incl. drafts), run descriptions (on publish), brigade names and
+  brigade logos are screened; a definite flag blocks the save (HTTP 422), a
+  service outage fails open but records a `pending` flag. `moderationflags`
+  table is the audit + review queue; an admin can approve (false positive),
+  remove, or dismiss. The harm categories don't score plain profanity, so a
+  seeded **`profanity` blocklist** (`infra/content-safety-blocklist.txt` +
+  `seed-content-safety-blocklist.sh`) backstops it, and the block threshold
+  defaults to severity 2 ("Low") for this family product.
 - **Brigade directory visibility** — `Brigade.publicListing`
   (`auto` | `shown` | `hidden`, default `auto`). `auto` lists a brigade in the
   public `/brigades` search only while it has a current or upcoming run, so

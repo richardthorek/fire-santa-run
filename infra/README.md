@@ -11,6 +11,8 @@ infra/
 ├── main.bicep                  # Root orchestration template (subscription scope)
 ├── deploy.sh                   # One-command infra deployment script (calls seed-secrets.sh)
 ├── seed-secrets.sh             # Idempotent Container App env var seeder (re-runnable)
+├── seed-content-safety-blocklist.sh  # Seed the `profanity` Content Safety blocklist
+├── content-safety-blocklist.txt      # Term list for the above (one per line)
 ├── scale-season.sh             # Flip minReplicas for the December season / off-season
 ├── .env.example                # Template for infra/.env.<env> secret files (gitignored)
 ├── backup/
@@ -285,8 +287,14 @@ you provide.
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push keys for "notify me when Santa starts" (optional — hides the button when unset) | `infra/.env.<env>` |
 | `VAPID_SUBJECT` | Contact URI sent to push services (optional; defaults to a `mailto:`) | `infra/.env.<env>` |
 | `REALTIME_WS_SECRET` | Signs the short-lived tokens broadcaster/editor WebSocket connections present (optional — falls back to a hash of the storage connection string) | `infra/.env.<env>` |
-| `CONTENT_SAFETY_ENDPOINT` / `CONTENT_SAFETY_KEY` | Azure AI Content Safety account (moderates public run/brigade names + logos — see [`../docs/ADMIN_PORTAL.md`](../docs/ADMIN_PORTAL.md)). Provisioned by `modules/contentsafety.bicep`; seeder reads both **live from the account** like the Storage string. Unset ⇒ screening disabled (fail-open), logged as a startup warning. | read live from Azure |
-| `CONTENT_SAFETY_BLOCK_SEVERITY` / `CONTENT_SAFETY_BLOCKLIST` | Optional moderation tuning — block threshold (0/2/4/6, default 4) and custom prohibited-term blocklist names | `infra/.env.<env>` |
+| `CONTENT_SAFETY_ENDPOINT` / `CONTENT_SAFETY_KEY` | Azure AI Content Safety account (moderates public run/brigade names + logos — see [`../docs/ADMIN_PORTAL.md`](../docs/ADMIN_PORTAL.md)). Provisioned by `modules/contentsafety.bicep`; seeder reads the endpoint live and sets the key as a Container App **secret**. Unset ⇒ screening disabled (fail-open), logged as a startup warning. | read live from Azure |
+| `CONTENT_SAFETY_BLOCK_SEVERITY` / `CONTENT_SAFETY_BLOCKLIST` | Optional moderation tuning — block threshold (0/2/4/6, code default **2**) and extra blocklist names (code default **`profanity`**) | `infra/.env.<env>` |
+
+> **One-time after provisioning the Content Safety account:** run
+> `./infra/seed-content-safety-blocklist.sh --env <dev\|prod>` to create the
+> `profanity` text blocklist from `infra/content-safety-blocklist.txt`. The
+> harm categories don't score plain profanity, so without this a run named
+> "Fuck you" passes. Re-run it whenever the term list changes.
 | `PLATFORM_ADMIN_EMAILS` | Optional comma-separated allowlist granting the `/admin` portal directly. Station Manager's own `isPlatformAdmin` (from `GET /api/auth/me`) is honoured automatically; this is a local bridge. | `infra/.env.<env>` |
 
 **Re-seed without a full redeploy** (e.g. after rotating a VAPID key or changing

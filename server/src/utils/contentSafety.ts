@@ -27,13 +27,25 @@ const API_VERSION = '2024-09-01';
 const ENDPOINT = (process.env.CONTENT_SAFETY_ENDPOINT || '').trim().replace(/\/+$/, '');
 const KEY = (process.env.CONTENT_SAFETY_KEY || '').trim();
 
-/** Severity is 0 (safe) / 2 (low) / 4 (medium) / 6 (high). Block at this or above. */
+/**
+ * Severity is 0 (safe) / 2 (low) / 4 (medium) / 6 (high). Block at this or above.
+ * Default 2: this is a family product and the offending text is a short public
+ * label (a run or brigade name), so "low" is already too much — there is no
+ * legitimate reason a Santa run name scores 2+ on hate/sexual/violence.
+ */
 const BLOCK_SEVERITY = (() => {
   const raw = Number.parseInt(process.env.CONTENT_SAFETY_BLOCK_SEVERITY || '', 10);
-  return Number.isFinite(raw) && raw >= 0 ? raw : 4;
+  return Number.isFinite(raw) && raw >= 0 ? raw : 2;
 })();
 
-const BLOCKLIST_NAMES = (process.env.CONTENT_SAFETY_BLOCKLIST || '')
+/**
+ * Content Safety text blocklist names. The four harm categories do NOT flag
+ * plain profanity ("Fuck you" scores 0 on Sexual/Violence/SelfHarm and only 2
+ * on Hate), so a custom blocklist is the backstop for "dirty words". Defaults
+ * to `profanity` — the blocklist seeded by
+ * `infra/seed-content-safety-blocklist.sh`; override/extend via the env var.
+ */
+const BLOCKLIST_NAMES = (process.env.CONTENT_SAFETY_BLOCKLIST || 'profanity')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
