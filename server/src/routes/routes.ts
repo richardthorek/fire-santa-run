@@ -4,6 +4,7 @@ import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { PUBLIC_ROUTE_STATUSES } from '../utils/routeVisibility.js';
 import { guardTextContent } from '../utils/moderation.js';
+import { emitMetric } from '../utils/telemetryMetrics.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
@@ -258,6 +259,7 @@ routesRouter.post('/', async (c) => {
     const client = await getTableClient(ROUTES_TABLE);
     await client.createEntity(routeToEntity(route));
     console.log(`Created route: ${route.id} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);
+    emitMetric('route_created', { routeId: route.id, brigadeId: route.brigadeId });
     return c.json(route, 201);
   } catch (error: any) {
     console.error('Error creating route:', error);

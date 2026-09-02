@@ -7,6 +7,7 @@ import { getTableClient, isDevMode } from '../utils/storage.js';
 import { notifyRunStartOnce } from '../utils/push.js';
 import { hub } from '../realtime/hub.js';
 import { alertOps } from '../utils/opsAlert.js';
+import { emitMetric } from '../utils/telemetryMetrics.js';
 
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://firesantarun.com.au';
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
@@ -247,6 +248,10 @@ broadcastRouter.post('/broadcast/status', async (c) => {
     const ownerCheck = await requireRouteOwner(c, body.routeId, 'start_navigation');
     if (ownerCheck instanceof Response) return ownerCheck;
 
+    // Captured before setRunStatus overwrites it, so a true "go live" (no
+    // prior status on this route) can be told apart from a resume-from-pause.
+    const previousStatus = hub.getRunStatus(body.routeId);
+
     const message = {
       type: 'run-status' as const,
       routeId: body.routeId,
@@ -257,6 +262,11 @@ broadcastRouter.post('/broadcast/status', async (c) => {
     };
 
     hub.setRunStatus(body.routeId, message);
+
+    if (message.status === 'active' && previousStatus === undefined) {
+      emitMetric('tracking_session_started', { routeId: body.routeId, brigadeId: ownerCheck.brigadeId });
+    }
+
     return c.json({ success: true, routeId: body.routeId, status: message.status }, 200);
   } catch (error: any) {
     console.error('Error broadcasting run status:', error);
