@@ -1,0 +1,48 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/typescript-node
+{
+	"name": "Fire Santa Run",
+	"image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+	"features": {
+		// Deploy target is Azure Container Apps; infra/*.sh (deploy.sh,
+		// seed-secrets.sh, scale-season.sh) all shell out to az. Also used to
+		// pull the Station Manager ACS connection string for ops alerting
+		// (server/src/utils/opsAlert.ts) — see infra/.env.example.
+		"ghcr.io/devcontainers/features/azure-cli:1": {},
+		// gh pr create / gh api — the PR workflow this repo uses.
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		// Docker build/run for the root Dockerfile (Azure Container Apps image).
+		// Uses the host's Docker Desktop engine via the mounted socket rather than
+		// a nested dockerd — avoids nested-daemon lockups on WSL2 (iptables
+		// lock/cgroup contention that can wedge the whole WSL2 VM). Switch to
+		// docker-in-docker only if you need a fully isolated daemon.
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+		// Claude Code CLI itself, so a rebuilt container has it out of the box.
+		"ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+	},
+
+	// No Azure Functions Core Tools feature here deliberately: api/ (the local-dev
+	// Functions backend) is being retired in favour of running server/ (the same
+	// Hono backend that runs in production) locally too — see MASTER_PLAN.md.
+	// Azurite (local Table Storage emulator) is a plain npm devDependency
+	// (server/'s local dev storage default), not a container feature — installed
+	// by postCreateCommand below like every other project dependency, so it's
+	// version-pinned in package-lock.json rather than baked into the image.
+
+	// 5173 Vite frontend. 8080 server/ (Hono API, local dev — same backend as
+	// production). 10000-10002 Azurite (Blob/Queue/Table); this app only reads
+	// Table Storage (10002), the other two are forwarded for completeness.
+	"forwardPorts": [5173, 8080, 10000, 10001, 10002],
+	"portsAttributes": {
+		"5173": { "label": "Frontend (Vite)" },
+		"8080": { "label": "API (server/, Hono — local dev)" },
+		"10000": { "label": "Azurite (Blob)" },
+		"10001": { "label": "Azurite (Queue)" },
+		"10002": { "label": "Azurite (Table) — the one this app uses" }
+	},
+
+	"postCreateCommand": "npm run setup"
+
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+}

@@ -11,6 +11,7 @@
     "dev:api": "cd api && func start --port 7071 --cors \"*\" --verbose",
     "dev:e2e": "concurrently \"npm:dev:api\" \"npm:dev:client\"",
     "dev:client": "vite",
+    "setup": "npm install && (cd server && npm install) && (cd api && npm install)",
     "build:api": "cd api && npm run build",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
