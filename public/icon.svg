@@ -1,4 +1,10 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- cache-bust: forces PWA precache to refetch this file (see #415 — root
+       static assets were previously served as index.html by the SPA
+       fallback; that broken response got precached under this file's old
+       content hash, so a content-unchanged file never re-fetches on its
+       own after the server fix, leaving already-installed clients stuck
+       with a broken logo). -->
   <defs>
     <!-- Flame gradient: Summer Gold to a lighter gold highlight -->
     <linearGradient id="flameGrad" x1="50%" y1="100%" x2="50%" y2="0%">
