@@ -198,12 +198,21 @@ jobs:
     steps:
       - name: Evaluate freeze window
         id: check
+        # Pass the commit message through the environment, never inline `${{ }}`
+        # into the script: a squash-merged dependabot PR carries the whole
+        # grouped changelog (backticks, `$`, HTML, unbalanced parens) as its
+        # message, which broke the inline form with a bash syntax error and
+        # skipped the deploy. `env` values are not shell-evaluated.
+        env:
+          FORCE_DEPLOY: ${{ github.event.inputs.force_deploy }}
+          FREEZE_OVERRIDE: ${{ vars.DEPLOY_FREEZE_OVERRIDE }}
+          HEAD_COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           MONTH=$(date -u +%m)
           OVERRIDE="false"
-          [[ "${{ github.event.inputs.force_deploy }}" == "true" ]] && OVERRIDE="true"
-          [[ "${{ vars.DEPLOY_FREEZE_OVERRIDE }}" == "true" ]] && OVERRIDE="true"
-          if printf '%s' "${{ github.event.head_commit.message }}" | grep -q '\[deploy-anyway\]'; then OVERRIDE="true"; fi
+          [[ "$FORCE_DEPLOY" == "true" ]] && OVERRIDE="true"
+          [[ "$FREEZE_OVERRIDE" == "true" ]] && OVERRIDE="true"
+          if printf '%s' "$HEAD_COMMIT_MSG" | grep -qF '[deploy-anyway]'; then OVERRIDE="true"; fi
 
           FROZEN="false"
           if [[ "$MONTH" == "12" && "$OVERRIDE" != "true" ]]; then FROZEN="true"; fi
