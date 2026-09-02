@@ -68,9 +68,16 @@ param containerCpu string = '0.25'
 @description('Memory allocation for the single replica — must pair with containerCpu per the ratio note above. Matches the current production default (0.5Gi) unless overridden.')
 param containerMemory string = '0.5Gi'
 
+@description('Custom domain bound to the ingress (e.g. santa.stationkit.com.au). Empty = default FQDN only (dev). When set (with customDomainCertificateId) the binding is declared in the template, so a full-PUT `az deployment sub create` re-asserts it instead of dropping it — see the note on the ingress block. deploy.sh auto-discovers the live value, so CI keeps the binding even if a param file omits it.')
+param customDomainName string = ''
+
+@description('Resource ID of an EXISTING managed/uploaded certificate on this Container Apps environment for customDomainName. This template deliberately does NOT issue the certificate: DigiCert domain-control validation cannot complete while the DNS record is proxied (Cloudflare orange-cloud — see infra/README.md), so the cert is created once out-of-band (`az containerapp hostname add` + `bind`, or the portal) and referenced here. Discover it with: az containerapp env certificate list -g <rg> -n <env> --query "[?properties.subjectName==\'<domain>\'].id | [0]" -o tsv')
+param customDomainCertificateId string = ''
+
 var envName = 'santarun-env-${nameSuffix}'
 var appName = 'santarun-app-${nameSuffix}'
 var hasRegistry = !empty(registryServer) && !empty(registryPassword)
+var bindCustomDomain = !empty(customDomainName) && !empty(customDomainCertificateId)
 
 resource managedEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: envName
@@ -112,6 +119,29 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         // supports WebSockets natively on this setting.
         transport: 'auto'
         allowInsecure: false
+        // Restated explicitly so a full-PUT deploy preserves single-revision
+        // routing instead of falling back to the implicit default.
+        traffic: [
+          {
+            latestRevision: true
+            weight: 100
+          }
+        ]
+        // Custom-domain binding is part of the template (guarded by the two
+        // customDomain* params) so `az deployment sub create` re-asserts it
+        // every run. A missing binding here is what caused the 2026-09-02
+        // santa.stationkit.com.au outage (Cloudflare 525 — origin had no cert
+        // for the SNI). The certificate itself is NOT created here — see the
+        // customDomainCertificateId param. deploy.sh discovers the live
+        // hostname + cert pre-deploy and passes them back as params, so the
+        // binding survives even when a param file doesn't list it.
+        customDomains: bindCustomDomain ? [
+          {
+            name: customDomainName
+            bindingType: 'SniEnabled'
+            certificateId: customDomainCertificateId
+          }
+        ] : []
       }
       registries: hasRegistry ? [
         {
@@ -153,17 +183,24 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             // AZURE_COMMUNICATION_CONNECTION_STRING / EMAIL_FROM_ADDRESS /
             // OPS_ALERT_EMAIL) are applied post-deploy via
             // `az containerapp update --set-env-vars` / `az containerapp
-            // secret set` — see infra/seed-secrets.sh.
+            // secret set` — see infra/seed-secrets.sh. They stay out of Bicep
+            // so a redeploy never risks clobbering a live secret, and CI
+            // re-runs seed-secrets.sh after every Bicep deploy.
             //
-            // WARNING: this does NOT make re-deploying this template safe
-            // against a live app. Bicep does a full PUT on the containerApp
-            // resource, so `az deployment sub create` on an app that CI /
-            // seed-secrets.sh have since configured will REMOVE every env
-            // var, custom-domain binding and ingress-traffic rule not
-            // restated here, and reset `image` to the placeholder default.
-            // Verified via `what-if` 2026-09-02. Use this template for
-            // first-provision only; ongoing deploys are image-only
-            // (`az containerapp update --image`, as the CI workflow does).
+            // Bicep still does a full PUT on the containerApp resource, so
+            // `az deployment sub create` resets anything this template does
+            // not restate. The two things that used to break on a redeploy
+            // are now handled:
+            //   • image  — deploy.sh reads the running image pre-deploy and
+            //     passes it back as `containerImage`, so the PUT keeps it
+            //     instead of reverting to the placeholder.
+            //   • custom domain + ingress traffic — declared above (the
+            //     customDomain* params + the explicit `traffic` block);
+            //     deploy.sh discovers the live hostname/cert and passes them
+            //     as params so the binding is re-asserted, not dropped.
+            // The seeded env vars above are the only remaining post-deploy
+            // step, and CI always re-runs it. Verified via `what-if`
+            // 2026-09-02 (pre-fix behaviour).
           ]
         }
       ]
@@ -193,3 +230,6 @@ output environmentName string = managedEnvironment.name
 
 @description('Default (auto-generated) FQDN for the Container App')
 output defaultFqdn string = containerApp.properties.configuration.ingress.fqdn
+
+@description('Custom domain bound to the ingress this deploy (empty if none). The public URL when set.')
+output customDomain string = bindCustomDomain ? customDomainName : ''

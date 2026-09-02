@@ -65,6 +65,12 @@ param registryUsername string = ''
 @secure()
 param registryPassword string = ''
 
+@description('Custom domain bound to the Container App ingress (e.g. santa.stationkit.com.au). Empty = default FQDN only. deploy.sh auto-discovers the live value and passes it back, so an empty param file still keeps an existing binding. See infra/modules/containerapps.bicep and infra/README.md.')
+param customDomainName string = ''
+
+@description('Resource ID of an existing managed/uploaded certificate on the Container Apps environment for customDomainName. The template does not issue certificates (Cloudflare-proxied DNS blocks DigiCert validation) — create it once out-of-band and pin the ID here, or let deploy.sh discover the live one. See infra/README.md.')
+param customDomainCertificateId string = ''
+
 // ─── Variables ───────────────────────────────────────────────────────────────
 
 var resourceGroupName = 'rg-santarun-${environment}-${nameSuffix}'
@@ -123,6 +129,8 @@ module containerApps 'modules/containerapps.bicep' = {
     registryServer: registryServer
     registryUsername: registryUsername
     registryPassword: registryPassword
+    customDomainName: customDomainName
+    customDomainCertificateId: customDomainCertificateId
   }
 }
 
@@ -149,8 +157,11 @@ output containerAppName string = containerApps.outputs.appName
 @description('Container Apps managed environment name')
 output containerAppsEnvironmentName string = containerApps.outputs.environmentName
 
-@description('Container App default (auto-generated) URL — bind a custom domain separately, see infra/README.md')
+@description('Container App default (auto-generated) URL. The custom domain, when bound, is served alongside this — see customDomainUrl.')
 output appUrl string = 'https://${containerApps.outputs.defaultFqdn}'
+
+@description('Public custom-domain URL if a binding is configured this deploy, else empty.')
+output customDomainUrl string = empty(containerApps.outputs.customDomain) ? '' : 'https://${containerApps.outputs.customDomain}'
 
 @description('Azure Table Storage connection string (add to GitHub secret / env var AZURE_STORAGE_CONNECTION_STRING)')
 @secure()
