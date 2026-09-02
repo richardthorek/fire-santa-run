@@ -1,0 +1,49 @@
+# Profanity / slur blocklist for Azure AI Content Safety.
+#
+# Seeded into the Content Safety account as a text blocklist named `profanity`
+# by infra/seed-content-safety-blocklist.sh, and applied to public run/brigade
+# names by server/src/utils/contentSafety.ts (CONTENT_SAFETY_BLOCKLIST).
+#
+# Rationale: the four harm categories (Hate/Sexual/Violence/SelfHarm) do NOT
+# score plain profanity — "Fuck you" comes back Sexual/Violence/SelfHarm 0,
+# Hate 2 — so category thresholds alone let it through. This list is the
+# backstop. Matching is case-insensitive substring.
+#
+# One term per line. Blank lines and `#` comments ignored. Keep it tight —
+# false positives block a brigade's legitimate save; an admin can approve a
+# flagged value from the /admin portal if one slips in.
+
+fuck
+motherfucker
+cocksucker
+shit
+bullshit
+bitch
+bastard
+asshole
+arsehole
+dickhead
+cunt
+wanker
+twat
+prick
+slut
+whore
+piss off
+pissed off
+goddamn
+nigger
+nigga
+faggot
+retard
+spastic
+coon
+abo
+boong
+chink
+kike
+spic
+wog
+paki
+tranny
+dyke

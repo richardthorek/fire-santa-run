@@ -242,9 +242,12 @@ SETTINGS=(
 
 # Content Safety — only set when the account was found (see above). Both must
 # be present for moderation to run; a partial pair leaves screening disabled.
+# The key goes in as a Container App *secret* (referenced via secretref:), not
+# a plain env var — `az containerapp show` prints plain env values.
+CONTENT_SAFETY_SECRET_NAME="content-safety-key"
 if [[ -n "$CONTENT_SAFETY_ENDPOINT_VALUE" && -n "$CONTENT_SAFETY_KEY_VALUE" ]]; then
   SETTINGS+=("CONTENT_SAFETY_ENDPOINT=$CONTENT_SAFETY_ENDPOINT_VALUE")
-  SETTINGS+=("CONTENT_SAFETY_KEY=$CONTENT_SAFETY_KEY_VALUE")
+  SETTINGS+=("CONTENT_SAFETY_KEY=secretref:${CONTENT_SAFETY_SECRET_NAME}")
 fi
 
 # Optional secrets — SUITE_AUTH_URL points at the Station Manager deployment.
@@ -265,9 +268,10 @@ fi
 #   isPlatformAdmin flag (which is honoured automatically). Handy for the first
 #   operator / self-hosted setups.
 # CONTENT_SAFETY_BLOCKLIST — comma-separated Content Safety blocklist names
-#   (custom prohibited-terms lists managed in the Azure portal) applied to text.
+#   applied to run/brigade names. Defaults to `profanity` in code (seeded by
+#   infra/seed-content-safety-blocklist.sh); only set here to add more lists.
 # CONTENT_SAFETY_BLOCK_SEVERITY — min category severity (0/2/4/6) that blocks a
-#   publish; default 4 ("Medium").
+#   save/publish; defaults to 2 ("Low") in code for this family product.
 MISSING_SECRETS=()
 for name in SUITE_AUTH_URL VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET \
             AZURE_COMMUNICATION_CONNECTION_STRING EMAIL_FROM_ADDRESS OPS_ALERT_EMAIL \
@@ -308,6 +312,16 @@ if [[ "$DRY_RUN" == "true" ]]; then
   echo ""
   echo "🔍 Dry run — no changes applied."
   exit 0
+fi
+
+if [[ -n "$CONTENT_SAFETY_KEY_VALUE" ]]; then
+  echo ""
+  echo "Setting the Content Safety key as a Container App secret..."
+  az containerapp secret set \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$APP_NAME" \
+    --secrets "${CONTENT_SAFETY_SECRET_NAME}=${CONTENT_SAFETY_KEY_VALUE}" \
+    --output none
 fi
 
 echo ""

@@ -131,19 +131,22 @@ function validateRoutePayload(route: any): string | null {
 }
 
 /**
- * Content-safety gate for a route that is (being) published. A run name and
- * description show on the public tracker, the discovery feed and OG images, so
- * they are checked the moment the route becomes publicly visible. Draft-only
- * saves are not checked — nothing public sees them. Returns a 422 JSON
- * response to send, or null to proceed.
+ * Content-safety gate for a route save. The **name** is checked on every save,
+ * including drafts: it is the run's identity and gives the brigade immediate
+ * feedback rather than a surprise block at publish time (route saves are
+ * explicit button clicks, not autosave, so this is ~one text call per click).
+ * The **description** is longer and changes more, so it is only checked once
+ * the route is (being made) publicly visible. Returns a 422 JSON response to
+ * send, or null to proceed.
  */
-async function moderateRouteIfPublic(
+async function moderateRoute(
   c: any,
   route: any,
   actorEmail: string,
 ): Promise<Response | null> {
-  if (!PUBLIC_ROUTE_STATUSES.has(route.status)) return null;
-  for (const field of ['name', 'description'] as const) {
+  const isPublic = PUBLIC_ROUTE_STATUSES.has(route.status);
+  const fields: ('name' | 'description')[] = isPublic ? ['name', 'description'] : ['name'];
+  for (const field of fields) {
     const value = route[field];
     if (typeof value !== 'string' || !value.trim()) continue;
     const guard = await guardTextContent({
@@ -156,7 +159,7 @@ async function moderateRouteIfPublic(
     });
     if (guard.blocked) {
       return c.json(
-        { error: 'Content rejected', message: `${guard.reason} Edit the run ${field} and publish again.` },
+        { error: 'Content rejected', message: `${guard.reason} Edit the run ${field} and save again.` },
         422,
       );
     }
@@ -250,7 +253,7 @@ routesRouter.post('/', async (c) => {
     if (!authResult.santaRunEnabled) {
       return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
-    const blocked = await moderateRouteIfPublic(c, route, authResult.email || authResult.userId || 'unknown');
+    const blocked = await moderateRoute(c, route, authResult.email || authResult.userId || 'unknown');
     if (blocked) return blocked;
     const client = await getTableClient(ROUTES_TABLE);
     await client.createEntity(routeToEntity(route));
@@ -277,7 +280,7 @@ routesRouter.put('/:id', async (c) => {
     if (!authResult.santaRunEnabled) {
       return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
-    const blocked = await moderateRouteIfPublic(c, { ...route, id: routeId }, authResult.email || authResult.userId || 'unknown');
+    const blocked = await moderateRoute(c, { ...route, id: routeId }, authResult.email || authResult.userId || 'unknown');
     if (blocked) return blocked;
     const client = await getTableClient(ROUTES_TABLE);
     await client.updateEntity(routeToEntity({ ...route, id: routeId }), 'Merge');

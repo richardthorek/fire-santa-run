@@ -72,9 +72,18 @@ connection string):
 | Env var | Meaning |
 | --- | --- |
 | `CONTENT_SAFETY_ENDPOINT` | `https://<account>.cognitiveservices.azure.com` |
-| `CONTENT_SAFETY_KEY` | account key |
-| `CONTENT_SAFETY_BLOCK_SEVERITY` | min category severity (0/2/4/6) that blocks. Default **4** ("Medium"). |
-| `CONTENT_SAFETY_BLOCKLIST` | comma-separated Content Safety *blocklist* names — custom prohibited-term lists you create in the Azure portal / blocklist REST API. Applied to text only. |
+| `CONTENT_SAFETY_KEY` | account key — set as a Container App **secret** (`secretref:content-safety-key`) |
+| `CONTENT_SAFETY_BLOCK_SEVERITY` | min harm-category severity (0/2/4/6) that blocks. Default **2** ("Low") — a short public label has no legitimate reason to score 2+. |
+| `CONTENT_SAFETY_BLOCKLIST` | comma-separated Content Safety *blocklist* names. Defaults to **`profanity`**. |
+
+**Profanity blocklist.** The four harm categories (Hate/Sexual/Violence/SelfHarm)
+do **not** score plain profanity — `"Fuck you"` comes back Sexual/Violence/
+SelfHarm 0, Hate 2 — so category thresholds alone let it through. A custom
+Content Safety text blocklist named `profanity` is the backstop; it is seeded
+from [`../infra/content-safety-blocklist.txt`](../infra/content-safety-blocklist.txt)
+by **`infra/seed-content-safety-blocklist.sh`** (run once after the Content
+Safety account is provisioned; re-run when the term list changes). An admin can
+approve a false positive from the Moderation tab.
 
 If `CONTENT_SAFETY_ENDPOINT`/`_KEY` are unset, moderation is a no-op (every
 check returns `skipped`) and a `[config] WARNING` is logged at startup.
@@ -83,7 +92,8 @@ check returns `skipped`) and a `[config] WARNING` is logged at startup.
 
 | Surface | When checked | On a flag |
 | --- | --- | --- |
-| Run name + description | `POST`/`PUT /api/routes` when the resulting status is public (`published`/`active`/`completed`/`archived`) | `422`, publish rejected |
+| Run **name** | every `POST`/`PUT /api/routes` — **including draft saves** (it's the run's identity; saves are explicit clicks, not autosave) | `422`, save rejected |
+| Run **description** | `POST`/`PUT /api/routes` only when the status is public (`published`/`active`/`completed`/`archived`) | `422`, save rejected |
 | Brigade name | `POST /api/brigades` (incl. auto-provision) and `PUT` when it changes | `422`, save rejected |
 | Brigade logo (image) | `PUT /api/brigades` when the logo changes | `422`, save rejected |
 
