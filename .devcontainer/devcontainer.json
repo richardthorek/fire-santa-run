@@ -1,22 +1,39 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/debian
 {
-	"name": "Debian",
+	"name": "Fire Santa Run",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/base:trixie",
 	"features": {
 		"ghcr.io/devcontainers/features/azure-cli:1": {},
-		"ghcr.io/devcontainers/features/github-cli:1": {}
-	}
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		// Base image has no Node; package.json requires >=22.
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "22"
+		},
+		// Claude Code CLI, so a rebuilt container has it out of the box.
+		"ghcr.io/anthropics/devcontainer-features/claude-code:1": {},
+		// For building/testing the root Dockerfile (Container Apps image) locally.
+		// Uses the host's Docker engine via the mounted socket, not a nested
+		// dockerd — safe to delete this block if it ever causes build trouble,
+		// nothing else in day-to-day dev depends on it.
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+	"moby": false
+}
+	},
 
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
+	// Vite client, server/, and Azurite's table/queue/blob emulator ports.
+	"forwardPorts": [5173, 8080, 10000, 10001, 10002],
+	"portsAttributes": {
+		"5173": { "label": "Vite (client)" },
+		"8080": { "label": "server/ (Hono API)" },
+		"10000": { "label": "Azurite (blob)" },
+		"10001": { "label": "Azurite (queue)" },
+		"10002": { "label": "Azurite (table)" }
+	},
 
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
-
-	// Configure tool-specific properties.
-	// "customizations": {},
+	// Installs root + server/ dependencies.
+	"postCreateCommand": "npm run setup"
 
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
