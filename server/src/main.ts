@@ -66,6 +66,26 @@ app.use(
   }),
 );
 
+// Serve every other real file emitted at the root of the build: the PWA icons
+// (icon.svg, icon-*.png, icon-maskable-*), apple-touch-icon, splash screens,
+// og-image.svg, offline.html, landing-static.html/landing-signin.js. Without
+// this, requests for those paths fell through to the SPA fallback below and
+// returned index.html as text/html — which is why the home-page logo and the
+// manifest's 144px icon failed to load in production. serveStatic calls
+// next() when no file matches, so unknown paths still reach the SPA fallback.
+app.use(
+  '*',
+  serveStatic({
+    root: staticRoot,
+    onFound: (path, c) => {
+      // Root-level assets are not content-hashed (unlike /assets/*) and can
+      // change between deploys, so they must revalidate rather than be cached
+      // immutably; index.html must never be cached (it names the hashed chunks).
+      c.header('Cache-Control', path.endsWith('.html') ? 'no-cache' : 'public, max-age=3600');
+    },
+  }),
+);
+
 // SPA fallback: all remaining GETs that are not API calls return index.html so
 // that client-side routing (React Router) works on direct URL loads. index.html
 // must never be cached — it references the current hashed asset names.
