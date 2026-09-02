@@ -65,7 +65,34 @@ function brigadeToEntity(brigade: any) {
   };
 }
 
+// Public-safe projection — declared here (function declarations hoist) so
+// getBrigades can use it too; see the hardening note on app.http('brigades-list', ...) below.
+function toPublicBrigade(entity: any) {
+  const b = entityToBrigade(entity);
+  return {
+    id: b.id,
+    slug: b.slug,
+    name: b.name,
+    location: b.location,
+    fireStationId: b.fireStationId,
+    logo: b.logo,
+    themeColor: b.themeColor,
+    contact: b.contact,
+    createdAt: b.createdAt,
+  };
+}
+
 // GET /api/brigades OR GET /api/brigades/{id}
+//
+// Hardening fix (post-launch audit, 2026-09): this used to return
+// entityToBrigade() — the full raw entity, unauthenticated. In practice the
+// only genuinely private fields it added over toPublicBrigade() were a
+// couple of redundant flat contactEmail/contactPhone properties
+// (contact.email/contact.phone are already public by design — the public
+// brigade page renders them as mailto:/tel: links) plus an internal
+// updatedAt timestamp, so this was never the severe PII leak it first
+// looked like — but there's no reason an unauthenticated read needs the raw
+// entity shape either.
 async function getBrigades(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
     const brigadeId = request.params.id;
@@ -77,7 +104,7 @@ async function getBrigades(request: HttpRequest, context: InvocationContext): Pr
         const entity = await client.getEntity(brigadeId, brigadeId);
         return {
           status: 200,
-          jsonBody: entityToBrigade(entity)
+          jsonBody: toPublicBrigade(entity)
         };
       } catch (error: any) {
         if (error.statusCode === 404) {
@@ -94,7 +121,7 @@ async function getBrigades(request: HttpRequest, context: InvocationContext): Pr
     const entities = client.listEntities();
     const brigades = [];
     for await (const entity of entities) {
-      brigades.push(entityToBrigade(entity));
+      brigades.push(toPublicBrigade(entity));
     }
 
     return {
@@ -296,7 +323,7 @@ app.http('brigades-get-by-station', {
       const client = await resolveBrigadesClient();
       const entities = client.listEntities({ queryOptions: { filter: `fireStationId eq '${escapeODataValue(fireStationId)}'` } });
       for await (const entity of entities) {
-        return { status: 200, jsonBody: entityToBrigade(entity) };
+        return { status: 200, jsonBody: toPublicBrigade(entity) };
       }
       return { status: 404, jsonBody: { error: 'Brigade not found' } };
     } catch (error: any) {
@@ -305,22 +332,6 @@ app.http('brigades-get-by-station', {
     }
   }
 });
-
-// Public-safe projection for the unauthenticated /brigade/:slug page.
-function toPublicBrigade(entity: any) {
-  const b = entityToBrigade(entity);
-  return {
-    id: b.id,
-    slug: b.slug,
-    name: b.name,
-    location: b.location,
-    fireStationId: b.fireStationId,
-    logo: b.logo,
-    themeColor: b.themeColor,
-    contact: b.contact,
-    createdAt: b.createdAt,
-  };
-}
 
 app.http('brigades-get-by-slug', {
   methods: ['GET'],

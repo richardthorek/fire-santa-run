@@ -138,8 +138,15 @@ provider for all three suite apps.
   `admin` can manage routes, edit settings, and start navigation; `viewer`
   cannot). There is no per-user membership row to look up — the SM token's
   own claims are the source of truth.
-- Realtime broadcaster/editor tokens additionally require route ownership and
-  brigade entitlement.
+- Realtime broadcaster/editor WS tokens additionally require route ownership
+  and brigade entitlement at negotiate time (`negotiate.ts`). The HTTP
+  broadcast endpoints (`POST /broadcast`, `/broadcast/status`,
+  `/broadcast/editor-presence`) independently re-check the same route
+  ownership + entitlement on every request (`requireRouteOwner()` in
+  `broadcast.ts`) — fixed 2026-09 after a launch-hardening audit found these
+  endpoints previously only checked that the caller held *some* valid
+  Station Manager token, not that they belonged to the target route's
+  brigade.
 
 ## Billing & entitlement
 

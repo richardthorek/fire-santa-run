@@ -21,10 +21,21 @@ const buckets = new Map<string, WindowEntry>();
 /** Cap total tracked keys so an attacker rotating IPs can't grow memory unboundedly. */
 const MAX_TRACKED_KEYS = 10000;
 
-function clientIp(c: Context): string {
-  // App Service / Front Door put the client in the first x-forwarded-for hop
+/**
+ * Azure Container Apps (the production ingress) only guarantees the
+ * RIGHTMOST X-Forwarded-For hop — every hop to the left is client-supplied
+ * and trivially forged. Trusting the first hop (correct for the retired
+ * App Service / Front Door target this used to describe) lets a single
+ * caller mint an unlimited number of fresh rate-limit buckets just by
+ * sending a different left-most value each time, defeating every limiter
+ * that uses this key.
+ */
+export function clientIp(c: Context): string {
   const forwarded = c.req.header('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
+  if (forwarded) {
+    const hops = forwarded.split(',').map((h) => h.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
+  }
   return c.req.header('x-client-ip') || 'unknown';
 }
 

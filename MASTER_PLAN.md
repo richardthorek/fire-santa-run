@@ -130,6 +130,115 @@ Manager**, the StationKit suite's identity/licensing provider:
   add-on billing, `richardthorek/station-manager` PR #686) and Fire Break
   Calculator (matching silent-SSO client) — see those repos' own plans.
 
+### December-readiness security/performance/UX review (2026-09-02)
+
+A pre-season review (security, performance/scale, public/brigade UX balance,
+and Station Manager cross-app SSO status — four targeted investigations plus
+one cross-domain synthesis pass) found real gaps. This pass fixed every
+**pure-code** finding; anything needing Azure CLI/portal access, or a
+cost/SKU decision, is explicitly called out below rather than done silently.
+
+**Shipped (code only, both `server/` and `api/` kept aligned):**
+
+- **Broadcast endpoints now check route ownership.** `POST /broadcast`,
+  `/broadcast/status`, and `/broadcast/editor-presence` previously accepted
+  any *authenticated* Station Manager account — any organisation, anywhere in
+  the suite, free to create — with no check that the caller belonged to the
+  brigade running the target route. `negotiate.ts` already did this check for
+  the WS token; the HTTP endpoints that actually move Santa's position or set
+  run status did not. Fixed by resolving the route's owning brigade per
+  request and calling `checkBrigadeAccess()` (mirroring `negotiate.ts`),
+  plus a server-side log line (`user`, `brigade`, observed IP) so a
+  falsified broadcast can be attributed after the fact — there was
+  previously no record at all. `server/src/routes/broadcast.ts`,
+  `api/src/broadcast.ts`.
+- **Viewer-session analytics locked to brigade members.**
+  `GET /analytics/routes/:routeId/sessions` had no auth check and returned
+  every tracker's raw IP address and user agent to anyone holding the route's
+  public tracking link. Now requires membership in the route's owning
+  brigade, same bar as editing the route. `server/src/routes/analytics.ts`
+  (no `api/` equivalent — production-only feature).
+- **Anonymous route reads scoped to what's actually public.**
+  `GET /routes?brigadeId=` and `GET /routes/:id?brigadeId=` carried a
+  `// Brigade-scoped lookup (members)` comment but no auth check at all —
+  any caller supplying a brigadeId (not a secret; `GET /brigades/public`
+  hands every one out) got every route for that brigade, including
+  unpublished drafts with real names on internal comments. Now: an actual
+  member of the brigade (any role) still sees everything; anyone else only
+  sees publicly-visible statuses, same bar the fully-anonymous lookup path
+  already enforced. `server/src/routes/routes.ts`, `api/src/routes.ts`.
+- **Rate limiter reads the trustworthy IP hop.** `clientIp()` trusted the
+  first (client-controlled, trivially spoofed) `X-Forwarded-For` hop — correct
+  for the retired App Service target the code comment described, wrong for
+  Container Apps, which only guarantees the *rightmost* hop. This defeated
+  the only throttle on the broadcast endpoint. `server/src/utils/rateLimit.ts`,
+  `api/src/rateLimit.ts`.
+- **Brigade reads no longer return the raw entity.** `GET /brigades`,
+  `/brigades/by-station/:id`, and `/brigades/:id` returned every stored field
+  unauthenticated; `/public` and `/by-slug/:slug` already correctly used a
+  `toPublicBrigade()` projection. On inspection this was a smaller gap than
+  first flagged: `contact.email`/`contact.phone` are already public by
+  design (`PublicBrigadePage` renders them as `mailto:`/`tel:` links on every
+  brigade's own public page), so the only fields the full entity actually
+  added were a couple of redundant flat `contactEmail`/`contactPhone`
+  properties and an internal `updatedAt` timestamp — not the severe PII leak
+  it first looked like. Fixed anyway for consistency (no unauthenticated read
+  needs the raw entity shape); verified `BrigadeSettingsPage` (the one
+  authenticated consumer) only ever reads fields the public projection
+  already includes, so no frontend change was needed.
+  `server/src/routes/brigades.ts`, `api/src/brigades.ts`.
+- **Storage-connection-string landmine closed.** `VITE_AZURE_STORAGE_CONNECTION_STRING`
+  (a dev-only escape hatch, `src/storage/index.ts`) shares its exact name
+  with the backend's real Azure Storage master key; Vite would bake it into
+  the public bundle if it were ever set for a production build. Not
+  currently exploited (the real deploy path only ever sets the correctly-
+  scoped backend variable) — added a `vite build` guard that refuses to
+  build if this looks like a real connection string outside dev mode.
+  `.env.example`'s "PRODUCTION CONFIGURATION" section previously,
+  confusingly, suggested setting this exact variable — corrected.
+  `vite.config.ts`, `.env.example`.
+- **`SUITE_AUTH_URL` validated at startup**, replacing a stale check for
+  retired Entra CIAM variables (and a dead check for Stripe vars — billing
+  was fully retired 2026-07-19, no code reads them any more). A misdirected
+  `SUITE_AUTH_URL` is a full auth bypass, since `validateToken()` trusts
+  whatever it points at; startup now fails fast on a non-`https://` value and
+  warns on a host that doesn't look like `stationkit.com.au`.
+  `server/src/utils/configValidation.ts`.
+- **Content-Security-Policy added**, shipped as
+  `Content-Security-Policy-Report-Only` rather than enforcing — see "Not done"
+  below. `server/src/app.ts`.
+- **Route create/update payloads bounds-checked** (name/description length,
+  comment count and length, waypoint count and coordinate sanity) — matches
+  the validation pattern `broadcast.ts`/`push.ts` already used elsewhere in
+  this codebase, previously absent here. `server/src/routes/routes.ts`,
+  `api/src/routes.ts`.
+
+**Not done — needs Azure CLI/portal access (a different session):**
+
+- Station Manager: confirm/set `COOKIE_DOMAIN=.stationkit.com.au` and add
+  Fire Santa Run's origins to `FRONTEND_URLS` on the live App Service — both
+  flagged open in that repo's own changelog since 2026-07-18 with no later
+  closure. Until set, the silent cross-subdomain SSO above does not reliably
+  work in production (falls back to explicit login, which does work) and
+  cross-origin passkey login is broken. **Sequencing matters**: don't land
+  this before the broadcast-ownership fix above has actually deployed —
+  making suite sign-in more frictionless on top of an open broadcast
+  endpoint would have been the wrong order. That fix is now merged, so this
+  is unblocked.
+- Fire Santa Run: finish the `santa.stationkit.com.au` Cloudflare DNS/TLS +
+  Container Apps custom-domain binding (tracked in Operational readiness
+  below).
+- Flip the CSP above from Report-Only to enforcing: load the app in a real
+  browser (production, or a local build with a real `VITE_MAPBOX_TOKEN`),
+  exercise the map, sign-in, and push opt-in, confirm devtools shows zero
+  violations for legitimate requests, then rename the header — see the
+  comment above `buildCsp()` in `server/src/app.ts`.
+
+**Not started — awaiting an infra/cost decision (see roadmap item 7):**
+capacity/scaling work for December concurrency (Container Apps sizing, a
+realtime backplane so `maxReplicas` can exceed 1, alerting). Deliberately not
+touched without walking through the cost tradeoffs first.
+
 Public-growth and polish shipped in the latest pass:
 
 - Public-first landing with "Find a Santa run near me" (geolocated), jargon-free
@@ -187,7 +296,12 @@ before relying on the unified suite login in production.
    Calculator once all three are deployed with the `.stationkit.com.au`
    cookie domain live: sign in once, land authenticated in all three; sign out
    in one, confirm the others still behave sanely; confirm the independent
-   Santa Run sign-up path still works standalone. Not yet done.
+   Santa Run sign-up path still works standalone. Not yet done — needs
+   Station Manager's `COOKIE_DOMAIN`/`FRONTEND_URLS` set (Azure CLI/portal
+   access, a different session) and the `santa.stationkit.com.au` domain move
+   below completed. Now unblocked from this repo's side: the broadcast-
+   ownership fix that had to land first (see the December-readiness review
+   above) is merged.
 1. **Proximity push** — extend "notify me" to "Santa is ~10 min from your pin".
    The route + live position + personal ETA already exist; this is the highest
    emotional-value feature and the clearest differentiator over "we post on
@@ -205,12 +319,26 @@ before relying on the unified suite login in production.
    below).
 6. **Billing UX depth** — receipts/renewal reminders, grace-period messaging
    refinements, optional multi-year.
-7. **Realtime backplane for horizontal scale** — if a single Container Apps
-   replica ever caps out on concurrent WebSocket connections, add a shared
-   pub/sub backplane (e.g. Redis) behind `server/src/realtime/hub.ts` so
-   `maxReplicas` can go above 1. Not needed at current or projected traffic;
-   revisit only if a run's viewer count approaches the practical ceiling of
-   one instance.
+7. **December capacity — awaiting an infra/cost decision, not yet started.**
+   The December-readiness review (above) revised this item's urgency: the
+   single Container Apps replica (0.25 vCPU / 0.5Gi, hard-pinned `maxReplicas: 1`
+   because the realtime hub's state is in-process) plus the global
+   `MAX_TOTAL_CONNECTIONS = 5000` cap is *plausibly reachable organically* on
+   Christmas Eve — every brigade's run lands in the same few-hour window on
+   the same process, with no per-route fairness — not only in a viral-single-route
+   scenario. Two options, different cost/effort:
+   (a) **vertical** — raise the December CPU/memory allocation via the
+   existing `infra/scale-season.sh` path; bounded ceiling, cheap, no
+   architecture change, but still one replica, one point of failure.
+   (b) **horizontal** — add a shared pub/sub backplane (e.g. Redis) behind
+   `server/src/realtime/hub.ts` so `maxReplicas` can exceed 1; genuinely
+   removes the ceiling, more engineering effort and an ongoing resource cost.
+   Also bundle in this pass: minimum-viable alerting (Application Insights is
+   already provisioned and collecting telemetry — nothing currently pages
+   anyone on a 503 spike or connections approaching the cap) and an actual
+   load test before committing to a number. **Deliberately not started**:
+   needs a walkthrough of the cost/SKU tradeoff first, not a unilateral
+   infra change.
 8. **Write a "brigade membership under Station Manager" user doc.** The
    2026-07-19 docs cleanup deleted `ADMIN_USER_GUIDE.md`,
    `MEMBERSHIP_SYSTEM.md`, `API_AUTHENTICATION.md`,

@@ -92,11 +92,66 @@ function routeToEntity(route: any) {
   };
 }
 
-// Statuses visible to anonymous viewers (public tracking page). Drafts are
-// never served without a brigadeId. Keep aligned with server/src/routes/routes.ts.
+// Statuses visible to anyone who is not an actual member of the owning
+// brigade. Keep aligned with server/src/routes/routes.ts.
 const PUBLIC_ROUTE_STATUSES = new Set(['published', 'active', 'completed', 'archived']);
 
+// Payload bounds (Tier 1b hardening, post-launch audit 2026-09). Mirrors
+// server/src/routes/routes.ts's validateRoutePayload.
+const MAX_NAME_LENGTH = 200;
+const MAX_DESCRIPTION_LENGTH = 2000;
+const MAX_WAYPOINTS = 200;
+const MAX_COMMENTS = 500;
+const MAX_COMMENT_TEXT_LENGTH = 1000;
+const MAX_USERNAME_LENGTH = 80;
+const VALID_ROUTE_STATUSES = new Set(['draft', 'published', 'active', 'completed', 'archived']);
+
+/** Returns an error message, or null if the payload's bounds are acceptable. */
+function validateRoutePayload(route: any): string | null {
+  if (route.name !== undefined && (typeof route.name !== 'string' || route.name.length > MAX_NAME_LENGTH)) {
+    return `name must be a string up to ${MAX_NAME_LENGTH} characters`;
+  }
+  if (route.description !== undefined && (typeof route.description !== 'string' || route.description.length > MAX_DESCRIPTION_LENGTH)) {
+    return `description must be a string up to ${MAX_DESCRIPTION_LENGTH} characters`;
+  }
+  if (route.status !== undefined && !VALID_ROUTE_STATUSES.has(route.status)) {
+    return `status must be one of: ${[...VALID_ROUTE_STATUSES].join(', ')}`;
+  }
+  if (route.waypoints !== undefined) {
+    if (!Array.isArray(route.waypoints) || route.waypoints.length > MAX_WAYPOINTS) {
+      return `waypoints must be an array of at most ${MAX_WAYPOINTS} entries`;
+    }
+    for (const wp of route.waypoints) {
+      const coords = wp?.coordinates;
+      const [lng, lat] = Array.isArray(coords) ? coords : [undefined, undefined];
+      if (typeof lng !== 'number' || typeof lat !== 'number' || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+        return 'each waypoint requires coordinates [longitude, latitude] within valid ranges';
+      }
+    }
+  }
+  if (route.comments !== undefined) {
+    if (!Array.isArray(route.comments) || route.comments.length > MAX_COMMENTS) {
+      return `comments must be an array of at most ${MAX_COMMENTS} entries`;
+    }
+    for (const comment of route.comments) {
+      if (typeof comment?.text === 'string' && comment.text.length > MAX_COMMENT_TEXT_LENGTH) {
+        return `each comment's text must be at most ${MAX_COMMENT_TEXT_LENGTH} characters`;
+      }
+      if (typeof comment?.userName === 'string' && comment.userName.length > MAX_USERNAME_LENGTH) {
+        return `each comment's userName must be at most ${MAX_USERNAME_LENGTH} characters`;
+      }
+    }
+  }
+  return null;
+}
+
 // GET /api/routes?brigadeId=xxx OR GET /api/routes/{id}[?brigadeId=xxx]
+//
+// Hardening fix (post-launch audit, 2026-09): the brigadeId-scoped branches
+// below used to carry no auth check whatsoever — despite the "(members)"
+// comment, supplying any brigadeId returned every route for that brigade
+// (list) or a specific route regardless of status (single), to anyone, since
+// brigadeId is not a secret (GET /brigades/public hands every one out).
 async function getRoutes(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
     const brigadeId = request.query.get('brigadeId');
@@ -110,17 +165,21 @@ async function getRoutes(request: HttpRequest, context: InvocationContext): Prom
     }
 
     const client = await getRoutesTableClient();
+    const authResult = brigadeId ? await validateToken(request) : null;
+    const isMember = !!(authResult?.authenticated && authResult.organizationId === brigadeId);
 
     // Get single route
     if (routeId) {
-      // Brigade-scoped lookup (members): fast point read, any status.
+      // Brigade-scoped lookup: fast point read, then the same membership
+      // check the list branch below applies.
       if (brigadeId) {
         try {
           const entity = await client.getEntity(brigadeId, routeId);
-          return {
-            status: 200,
-            jsonBody: entityToRoute(entity)
-          };
+          const route = entityToRoute(entity);
+          if (isMember || PUBLIC_ROUTE_STATUSES.has(route.status)) {
+            return { status: 200, jsonBody: route };
+          }
+          return { status: 404, jsonBody: { error: 'Route not found' } };
         } catch (error: any) {
           if (error.statusCode === 404) {
             return {
@@ -147,14 +206,16 @@ async function getRoutes(request: HttpRequest, context: InvocationContext): Prom
       return { status: 404, jsonBody: { error: 'Route not found' } };
     }
 
-    // List all routes for brigade
+    // List all routes for brigade — a member (any role) sees every status
+    // since they're the ones planning; anyone else only sees what's public.
     const entities = client.listEntities({
       queryOptions: { filter: `PartitionKey eq '${brigadeId}'` }
     });
 
     const routes = [];
     for await (const entity of entities) {
-      routes.push(entityToRoute(entity));
+      const route = entityToRoute(entity);
+      if (isMember || PUBLIC_ROUTE_STATUSES.has(route.status)) routes.push(route);
     }
 
     return {
@@ -194,6 +255,11 @@ async function createRoute(request: HttpRequest, context: InvocationContext): Pr
         status: 400,
         jsonBody: { error: 'Missing required fields: id, brigadeId' }
       };
+    }
+
+    const validationError = validateRoutePayload(route);
+    if (validationError) {
+      return { status: 400, jsonBody: { error: 'Invalid route payload', message: validationError } };
     }
 
     // Check brigade permission
@@ -266,6 +332,11 @@ async function updateRoute(request: HttpRequest, context: InvocationContext): Pr
         status: 400,
         jsonBody: { error: 'Missing required fields: id, brigadeId' }
       };
+    }
+
+    const validationError = validateRoutePayload(route);
+    if (validationError) {
+      return { status: 400, jsonBody: { error: 'Invalid route payload', message: validationError } };
     }
 
     // Check brigade permission

@@ -16,12 +16,58 @@
 
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { WebPubSubServiceClient } from '@azure/web-pubsub';
-import { checkRateLimit } from './rateLimit';
-import { validateToken } from './utils/auth';
+import { checkRateLimit, clientIp } from './rateLimit';
+import { validateToken, checkBrigadeAccess, type AuthResult } from './utils/auth';
+import { getTableClient, isDevMode } from './utils/storage';
 import { notifyRunStartOnce } from './utils/push';
 
 const HUB_NAME = process.env.AZURE_WEBPUBSUB_HUB_NAME || 'santa_tracking';
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://firesantarun.com.au';
+const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
+
+function escapeODataValue(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+/** Resolve which brigade owns a route. Mirrors negotiate.ts's own copy. */
+async function getRouteBrigadeId(routeId: string): Promise<string | null> {
+  const client = await getTableClient(ROUTES_TABLE);
+  const entities = client.listEntities({ queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` } });
+  for await (const entity of entities) {
+    return typeof entity.partitionKey === 'string' ? entity.partitionKey : null;
+  }
+  return null;
+}
+
+/**
+ * Security fix (post-launch audit, 2026-09): the prior `validateToken()`-only
+ * check proved the caller was SOME signed-in Station Manager user — any
+ * account, any organisation, anywhere in the suite — but never that they
+ * belonged to the brigade running this specific route. Mirrors
+ * server/src/routes/broadcast.ts and negotiate.ts's broadcaster/editor checks.
+ */
+async function requireRouteOwner(
+  authResult: AuthResult,
+  routeId: string,
+  permission: 'start_navigation' | 'manage_routes',
+): Promise<{ brigadeId: string } | HttpResponseInit> {
+  const brigadeId = await getRouteBrigadeId(routeId);
+  if (!brigadeId) {
+    return { status: 404, jsonBody: { error: 'Route not found' } };
+  }
+  const permissionCheck = checkBrigadeAccess(authResult, brigadeId, permission);
+  if (!permissionCheck.authorized) {
+    return { status: 403, jsonBody: { error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' } };
+  }
+  if (!authResult.santaRunEnabled) {
+    return { status: 402, jsonBody: { error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' } };
+  }
+  return { brigadeId };
+}
+
+function isHttpResponseInit(value: { brigadeId: string } | HttpResponseInit): value is HttpResponseInit {
+  return !('brigadeId' in value);
+}
 
 interface LocationBroadcast {
   routeId: string;
@@ -90,6 +136,9 @@ export async function broadcast(request: HttpRequest, context: InvocationContext
       };
     }
 
+    const ownerCheck = await requireRouteOwner(authResult, body.routeId, 'start_navigation');
+    if (isHttpResponseInit(ownerCheck)) return ownerCheck;
+
     // Get Web PubSub connection string from environment
     const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
     
@@ -128,7 +177,10 @@ export async function broadcast(request: HttpRequest, context: InvocationContext
     // not awaited — pushes must never slow down or fail location updates.
     void notifyRunStartOnce(body.routeId, APP_BASE_URL);
 
-    context.log(`Broadcasted location update for route: ${body.routeId} to group: ${groupName}`);
+    // Attribution trail for the broadcast-hijack fix above (see requireRouteOwner).
+    context.log(
+      `[broadcast] route=${body.routeId} brigade=${ownerCheck.brigadeId} user=${authResult.userId} ip=${clientIp(request)} group=${groupName}`,
+    );
 
     return {
       status: 200,
@@ -183,6 +235,9 @@ export async function broadcastEditorPresence(request: HttpRequest, context: Inv
     if (body.action !== 'editing' && body.action !== 'left') {
       return { status: 400, jsonBody: { error: 'Invalid action. Must be "editing" or "left"' } };
     }
+
+    const ownerCheck = await requireRouteOwner(authResult, body.routeId, 'manage_routes');
+    if (isHttpResponseInit(ownerCheck)) return ownerCheck;
 
     const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
     if (!connectionString) {
@@ -240,6 +295,9 @@ export async function broadcastRunStatus(request: HttpRequest, context: Invocati
     if (!body.status || !VALID_RUN_STATUSES.includes(body.status)) {
       return { status: 400, jsonBody: { error: `Invalid status. Must be one of: ${VALID_RUN_STATUSES.join(', ')}` } };
     }
+
+    const ownerCheck = await requireRouteOwner(authResult, body.routeId, 'start_navigation');
+    if (isHttpResponseInit(ownerCheck)) return ownerCheck;
 
     const connectionString = process.env.AZURE_WEBPUBSUB_CONNECTION_STRING;
     if (!connectionString) {

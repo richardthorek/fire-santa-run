@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { hub } from '../realtime/hub.js';
 
 const VIEWER_SESSIONS_TABLE = isDevMode ? 'devviewersessions' : 'viewersessions';
@@ -332,12 +333,39 @@ analyticsRouter.get('/routes/:routeId/viewer-count', async (c) => {
 /**
  * GET /analytics/routes/:routeId/sessions
  * Get raw viewer sessions for a specific route (for admin debugging)
+ *
+ * Security fix (post-launch audit, 2026-09): this returned every viewer's raw
+ * IP address and user agent with NO auth check at all — reachable by anyone
+ * holding the route's public tracking link (not a secret; it's the QR code on
+ * the brigade's own flyer). Now brigade-scoped, same bar as editing the route.
  */
 analyticsRouter.get('/routes/:routeId/sessions', async (c) => {
   try {
     const routeId = c.req.param('routeId');
     if (!routeId) {
       return c.json({ error: 'Missing routeId parameter' }, 400);
+    }
+
+    const routesClient = await getTableClient(ROUTES_TABLE);
+    let brigadeId = '';
+    const routeEntities = routesClient.listEntities({
+      queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` }
+    });
+    for await (const entity of routeEntities) {
+      brigadeId = typeof entity.partitionKey === 'string' ? entity.partitionKey : '';
+      break;
+    }
+    if (!brigadeId) {
+      return c.json({ error: 'Route not found' }, 404);
+    }
+
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) {
+      return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    }
+    const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'manage_routes');
+    if (!permissionCheck.authorized) {
+      return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
     }
 
     const tableClient = await getTableClient(VIEWER_SESSIONS_TABLE);

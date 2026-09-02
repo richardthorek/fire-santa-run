@@ -19,9 +19,19 @@ const buckets = new Map<string, WindowEntry>();
 
 const MAX_TRACKED_KEYS = 10000;
 
-function clientIp(request: HttpRequest): string {
+/**
+ * Mirrors server/src/utils/rateLimit.ts: only the RIGHTMOST X-Forwarded-For
+ * hop is trustworthy on the production ingress (Azure Container Apps) — every
+ * hop to the left is client-supplied and trivially forged. This file (local
+ * dev only) keeps the same logic for parity even though nothing hostile is
+ * expected to hit it.
+ */
+export function clientIp(request: HttpRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
+  if (forwarded) {
+    const hops = forwarded.split(',').map((h) => h.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
+  }
   return request.headers.get('x-client-ip') || 'unknown';
 }
 

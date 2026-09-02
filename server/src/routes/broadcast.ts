@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
-import { rateLimit } from '../utils/rateLimit.js';
-import { validateToken } from '../utils/auth.js';
+import { rateLimit, clientIp } from '../utils/rateLimit.js';
+import { validateToken, checkBrigadeAccess, type AuthResult } from '../utils/auth.js';
+import { getTableClient, isDevMode } from '../utils/storage.js';
 import { notifyRunStartOnce } from '../utils/push.js';
 import { hub } from '../realtime/hub.js';
 
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://firesantarun.com.au';
+const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
 
 interface LocationBroadcast {
   routeId: string;
@@ -18,7 +20,21 @@ interface LocationBroadcast {
   nextWaypointEta?: string;
 }
 
-export const broadcastRouter = new Hono();
+export const broadcastRouter = new Hono<{ Variables: { authResult: AuthResult } }>();
+
+function escapeODataValue(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+/** Resolve which brigade owns a route (routes are keyed by brigadeId partition). Mirrors negotiate.ts. */
+async function getRouteBrigadeId(routeId: string): Promise<string | null> {
+  const client = await getTableClient(ROUTES_TABLE);
+  const entities = client.listEntities({ queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` } });
+  for await (const entity of entities) {
+    return typeof entity.partitionKey === 'string' ? entity.partitionKey : null;
+  }
+  return null;
+}
 
 // Launch hardening (#345): cap broadcast volume per client. Navigation sends
 // a location every 5s (12/min) and presence heartbeats every 15s (4/min);
@@ -27,17 +43,50 @@ broadcastRouter.use('/broadcast', rateLimit({ name: 'broadcast', limit: 40, wind
 broadcastRouter.use('/broadcast/*', rateLimit({ name: 'broadcast', limit: 40, windowMs: 60_000 }));
 
 // Every broadcast pushes a message to a route group — Santa's location, editor
-// presence, or the viewer count. All must come from a signed-in brigade user so
-// anonymous clients cannot inject fake positions to public viewers.
+// presence, or the run status — so it must come from a signed-in brigade user.
+// This only checks that the caller holds *some* valid Station Manager token;
+// it does NOT check they belong to the brigade that owns the target route —
+// see requireRouteOwner below, applied per-handler once the route id is known.
 async function requireAuth(c: Context, next: Next) {
   const authResult = await validateToken(c.req.raw);
   if (!authResult.authenticated) {
     return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
   }
+  c.set('authResult', authResult);
   await next();
 }
 broadcastRouter.use('/broadcast', requireAuth);
 broadcastRouter.use('/broadcast/*', requireAuth);
+
+/**
+ * Security fix (post-launch audit, 2026-09): requireAuth above only proves the
+ * caller is SOME signed-in Station Manager user — any account, in any
+ * organisation, anywhere in the StationKit suite, free to create. Nothing
+ * previously checked that they belonged to the brigade running this specific
+ * route, so any suite account could inject a false Santa position into, or
+ * abort, a brigade it had no relationship to. Call this from each handler
+ * once the target routeId is known, mirroring negotiate.ts's broadcaster/
+ * editor checks (same permissions, same entitlement gate).
+ */
+async function requireRouteOwner(
+  c: Context<{ Variables: { authResult: AuthResult } }>,
+  routeId: string,
+  permission: 'start_navigation' | 'manage_routes',
+): Promise<{ brigadeId: string } | Response> {
+  const brigadeId = await getRouteBrigadeId(routeId);
+  if (!brigadeId) {
+    return c.json({ error: 'Route not found' }, 404);
+  }
+  const authResult = c.get('authResult');
+  const permissionCheck = checkBrigadeAccess(authResult, brigadeId, permission);
+  if (!permissionCheck.authorized) {
+    return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
+  }
+  if (!authResult.santaRunEnabled) {
+    return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
+  }
+  return { brigadeId };
+}
 
 broadcastRouter.post('/broadcast', async (c) => {
   try {
@@ -61,6 +110,9 @@ broadcastRouter.post('/broadcast', async (c) => {
       return c.json({ error: 'Missing required field: timestamp' }, 400);
     }
 
+    const ownerCheck = await requireRouteOwner(c, body.routeId, 'start_navigation');
+    if (ownerCheck instanceof Response) return ownerCheck;
+
     const message: LocationBroadcast = {
       routeId: body.routeId,
       location: body.location,
@@ -74,6 +126,16 @@ broadcastRouter.post('/broadcast', async (c) => {
     // Fan out in-process to every viewer's WebSocket (no managed Web PubSub,
     // no per-message billing).
     hub.broadcastLocation(body.routeId, message);
+
+    // Attribution trail for the broadcast-hijack fix above: nothing else in
+    // this codebase records who actually moved Santa on a given route, so a
+    // falsified run couldn't previously be told apart from a bug after the
+    // fact. Application-log only (no Table Storage write) — this must never
+    // slow down or fail a location update.
+    const authResult = c.get('authResult');
+    console.log(
+      `[broadcast] route=${body.routeId} brigade=${ownerCheck.brigadeId} user=${authResult.userId} ip=${clientIp(c)}`,
+    );
 
     // First broadcast of a run wakes the "notify me" subscribers. Deliberately
     // not awaited — pushes must never slow down or fail location updates. Skip
@@ -114,6 +176,9 @@ broadcastRouter.post('/broadcast/editor-presence', async (c) => {
       return c.json({ error: 'Invalid action. Must be "editing" or "left"' }, 400);
     }
 
+    const ownerCheck = await requireRouteOwner(c, body.routeId, 'manage_routes');
+    if (ownerCheck instanceof Response) return ownerCheck;
+
     const message = {
       type: 'editor-presence',
       routeId: body.routeId,
@@ -150,6 +215,9 @@ broadcastRouter.post('/broadcast/status', async (c) => {
     if (!body.status || !VALID_RUN_STATUSES.includes(body.status as RunStatusValue)) {
       return c.json({ error: `Invalid status. Must be one of: ${VALID_RUN_STATUSES.join(', ')}` }, 400);
     }
+
+    const ownerCheck = await requireRouteOwner(c, body.routeId, 'start_navigation');
+    if (ownerCheck instanceof Response) return ownerCheck;
 
     const message = {
       type: 'run-status' as const,
