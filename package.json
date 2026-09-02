@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "concurrently \"npm:dev:storage\" \"npm:dev:server\" \"npm:dev:client\"",
     "dev:storage": "azurite-table --silent --skipApiVersionCheck",
-    "dev:server": "cd server && DEV_MODE=true tsx watch src/main.ts",
+    "dev:server": "cd server && DEV_MODE=true npm run dev",
     "dev:e2e": "concurrently \"npm:dev:storage\" \"npm:dev:server\" \"npm:dev:client\"",
     "dev:client": "vite",
     "setup": "npm install && (cd server && npm install)",
