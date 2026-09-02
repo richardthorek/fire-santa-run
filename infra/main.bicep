@@ -55,6 +55,10 @@ param containerMemory string = '0.5Gi'
 @description('Container image to deploy (e.g. ghcr.io/<owner>/fire-santa-run:<tag>). Leave the default placeholder for the first deploy — CI updates it via `az containerapp update --image`.')
 param containerImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
 
+@description('Azure AI Content Safety pricing tier — moderates public run/brigade names and logos. S0 = pay-as-you-go (first 5k text + 5k image records/month free); F0 = free tier (one per subscription/region).')
+@allowed(['S0', 'F0'])
+param contentSafetySku string = 'S0'
+
 @description('Container registry server (e.g. ghcr.io). Leave empty for the public placeholder image.')
 param registryServer string = ''
 
@@ -134,6 +138,17 @@ module containerApps 'modules/containerapps.bicep' = {
   }
 }
 
+module contentSafety 'modules/contentsafety.bicep' = {
+  name: 'contentsafety'
+  scope: resourceGroup
+  params: {
+    location: location
+    nameSuffix: nameSuffix
+    tags: commonTags
+    sku: contentSafetySku
+  }
+}
+
 resource ciamDirectory 'Microsoft.AzureActiveDirectory/ciamDirectories@2025-08-01-preview' existing = if (!empty(ciamDirectoryName)) {
   scope: resourceGroup
   name: ciamDirectoryName
@@ -169,6 +184,13 @@ output storageConnectionString string = storage.outputs.connectionString
 
 @description('Application Insights connection string (for optional instrumentation)')
 output appInsightsConnectionString string = monitoring.outputs.connectionString
+
+@description('Content Safety endpoint (seed as CONTENT_SAFETY_ENDPOINT via infra/seed-secrets.sh)')
+output contentSafetyEndpoint string = contentSafety.outputs.endpoint
+
+@description('Content Safety primary key (seed as the CONTENT_SAFETY_KEY secret via infra/seed-secrets.sh)')
+@secure()
+output contentSafetyKey string = contentSafety.outputs.primaryKey
 
 @description('CIAM tenant ID (if ciamDirectoryName provided)')
 output ciamTenantId string = ciamDirectory.?properties.?tenantId ?? ''

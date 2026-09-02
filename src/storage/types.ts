@@ -48,6 +48,18 @@ export interface Brigade {
 
   /** Number of days after completion before a route is auto-archived (default: 90) */
   archiveThresholdDays?: number;
+
+  /**
+   * Visibility in the public brigade directory (`/brigades` search page).
+   * - `auto` (default): listed only while the brigade has a current or
+   *   upcoming run — a brigade with nothing scheduled stays out of the
+   *   directory until it publishes its next run.
+   * - `shown`: always listed.
+   * - `hidden`: never listed.
+   * A brigade's own public page (`/brigade/:slug`) is always reachable by
+   * direct link regardless of this setting — this only controls the directory.
+   */
+  publicListing?: 'auto' | 'shown' | 'hidden';
 }
 
 export interface IStorageAdapter {

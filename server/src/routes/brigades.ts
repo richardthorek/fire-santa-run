@@ -2,8 +2,11 @@
 import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
+import { guardTextContent, guardImageContent } from '../utils/moderation.js';
+import { isCurrentOrUpcomingRun } from '../utils/routeVisibility.js';
 
 const BRIGADES_TABLE = isDevMode ? 'devbrigades' : 'brigades';
+const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
 function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");
@@ -21,6 +24,7 @@ function entityToBrigade(entity: any) {
     contactPhone: entity.contactPhone,
     logo: entity.logo,
     themeColor: entity.themeColor,
+    publicListing: entity.publicListing === 'shown' || entity.publicListing === 'hidden' ? entity.publicListing : 'auto',
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt,
   };
@@ -39,9 +43,33 @@ function brigadeToEntity(brigade: any) {
     contactPhone: brigade.contact?.phone || brigade.contactPhone || '',
     logo: brigade.logo || '',
     themeColor: brigade.themeColor || '',
+    publicListing: brigade.publicListing === 'shown' || brigade.publicListing === 'hidden' ? brigade.publicListing : 'auto',
     createdAt: brigade.createdAt || new Date().toISOString(),
     updatedAt: brigade.updatedAt || new Date().toISOString(),
   };
+}
+
+/**
+ * Filter a list of brigade entities to those that belong in the public
+ * directory: `publicListing: 'shown'` always; `'hidden'` never; `'auto'`
+ * (the default) only when the brigade has a current or upcoming run.
+ */
+async function directoryVisibleBrigades(entities: any[]): Promise<any[]> {
+  const auto = entities.filter((e) => (e.publicListing || 'auto') === 'auto');
+  const shown = entities.filter((e) => e.publicListing === 'shown');
+  if (auto.length === 0) return shown;
+
+  const withUpcomingRun = new Set<string>();
+  const routesClient = await getTableClient(ROUTES_TABLE);
+  // Only 'published'/'active' routes can qualify — scan just those.
+  for await (const r of routesClient.listEntities<any>({
+    queryOptions: { filter: `status eq 'published' or status eq 'active'` },
+  })) {
+    if (isCurrentOrUpcomingRun({ status: r.status, date: r.date })) {
+      withUpcomingRun.add(r.partitionKey as string);
+    }
+  }
+  return [...shown, ...auto.filter((e) => withUpcomingRun.has(e.rowKey))];
 }
 
 export const brigadesRouter = new Hono();
@@ -51,11 +79,10 @@ export const brigadesRouter = new Hono();
 brigadesRouter.get('/public', async (c) => {
   try {
     const client = await getTableClient(BRIGADES_TABLE);
-    const brigades = [];
-    for await (const entity of client.listEntities()) {
-      brigades.push(toPublicBrigade(entity));
-    }
-    return c.json(brigades);
+    const entities = [];
+    for await (const entity of client.listEntities()) entities.push(entity);
+    const visible = await directoryVisibleBrigades(entities);
+    return c.json(visible.map(toPublicBrigade));
   } catch (error) {
     console.error('Error fetching public brigades:', error);
     return c.json({ error: 'Failed to fetch brigades', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
@@ -75,11 +102,10 @@ brigadesRouter.get('/public', async (c) => {
 brigadesRouter.get('/', async (c) => {
   try {
     const client = await getTableClient(BRIGADES_TABLE);
-    const brigades = [];
-    for await (const entity of client.listEntities()) {
-      brigades.push(toPublicBrigade(entity));
-    }
-    return c.json(brigades);
+    const entities = [];
+    for await (const entity of client.listEntities()) entities.push(entity);
+    const visible = await directoryVisibleBrigades(entities);
+    return c.json(visible.map(toPublicBrigade));
   } catch (error) {
     console.error('Error fetching brigades:', error);
     return c.json({ error: 'Failed to fetch brigades', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
@@ -114,6 +140,7 @@ function toPublicBrigade(entity: any) {
     logo: b.logo,
     themeColor: b.themeColor,
     contact: b.contact,
+    publicListing: b.publicListing,
     createdAt: b.createdAt,
   };
 }
@@ -165,6 +192,20 @@ brigadesRouter.post('/', async (c) => {
     if (brigade.id !== authResult.organizationId) {
       return c.json({ error: 'Forbidden', message: 'A brigade id must match your own organization' }, 403);
     }
+
+    // Content safety: the brigade name shows on public, unauthenticated pages.
+    const nameGuard = await guardTextContent({
+      subjectType: 'brigade',
+      subjectId: brigade.id,
+      brigadeId: brigade.id,
+      field: 'name',
+      value: brigade.name,
+      actorEmail: authResult.email || authResult.userId || 'unknown',
+    });
+    if (nameGuard.blocked) {
+      return c.json({ error: 'Content rejected', message: `${nameGuard.reason} If this is a mistake, contact support.` }, 422);
+    }
+
     const client = await getTableClient(BRIGADES_TABLE);
     const now = new Date().toISOString();
     const entity = brigadeToEntity({ ...brigade, createdAt: brigade.createdAt || now, updatedAt: now });
@@ -187,6 +228,26 @@ brigadesRouter.put('/:id', async (c) => {
     if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
     const brigade = await c.req.json() as any;
     const client = await getTableClient(BRIGADES_TABLE);
+
+    // Content safety: only re-check fields that actually changed — the brigade
+    // name and logo both render on public, unauthenticated pages, but image
+    // moderation is slow/metered so an unchanged logo must not pay for it.
+    let existing: any = null;
+    try {
+      existing = entityToBrigade(await client.getEntity(brigadeId, brigadeId));
+    } catch {
+      // No existing row (first write via PUT) — treat every field as changed.
+    }
+    const actorEmail = authResult.email || authResult.userId || 'unknown';
+    if (typeof brigade.name === 'string' && brigade.name !== existing?.name) {
+      const g = await guardTextContent({ subjectType: 'brigade', subjectId: brigadeId, brigadeId, field: 'name', value: brigade.name, actorEmail });
+      if (g.blocked) return c.json({ error: 'Content rejected', message: g.reason }, 422);
+    }
+    if (typeof brigade.logo === 'string' && brigade.logo && brigade.logo !== existing?.logo) {
+      const g = await guardImageContent({ subjectType: 'brigade', subjectId: brigadeId, brigadeId, field: 'logo', value: brigade.logo, actorEmail });
+      if (g.blocked) return c.json({ error: 'Content rejected', message: g.reason }, 422);
+    }
+
     const now = new Date().toISOString();
     const entity = brigadeToEntity({ ...brigade, id: brigadeId, updatedAt: now });
     await client.updateEntity(entity, 'Merge');

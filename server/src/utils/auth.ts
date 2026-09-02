@@ -18,6 +18,34 @@ const isDevMode = process.env.DEV_MODE === 'true';
 
 export type SuiteRole = 'owner' | 'admin' | 'viewer';
 
+/**
+ * Platform administrators operate the whole deployment (not a single brigade):
+ * they use the admin portal (/admin) to see every brigade, route and user and
+ * to take inappropriate content down. Station Manager is the source of truth —
+ * its GET /api/auth/me already returns `isPlatformAdmin` (driven by SM's own
+ * PLATFORM_ADMIN_EMAILS env — see Station-Manager
+ * backend/src/middleware/platformAdmin.ts), so the normal path is to trust
+ * that flag.
+ *
+ * PLATFORM_ADMIN_EMAILS here is a local bridge: it lets an operator hold
+ * platform-admin rights in Fire Santa Run before (or independently of) the
+ * SM-side allowlist, and is the mechanism for dev / self-hosted setups that
+ * don't point at a real Station Manager. Comma-separated, case-insensitive.
+ * Unset ⇒ defer entirely to SM's flag.
+ */
+function platformAdminEmailBridge(): string[] {
+  return (process.env.PLATFORM_ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** Whether an email is in the local PLATFORM_ADMIN_EMAILS bridge list. */
+export function isBridgedPlatformAdmin(email: string | undefined): boolean {
+  if (!email) return false;
+  return platformAdminEmailBridge().includes(email.toLowerCase());
+}
+
 export interface AuthResult {
   authenticated: boolean;
   userId?: string;
@@ -29,6 +57,12 @@ export interface AuthResult {
   role?: SuiteRole;
   /** Whether the org's plan (or standalone add-on) grants Fire Santa Run. */
   santaRunEnabled?: boolean;
+  /**
+   * Whether the caller is a Fire Santa Run platform administrator — true when
+   * Station Manager reports `isPlatformAdmin`, or the caller's email is in the
+   * local PLATFORM_ADMIN_EMAILS bridge. Gates every /api/admin route.
+   */
+  isPlatformAdmin?: boolean;
   error?: string;
 }
 
@@ -75,6 +109,7 @@ export async function validateToken(request: Request): Promise<AuthResult> {
       organizationId: 'dev-brigade-1',
       role: 'admin',
       santaRunEnabled: true,
+      isPlatformAdmin: true,
     };
   }
 
@@ -109,6 +144,7 @@ export async function validateToken(request: Request): Promise<AuthResult> {
     organizationId?: unknown;
     role?: unknown;
     entitlements?: { santaRunEnabled?: unknown } | null;
+    isPlatformAdmin?: unknown;
   };
   try {
     body = await res.json();
@@ -128,6 +164,7 @@ export async function validateToken(request: Request): Promise<AuthResult> {
     organizationId: typeof body.organizationId === 'string' ? body.organizationId : undefined,
     role: (body.role === 'owner' || body.role === 'admin' || body.role === 'viewer') ? body.role : undefined,
     santaRunEnabled: body.entitlements?.santaRunEnabled === true,
+    isPlatformAdmin: body.isPlatformAdmin === true || isBridgedPlatformAdmin(body.email),
   };
 
   if (tokenCache.size >= MAX_CACHE_ENTRIES) tokenCache.clear();
@@ -174,4 +211,22 @@ export function checkBrigadeAccess(authResult: AuthResult, brigadeId: string, pe
     return { authorized: false, error: `Role '${authResult.role}' does not have '${permission}' permission` };
   }
   return { authorized: true };
+}
+
+/**
+ * Validate the caller and require platform-admin rights — the gate for every
+ * /api/admin route. Returns the AuthResult on success so the handler can log
+ * `who` did the action; on failure returns a ready-to-send `{ status, body }`.
+ */
+export async function requirePlatformAdmin(
+  request: Request,
+): Promise<{ ok: true; auth: AuthResult } | { ok: false; status: 401 | 403; body: { error: string; message: string } }> {
+  const auth = await validateToken(request);
+  if (!auth.authenticated) {
+    return { ok: false, status: 401, body: { error: 'Unauthorized', message: auth.error || 'Authentication required' } };
+  }
+  if (!auth.isPlatformAdmin) {
+    return { ok: false, status: 403, body: { error: 'Forbidden', message: 'Platform administrator access required' } };
+  }
+  return { ok: true, auth };
 }

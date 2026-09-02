@@ -83,6 +83,22 @@ export function evaluateServerConfig(): ServerConfigResult {
       );
     }
 
+    // Content safety (utils/contentSafety.ts) moderates public-facing run and
+    // brigade names + brigade logos. Optional but strongly recommended in
+    // production: with it unset, name/logo writes are never checked and every
+    // moderation flag is 'pending' (fail-open). A half-set pair is a mistake.
+    const contentSafetyVars = ['CONTENT_SAFETY_ENDPOINT', 'CONTENT_SAFETY_KEY'];
+    const contentSafetySet = contentSafetyVars.filter((v) => process.env[v]);
+    if (contentSafetySet.length === 0) {
+      warnings.push(
+        'Content Safety is not configured (CONTENT_SAFETY_ENDPOINT / CONTENT_SAFETY_KEY) — ' +
+          'run and brigade names and logos will not be screened for inappropriate content. See infra/.env.example.',
+      );
+    } else if (contentSafetySet.length < contentSafetyVars.length) {
+      const missing = contentSafetyVars.filter((v) => !process.env[v]);
+      warnings.push(`Content Safety partially configured — missing ${missing.join(', ')}; screening is disabled until both are set.`);
+    }
+
     // Ops alert email (utils/opsAlert.ts) is optional: with any of these
     // three unset, alerts are logged only, not emailed — never fatal. But a
     // partial set is always a mistake.

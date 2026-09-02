@@ -83,6 +83,26 @@ export function hasPublicRoutes(routes: Route[]): boolean {
 }
 
 /**
+ * Whether a brigade belongs in the public directory (`/brigades` search page),
+ * given its `publicListing` setting and its routes:
+ * - `shown`  → always
+ * - `hidden` → never
+ * - `auto` (default) → only while it has a current or upcoming run
+ *
+ * Mirrors the server's `directoryVisibleBrigades` (server/src/routes/brigades.ts)
+ * — keep the two in sync.
+ */
+export function shouldListInDirectory(
+  publicListing: 'auto' | 'shown' | 'hidden' | undefined,
+  routes: Route[],
+  now: Date = new Date(),
+): boolean {
+  if (publicListing === 'shown') return true;
+  if (publicListing === 'hidden') return false;
+  return categorizeBrigadeRoutes(routes, now).upcoming.length > 0;
+}
+
+/**
  * Sanitise a user-provided link URL for use in an <a href>. Parses the value as
  * an absolute URL and returns the normalised `href` only when the scheme is
  * http(s); otherwise undefined.

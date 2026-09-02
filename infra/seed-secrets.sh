@@ -99,6 +99,7 @@ fi
 RESOURCE_GROUP="rg-santarun-${ENVIRONMENT}-${NAME_SUFFIX}"
 APP_NAME="santarun-app-${NAME_SUFFIX}"
 STORAGE_ACCOUNT="santarun${NAME_SUFFIX}"
+CONTENT_SAFETY_ACCOUNT="santarun-cs-${NAME_SUFFIX}"
 
 # ─── Load local secrets file (gitignored) ────────────────────────────────────
 # Shell env takes precedence over the file, so CI can inject secrets without a
@@ -174,6 +175,28 @@ if [[ -z "$STORAGE_CONN" ]]; then
 fi
 echo "✅ Storage connection string retrieved."
 
+# ─── Content Safety endpoint + key (moderation) ──────────────────────────────
+# Provisioned by infra/modules/contentsafety.bicep. Read live like Storage, so
+# this stays re-runnable. If the account isn't there yet (older deploy), skip —
+# moderation just runs in fail-open mode until it's provisioned + re-seeded.
+
+echo "🔎 Reading the Content Safety endpoint + key from the deployed resource..."
+CONTENT_SAFETY_ENDPOINT_VALUE=$(az cognitiveservices account show \
+  --name "$CONTENT_SAFETY_ACCOUNT" \
+  --resource-group "$RESOURCE_GROUP" \
+  --query properties.endpoint --output tsv 2>/dev/null || true)
+CONTENT_SAFETY_KEY_VALUE=$(az cognitiveservices account keys list \
+  --name "$CONTENT_SAFETY_ACCOUNT" \
+  --resource-group "$RESOURCE_GROUP" \
+  --query key1 --output tsv 2>/dev/null || true)
+
+if [[ -n "$CONTENT_SAFETY_ENDPOINT_VALUE" && -n "$CONTENT_SAFETY_KEY_VALUE" ]]; then
+  echo "✅ Content Safety endpoint + key retrieved."
+else
+  echo "⚠️  Content Safety account '$CONTENT_SAFETY_ACCOUNT' not found — skipping."
+  echo "    Run the Bicep deploy to provision it, then re-run this script."
+fi
+
 # ─── Public origin ───────────────────────────────────────────────────────────
 # Per-environment default; override via APP_ORIGIN (shell env or secrets file).
 # The Container App's auto-generated FQDN is only known after deploy — read it
@@ -217,6 +240,13 @@ SETTINGS=(
   "APP_BASE_URL=$APP_ORIGIN"
 )
 
+# Content Safety — only set when the account was found (see above). Both must
+# be present for moderation to run; a partial pair leaves screening disabled.
+if [[ -n "$CONTENT_SAFETY_ENDPOINT_VALUE" && -n "$CONTENT_SAFETY_KEY_VALUE" ]]; then
+  SETTINGS+=("CONTENT_SAFETY_ENDPOINT=$CONTENT_SAFETY_ENDPOINT_VALUE")
+  SETTINGS+=("CONTENT_SAFETY_KEY=$CONTENT_SAFETY_KEY_VALUE")
+fi
+
 # Optional secrets — SUITE_AUTH_URL points at the Station Manager deployment.
 # VAPID_* enables the "notify me when Santa starts" web push (see README).
 # REALTIME_WS_SECRET signs the short-lived tokens broadcaster/editor
@@ -230,9 +260,18 @@ SETTINGS=(
 # and reuse its sender address; infra/.env.example and infra/README.md
 # ("Ops alert emails") spell out the exact command. OPS_ALERT_EMAIL is
 # whichever mailbox should receive the alerts.
+# PLATFORM_ADMIN_EMAILS — comma-separated allowlist that grants the /admin
+#   portal in Fire Santa Run directly, independent of Station Manager's own
+#   isPlatformAdmin flag (which is honoured automatically). Handy for the first
+#   operator / self-hosted setups.
+# CONTENT_SAFETY_BLOCKLIST — comma-separated Content Safety blocklist names
+#   (custom prohibited-terms lists managed in the Azure portal) applied to text.
+# CONTENT_SAFETY_BLOCK_SEVERITY — min category severity (0/2/4/6) that blocks a
+#   publish; default 4 ("Medium").
 MISSING_SECRETS=()
 for name in SUITE_AUTH_URL VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET \
-            AZURE_COMMUNICATION_CONNECTION_STRING EMAIL_FROM_ADDRESS OPS_ALERT_EMAIL; do
+            AZURE_COMMUNICATION_CONNECTION_STRING EMAIL_FROM_ADDRESS OPS_ALERT_EMAIL \
+            PLATFORM_ADMIN_EMAILS CONTENT_SAFETY_BLOCKLIST CONTENT_SAFETY_BLOCK_SEVERITY; do
   val="$(resolve "$name")"
   if [[ -n "$val" ]]; then
     SETTINGS+=("$name=$val")

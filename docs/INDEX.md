@@ -52,6 +52,7 @@ Topic map for `docs/`. Read the file that matches your topic instead of scanning
 ## Launch / security
 
 - [SECURITY_REVIEW_LAUNCH.md](SECURITY_REVIEW_LAUNCH.md) — pre-launch security review & sign-off record (#342). Predates the #388 identity migration — treat findings about the old auth system as historical.
+- [ADMIN_PORTAL.md](ADMIN_PORTAL.md) — the `/admin` platform-admin portal, Azure AI Content Safety moderation of public run/brigade names + logos, and `Brigade.publicListing` directory visibility
 - E2E tests: `e2e/` (Playwright) — `npm run test:e2e`
 
 ## Infrastructure, secrets & deployment

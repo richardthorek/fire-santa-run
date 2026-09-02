@@ -1,7 +1,7 @@
 import type { Route, RouteTemplate, Waypoint } from '../types';
 import type { IStorageAdapter, Brigade } from './types';
 import type { User } from '../types/user';
-import { isPublicRouteStatus } from '../utils/publicBrigade';
+import { isPublicRouteStatus, shouldListInDirectory } from '../utils/publicBrigade';
 
 /**
  * LocalStorage implementation of the storage adapter.
@@ -183,6 +183,10 @@ export class LocalStorageAdapter implements IStorageAdapter {
   async getBrigades(): Promise<Brigade[]> {
     // Brigade records are stored under keys of the form `santa_<brigadeId>_brigade`
     // (see getStorageKey). Enumerate via the Web Storage length/key(i) API.
+    // This powers the public directory (BrigadeDiscoveryPage), so it applies
+    // the same visibility rule as the server's GET /brigades/public:
+    // `publicListing` shown/hidden, or (default 'auto') listed only while the
+    // brigade has a current or upcoming run.
     const brigades: Brigade[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -197,7 +201,14 @@ export class LocalStorageAdapter implements IStorageAdapter {
         }
       }
     }
-    return brigades;
+    const visible: Brigade[] = [];
+    for (const brigade of brigades) {
+      const routes = brigade.publicListing === 'auto' || brigade.publicListing === undefined
+        ? await this.getRoutes(brigade.id)
+        : [];
+      if (shouldListInDirectory(brigade.publicListing, routes)) visible.push(brigade);
+    }
+    return visible;
   }
 
   async getBrigade(brigadeId: string): Promise<Brigade | null> {

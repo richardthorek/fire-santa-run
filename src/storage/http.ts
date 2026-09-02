@@ -35,6 +35,12 @@ async function routeWriteError(response: Response, verb: 'create' | 'update'): P
       403,
     );
   }
+  if (response.status === 422) {
+    return new RouteWriteError(
+      serverMessage || 'This run’s name or description was flagged as inappropriate. Edit it and try again.',
+      422,
+    );
+  }
   return new RouteWriteError(serverMessage || `Failed to ${verb} route: ${response.statusText}`, response.status);
 }
 
@@ -306,29 +312,29 @@ export class HttpStorageAdapter implements IStorageAdapter {
 
   async saveBrigade(brigade: Brigade): Promise<void> {
     const existingBrigade = await this.getBrigade(brigade.id);
-    
-    if (existingBrigade) {
-      // Update
-      const authHeaders = await this.getAuthHeaders();
-      const response = await fetch(`${this.apiBaseUrl}/brigades/${encodeURIComponent(brigade.id)}`, {
-        method: 'PUT',
+    const verb = existingBrigade ? 'update' : 'create';
+    const authHeaders = await this.getAuthHeaders();
+    const response = await fetch(
+      existingBrigade
+        ? `${this.apiBaseUrl}/brigades/${encodeURIComponent(brigade.id)}`
+        : `${this.apiBaseUrl}/brigades`,
+      {
+        method: existingBrigade ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(brigade),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to update brigade: ${response.statusText}`);
+      },
+    );
+    if (!response.ok) {
+      // Surface the server's own message (esp. 422 content-safety rejections)
+      // so brigade settings can show the brigade why the save was blocked.
+      let serverMessage = '';
+      try {
+        const body = await response.clone().json();
+        serverMessage = typeof body?.message === 'string' ? body.message : '';
+      } catch {
+        /* non-JSON error body */
       }
-    } else {
-      // Create
-      const authHeaders = await this.getAuthHeaders();
-      const response = await fetch(`${this.apiBaseUrl}/brigades`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify(brigade),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to create brigade: ${response.statusText}`);
-      }
+      throw new Error(serverMessage || `Failed to ${verb} brigade: ${response.statusText}`);
     }
   }
 

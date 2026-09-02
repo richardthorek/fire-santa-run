@@ -35,6 +35,7 @@ const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage').then(m 
 const TermsPage = lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const HelpPage = lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
 const RoutePosterPage = lazy(() => import('./pages/RoutePosterPage').then(m => ({ default: m.RoutePosterPage })));
+const AdminPortalPage = lazy(() => import('./pages/admin').then(m => ({ default: m.AdminPortalPage })));
 
 // Loading component
 function PageLoader() {
@@ -231,6 +232,13 @@ function App() {
             <Route path="/routes/:routeId/analytics" element={
               <ProtectedRoute>
                 <AnalyticsDashboard />
+              </ProtectedRoute>
+            } />
+
+            {/* Platform administration — the page itself also gates on isPlatformAdmin */}
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminPortalPage />
               </ProtectedRoute>
             } />
 

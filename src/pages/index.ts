@@ -9,6 +9,7 @@ export { BrigadeSettingsPage } from './BrigadeSettingsPage';
 export { BrigadeDiscoveryPage } from './BrigadeDiscoveryPage';
 export { LandingPage } from './LandingPage';
 export { LoginPage, LogoutPage } from './auth';
+export { AdminPortalPage } from './admin';
 export { TemplateLibrary } from './TemplateLibrary';
 export { AnalyticsDashboard } from './AnalyticsDashboard';
 export { PrivacyPolicyPage } from './PrivacyPolicyPage';

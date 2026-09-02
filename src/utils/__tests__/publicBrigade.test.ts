@@ -4,6 +4,7 @@ import {
   hasPublicRoutes,
   safeHttpUrl,
   safeImageSrc,
+  shouldListInDirectory,
 } from '../publicBrigade';
 import type { Route, RouteStatus } from '../../types';
 
@@ -136,5 +137,26 @@ describe('hasPublicRoutes', () => {
         makeRoute('p', 'published', '2025-12-02'),
       ]),
     ).toBe(true);
+  });
+});
+
+describe('shouldListInDirectory', () => {
+  const NOW = new Date('2025-12-01T12:00:00');
+  const upcoming = [makeRoute('p', 'published', '2025-12-20')];
+  const pastOnly = [makeRoute('c', 'completed', '2025-11-01'), makeRoute('old', 'published', '2024-12-24')];
+
+  it("'shown' is always listed, even with no runs", () => {
+    expect(shouldListInDirectory('shown', [], NOW)).toBe(true);
+  });
+
+  it("'hidden' is never listed, even with an upcoming run", () => {
+    expect(shouldListInDirectory('hidden', upcoming, NOW)).toBe(false);
+  });
+
+  it("'auto' (and undefined) is listed only with a current or upcoming run", () => {
+    expect(shouldListInDirectory('auto', upcoming, NOW)).toBe(true);
+    expect(shouldListInDirectory('auto', pastOnly, NOW)).toBe(false);
+    expect(shouldListInDirectory(undefined, [], NOW)).toBe(false);
+    expect(shouldListInDirectory(undefined, [makeRoute('a', 'active', '2025-11-30')], NOW)).toBe(true);
   });
 });
