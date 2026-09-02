@@ -233,16 +233,59 @@ cost/SKU decision, is explicitly called out below rather than done silently.
   exercise the map, sign-in, and push opt-in, confirm devtools shows zero
   violations for legitimate requests, then rename the header — see the
   comment above `buildCsp()` in `server/src/app.ts`.
-- Turn on ops alert emails: get the connection string from Station Manager's
-  existing ACS instance and set `AZURE_COMMUNICATION_CONNECTION_STRING` /
-  `EMAIL_FROM_ADDRESS` / `OPS_ALERT_EMAIL` via `infra/seed-secrets.sh` — see
-  `infra/.env.example` for the exact `az communication list-key` command and
-  roadmap item 7 below for what ships once this is set.
+- ~~Turn on ops alert emails~~ — **done 2026-09-02** (validation pass below).
 
 Capacity/scaling approach (registration-informed vertical warming, minimum-
 viable alerting) is covered in the roadmap below (item 7) — most of it
-shipped as code in this pass; the ACS wiring above and an actual load test
-are what's left, both needing Azure access from a different session.
+shipped as code in this pass; a real load test is what's left.
+
+**Azure-access + local-boot validation pass (2026-09-02):**
+
+A follow-up session with Azure CLI access + the devcontainer validated the
+items above that a cloud session couldn't. Results:
+
+- **`npm run dev` was broken — two regressions, now fixed** (commit on this
+  branch). (1) `dev:server` called `tsx` but it only resolves inside
+  `server/node_modules`, so the server process died on start (`sh: 1: tsx:
+  not found`, exit 127) while `concurrently` kept the other two panes up —
+  easy to miss. (2) `@azure/data-tables` refuses Azurite's plaintext-HTTP
+  endpoint unless `allowInsecureConnection` is set, so every Table Storage
+  call in `DEV_MODE` 500'd and `/api/health/ready` never went green. Fixed
+  in `package.json` + `server/src/utils/storage.ts`; `npm run setup && npm
+  run dev` now boots Azurite + `server/` + Vite with no Azure account.
+- **OG image port verified end-to-end.** Seeded a route+brigade into Azurite;
+  `GET /api/og-image` returns a valid 1200×630 SVG with the right
+  brigade/route/date, 400 on missing params, 404 on unknown route. Blob
+  caching round-trips (tested against `azurite-blob`); `@azure/storage-blob`
+  needs no insecure-connection flag.
+- **ACS ops-alert email wired and sent.** Connection string pulled from
+  `stationkit-comm` (RG `bungrfsstation_group`); `noreply@stationkit.com.au`
+  sender is domain-verified. `AZURE_COMMUNICATION_CONNECTION_STRING`,
+  `EMAIL_FROM_ADDRESS=noreply@stationkit.com.au`, and
+  `OPS_ALERT_EMAIL=richard@thorek.net` set on `santarun-app-dev003` (revision
+  `--0000042`). A real send through `alertOps()` was received (subject
+  `[Fire Santa Run] ops-alert wiring test`, with the `kind=…` cooldown
+  footer). These vars survive CI's `az containerapp update --image` deploys;
+  they take effect once this branch's image (which has `opsAlert.ts` — the
+  live `c72c19e` image predates it) ships.
+- **`infra/main.bicep` re-deploy is destructive — do NOT run
+  `az deployment sub create` against a live app.** `what-if` against
+  `rg-santarun-dev-dev003` shows it would delete the
+  `santa.stationkit.com.au` custom-domain binding, revert the image to the
+  `mcr.microsoft.com/k8se/quickstart` placeholder (the `containerImage`
+  param default), and drop `AZURE_STORAGE_CONNECTION_STRING` / `CORS_ORIGIN`
+  / `APP_BASE_URL` (Bicep does a full PUT; anything not in the template is
+  removed). The "kept out of Bicep so re-running never clobbers a live
+  secret" comment in `modules/containerapps.bicep` is wrong. Ongoing deploys
+  must stay image-only (`az containerapp update --image`, which is what CI
+  does); the Bicep is for first-provision only. `scale-season.sh` is safe
+  (it's a `--min-replicas` update, not a Bicep deploy) and resolves the app
+  correctly.
+- **Still not done:** CSP Report-Only → enforcing (needs a real browser with
+  a real `VITE_MAPBOX_TOKEN` exercising map/auth/push — no token available
+  to this session either); load test; the Bicep-comment correction above.
+  Deploying this branch is a normal merge-to-`main` → CI action, not a
+  manual step.
 
 Public-growth and polish shipped in the latest pass:
 

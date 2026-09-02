@@ -149,11 +149,21 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: appInsightsConnectionString
             }
             // All other settings (Storage, VAPID, CORS_ORIGIN,
-            // APP_BASE_URL, SUITE_AUTH_URL, REALTIME_WS_SECRET) are
-            // applied post-deploy via `az containerapp update --set-env-vars`
-            // / `az containerapp secret set` — see infra/seed-secrets.sh.
-            // Kept out of Bicep so re-running `az deployment sub create`
-            // never risks clobbering a live secret.
+            // APP_BASE_URL, SUITE_AUTH_URL, REALTIME_WS_SECRET,
+            // AZURE_COMMUNICATION_CONNECTION_STRING / EMAIL_FROM_ADDRESS /
+            // OPS_ALERT_EMAIL) are applied post-deploy via
+            // `az containerapp update --set-env-vars` / `az containerapp
+            // secret set` — see infra/seed-secrets.sh.
+            //
+            // WARNING: this does NOT make re-deploying this template safe
+            // against a live app. Bicep does a full PUT on the containerApp
+            // resource, so `az deployment sub create` on an app that CI /
+            // seed-secrets.sh have since configured will REMOVE every env
+            // var, custom-domain binding and ingress-traffic rule not
+            // restated here, and reset `image` to the placeholder default.
+            // Verified via `what-if` 2026-09-02. Use this template for
+            // first-provision only; ongoing deploys are image-only
+            // (`az containerapp update --image`, as the CI workflow does).
           ]
         }
       ]
