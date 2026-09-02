@@ -1,17 +1,31 @@
 import { TableClient, TableServiceClient } from '@azure/data-tables';
 
+export const isDevMode = process.env.DEV_MODE === 'true';
+
+// Azurite's fixed, publicly-documented local-emulator account — not a secret,
+// every Azurite installation accepts this same well-known key. DEV_MODE with
+// no explicit connection string defaults here, mirroring the frontend's
+// "DEV_MODE implies localStorage" convention: `npm run dev` (which also
+// starts Azurite — see package.json) works with no Azure account at all.
+const AZURITE_CONNECTION_STRING =
+  'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;';
+
 export const STORAGE_CONNECTION_STRING: string = (
   process.env.AZURE_STORAGE_CONNECTION_STRING ||
   process.env.VITE_AZURE_STORAGE_CONNECTION_STRING ||
-  ''
+  (isDevMode ? AZURITE_CONNECTION_STRING : '')
 );
 
-export const isDevMode = process.env.DEV_MODE === 'true';
+// Azurite serves plaintext HTTP; @azure/data-tables refuses non-HTTPS
+// endpoints unless explicitly told the insecure hop is intentional. Only
+// ever relaxed in DEV_MODE (the sole path that targets Azurite) — a real
+// Azure Storage endpoint is always HTTPS and unaffected.
+const clientOptions = isDevMode ? { allowInsecureConnection: true } : undefined;
 
 // Cache created tables so we only attempt creation once per table per process.
 const createdTables = new Set<string>();
 const serviceClient = STORAGE_CONNECTION_STRING
-  ? TableServiceClient.fromConnectionString(STORAGE_CONNECTION_STRING)
+  ? TableServiceClient.fromConnectionString(STORAGE_CONNECTION_STRING, clientOptions)
   : null;
 
 /**
@@ -61,5 +75,5 @@ export async function getTableClient(tableName: string): Promise<TableClient> {
     createdTables.add(tableName);
   }
 
-  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, tableName);
+  return TableClient.fromConnectionString(STORAGE_CONNECTION_STRING, tableName, clientOptions);
 }

@@ -6,9 +6,9 @@
 #   1. Live Azure resources  — the Storage connection string is read back from
 #      the deployed Storage account (no deployment output needed), so this
 #      script is fully re-runnable independent of a fresh `deploy.sh` run.
-#   2. A local secrets file   — SUITE_AUTH_URL, VAPID keys, and the realtime WS
-#      signing secret come from infra/.env.<env> (gitignored) or, failing
-#      that, the current shell env.
+#   2. A local secrets file   — SUITE_AUTH_URL, VAPID keys, the realtime WS
+#      signing secret, and (optional) ops-alert email settings come from
+#      infra/.env.<env> (gitignored) or, failing that, the current shell env.
 #
 # It is idempotent: `az containerapp update --set-env-vars` replaces only the
 # keys given; every other env var already on the revision is left untouched.
@@ -222,8 +222,17 @@ SETTINGS=(
 # REALTIME_WS_SECRET signs the short-lived tokens broadcaster/editor
 # WebSocket connections present — optional (falls back to a hash of the
 # storage connection string) but worth setting explicitly in prod.
+# AZURE_COMMUNICATION_CONNECTION_STRING / EMAIL_FROM_ADDRESS / OPS_ALERT_EMAIL
+# enable operational alert emails (server/src/utils/opsAlert.ts). This app
+# deliberately does NOT provision its own Azure Communication Services
+# resource — it reuses Station Manager's existing instance. Retrieve the
+# connection string with `az communication list-key` against that resource
+# and reuse its sender address; infra/.env.example and infra/README.md
+# ("Ops alert emails") spell out the exact command. OPS_ALERT_EMAIL is
+# whichever mailbox should receive the alerts.
 MISSING_SECRETS=()
-for name in SUITE_AUTH_URL VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET; do
+for name in SUITE_AUTH_URL VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET \
+            AZURE_COMMUNICATION_CONNECTION_STRING EMAIL_FROM_ADDRESS OPS_ALERT_EMAIL; do
   val="$(resolve "$name")"
   if [[ -n "$val" ]]; then
     SETTINGS+=("$name=$val")

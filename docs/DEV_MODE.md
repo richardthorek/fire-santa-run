@@ -2,564 +2,204 @@
 
 ## Overview
 
-Fire Santa Run supports **Development Mode** to accelerate feature development and enable testing without authentication barriers. This guide explains how to use dev mode effectively.
+Fire Santa Run supports **Development Mode** so you can work on the app with
+no Azure account and no Station Manager sign-in. This guide explains how to
+use it.
 
 ## Why Development Mode?
 
-### The Problem
-In the original implementation plan, authentication (Microsoft Entra External ID) was scheduled for Phase 2, immediately after infrastructure setup. This would create barriers during development:
+- Build and test features without setting up Station Manager auth first
+- No cloud account required for local iteration — everything runs on your
+  machine (Vite, `server/`, and Azurite as a local Table Storage emulator)
+- Easy demos and previews without account management
+- Simpler test setup (no auth mocking needed)
 
-- ❌ Can't test route planning without setting up authentication first
-- ❌ Can't preview tracking features without Azure Entra tenant
-- ❌ Can't demonstrate features to stakeholders without user accounts
-- ❌ Harder to write automated tests that require authentication mocking
-- ❌ Slower iteration due to auth complexity
-
-### The Solution
-**Move authentication to Phase 7** and implement a development mode bypass:
-
-- ✅ Build and test all core features immediately (Phases 2-6)
-- ✅ No authentication setup required for local development
-- ✅ Easy demos and previews without account management
-- ✅ Simpler test setup (no auth mocking needed)
-- ✅ Production-ready authentication added when features are stable
-
-## Security Rationale
+## Security rationale
 
 **Why is this safe for Fire Santa Run?**
 
-1. **No sensitive data:** Application doesn't handle personal information, payments, or private data
-2. **Public tracking:** Route tracking is intentionally public - anyone can view Santa's location
-3. **Development only:** Dev mode is disabled in production deployments
-4. **Mock data:** Dev mode uses test/mock brigade data, not real credentials
-5. **Clear separation:** Production mode enforces full authentication before accessing real data
+1. Public tracking is intentionally public by design — anyone can view
+   Santa's location with no login, in production too.
+2. Dev mode is disabled in production: `DEV_MODE`/`VITE_DEV_MODE` default to
+   `false`, and the deploy pipeline never sets them to `true`.
+3. Dev mode uses mock identity and local/emulated data, never real brigade
+   or Station Manager credentials.
 
-## Configuration
+## Two independent dev-mode flags
 
-### Environment Variable
+There are **two** `DEV_MODE` flags, one per process, and both matter for a
+full local setup:
 
-Control authentication mode with a single environment variable:
+| Flag | Where | Effect when `true` |
+|---|---|---|
+| `VITE_DEV_MODE` | Client (Vite/browser) | `AuthContext` uses a mock signed-in admin instead of calling Station Manager; `storageAdapter` (`src/storage/index.ts`) uses `LocalStorageAdapter` — all route/waypoint/brigade CRUD stays in the browser's `localStorage`, unchanged, and never calls `server/` |
+| `DEV_MODE` | Server (`server/`) | `validateToken()` returns a mock `owner`/`admin` session instead of calling Station Manager's `/api/auth/me`; `storage.ts` defaults to Azurite's well-known connection string if no explicit one is set |
 
-```bash
-# Development Mode (default for local development)
-VITE_DEV_MODE=true
+`npm run dev` sets both automatically (see `package.json`'s `dev:client` /
+`dev:server` scripts) — you don't need to configure this yourself for normal
+local work.
 
-# Production Mode (for deployed environments)
-VITE_DEV_MODE=false
-```
+> **What removing `api/` actually changed:** the frontend's dev-mode storage
+> path (`VITE_DEV_MODE=true` → `LocalStorageAdapter`) is unchanged — it never
+> talked to `api/` and still doesn't talk to `server/`. What changed is that
+> `server/` (the same Hono backend production runs) is now the *only* backend
+> implementation, used for local dev too, instead of a second, separately
+> maintained Functions app (`api/`) that the frontend's HTTP adapter used to
+> proxy to when dev mode was off. `server/` + Azurite matter locally for: (a)
+> developing/testing `server/` itself directly; (b) calls the frontend makes
+> to the backend regardless of dev mode — e.g. push-notification key
+> fetches, audit-log beacons — which now hit a real local backend instead of
+> a dead `localhost:7071` proxy target; and (c) the `VITE_DEV_MODE=false`
+> integration-testing path below, where `HttpStorageAdapter` does talk to
+> `server/` for real.
 
-### Local Development Setup
+## Local development setup
 
-#### Option A: Local-Only (Default - No Azure Required)
+### Prerequisites
 
-Create `.env.local` file:
+- Node.js 22+
+- A Mapbox token (`VITE_MAPBOX_TOKEN`) — the only thing you must supply yourself; get one free at [mapbox.com](https://account.mapbox.com/auth/signup/)
 
-```bash
-# Enable development mode
-VITE_DEV_MODE=true
-
-# Mock brigade for testing
-VITE_MOCK_BRIGADE_ID=dev-brigade-1
-VITE_MOCK_BRIGADE_NAME="Development Fire Brigade"
-
-# Only required variable for dev mode
-VITE_MAPBOX_TOKEN=pk.your_mapbox_token_here
-```
-
-Data will be stored in browser localStorage only.
-
-#### Option B: Shared Dev Environment with Azure (NEW!)
-
-If you want to test with real Azure Table Storage or collaborate with team members, add your Azure credentials:
-
-```bash
-# Enable development mode
-VITE_DEV_MODE=true
-
-# Mock brigade for testing
-VITE_MOCK_BRIGADE_ID=dev-brigade-1
-VITE_MOCK_BRIGADE_NAME="Development Fire Brigade"
-
-# Mapbox token
-VITE_MAPBOX_TOKEN=pk.your_mapbox_token_here
-
-# Azure Storage for shared dev environment
-VITE_AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=yourdevaccount;AccountKey=yourdevkey;EndpointSuffix=core.windows.net
-```
-
-With this configuration:
-- ✅ Data stored in Azure Table Storage (syncs across team)
-- ✅ Tables automatically prefixed with 'dev' (e.g., `devroutes`, `devbrigades`)
-- ✅ Dev data kept separate from production
-- ✅ Test real Azure integration early
-- ✅ No authentication still required in dev mode
-
-That's it! No Azure, no authentication setup, no additional services required for Option A. For Option B, just add the Azure connection string.
-
-### Production Deployment Setup
-
-Create `.env.production` file:
+### Setup
 
 ```bash
-# Disable development mode (REQUIRED for production)
-VITE_DEV_MODE=false
+cp .env.example .env.local
+echo "VITE_MAPBOX_TOKEN=pk.your_token" >> .env.local
 
-# Mapbox token
-VITE_MAPBOX_TOKEN=pk.your_production_token
-
-# Azure Storage
-VITE_AZURE_STORAGE_CONNECTION_STRING=your_connection_string
-VITE_AZURE_STORAGE_ACCOUNT_NAME=your_account
-
-# Microsoft Entra External ID
-VITE_ENTRA_CLIENT_ID=your_client_id
-VITE_ENTRA_TENANT_ID=your_tenant_id
-
-# Azure Web PubSub (real-time tracking)
-AZURE_WEBPUBSUB_CONNECTION_STRING=your_connection_string
-AZURE_WEBPUBSUB_HUB_NAME=santa-tracking
+npm run setup   # installs root + server/ dependencies
+npm run dev     # starts Azurite, server/, and the Vite frontend together
 ```
 
-## Implementation Patterns
+`npm run dev` runs three processes concurrently (see `package.json`):
 
-### 1. Authentication Context
+- `dev:storage` — Azurite (`azurite-table`), a local, offline Table Storage
+  emulator. `server/` defaults to its well-known connection string
+  automatically when `DEV_MODE=true` and no real connection string is set
+  (`server/src/utils/storage.ts`) — nothing to configure.
+- `dev:server` — `server/` itself (`tsx watch`), with `DEV_MODE=true`.
+- `dev:client` — Vite, the React frontend, with `VITE_DEV_MODE=true` (from
+  `.env.local`).
 
-```typescript
-// src/context/AuthContext.tsx
-import { createContext, useContext } from 'react';
+Open http://localhost:5173 — you're signed in as a mock admin for
+`dev-brigade-1`, no login screen, and data persists in Azurite between
+restarts (until you clear its local data files — see `.gitignore`).
 
-interface AuthContextType {
-  isAuthenticated: boolean;
-  user: User | null;
-  brigadeId: string | null;
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
-}
+### Testing against real Station Manager / real Azure Storage instead
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-
-  // Development Mode: Mock authenticated user
-  if (isDevMode) {
-    const mockUser = {
-      email: 'dev@example.com',
-      name: 'Dev User',
-      role: 'admin',
-    };
-
-    const mockAuth: AuthContextType = {
-      isAuthenticated: true,
-      user: mockUser,
-      brigadeId: import.meta.env.VITE_MOCK_BRIGADE_ID || 'dev-brigade-1',
-      login: async () => console.log('Dev mode: Login bypassed'),
-      logout: async () => console.log('Dev mode: Logout bypassed'),
-    };
-
-    return (
-      <AuthContext.Provider value={mockAuth}>
-        {children}
-      </AuthContext.Provider>
-    );
-  }
-
-  // Production Mode: Real authentication with Entra ID
-  return <MSALAuthProvider>{children}</MSALAuthProvider>;
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
-};
-```
-
-### 2. Protected Routes
-
-```typescript
-// src/components/ProtectedRoute.tsx
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-
-export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
-  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-
-  // In dev mode, bypass authentication
-  if (isDevMode) {
-    return <>{children}</>;
-  }
-
-  // In production mode, require authentication
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <>{children}</>;
-};
-```
-
-### 3. Storage Adapter
-
-```typescript
-// src/storage/index.ts
-import { LocalStorageAdapter } from './LocalStorageAdapter';
-import { AzureTableStorageAdapter } from './AzureTableStorageAdapter';
-
-export const createStorageAdapter = () => {
-  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-  const hasAzureCredentials = !!import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
-  
-  // Dev mode WITH Azure credentials: Use Azure with 'dev' prefix
-  if (isDevMode && hasAzureCredentials) {
-    const connectionString = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
-    console.info('[Storage] Dev mode with Azure. Using dev-prefixed tables.');
-    return new AzureTableStorageAdapter(connectionString, 'dev');
-  }
-  
-  // Dev mode WITHOUT Azure credentials: Use localStorage
-  if (isDevMode) {
-    console.info('[Storage] Dev mode with localStorage.');
-    return new LocalStorageAdapter();
-  }
-  
-  // Production mode: Use Azure without prefix
-  const connectionString = import.meta.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
-  if (!connectionString) {
-    throw new Error('Azure Storage connection string required for production');
-  }
-  
-  return new AzureTableStorageAdapter(connectionString);
-};
-
-export const storageAdapter = createStorageAdapter();
-```
-
-### 3a. Storage Modes Explained
-
-Fire Santa Run now supports **three storage modes** to provide flexibility during development:
-
-#### Mode 1: Local-Only Development (Default)
-**When to use:** Starting out, no Azure account yet, or offline development
+Sometimes you want to test the real integration rather than the mocks —
+e.g. verifying the Station Manager auth flow, or checking behaviour against
+a real dev Azure Storage account shared with the team:
 
 ```bash
 # .env.local
-VITE_DEV_MODE=true
-VITE_MAPBOX_TOKEN=pk.your_token_here
-# No Azure credentials
-```
-
-**Behavior:**
-- ✅ Data stored in browser localStorage
-- ✅ Works completely offline (except maps)
-- ✅ No Azure account required
-- ✅ Fast and simple
-- ⚠️ Data doesn't sync across devices/browsers
-- ⚠️ Data lost if browser storage cleared
-
-#### Mode 2: Shared Dev Environment (NEW!)
-**When to use:** Team collaboration, testing Azure integration, or multi-device dev
-
-```bash
-# .env.local
-VITE_DEV_MODE=true
-VITE_MAPBOX_TOKEN=pk.your_token_here
-VITE_AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=devaccount;...
-```
-
-**Behavior:**
-- ✅ Data stored in Azure Table Storage
-- ✅ Tables prefixed with 'dev' (e.g., `devroutes`, `devbrigades`)
-- ✅ Data syncs across team members and devices
-- ✅ Dev data isolated from production data
-- ✅ Test real Azure integration
-- ⚠️ Requires Azure Storage account
-- ⚠️ Shared dev data (team can see each other's changes)
-
-**Table names in this mode:**
-- `devroutes` - Route data
-- `devbrigades` - Brigade configuration
-
-#### Mode 3: Production Environment
-**When to use:** Live deployment serving real users
-
-```bash
-# .env.production
 VITE_DEV_MODE=false
-VITE_MAPBOX_TOKEN=pk.production_token
-VITE_AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=prodaccount;...
-VITE_ENTRA_CLIENT_ID=...
-VITE_ENTRA_TENANT_ID=...
+VITE_MAPBOX_TOKEN=pk.your_token
 ```
 
-**Behavior:**
-- ✅ Data stored in Azure Table Storage
-- ✅ Tables use production names (e.g., `routes`, `brigades`)
-- ✅ Full authentication enforced
-- ✅ Production-grade security
-- ✅ Domain whitelist validation
-- ⚠️ Requires all Azure services configured
+and, for `server/`, either export `DEV_MODE=false` (or just don't set it —
+it defaults to false) before running `dev:server` on its own. With
+`DEV_MODE=false`, `server/` requires a real `AZURE_STORAGE_CONNECTION_STRING`
+(a real Azure account, or a dev account with `dev`-prefixed tables — see
+`server/src/routes/*.ts`'s `isDevMode ? 'devroutes' : 'routes'` table-name
+pattern (unhyphenated — Azure Table Storage names allow only letters and
+digits), which is a *separate* mechanism from the `DEV_MODE` flag and still
+applies) and validates bearer tokens against the real `SUITE_AUTH_URL`
+(defaults to `https://stationkit.com.au`), so you'll need an actual Station
+Manager account and a real bearer token to exercise authenticated routes.
 
-**Table names in this mode:**
-- `routes` - Production route data
-- `brigades` - Production brigade configuration
+## Implementation patterns
 
-### 3b. Switching Between Storage Modes
-
-The storage adapter **automatically detects** which mode to use based on environment variables:
+### Auth bypass (client)
 
 ```typescript
-// Decision tree (automatic)
-if (VITE_DEV_MODE === 'true' && VITE_AZURE_STORAGE_CONNECTION_STRING exists) {
-  → Mode 2: Azure with 'dev' prefix
-} else if (VITE_DEV_MODE === 'true') {
-  → Mode 1: localStorage
+// src/context/AuthContext.tsx (simplified)
+const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
+
+if (isDevMode) {
+  // Mock signed-in owner/admin, no Station Manager round-trip.
 } else {
-  → Mode 3: Azure production (requires connection string)
+  // Real flow: src/auth/suiteAuth.ts — silent SSO via Station Manager's
+  // shared session cookie, falling back to a stored token or /login.
 }
 ```
 
-**No code changes needed!** Just update your `.env.local` file.
-
-### 4. API Endpoints
+### Auth bypass (server)
 
 ```typescript
-// src/api/client.ts
-const getBaseURL = () => {
-  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-  
+// server/src/utils/auth.ts (simplified)
+export async function validateToken(request: Request): Promise<AuthResult> {
   if (isDevMode) {
-    return 'http://localhost:5173'; // Local dev server
+    return { authenticated: true, userId: 'dev-user-1', organizationId: 'dev-brigade-1', role: 'admin', santaRunEnabled: true };
   }
-  
-  return import.meta.env.VITE_API_URL || 'https://api.firesantarun.com';
-};
+  // Real flow: calls Station Manager's GET /api/auth/me with the caller's bearer token.
+}
+```
 
-const getAuthHeaders = () => {
-  const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-  
-  if (isDevMode) {
-    return {}; // No auth headers in dev mode
-  }
-  
-  // Production: Include JWT token
-  const token = sessionStorage.getItem('auth_token');
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-};
+### Storage default (server)
+
+```typescript
+// server/src/utils/storage.ts (simplified)
+export const STORAGE_CONNECTION_STRING =
+  process.env.AZURE_STORAGE_CONNECTION_STRING ||
+  process.env.VITE_AZURE_STORAGE_CONNECTION_STRING ||
+  (isDevMode ? AZURITE_CONNECTION_STRING : '');
 ```
 
 ## Testing
 
-### Unit Tests
+### Unit tests
 
-In dev mode, tests don't need authentication mocking:
+`vitest.config.ts` / test setup already runs with dev-mode semantics where
+relevant — no auth mocking needed in most component tests.
 
-```typescript
-import { render, screen } from '@testing-library/react';
-import { AuthProvider } from './context/AuthContext';
-import Dashboard from './pages/Dashboard';
+### E2E tests
 
-describe('Dashboard', () => {
-  it('renders without authentication in dev mode', () => {
-    // Set dev mode for test
-    import.meta.env.VITE_DEV_MODE = 'true';
-    
-    render(
-      <AuthProvider>
-        <Dashboard />
-      </AuthProvider>
-    );
-    
-    // Test passes without login mocking
-    expect(screen.getByText('Create New Route')).toBeInTheDocument();
-  });
-});
-```
-
-### E2E Tests
-
-Playwright tests run faster without authentication flows:
-
-```typescript
-test('create route flow', async ({ page }) => {
-  // Dev mode: Go directly to dashboard
-  await page.goto('http://localhost:5173/dashboard');
-  
-  // No login page, no authentication delays
-  await page.click('text=Create New Route');
-  
-  // Test the actual feature
-  await page.fill('[name="routeName"]', 'Test Route');
-  await page.click('text=Save Route');
-  
-  await expect(page.locator('text=Route created')).toBeVisible();
-});
-```
-
-## Development Workflow
-
-### Phase 1-6: Core Features (Dev Mode)
-
-1. **Set up environment:**
-   ```bash
-   cp .env.example .env.local
-   echo "VITE_DEV_MODE=true" > .env.local
-   echo "VITE_MAPBOX_TOKEN=pk.your_token" >> .env.local
-   ```
-
-2. **Start development:**
-   ```bash
-   npm run dev
-   ```
-
-3. **Access immediately:**
-   - Dashboard: http://localhost:5173/dashboard
-   - Route planning: http://localhost:5173/routes/new
-   - No login required!
-
-4. **Build features:**
-   - Route planning (Phase 2)
-   - Navigation (Phase 3)
-   - Real-time tracking (Phase 4)
-   - QR codes (Phase 5)
-   - Social previews (Phase 6)
-
-5. **Test and iterate:**
-   - No auth barriers
-   - Fast feedback loops
-   - Easy stakeholder demos
-
-### Phase 7: Add Authentication
-
-1. **Set up Azure Entra External ID:**
-   - Create tenant
-   - Register application
-   - Configure redirect URIs
-
-2. **Implement MSAL integration:**
-   - Install @azure/msal-browser
-   - Create MSALAuthProvider component
-   - Update AuthContext to use MSAL in production mode
-
-3. **Test both modes:**
-   - Dev mode: VITE_DEV_MODE=true
-   - Production mode: VITE_DEV_MODE=false
-
-4. **Deploy with authentication:**
-   - Set VITE_DEV_MODE=false in production environment
-   - Configure all Azure credentials
-   - Test login flow
-
-## Deployment Strategies
-
-### Preview Deployments (Vercel/Netlify)
-
-Use dev mode for feature previews:
-
-```bash
-# .env.preview
-VITE_DEV_MODE=true
-VITE_MAPBOX_TOKEN=pk.your_token
-```
-
-Benefits:
-- Stakeholders can test features without accounts
-- Faster deployment without Azure dependencies
-- Easy to share preview links
-
-### Production Deployment
-
-Disable dev mode for production:
-
-```bash
-# .env.production
-VITE_DEV_MODE=false
-VITE_MAPBOX_TOKEN=pk.production_token
-VITE_AZURE_STORAGE_CONNECTION_STRING=...
-VITE_ENTRA_CLIENT_ID=...
-AZURE_WEBPUBSUB_CONNECTION_STRING=...
-```
-
-### Staging Environment
-
-Mix of both approaches:
-
-```bash
-# .env.staging
-VITE_DEV_MODE=false  # Test production auth flow
-# But use staging Azure resources
-```
+Playwright (`npm run test:e2e`) runs against `VITE_DEV_MODE=true` and starts
+only the Vite dev server (`playwright.config.ts`'s `webServer.command` is
+`npm run dev:client`) — it does not start `server/` or Azurite. This means
+E2E tests exercise the frontend's dev-mode paths, not the real backend; there
+is currently no automated end-to-end coverage of `server/` itself (tracked as
+a gap — see `MASTER_PLAN.md`).
 
 ## Troubleshooting
 
-### Issue: Features not accessible in production
+### "Azure Storage connection string not configured" in dev mode
 
-**Cause:** VITE_DEV_MODE is still set to 'true'
+`server/`'s Azurite default only applies when `DEV_MODE=true` is actually
+set on that process. If you're running `server/` directly (not via
+`npm run dev`), make sure you export `DEV_MODE=true` first, and that
+Azurite is actually running (`npm run dev:storage` in another terminal).
 
-**Solution:**
-```bash
-# Check production environment variables
-echo $VITE_DEV_MODE
+### Features not accessible in production
 
-# Should be 'false' in production
-# Update in hosting platform (Vercel, Netlify, Azure)
-```
+**Cause:** `VITE_DEV_MODE` or `DEV_MODE` is still `true`.
+**Solution:** confirm both are unset (or `false`) in the deployed
+environment — `infra/seed-secrets.sh` always sets the server one to
+`false`; check the Container App's build args for the client one.
 
-### Issue: Authentication not working locally
+### Tests failing with authentication errors
 
-**Cause:** Dev mode is disabled but Azure credentials not configured
+Set `VITE_DEV_MODE=true` (client) in the test environment/setup file.
 
-**Solution:**
-```bash
-# Either enable dev mode for local development:
-VITE_DEV_MODE=true
+## Best practices
 
-# Or configure all required Azure credentials
-```
+### ✅ Do this
 
-### Issue: Tests failing with authentication errors
+- Use dev mode for all local development and automated testing
+- Keep `DEV_MODE=false` in every deployed environment
+- Test the real Station Manager flow occasionally, not just the mock
 
-**Cause:** Tests running with VITE_DEV_MODE=false
+### ❌ Don't do this
 
-**Solution:**
-```typescript
-// In test setup file (vitest.config.ts or jest.setup.ts)
-process.env.VITE_DEV_MODE = 'true';
-```
-
-## Best Practices
-
-### ✅ Do This
-
-- Use dev mode for all local development
-- Use dev mode for preview deployments and demos
-- Use dev mode for automated testing
-- Disable dev mode in production deployments
-- Test both modes before releasing Phase 7
-- Document which mode is active in UI (dev badge)
-
-### ❌ Don't Do This
-
-- Don't commit real credentials to dev mode configs
-- Don't use dev mode for final production deployment
-- Don't store real brigade data in localStorage
-- Don't bypass security checks that matter (HTTPS, XSS protection)
-- Don't forget to test production mode before launch
-
-## Summary
-
-Development mode enables rapid, friction-free development of Fire Santa Run's core features (Phases 1-6) without authentication complexity. Once features are stable and tested, authentication (Phase 7) adds enterprise-grade security for production deployment.
-
-**Key Takeaway:** Build first, secure later. The public nature of Santa tracking makes this safe, and the architectural separation ensures production security isn't compromised.
+- Don't commit real credentials to `.env.local`
+- Don't store real brigade data via the dev-mode/Azurite path
+- Don't assume dev-mode behaviour matches production auth exactly — it's a
+  convenience bypass, not a faithful simulation of Station Manager's actual
+  session/token semantics
 
 ## Resources
 
-- [MASTER_PLAN.md](../MASTER_PLAN.md) - Full implementation phases
-- [.env.example](../.env.example) - Environment variable reference
-- [GitHub Copilot Instructions](../.github/copilot-instructions.md) - Development guidelines
-- [Infrastructure & deployment](../infra/README.md) - Production deployment setup
+- [MASTER_PLAN.md](../MASTER_PLAN.md) — product plan and current state
+- [ARCHITECTURE.md](ARCHITECTURE.md) — as-built architecture, auth & storage
+- [.env.example](../.env.example) — environment variable reference
+- [infra/README.md](../infra/README.md) — production deployment, secrets

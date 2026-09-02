@@ -1,8 +1,11 @@
-const fs = require('fs');
-const path = require('path');
-const { TableClient, TableServiceClient } = require('@azure/data-tables');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { TableClient, TableServiceClient } from '@azure/data-tables';
 
-const DEFAULT_DATA_FILE = path.resolve(__dirname, '../../Rural_Country_Fire_Service_Facilities.geojson');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const DEFAULT_DATA_FILE = path.resolve(__dirname, '../Rural_Country_Fire_Service_Facilities.geojson');
 const SEED_LIMIT = Number(process.env.SEED_LIMIT || '100');
 
 function parseEnvFile(filePath) {
@@ -21,20 +24,26 @@ function parseEnvFile(filePath) {
 }
 
 function loadConnectionString() {
+  // AZURE_STORAGE_CONNECTION_STRING is server/'s own variable (utils/storage.ts)
+  // — the primary source now that this seeds server/'s (or Azurite's) tables
+  // directly. VITE_AZURE_STORAGE_CONNECTION_STRING stays as a fallback: the
+  // frontend's dev-mode-with-real-Azure escape hatch (src/storage/index.ts)
+  // points at the same account. AzureWebJobsStorage (the Functions runtime's
+  // own convention) is gone with api/.
+  if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
+    return { connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING, source: 'env:AZURE_STORAGE_CONNECTION_STRING' };
+  }
   if (process.env.VITE_AZURE_STORAGE_CONNECTION_STRING) {
     return { connectionString: process.env.VITE_AZURE_STORAGE_CONNECTION_STRING, source: 'env:VITE_AZURE_STORAGE_CONNECTION_STRING' };
   }
-  if (process.env.AzureWebJobsStorage) {
-    return { connectionString: process.env.AzureWebJobsStorage, source: 'env:AzureWebJobsStorage' };
-  }
 
-  const localEnvPath = path.resolve(__dirname, '../../.env.local');
+  const localEnvPath = path.resolve(__dirname, '../.env.local');
   const parsedEnv = parseEnvFile(localEnvPath);
+  if (parsedEnv.AZURE_STORAGE_CONNECTION_STRING) {
+    return { connectionString: parsedEnv.AZURE_STORAGE_CONNECTION_STRING, source: '.env.local' };
+  }
   if (parsedEnv.VITE_AZURE_STORAGE_CONNECTION_STRING) {
     return { connectionString: parsedEnv.VITE_AZURE_STORAGE_CONNECTION_STRING, source: '.env.local' };
-  }
-  if (parsedEnv.AzureWebJobsStorage) {
-    return { connectionString: parsedEnv.AzureWebJobsStorage, source: '.env.local' };
   }
 
   throw new Error('Azure Storage connection string not found in environment or .env.local');

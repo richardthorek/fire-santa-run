@@ -46,6 +46,12 @@ param ciamDirectoryName string = ''
 @maxValue(1)
 param minReplicas int = 0
 
+@description('vCPU for the single replica. Default matches the original smallest Consumption allocation. Override for a registration-informed vertical bump around a cluster of known scheduled runs — see infra/modules/containerapps.bicep for the valid vCPU:memory pairing note.')
+param containerCpu string = '0.25'
+
+@description('Memory for the single replica — must pair with containerCpu. Default matches the original smallest Consumption allocation.')
+param containerMemory string = '0.5Gi'
+
 @description('Container image to deploy (e.g. ghcr.io/<owner>/fire-santa-run:<tag>). Leave the default placeholder for the first deploy — CI updates it via `az containerapp update --image`.')
 param containerImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
 
@@ -111,6 +117,8 @@ module containerApps 'modules/containerapps.bicep' = {
     logAnalyticsSharedKey: monitoring.outputs.workspaceSharedKey
     appInsightsConnectionString: monitoring.outputs.connectionString
     minReplicas: minReplicas
+    containerCpu: containerCpu
+    containerMemory: containerMemory
     containerImage: containerImage
     registryServer: registryServer
     registryUsername: registryUsername
@@ -122,6 +130,13 @@ resource ciamDirectory 'Microsoft.AzureActiveDirectory/ciamDirectories@2025-08-0
   scope: resourceGroup
   name: ciamDirectoryName
 }
+
+// No dedicated ACS Email resource here: operational alerts
+// (server/src/utils/opsAlert.ts) deliberately share Station Manager's
+// existing Azure Communication Services instance (already has a verified
+// custom domain wired up) rather than provisioning and paying for a second
+// one — see infra/README.md and infra/.env.example for how to get its
+// connection string.
 
 // ─── Outputs ─────────────────────────────────────────────────────────────────
 

@@ -1,8 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { hub } from '../realtime/hub.js';
 
+// Two bugs found here during the 2026-09 api/ removal:
+// 1. This file's dev table names didn't match the rest of server/src/, so in
+//    dev mode it silently read/wrote a different, always-empty pair of
+//    tables — harmless in production (isDevMode is false there), but it
+//    meant the brigade-ownership check just added to GET /sessions could
+//    never find the route locally, and analytics/viewer-count read nothing.
+// 2. Fixing #1 to match the rest of server/src/ surfaced a second, deeper
+//    bug shared by every 'dev-'-prefixed table name in the codebase: Azure
+//    Table Storage table names may contain only letters and digits (no
+//    hyphens), so 'dev-routes' etc. always threw InvalidResourceName once
+//    actually queried. This had never been exercised before — server/ had
+//    never been booted against real/emulated Table Storage in dev mode
+//    until now. Fixed everywhere to the unhyphenated form ('devroutes',
+//    'devbrigades', 'devviewersessions', 'devusers', 'devpushsubscriptions').
 const VIEWER_SESSIONS_TABLE = isDevMode ? 'devviewersessions' : 'viewersessions';
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
@@ -332,12 +347,48 @@ analyticsRouter.get('/routes/:routeId/viewer-count', async (c) => {
 /**
  * GET /analytics/routes/:routeId/sessions
  * Get raw viewer sessions for a specific route (for admin debugging)
+ *
+ * Security fix (post-launch audit, 2026-09): this returned every viewer's raw
+ * IP address and user agent with NO auth check at all — reachable by anyone
+ * holding the route's public tracking link (not a secret; it's the QR code on
+ * the brigade's own flyer). Now brigade-scoped, same bar as editing the route.
  */
 analyticsRouter.get('/routes/:routeId/sessions', async (c) => {
   try {
     const routeId = c.req.param('routeId');
     if (!routeId) {
       return c.json({ error: 'Missing routeId parameter' }, 400);
+    }
+
+    // Authenticate before touching storage: this endpoint used to run a
+    // cross-partition RowKey scan of the routes table (the broadcast hot
+    // path's account) before any auth check, so an unauthenticated caller
+    // could force one scan per request with rotating fake routeIds. Now the
+    // token is validated first, and the route is resolved by a point read in
+    // the caller's own brigade partition — a route in another brigade (or a
+    // fake id) is a 404 either way, no scan, no brigade enumeration.
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) {
+      return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    }
+    const brigadeId = authResult.organizationId;
+    if (!brigadeId) {
+      return c.json({ error: 'Route not found' }, 404);
+    }
+
+    const routesClient = await getTableClient(ROUTES_TABLE);
+    try {
+      await routesClient.getEntity(brigadeId, routeId);
+    } catch (routeError: any) {
+      if (routeError?.statusCode === 404) {
+        return c.json({ error: 'Route not found' }, 404);
+      }
+      throw routeError;
+    }
+
+    const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'manage_routes');
+    if (!permissionCheck.authorized) {
+      return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
     }
 
     const tableClient = await getTableClient(VIEWER_SESSIONS_TABLE);

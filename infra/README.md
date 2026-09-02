@@ -338,6 +338,53 @@ location broadcast of a run sends one "Santa is on the way!" push to that
 route's subscribers (12-hour re-send guard, expired subscriptions cleaned up on
 410/404 responses).
 
+### Ops alert emails
+
+Optional — when unconfigured, the app-level alerts in
+[`server/src/utils/opsAlert.ts`](../server/src/utils/opsAlert.ts) (realtime
+connections near/at the 5,000-connection cap; an elevated broadcast failure
+rate) are logged only, not emailed. Deliberately **shares Station Manager's
+existing Azure Communication Services instance** rather than provisioning a
+second one — that repo already has a verified custom domain wired up for its
+own transactional email, and a handful of alert emails a season doesn't
+justify a duplicate resource:
+
+```bash
+# Get the connection string from Station Manager's ACS resource (that repo's
+# infra/email-service.bicep / infra/email-service.bicepparam name the
+# actual resource):
+az communication list-key \
+  --name <station-manager's communicationServiceName> \
+  --resource-group <station-manager's resource group> \
+  --query primaryConnectionString --output tsv
+
+# → add to infra/.env.<env>:
+#   AZURE_COMMUNICATION_CONNECTION_STRING=endpoint=https://...
+#   EMAIL_FROM_ADDRESS=noreply@stationkit.com.au   (reuse Station Manager's sender,
+#                                                    or add a distinct alerts@
+#                                                    sender there if you want these
+#                                                    visually separate — optional)
+#   OPS_ALERT_EMAIL=you@wherever-you-want-these.example
+```
+
+Then `./infra/seed-secrets.sh --env prod` applies it. This is app code + a
+shared existing resource — no Bicep deploy needed to turn it on.
+
+### Seeing what's coming: the upcoming-runs report
+
+There's deliberately no cross-brigade "list every scheduled run" API
+endpoint (see the December-readiness review in `MASTER_PLAN.md`), so use
+this instead as brigades register through the season:
+
+```bash
+AZURE_STORAGE_CONNECTION_STRING=... npm run report:upcoming-runs
+```
+
+Groups every published/active/completed route by date and flags any night
+with more than one brigade running — the input for deciding *when* to run
+`scale-season.sh` around a specific window (see below) rather than
+blanket-warming the whole month.
+
 ---
 
 ## Seasonal Scaling (read before December!)
@@ -360,6 +407,19 @@ for why (the in-process realtime hub is per-process state).
 Cost intuition: a warm `minReplicas=1` replica at the smallest Consumption size
 (0.25 vCPU / 0.5 GiB) costs roughly a few dollars a month if left on; scaling to
 zero for eleven months makes that close to nothing.
+
+**Registration-informed, not blanket, for year 1+.** Rather than warming for
+the whole month regardless of actual demand, run
+[`npm run report:upcoming-runs`](#seeing-whats-coming-the-upcoming-runs-report)
+periodically as brigades register and flip `scale-season.sh` around the
+specific window their runs actually cluster in. If a particular night's
+cluster genuinely warrants more than the smallest allocation, `containerCpu`
+/ `containerMemory` are now Bicep parameters (default: the original
+`0.25`/`0.5Gi` — override at deploy time rather than editing the template;
+Container Apps enforces a fixed vCPU:memory ratio and rejects an invalid
+pairing at deploy time, so double-check the current allowed set before
+picking a new value). This isn't needed at today's expected scale — see
+`MASTER_PLAN.md` roadmap item 7 — but the knob is there.
 
 **Mapbox is the other seasonal cost**: every public viewer session is one map
 load; 50k loads/month are free, then ~US$5 per 1,000. Watch the Mapbox usage

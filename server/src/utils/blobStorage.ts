@@ -15,7 +15,7 @@ const BLOB_CONNECTION_STRING =
 /**
  * Create a fresh ContainerClient for the given container name.
  * A new client is created per call to avoid shared state across concurrent
- * Azure Functions invocations.
+ * requests.
  */
 function createContainerClient(containerName: string): ContainerClient | null {
   if (!BLOB_CONNECTION_STRING) {

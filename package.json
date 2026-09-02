@@ -7,11 +7,12 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "concurrently \"npm run build:api && npm:dev:api\" \"npm:dev:client\"",
-    "dev:api": "cd api && func start --port 7071 --cors \"*\" --verbose",
-    "dev:e2e": "concurrently \"npm:dev:api\" \"npm:dev:client\"",
+    "dev": "concurrently \"npm:dev:storage\" \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:storage": "azurite-table --silent --skipApiVersionCheck",
+    "dev:server": "cd server && DEV_MODE=true npm run dev",
+    "dev:e2e": "concurrently \"npm:dev:storage\" \"npm:dev:server\" \"npm:dev:client\"",
     "dev:client": "vite",
-    "build:api": "cd api && npm run build",
+    "setup": "npm install && (cd server && npm install)",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -24,6 +25,7 @@
     "test:smoke": "node scripts/smoke-test.js",
     "test:load": "node scripts/load-test.js",
     "test:mobile-guide": "node scripts/mobile-testing-guide.js",
+    "report:upcoming-runs": "node scripts/upcoming-runs-report.js",
     "audit:a11y": "npm run test:a11y && echo '✅ Accessibility tests passed'",
     "audit:lighthouse": "node scripts/lighthouse-audit.js",
     "audit:perf": "npm run build && concurrently --kill-others --success first \"npm run preview\" \"node scripts/lighthouse-audit.js\""
@@ -64,6 +66,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "@vitest/ui": "^4.0.16",
     "axe-core": "^4.11.0",
+    "azurite": "^3.37.0",
     "concurrently": "^10.0.3",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",

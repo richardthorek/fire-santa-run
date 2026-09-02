@@ -11,29 +11,27 @@
  *   broadcasting will fail until it is configured).
  */
 
+import { STORAGE_CONNECTION_STRING, isDevMode as devModeFlag } from './storage.js';
+
 export interface ServerConfigResult {
   isDevMode: boolean;
   fatal: string[];
   warnings: string[];
 }
 
-function isDevMode(): boolean {
-  return process.env.DEV_MODE === 'true';
-}
-
 export function evaluateServerConfig(): ServerConfigResult {
-  const devMode = isDevMode();
+  const devMode = devModeFlag;
   const fatal: string[] = [];
   const warnings: string[] = [];
 
-  const storageConn =
-    process.env.AZURE_STORAGE_CONNECTION_STRING ||
-    process.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
-
-  if (!storageConn) {
+  // storage.ts itself defaults DEV_MODE to Azurite when no explicit
+  // connection string is set (see AZURITE_CONNECTION_STRING there), so
+  // STORAGE_CONNECTION_STRING — not the raw env vars — is the source of
+  // truth for "is storage actually configured."
+  if (!STORAGE_CONNECTION_STRING) {
     const msg =
       'AZURE_STORAGE_CONNECTION_STRING is not set — data persistence will fail.';
-    if (devMode) warnings.push(`${msg} (dev mode: localStorage path may be used by the client)`);
+    if (devMode) warnings.push(`${msg} (unexpected in dev mode — storage.ts should have defaulted to Azurite)`);
     else fatal.push(msg);
   }
 
@@ -41,32 +39,36 @@ export function evaluateServerConfig(): ServerConfigResult {
   // no managed Web PubSub. The signed-token secret for privileged WS connections
   // falls back to a hash of the storage connection string, so no extra config is
   // required; warn only if there is nothing to derive a secret from in prod.
-  if (!devMode && !process.env.REALTIME_WS_SECRET && !storageConn) {
+  if (!devMode && !process.env.REALTIME_WS_SECRET && !STORAGE_CONNECTION_STRING) {
     warnings.push(
       'No REALTIME_WS_SECRET and no storage connection string — realtime WS token signing will use an insecure fallback.',
     );
   }
 
-  // Production auth: the backend validates Entra tokens; warn if absent.
+  // Production auth: every request is validated by calling SUITE_AUTH_URL
+  // (validateToken() in utils/auth.ts trusts whatever that host's /api/auth/me
+  // returns as the caller's identity, org, role, and entitlement) — a
+  // misdirected value is a full auth bypass. Fail fast on anything that isn't
+  // a well-formed https:// URL; warn (don't fail) if it doesn't look like the
+  // expected stationkit.com.au host, since a deliberate non-default value
+  // (e.g. a staging Station Manager instance) is a legitimate configuration.
   if (!devMode) {
-    const entraMissing = ['VITE_ENTRA_TENANT_ID', 'VITE_ENTRA_CLIENT_ID'].filter(
-      (v) => !process.env[v],
-    );
-    if (entraMissing.length > 0) {
-      warnings.push(
-        `Entra config missing (${entraMissing.join(', ')}) — API token validation may reject all requests.`,
-      );
-    }
-
-    // Billing is optional: without full Stripe config the /api/stripe routes
-    // return 503 and the paywall cannot be enforced (brigades stay unentitled).
-    const stripeVars = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID'];
-    const stripeSet = stripeVars.filter((v) => process.env[v]);
-    if (stripeSet.length > 0 && stripeSet.length < stripeVars.length) {
-      const missing = stripeVars.filter((v) => !process.env[v]);
-      warnings.push(
-        `Stripe partially configured — missing ${missing.join(', ')}; subscription checkout/webhook will not work.`,
-      );
+    const suiteAuthUrl = (process.env.SUITE_AUTH_URL || 'https://stationkit.com.au').trim();
+    try {
+      const parsed = new URL(suiteAuthUrl);
+      if (parsed.protocol !== 'https:') {
+        fatal.push(
+          `SUITE_AUTH_URL must be an https:// URL — got "${suiteAuthUrl}". Every request's identity, ` +
+            'organisation, and entitlement come from whatever this host returns.',
+        );
+      } else if (!/(^|\.)stationkit\.com\.au$/.test(parsed.hostname)) {
+        warnings.push(
+          `SUITE_AUTH_URL ("${suiteAuthUrl}") does not look like a stationkit.com.au host — confirm ` +
+            'this is deliberate. Every request is authenticated against whatever this URL returns.',
+        );
+      }
+    } catch {
+      fatal.push(`SUITE_AUTH_URL is not a valid URL: "${suiteAuthUrl}". Every request is authenticated against this host.`);
     }
 
     // Web Push is optional: with no VAPID keys the notify-me UI hides itself.
@@ -78,6 +80,19 @@ export function evaluateServerConfig(): ServerConfigResult {
       warnings.push(
         `Web Push partially configured — missing ${missing.join(', ')}; ` +
           'generate a pair with `npx web-push generate-vapid-keys`.',
+      );
+    }
+
+    // Ops alert email (utils/opsAlert.ts) is optional: with any of these
+    // three unset, alerts are logged only, not emailed — never fatal. But a
+    // partial set is always a mistake.
+    const opsAlertVars = ['AZURE_COMMUNICATION_CONNECTION_STRING', 'EMAIL_FROM_ADDRESS', 'OPS_ALERT_EMAIL'];
+    const opsAlertSet = opsAlertVars.filter((v) => process.env[v]);
+    if (opsAlertSet.length > 0 && opsAlertSet.length < opsAlertVars.length) {
+      const missing = opsAlertVars.filter((v) => !process.env[v]);
+      warnings.push(
+        `Ops alert email partially configured — missing ${missing.join(', ')}; alerts will be logged only. ` +
+          'See infra/.env.example.',
       );
     }
   }

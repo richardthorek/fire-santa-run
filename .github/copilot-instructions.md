@@ -46,8 +46,7 @@ fire-santa-run/
 │   ├── storage/         # Storage adapters (localStorage, Azure)
 │   ├── types/           # TypeScript interfaces and types
 │   └── styles/          # Global styles and CSS
-├── api/                 # Azure Functions (legacy/local dev API path)
-├── server/              # Hono backend used for the Container Apps runtime
+├── server/              # Hono backend — used for both production (Container Apps) and local dev
 ├── infra/               # Bicep IaC + deployment scripts
 ├── Dockerfile           # Multi-stage build: client + server → one image
 ├── public/              # Static assets
@@ -184,11 +183,11 @@ if (isDevMode) {
 2. Copy `.env.example` to `.env.local`
 3. Set `VITE_DEV_MODE=true` in `.env.local`
 4. Add `VITE_MAPBOX_TOKEN` (only required variable for dev mode)
-5. Run `npm install`
-6. Run `npm run dev` (this now builds the Functions app before starting both servers)
+5. Run `npm run setup` (installs root + `server/` dependencies)
+6. Run `npm run dev` (starts Azurite, `server/`, and the Vite frontend together)
 7. Access at `http://localhost:5173`
 
-**Important:** Local dev currently uses the Functions path (`api/`) while production deploy uses Container Apps + Hono (`server/`). Keep auth/storage behavior aligned across both codepaths when making backend changes. **Realtime is the one deliberate exception**: `server/` fans out WebSocket messages natively in-process; Azure Functions on Consumption can't hold a persistent WebSocket connection, so `api/` still uses the (production-retired) Azure Web PubSub client there — harmless, because local dev always runs `VITE_DEV_MODE=true` and the client uses `BroadcastChannel` instead. See `docs/ARCHITECTURE.md`.
+**Important:** Local dev and production now share one backend, `server/` (Hono). `npm run dev` runs it locally with `DEV_MODE=true` against Azurite (a local Table Storage emulator, no Azure account needed) — production runs the identical code against Azure Table Storage on Container Apps. There's no second implementation to keep in sync any more. See `docs/DEV_MODE.md` for the local setup and `docs/ARCHITECTURE.md` for the as-built architecture.
 
 ### Common Development Tasks
 

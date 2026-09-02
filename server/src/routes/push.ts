@@ -17,7 +17,7 @@ import {
   deleteSubscription,
 } from '../utils/push.js';
 
-const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
+const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
 function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");

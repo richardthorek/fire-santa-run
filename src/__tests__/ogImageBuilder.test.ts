@@ -15,7 +15,7 @@ import {
   buildOGImageSVG,
   OG_IMAGE_WIDTH,
   OG_IMAGE_HEIGHT,
-} from '../../api/src/utils/ogImageBuilder';
+} from '../../server/src/utils/ogImageBuilder';
 
 // ---------------------------------------------------------------------------
 // svgEscape

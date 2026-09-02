@@ -129,8 +129,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Type check
+      - name: Type check (frontend)
         run: npx tsc -b
+
+      - name: Type check (server — the production backend)
+        run: cd server && npm ci && npx tsc --noEmit
 
       - name: Test
         run: npm run test:coverage

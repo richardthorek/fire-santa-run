@@ -130,6 +130,163 @@ Manager**, the StationKit suite's identity/licensing provider:
   add-on billing, `richardthorek/station-manager` PR #686) and Fire Break
   Calculator (matching silent-SSO client) — see those repos' own plans.
 
+### December-readiness security/performance/UX review (2026-09-02)
+
+A pre-season review (security, performance/scale, public/brigade UX balance,
+and Station Manager cross-app SSO status — four targeted investigations plus
+one cross-domain synthesis pass) found real gaps. This pass fixed every
+**pure-code** finding; anything needing Azure CLI/portal access, or a
+cost/SKU decision, is explicitly called out below rather than done silently.
+
+**Shipped (code only, both `server/` and `api/` kept aligned):**
+
+- **Broadcast endpoints now check route ownership.** `POST /broadcast`,
+  `/broadcast/status`, and `/broadcast/editor-presence` previously accepted
+  any *authenticated* Station Manager account — any organisation, anywhere in
+  the suite, free to create — with no check that the caller belonged to the
+  brigade running the target route. `negotiate.ts` already did this check for
+  the WS token; the HTTP endpoints that actually move Santa's position or set
+  run status did not. Fixed by resolving the route's owning brigade per
+  request and calling `checkBrigadeAccess()` (mirroring `negotiate.ts`),
+  plus a server-side log line (`user`, `brigade`, observed IP) so a
+  falsified broadcast can be attributed after the fact — there was
+  previously no record at all. `server/src/routes/broadcast.ts`,
+  `api/src/broadcast.ts`.
+- **Viewer-session analytics locked to brigade members.**
+  `GET /analytics/routes/:routeId/sessions` had no auth check and returned
+  every tracker's raw IP address and user agent to anyone holding the route's
+  public tracking link. Now requires membership in the route's owning
+  brigade, same bar as editing the route. `server/src/routes/analytics.ts`
+  (no `api/` equivalent — production-only feature).
+- **Anonymous route reads scoped to what's actually public.**
+  `GET /routes?brigadeId=` and `GET /routes/:id?brigadeId=` carried a
+  `// Brigade-scoped lookup (members)` comment but no auth check at all —
+  any caller supplying a brigadeId (not a secret; `GET /brigades/public`
+  hands every one out) got every route for that brigade, including
+  unpublished drafts with real names on internal comments. Now: an actual
+  member of the brigade (any role) still sees everything; anyone else only
+  sees publicly-visible statuses, same bar the fully-anonymous lookup path
+  already enforced. `server/src/routes/routes.ts`, `api/src/routes.ts`.
+- **Rate limiter reads the trustworthy IP hop.** `clientIp()` trusted the
+  first (client-controlled, trivially spoofed) `X-Forwarded-For` hop — correct
+  for the retired App Service target the code comment described, wrong for
+  Container Apps, which only guarantees the *rightmost* hop. This defeated
+  the only throttle on the broadcast endpoint. `server/src/utils/rateLimit.ts`,
+  `api/src/rateLimit.ts`.
+- **Brigade reads no longer return the raw entity.** `GET /brigades`,
+  `/brigades/by-station/:id`, and `/brigades/:id` returned every stored field
+  unauthenticated; `/public` and `/by-slug/:slug` already correctly used a
+  `toPublicBrigade()` projection. On inspection this was a smaller gap than
+  first flagged: `contact.email`/`contact.phone` are already public by
+  design (`PublicBrigadePage` renders them as `mailto:`/`tel:` links on every
+  brigade's own public page), so the only fields the full entity actually
+  added were a couple of redundant flat `contactEmail`/`contactPhone`
+  properties and an internal `updatedAt` timestamp — not the severe PII leak
+  it first looked like. Fixed anyway for consistency (no unauthenticated read
+  needs the raw entity shape); verified `BrigadeSettingsPage` (the one
+  authenticated consumer) only ever reads fields the public projection
+  already includes, so no frontend change was needed.
+  `server/src/routes/brigades.ts`, `api/src/brigades.ts`.
+- **Storage-connection-string landmine closed.** `VITE_AZURE_STORAGE_CONNECTION_STRING`
+  (a dev-only escape hatch, `src/storage/index.ts`) shares its exact name
+  with the backend's real Azure Storage master key; Vite would bake it into
+  the public bundle if it were ever set for a production build. Not
+  currently exploited (the real deploy path only ever sets the correctly-
+  scoped backend variable) — added a `vite build` guard that refuses to
+  build if this looks like a real connection string outside dev mode.
+  `.env.example`'s "PRODUCTION CONFIGURATION" section previously,
+  confusingly, suggested setting this exact variable — corrected.
+  `vite.config.ts`, `.env.example`.
+- **`SUITE_AUTH_URL` validated at startup**, replacing a stale check for
+  retired Entra CIAM variables (and a dead check for Stripe vars — billing
+  was fully retired 2026-07-19, no code reads them any more). A misdirected
+  `SUITE_AUTH_URL` is a full auth bypass, since `validateToken()` trusts
+  whatever it points at; startup now fails fast on a non-`https://` value and
+  warns on a host that doesn't look like `stationkit.com.au`.
+  `server/src/utils/configValidation.ts`.
+- **Content-Security-Policy added**, shipped as
+  `Content-Security-Policy-Report-Only` rather than enforcing — see "Not done"
+  below. `server/src/app.ts`.
+- **Route create/update payloads bounds-checked** (name/description length,
+  comment count and length, waypoint count and coordinate sanity) — matches
+  the validation pattern `broadcast.ts`/`push.ts` already used elsewhere in
+  this codebase, previously absent here. `server/src/routes/routes.ts`,
+  `api/src/routes.ts`.
+
+**Not done — needs Azure CLI/portal access (a different session):**
+
+- Station Manager: confirm/set `COOKIE_DOMAIN=.stationkit.com.au` and add
+  Fire Santa Run's origins to `FRONTEND_URLS` on the live App Service — both
+  flagged open in that repo's own changelog since 2026-07-18 with no later
+  closure. Until set, the silent cross-subdomain SSO above does not reliably
+  work in production (falls back to explicit login, which does work) and
+  cross-origin passkey login is broken. **Sequencing matters**: don't land
+  this before the broadcast-ownership fix above has actually deployed —
+  making suite sign-in more frictionless on top of an open broadcast
+  endpoint would have been the wrong order. That fix is now merged, so this
+  is unblocked.
+- Fire Santa Run: finish the `santa.stationkit.com.au` Cloudflare DNS/TLS +
+  Container Apps custom-domain binding (tracked in Operational readiness
+  below).
+- Flip the CSP above from Report-Only to enforcing: load the app in a real
+  browser (production, or a local build with a real `VITE_MAPBOX_TOKEN`),
+  exercise the map, sign-in, and push opt-in, confirm devtools shows zero
+  violations for legitimate requests, then rename the header — see the
+  comment above `buildCsp()` in `server/src/app.ts`.
+- ~~Turn on ops alert emails~~ — **done 2026-09-02** (validation pass below).
+
+Capacity/scaling approach (registration-informed vertical warming, minimum-
+viable alerting) is covered in the roadmap below (item 7) — most of it
+shipped as code in this pass; a real load test is what's left.
+
+**Azure-access + local-boot validation pass (2026-09-02):**
+
+A follow-up session with Azure CLI access + the devcontainer validated the
+items above that a cloud session couldn't. Results:
+
+- **`npm run dev` was broken — two regressions, now fixed** (commit on this
+  branch). (1) `dev:server` called `tsx` but it only resolves inside
+  `server/node_modules`, so the server process died on start (`sh: 1: tsx:
+  not found`, exit 127) while `concurrently` kept the other two panes up —
+  easy to miss. (2) `@azure/data-tables` refuses Azurite's plaintext-HTTP
+  endpoint unless `allowInsecureConnection` is set, so every Table Storage
+  call in `DEV_MODE` 500'd and `/api/health/ready` never went green. Fixed
+  in `package.json` + `server/src/utils/storage.ts`; `npm run setup && npm
+  run dev` now boots Azurite + `server/` + Vite with no Azure account.
+- **OG image port verified end-to-end.** Seeded a route+brigade into Azurite;
+  `GET /api/og-image` returns a valid 1200×630 SVG with the right
+  brigade/route/date, 400 on missing params, 404 on unknown route. Blob
+  caching round-trips (tested against `azurite-blob`); `@azure/storage-blob`
+  needs no insecure-connection flag.
+- **ACS ops-alert email wired and sent.** Connection string pulled from
+  `stationkit-comm` (RG `bungrfsstation_group`); `noreply@stationkit.com.au`
+  sender is domain-verified. `AZURE_COMMUNICATION_CONNECTION_STRING`,
+  `EMAIL_FROM_ADDRESS=noreply@stationkit.com.au`, and
+  `OPS_ALERT_EMAIL=richard@thorek.net` set on `santarun-app-dev003` (revision
+  `--0000042`). A real send through `alertOps()` was received (subject
+  `[Fire Santa Run] ops-alert wiring test`, with the `kind=…` cooldown
+  footer). These vars survive CI's `az containerapp update --image` deploys;
+  they take effect once this branch's image (which has `opsAlert.ts` — the
+  live `c72c19e` image predates it) ships.
+- **`infra/main.bicep` re-deploy is destructive — do NOT run
+  `az deployment sub create` against a live app.** `what-if` against
+  `rg-santarun-dev-dev003` shows it would delete the
+  `santa.stationkit.com.au` custom-domain binding, revert the image to the
+  `mcr.microsoft.com/k8se/quickstart` placeholder (the `containerImage`
+  param default), and drop `AZURE_STORAGE_CONNECTION_STRING` / `CORS_ORIGIN`
+  / `APP_BASE_URL` (Bicep does a full PUT; anything not in the template is
+  removed). The "kept out of Bicep so re-running never clobbers a live
+  secret" comment in `modules/containerapps.bicep` is wrong. Ongoing deploys
+  must stay image-only (`az containerapp update --image`, which is what CI
+  does); the Bicep is for first-provision only. `scale-season.sh` is safe
+  (it's a `--min-replicas` update, not a Bicep deploy) and resolves the app
+  correctly.
+- **Still not done:** CSP Report-Only → enforcing (needs a real browser with
+  a real `VITE_MAPBOX_TOKEN` exercising map/auth/push — no token available
+  to this session either); load test; the Bicep-comment correction above.
+  Deploying this branch is a normal merge-to-`main` → CI action, not a
+  manual step.
+
 Public-growth and polish shipped in the latest pass:
 
 - Public-first landing with "Find a Santa run near me" (geolocated), jargon-free
@@ -175,6 +332,51 @@ approaches $0 (Consumption scale-to-zero); `scale-season.sh` now flips
 per-process state, so the Container App is pinned to `maxReplicas: 1` until
 a shared backplane is added — tracked in the roadmap below.
 
+### Single-backend consolidation — `api/` (Azure Functions) retired (2026-09)
+
+Pre-launch, so safe to do now rather than after: `api/`, the Azure Functions
+app that only ever backed local dev (a holdover from the pre-Container-Apps
+Static Web Apps era), is deleted. `server/` (Hono) is the sole backend —
+`npm run dev` now runs it locally too, against **Azurite** (a local Table
+Storage emulator, new dev dependency) instead of real Azure Storage, so
+local dev still needs no cloud account. Net effect: one API implementation
+to maintain and reason about, not two kept in sync by hand.
+
+- `npm run dev` = Azurite + `server/` (`DEV_MODE=true`) + Vite, concurrently.
+  `npm run setup` installs root + `server/` deps only.
+- `server/src/utils/storage.ts` defaults to Azurite's well-known connection
+  string when `DEV_MODE=true` and no real connection string is set.
+- `vite.config.ts`'s dev proxy target moved from `localhost:7071` (Functions)
+  to `localhost:8080` (`server/`), with WebSocket upgrade forwarding added so
+  `VITE_DEV_MODE=false` locally now exercises the real realtime path too.
+- Fixed a genuine pre-existing bug found during the removal: `analytics.ts`
+  used un-hyphenated dev table names (`devroutes`/`devviewersessions`) while
+  every other route file used the hyphenated `dev-` convention, so dev-mode
+  analytics queries were silently hitting empty tables.
+- Found and fixed a real feature gap the deletion would otherwise have
+  caused: OG image generation (`GET /api/og-image`, used by `SEO.tsx` /
+  `TrackingView.tsx` for social-preview cards on shared tracking links) only
+  ever existed in `api/` — it had never been ported to `server/`, so
+  production would have silently lost social-preview images the moment
+  `api/` was deleted. Ported `og-image.ts`, `utils/ogImageBuilder.ts`
+  (pure-function SVG builder, now unit-tested again at
+  `src/__tests__/ogImageBuilder.test.ts`), and `utils/blobStorage.ts`
+  (optional Blob Storage caching, no-ops without a connection string) into
+  `server/`, added `@azure/storage-blob` as a `server/` dependency, and
+  wired the route into `app.ts`. Config (`MAPBOX_TOKEN`,
+  `AZURE_BLOB_STORAGE_CONNECTION_STRING`) was already documented in
+  `.env.example` and needed no changes.
+- CI gained a `server/` typecheck step (previously only the frontend was
+  typechecked in CI).
+- Docs updated to match: `docs/DEV_MODE.md` (rewritten), `docs/ARCHITECTURE.md`,
+  `CLAUDE.md`, `.github/copilot-instructions.md`, `docs/FIRE_STATION_DATASET.md`.
+  `docs/SECRETS_MANAGEMENT.md` and `docs/GITHUB_SECRETS_SETUP.md` deleted —
+  both described a pre-Container-Apps deploy model; `infra/README.md` was
+  already the accurate source for that content.
+- `.devcontainer/devcontainer.json` added the same week, sized for this end
+  state (Node 22, Azure CLI, GitHub CLI, Docker-outside-of-Docker, Claude
+  Code — no Functions Core Tools).
+
 ## Roadmap — what's next
 
 Ordered by leverage. Public-side items move the needle most because the public
@@ -187,7 +389,12 @@ before relying on the unified suite login in production.
    Calculator once all three are deployed with the `.stationkit.com.au`
    cookie domain live: sign in once, land authenticated in all three; sign out
    in one, confirm the others still behave sanely; confirm the independent
-   Santa Run sign-up path still works standalone. Not yet done.
+   Santa Run sign-up path still works standalone. Not yet done — needs
+   Station Manager's `COOKIE_DOMAIN`/`FRONTEND_URLS` set (Azure CLI/portal
+   access, a different session) and the `santa.stationkit.com.au` domain move
+   below completed. Now unblocked from this repo's side: the broadcast-
+   ownership fix that had to land first (see the December-readiness review
+   above) is merged.
 1. **Proximity push** — extend "notify me" to "Santa is ~10 min from your pin".
    The route + live position + personal ETA already exist; this is the highest
    emotional-value feature and the clearest differentiator over "we post on
@@ -205,12 +412,69 @@ before relying on the unified suite login in production.
    below).
 6. **Billing UX depth** — receipts/renewal reminders, grace-period messaging
    refinements, optional multi-year.
-7. **Realtime backplane for horizontal scale** — if a single Container Apps
-   replica ever caps out on concurrent WebSocket connections, add a shared
-   pub/sub backplane (e.g. Redis) behind `server/src/realtime/hub.ts` so
-   `maxReplicas` can go above 1. Not needed at current or projected traffic;
-   revisit only if a run's viewer count approaches the practical ceiling of
-   one instance.
+7. **December capacity — registration-informed, not blanket.** The
+   December-readiness review (above) initially flagged the single Container
+   Apps replica (hard-pinned `maxReplicas: 1` because the realtime hub's
+   state is in-process) plus the global `MAX_TOTAL_CONNECTIONS = 5000` cap as
+   plausibly reachable organically on Christmas Eve. Owner context that
+   revises that: **this is year 1** — a dozen registered brigades would be a
+   strong result — so that ceiling is very unlikely to bind this season. The
+   chosen approach going forward, once brigades start registering, is
+   **proactive and event-driven, not a blanket month-long toggle or a
+   reactive autoscaler**: use real registration data to warm (and, if a
+   cluster of runs on one night genuinely warrants it, vertically size up)
+   the single replica around specific known windows, informed by an actual
+   number instead of a guess.
+
+   **Shipped:**
+   - `npm run report:upcoming-runs` (`scripts/upcoming-runs-report.js`) —
+     reads the routes/brigades tables directly (there's deliberately no
+     cross-brigade "list every run" API) and prints every scheduled run
+     grouped by date, flagging any night with more than one brigade running.
+     Run this periodically through the season to see clustering as brigades
+     register, then decide when to run `infra/scale-season.sh` around that
+     specific window.
+   - `containerCpu`/`containerMemory` are now Bicep parameters
+     (`infra/main.bicep`, `infra/modules/containerapps.bicep`), defaulted to
+     the original smallest allocation — a future vertical bump for a
+     specific event window no longer needs editing the template.
+   - Minimum-viable app-level alerting (`server/src/utils/opsAlert.ts`):
+     emails when realtime connections approach/hit the 5,000 cap
+     (`server/src/realtime/wsServer.ts`) or the broadcast failure rate spikes
+     (`server/src/routes/broadcast.ts`), debounced per alert kind. Deliberately
+     app-level rather than a generic Azure Monitor metric alert — "connections
+     near the cap" is in-process state a platform metric can't see. Sends via
+     Station Manager's *existing* Azure Communication Services instance
+     (shared, not a second ACS resource — it already has a verified domain)
+     — see `infra/.env.example` for how to get its connection string. Configure
+     `AZURE_COMMUNICATION_CONNECTION_STRING` / `EMAIL_FROM_ADDRESS` /
+     `OPS_ALERT_EMAIL` via `infra/seed-secrets.sh` to turn it on; unset, it
+     just logs instead of emailing.
+   - Not covered by app-level alerting: the process crashing or failing to
+     start at all (a dead process can't send its own "I'm down" email). An
+     Application Insights availability ping on `/api/health` would close
+     that gap — cheap, standard, not yet set up; worth adding if this grows
+     past a hobby-scale deployment.
+
+   **Deliberately not built this season**: a shared pub/sub backplane (e.g.
+   Redis) behind `server/src/realtime/hub.ts` so `maxReplicas` could exceed
+   1, and per-run dedicated compute (a separate container provisioned per
+   scheduled run). Both solve a scale/isolation problem this product doesn't
+   have yet at year-1 volumes, at a cost (the former: real engineering effort
+   plus an ongoing resource cost; the latter: a multi-week rebuild — a
+   routing/discovery layer in front of per-run workers, since the realtime
+   hub's connections are pinned to one process and the REST API can't be
+   per-run since brigades plan at any time, not just during their own run)
+   disproportionate to the actual traffic expected. Revisit once real
+   registration/viewer numbers from an actual season exist, not before —
+   the horizontal-backplane path is the natural next step if the shared
+   instance's ceiling is ever genuinely approached; per-run isolation would
+   only earn its complexity at a scale or noisy-neighbour risk well beyond
+   that.
+   - Still open, no code involved: an actual load test before December
+     (nobody has measured real per-connection cost on this exact
+     Consumption allocation) — needs a deployed target, so a different
+     session with Azure access.
 8. **Write a "brigade membership under Station Manager" user doc.** The
    2026-07-19 docs cleanup deleted `ADMIN_USER_GUIDE.md`,
    `MEMBERSHIP_SYSTEM.md`, `API_AUTHENTICATION.md`,

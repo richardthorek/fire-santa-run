@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 
-const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
+const BRIGADES_TABLE = isDevMode ? 'devbrigades' : 'brigades';
 
 function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");
@@ -62,12 +62,22 @@ brigadesRouter.get('/public', async (c) => {
   }
 });
 
+// Hardening fix (post-launch audit, 2026-09): this list (and by-station/:id
+// and :id below) used to return entityToBrigade() — the full raw entity,
+// unauthenticated. In practice the only genuinely private fields it added
+// over toPublicBrigade() were a couple of redundant flat contactEmail/
+// contactPhone properties (contact.email/contact.phone are already public by
+// design — PublicBrigadePage renders them as mailto:/tel: links on every
+// brigade's own public page) plus an internal updatedAt timestamp, so this
+// was never the severe PII leak it first looked like — but there's no reason
+// an unauthenticated bulk list needs the raw entity shape either, and the
+// only real caller (BrigadeDiscoveryPage) already only reads public fields.
 brigadesRouter.get('/', async (c) => {
   try {
     const client = await getTableClient(BRIGADES_TABLE);
     const brigades = [];
     for await (const entity of client.listEntities()) {
-      brigades.push(entityToBrigade(entity));
+      brigades.push(toPublicBrigade(entity));
     }
     return c.json(brigades);
   } catch (error) {
@@ -82,7 +92,7 @@ brigadesRouter.get('/by-station/:fireStationId', async (c) => {
     const client = await getTableClient(BRIGADES_TABLE);
     const entities = client.listEntities({ queryOptions: { filter: `fireStationId eq '${escapeODataValue(fireStationId)}'` } });
     for await (const entity of entities) {
-      return c.json(entityToBrigade(entity));
+      return c.json(toPublicBrigade(entity));
     }
     return c.json({ error: 'Brigade not found' }, 404);
   } catch (error) {
@@ -91,7 +101,8 @@ brigadesRouter.get('/by-station/:fireStationId', async (c) => {
   }
 });
 
-// Public-safe projection for the unauthenticated /brigade/:slug page.
+// Public-safe projection for the unauthenticated /brigade/:slug page (and,
+// per the hardening note above, every other unauthenticated brigade read).
 function toPublicBrigade(entity: any) {
   const b = entityToBrigade(entity);
   return {
@@ -130,7 +141,7 @@ brigadesRouter.get('/:id', async (c) => {
     const client = await getTableClient(BRIGADES_TABLE);
     try {
       const entity = await client.getEntity(brigadeId, brigadeId);
-      return c.json(entityToBrigade(entity));
+      return c.json(toPublicBrigade(entity));
     } catch (error: any) {
       if (error.statusCode === 404) return c.json({ error: 'Brigade not found' }, 404);
       throw error;

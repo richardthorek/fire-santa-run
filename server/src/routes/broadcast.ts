@@ -1,12 +1,40 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
-import { rateLimit } from '../utils/rateLimit.js';
-import { validateToken } from '../utils/auth.js';
+import { rateLimit, clientIp } from '../utils/rateLimit.js';
+import { validateToken, checkBrigadeAccess, type AuthResult } from '../utils/auth.js';
+import { getTableClient, isDevMode } from '../utils/storage.js';
 import { notifyRunStartOnce } from '../utils/push.js';
 import { hub } from '../realtime/hub.js';
+import { alertOps } from '../utils/opsAlert.js';
 
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://firesantarun.com.au';
+const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
+
+// A handful of 500s is normal noise (a bad request body, a transient storage
+// blip); a burst is not — it's the signal something's actually wrong with
+// the path that moves Santa. Counts unexpected failures only (the catch
+// blocks below, not ordinary 400/403/404 validation responses).
+const FAILURE_WINDOW_MS = 5 * 60_000;
+const FAILURE_ALERT_THRESHOLD = 10;
+let failureWindowStart = Date.now();
+let failureCount = 0;
+
+function recordBroadcastFailure(context: string): void {
+  const now = Date.now();
+  if (now - failureWindowStart >= FAILURE_WINDOW_MS) {
+    failureWindowStart = now;
+    failureCount = 0;
+  }
+  failureCount++;
+  if (failureCount >= FAILURE_ALERT_THRESHOLD) {
+    alertOps(
+      'broadcast-failure-rate',
+      'Elevated broadcast failure rate',
+      `${failureCount} broadcast-related requests failed with a 500 in the last ${FAILURE_WINDOW_MS / 60_000} minutes (most recent: ${context}).`,
+    );
+  }
+}
 
 interface LocationBroadcast {
   routeId: string;
@@ -18,7 +46,7 @@ interface LocationBroadcast {
   nextWaypointEta?: string;
 }
 
-export const broadcastRouter = new Hono();
+export const broadcastRouter = new Hono<{ Variables: { authResult: AuthResult } }>();
 
 // Launch hardening (#345): cap broadcast volume per client. Navigation sends
 // a location every 5s (12/min) and presence heartbeats every 15s (4/min);
@@ -27,17 +55,64 @@ broadcastRouter.use('/broadcast', rateLimit({ name: 'broadcast', limit: 40, wind
 broadcastRouter.use('/broadcast/*', rateLimit({ name: 'broadcast', limit: 40, windowMs: 60_000 }));
 
 // Every broadcast pushes a message to a route group — Santa's location, editor
-// presence, or the viewer count. All must come from a signed-in brigade user so
-// anonymous clients cannot inject fake positions to public viewers.
+// presence, or the run status — so it must come from a signed-in brigade user.
+// This only checks that the caller holds *some* valid Station Manager token;
+// it does NOT check they belong to the brigade that owns the target route —
+// see requireRouteOwner below, applied per-handler once the route id is known.
 async function requireAuth(c: Context, next: Next) {
   const authResult = await validateToken(c.req.raw);
   if (!authResult.authenticated) {
     return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
   }
+  c.set('authResult', authResult);
   await next();
 }
 broadcastRouter.use('/broadcast', requireAuth);
 broadcastRouter.use('/broadcast/*', requireAuth);
+
+/**
+ * Security fix (post-launch audit, 2026-09): requireAuth above only proves the
+ * caller is SOME signed-in Station Manager user — any account, in any
+ * organisation, anywhere in the StationKit suite, free to create. Nothing
+ * previously checked that they belonged to the brigade running this specific
+ * route, so any suite account could inject a false Santa position into, or
+ * abort, a brigade it had no relationship to. Call this from each handler
+ * once the target routeId is known, mirroring negotiate.ts's broadcaster/
+ * editor checks (same permissions, same entitlement gate).
+ */
+async function requireRouteOwner(
+  c: Context<{ Variables: { authResult: AuthResult } }>,
+  routeId: string,
+  permission: 'start_navigation' | 'manage_routes',
+): Promise<{ brigadeId: string } | Response> {
+  const authResult = c.get('authResult');
+  const brigadeId = authResult.organizationId;
+  if (!brigadeId) {
+    return c.json({ error: 'Route not found' }, 404);
+  }
+  // Point-read the route in the caller's own brigade partition rather than a
+  // cross-partition RowKey scan: checkBrigadeAccess below already requires the
+  // route's brigade to equal authResult.organizationId, so a route in any
+  // other partition would be rejected anyway — and this runs on every location
+  // broadcast (12/min per navigator).
+  const client = await getTableClient(ROUTES_TABLE);
+  try {
+    await client.getEntity(brigadeId, routeId);
+  } catch (err: any) {
+    if (err?.statusCode === 404) {
+      return c.json({ error: 'Route not found' }, 404);
+    }
+    throw err;
+  }
+  const permissionCheck = checkBrigadeAccess(authResult, brigadeId, permission);
+  if (!permissionCheck.authorized) {
+    return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
+  }
+  if (!authResult.santaRunEnabled) {
+    return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
+  }
+  return { brigadeId };
+}
 
 broadcastRouter.post('/broadcast', async (c) => {
   try {
@@ -61,6 +136,9 @@ broadcastRouter.post('/broadcast', async (c) => {
       return c.json({ error: 'Missing required field: timestamp' }, 400);
     }
 
+    const ownerCheck = await requireRouteOwner(c, body.routeId, 'start_navigation');
+    if (ownerCheck instanceof Response) return ownerCheck;
+
     const message: LocationBroadcast = {
       routeId: body.routeId,
       location: body.location,
@@ -75,6 +153,16 @@ broadcastRouter.post('/broadcast', async (c) => {
     // no per-message billing).
     hub.broadcastLocation(body.routeId, message);
 
+    // Attribution trail for the broadcast-hijack fix above: nothing else in
+    // this codebase records who actually moved Santa on a given route, so a
+    // falsified run couldn't previously be told apart from a bug after the
+    // fact. Application-log only (no Table Storage write) — this must never
+    // slow down or fail a location update.
+    const authResult = c.get('authResult');
+    console.log(
+      `[broadcast] route=${body.routeId} brigade=${ownerCheck.brigadeId} user=${authResult.userId} ip=${clientIp(c)}`,
+    );
+
     // First broadcast of a run wakes the "notify me" subscribers. Deliberately
     // not awaited — pushes must never slow down or fail location updates. Skip
     // it if the run has been called away: nobody should be told "Santa's
@@ -86,6 +174,7 @@ broadcastRouter.post('/broadcast', async (c) => {
     return c.json({ success: true, routeId: body.routeId, timestamp: body.timestamp }, 200);
   } catch (error: any) {
     console.error('Error broadcasting location:', error);
+    recordBroadcastFailure('POST /broadcast');
     return c.json({ error: 'Failed to broadcast location', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });
@@ -114,6 +203,9 @@ broadcastRouter.post('/broadcast/editor-presence', async (c) => {
       return c.json({ error: 'Invalid action. Must be "editing" or "left"' }, 400);
     }
 
+    const ownerCheck = await requireRouteOwner(c, body.routeId, 'manage_routes');
+    if (ownerCheck instanceof Response) return ownerCheck;
+
     const message = {
       type: 'editor-presence',
       routeId: body.routeId,
@@ -127,6 +219,7 @@ broadcastRouter.post('/broadcast/editor-presence', async (c) => {
     return c.json({ success: true }, 200);
   } catch (error: any) {
     console.error('Error broadcasting editor presence:', error);
+    recordBroadcastFailure('POST /broadcast/editor-presence');
     return c.json({ error: 'Failed to broadcast editor presence', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });
@@ -151,6 +244,9 @@ broadcastRouter.post('/broadcast/status', async (c) => {
       return c.json({ error: `Invalid status. Must be one of: ${VALID_RUN_STATUSES.join(', ')}` }, 400);
     }
 
+    const ownerCheck = await requireRouteOwner(c, body.routeId, 'start_navigation');
+    if (ownerCheck instanceof Response) return ownerCheck;
+
     const message = {
       type: 'run-status' as const,
       routeId: body.routeId,
@@ -164,6 +260,7 @@ broadcastRouter.post('/broadcast/status', async (c) => {
     return c.json({ success: true, routeId: body.routeId, status: message.status }, 200);
   } catch (error: any) {
     console.error('Error broadcasting run status:', error);
+    recordBroadcastFailure('POST /broadcast/status');
     return c.json({ error: 'Failed to broadcast run status', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });

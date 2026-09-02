@@ -15,8 +15,19 @@ Topic map for `docs/`. Read the file that matches your topic instead of scanning
 > had the same problem in its first three sections only (sign-in/claim/invite)
 > — those were rewritten in place rather than deleting the whole doc, since
 > the rest (profile, routes, sharing, going live) was still accurate. Git
-> history has the deleted files if anyone needs the record. Everything below
-> is believed current as of that date.
+> history has the deleted files if anyone needs the record.
+>
+> **2026-09 cleanup:** `api/` (the Azure Functions local-dev backend) was
+> retired — `server/` (Hono) is now used for local dev too, pre-launch, so
+> there is exactly one backend implementation instead of two kept in sync by
+> hand. `SECRETS_MANAGEMENT.md` and `GITHUB_SECRETS_SETUP.md` were deleted:
+> both predated the Container Apps migration and documented a Vercel/Netlify/
+> Azure-App-Service/Static-Web-Apps deployment model that hasn't been true
+> for some time — `../infra/README.md`'s "After Deployment — Configure CI +
+> Secrets" section is the accurate, current version of that same content and
+> was already the source of truth in practice. `DEV_MODE.md` and
+> `ARCHITECTURE.md` were rewritten for the single-backend, Azurite-for-local-
+> storage setup. Everything below is believed current as of that date.
 >
 > **Known gap:** there is currently no dedicated "how brigade membership
 > works now" doc — see the roadmap in `MASTER_PLAN.md`.
@@ -24,9 +35,9 @@ Topic map for `docs/`. Read the file that matches your topic instead of scanning
 ## Start here (canonical, kept current)
 
 - [`../MASTER_PLAN.md`](../MASTER_PLAN.md) — concise forward-looking product plan (vision, current state, roadmap, decisions)
-- [ARCHITECTURE.md](ARCHITECTURE.md) — as-built architecture (Container Apps + Hono prod, Functions local dev, storage, realtime, billing, push, StationKit suite identity)
+- [ARCHITECTURE.md](ARCHITECTURE.md) — as-built architecture (Container Apps + Hono, one backend for prod and local dev, storage, realtime, billing, push, StationKit suite identity)
 - [UI_GUIDELINES.md](UI_GUIDELINES.md) — design tokens, brand, per-surface device targets, accessibility, copy
-- [`../infra/README.md`](../infra/README.md) — deployment, secrets seeding, seasonal scaling, Entra setup
+- [`../infra/README.md`](../infra/README.md) — deployment, secrets seeding (incl. GitHub Actions secrets/variables), seasonal scaling, Entra setup
 - [`../CLAUDE.md`](../CLAUDE.md) — quick working conventions for this repo
 
 ## User documentation
@@ -35,7 +46,7 @@ Topic map for `docs/`. Read the file that matches your topic instead of scanning
 
 ## Getting started & dev
 
-- [DEV_MODE.md](DEV_MODE.md) — local dev mode (`VITE_DEV_MODE`), localStorage, no-auth flow
+- [DEV_MODE.md](DEV_MODE.md) — local dev mode (`VITE_DEV_MODE`/`DEV_MODE`), Azurite, no-auth flow
 - [MANUAL_TESTING_CHECKLIST.md](MANUAL_TESTING_CHECKLIST.md) — manual QA checklist
 
 ## Launch / security
@@ -45,10 +56,8 @@ Topic map for `docs/`. Read the file that matches your topic instead of scanning
 
 ## Infrastructure, secrets & deployment
 
-- [SECRETS_MANAGEMENT.md](SECRETS_MANAGEMENT.md) — env vars & secrets
-- [GITHUB_SECRETS_SETUP.md](GITHUB_SECRETS_SETUP.md)
+- [`../infra/README.md`](../infra/README.md) — the single source of truth: Azure infra, GitHub Actions secrets/variables, Container App env vars, seasonal scaling, ops alert email setup
 - [PRODUCTION_DEPLOYMENT_CHECKLIST.md](PRODUCTION_DEPLOYMENT_CHECKLIST.md)
-- (Azure infra + Entra setup: see [`../infra/README.md`](../infra/README.md))
 
 ## Realtime tracking & navigation
 
