@@ -17,7 +17,9 @@
 		// Uses the host's Docker engine via the mounted socket, not a nested
 		// dockerd — safe to delete this block if it ever causes build trouble,
 		// nothing else in day-to-day dev depends on it.
-		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+	"moby": false
+}
 	},
 
 	// Vite client, server/, and Azurite's table/queue/blob emulator ports.
