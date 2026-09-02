@@ -4,9 +4,15 @@ import type { Server } from 'node:http';
 import { createApp } from './app.js';
 import { validateServerEnv } from './utils/configValidation.js';
 import { attachRealtime } from './realtime/wsServer.js';
+import { initAppInsights } from './utils/appInsights.js';
 
 // Fail fast on invalid configuration before accepting any traffic.
 validateServerEnv();
+
+// Before anything else logs: if APPLICATIONINSIGHTS_CONNECTION_STRING is
+// configured, pipe console output (including the METRIC lines emitted by
+// telemetryMetrics.ts) into Application Insights. No-op when unset.
+initAppInsights();
 
 // Path to the built React SPA, relative to process.cwd() (the deployment root).
 // Start the server from the repository root so that './dist' resolves to the
