@@ -97,6 +97,7 @@ export function BrigadeSettingsPage() {
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [contactWebsite, setContactWebsite] = useState('');
+  const [publicListing, setPublicListing] = useState<'auto' | 'shown' | 'hidden'>('auto');
 
   // Logo upload state
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -126,6 +127,7 @@ export function BrigadeSettingsPage() {
         setContactEmail(b.contact?.email ?? '');
         setContactPhone(b.contact?.phone ?? '');
         setContactWebsite(b.contact?.website ?? '');
+        setPublicListing(b.publicListing ?? 'auto');
       } catch (err) {
         console.error('Failed to load brigade:', err);
         navigate('/dashboard');
@@ -188,6 +190,7 @@ export function BrigadeSettingsPage() {
         phone: contactPhone.trim() || undefined,
         website: contactWebsite.trim() || undefined,
       },
+      publicListing,
       updatedAt: new Date().toISOString(),
     };
 
@@ -368,6 +371,37 @@ export function BrigadeSettingsPage() {
                   autoComplete="url"
                 />
               </div>
+            </div>
+          </section>
+
+          {/* Public directory visibility */}
+          <section className="bsp__section" aria-labelledby="bsp-listing">
+            <h2 className="bsp__section-title" id="bsp-listing">Public Directory</h2>
+            <p className="bsp__section-desc">
+              Controls whether your brigade appears in the public “Find a brigade” search.
+              Your brigade profile page stays reachable by direct link either way.
+            </p>
+            <div className="bsp__fields" role="radiogroup" aria-labelledby="bsp-listing">
+              {([
+                ['auto', 'Automatic', 'Listed only while you have a run scheduled or live. Hidden once every run is finished — until you publish the next one.'],
+                ['shown', 'Always list us', 'Appear in the directory even with no runs scheduled.'],
+                ['hidden', 'Never list us', 'Keep the brigade out of the public directory entirely.'],
+              ] as const).map(([value, label, help]) => (
+                <label key={value} className="bsp__field" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: '0.6rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="public-listing"
+                    value={value}
+                    checked={publicListing === value}
+                    onChange={() => setPublicListing(value)}
+                    style={{ marginTop: '0.2rem' }}
+                  />
+                  <span>
+                    <span className="bsp__label" style={{ display: 'block' }}>{label}</span>
+                    <span className="bsp__section-desc" style={{ marginTop: '0.15rem' }}>{help}</span>
+                  </span>
+                </label>
+              ))}
             </div>
           </section>
 

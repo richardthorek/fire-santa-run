@@ -16,7 +16,9 @@ param environment string = 'dev'
 param tags object = {}
 
 var storageAccountName = 'santarun${nameSuffix}'
-var tables = ['brigades', 'routes', 'waypoints', 'trackingsessions', 'users', 'memberships', 'invitations', 'verifications']
+// Tables the server also creates on first use at runtime (getTableClient) — listed
+// here so a fresh deploy has them ready and their existence is documented in IaC.
+var tables = ['brigades', 'routes', 'waypoints', 'trackingsessions', 'viewersessions', 'users', 'memberships', 'invitations', 'verifications', 'moderationflags']
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName

@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { PUBLIC_ROUTE_STATUSES } from '../utils/routeVisibility.js';
+import { guardTextContent } from '../utils/moderation.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
@@ -129,6 +130,40 @@ function validateRoutePayload(route: any): string | null {
   return null;
 }
 
+/**
+ * Content-safety gate for a route that is (being) published. A run name and
+ * description show on the public tracker, the discovery feed and OG images, so
+ * they are checked the moment the route becomes publicly visible. Draft-only
+ * saves are not checked — nothing public sees them. Returns a 422 JSON
+ * response to send, or null to proceed.
+ */
+async function moderateRouteIfPublic(
+  c: any,
+  route: any,
+  actorEmail: string,
+): Promise<Response | null> {
+  if (!PUBLIC_ROUTE_STATUSES.has(route.status)) return null;
+  for (const field of ['name', 'description'] as const) {
+    const value = route[field];
+    if (typeof value !== 'string' || !value.trim()) continue;
+    const guard = await guardTextContent({
+      subjectType: 'route',
+      subjectId: route.id,
+      brigadeId: route.brigadeId,
+      field,
+      value,
+      actorEmail,
+    });
+    if (guard.blocked) {
+      return c.json(
+        { error: 'Content rejected', message: `${guard.reason} Edit the run ${field} and publish again.` },
+        422,
+      );
+    }
+  }
+  return null;
+}
+
 routesRouter.get('/', async (c) => {
   try {
     const brigadeId = c.req.query('brigadeId');
@@ -215,6 +250,8 @@ routesRouter.post('/', async (c) => {
     if (!authResult.santaRunEnabled) {
       return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
+    const blocked = await moderateRouteIfPublic(c, route, authResult.email || authResult.userId || 'unknown');
+    if (blocked) return blocked;
     const client = await getTableClient(ROUTES_TABLE);
     await client.createEntity(routeToEntity(route));
     console.log(`Created route: ${route.id} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);
@@ -240,6 +277,8 @@ routesRouter.put('/:id', async (c) => {
     if (!authResult.santaRunEnabled) {
       return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
+    const blocked = await moderateRouteIfPublic(c, { ...route, id: routeId }, authResult.email || authResult.userId || 'unknown');
+    if (blocked) return blocked;
     const client = await getTableClient(ROUTES_TABLE);
     await client.updateEntity(routeToEntity({ ...route, id: routeId }), 'Merge');
     console.log(`Updated route: ${routeId} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);

@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, LayoutDashboard, Users, Settings2, ShieldCheck, LogOut } from 'lucide-react';
+import { User, LayoutDashboard, Users, Settings2, ShieldCheck, ShieldAlert, LogOut } from 'lucide-react';
 import { useAuth, useBrigade } from '../context';
 import { COLORS } from '../utils/constants';
 
@@ -19,7 +19,7 @@ export interface AppHeaderProps {
 }
 
 export function AppHeader({ show = true }: AppHeaderProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, isPlatformAdmin } = useAuth();
   const { brigade } = useBrigade();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -274,6 +274,14 @@ export function AppHeader({ show = true }: AppHeaderProps) {
                   label={brigade ? 'Switch Brigade' : 'Claim Brigade'}
                   onClick={() => setMenuOpen(false)}
                 />
+                {isPlatformAdmin && (
+                  <MenuLink
+                    to="/admin"
+                    icon={<ShieldAlert size={20} aria-hidden="true" />}
+                    label="Admin Portal"
+                    onClick={() => setMenuOpen(false)}
+                  />
+                )}
               </div>
 
               {/* Logout Section */}

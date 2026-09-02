@@ -35,6 +35,11 @@ export interface AuthContextType {
   isLoading: boolean;
   /** Whether the active brigade's Station Manager org grants Fire Santa Run. */
   santaRunEnabled: boolean;
+  /**
+   * Whether Station Manager reports this user as a platform administrator.
+   * Gates the /admin portal. Suite-wide, not brigade-scoped.
+   */
+  isPlatformAdmin: boolean;
   organizationName: string | null;
   planCode: string | null;
   /** Every StationKit organisation this user belongs to (multi-brigade membership). */
@@ -79,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [santaRunEnabled, setSantaRunEnabled] = useState(false);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [organizationName, setOrganizationName] = useState<string | null>(null);
   const [planCode, setPlanCode] = useState<string | null>(null);
   const [memberships, setMemberships] = useState<AuthMembership[]>([]);
@@ -86,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applySession = useCallback((session: SuiteSession) => {
     setUser(sessionToUser(session));
     setSantaRunEnabled(session.santaRunEnabled);
+    setIsPlatformAdmin(session.isPlatformAdmin);
     setOrganizationName(session.organizationName ?? null);
     setPlanCode(session.planCode);
     setMemberships(session.memberships);
@@ -94,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearSession = useCallback(() => {
     setUser(null);
     setSantaRunEnabled(false);
+    setIsPlatformAdmin(false);
     setOrganizationName(null);
     setPlanCode(null);
     setMemberships([]);
@@ -110,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: 'admin',
       });
       setSantaRunEnabled(true);
+      setIsPlatformAdmin(true);
       setOrganizationName('Development Brigade');
       setIsLoading(false);
       return;
@@ -191,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isLoading,
     santaRunEnabled,
+    isPlatformAdmin,
     organizationName,
     planCode,
     memberships,

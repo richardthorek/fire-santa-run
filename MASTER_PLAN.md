@@ -379,6 +379,36 @@ to maintain and reason about, not two kept in sync by hand.
   state (Node 22, Azure CLI, GitHub CLI, Docker-outside-of-Docker, Claude
   Code — no Functions Core Tools).
 
+### Admin portal, content moderation & directory visibility (2026-09-02)
+
+Operator-facing controls added after the first round of live test data showed
+up publicly and raised a content-safety question. Full detail:
+**[`docs/ADMIN_PORTAL.md`](docs/ADMIN_PORTAL.md)**.
+
+- **Platform-admin portal** at `/admin` — cross-brigade view (registrations,
+  users, run stats), plus destructive controls to clear out test/old runs and
+  a content-moderation queue. Gated on Station Manager's existing
+  `isPlatformAdmin` flag (its `PLATFORM_ADMIN_EMAILS`, already returned by
+  `GET /api/auth/me`); Fire Santa Run also honours a local
+  `PLATFORM_ADMIN_EMAILS` bridge. New `server/src/routes/admin.ts`
+  (`/api/admin/*`), `src/pages/admin/`.
+- **Content safety** via **Azure AI Content Safety** (new
+  `infra/modules/contentsafety.bicep`, S0 tier, ~$0 at this volume). Run names,
+  brigade names and brigade logos are screened when they go public;
+  a definite flag blocks the publish/upload (HTTP 422), a service outage fails
+  open but records a `pending` flag. `moderationflags` table is the audit +
+  review queue; an admin can approve (false positive), remove, or dismiss.
+- **Brigade directory visibility** — `Brigade.publicListing`
+  (`auto` | `shown` | `hidden`, default `auto`). `auto` lists a brigade in the
+  public `/brigades` search only while it has a current or upcoming run, so
+  brigades with nothing scheduled (and stale auto-provisioned test orgs) stay
+  out of the directory without being deleted. Control on the brigade settings
+  page; server filters `GET /brigades` + `/public`.
+- **Test gap:** the server-side moderation / admin / visibility logic is not
+  unit-tested — `server/` still has no test runner (CI only type-checks it).
+  Client helpers (`shouldListInDirectory`,
+  `LocalStorageAdapter.getBrigades` filtering) are covered.
+
 ## Roadmap — what's next
 
 Ordered by leverage. Public-side items move the needle most because the public

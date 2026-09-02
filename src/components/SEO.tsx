@@ -14,6 +14,8 @@ export interface SEOProps {
   type?: 'website' | 'article';
   siteName?: string;
   twitterCard?: 'summary' | 'summary_large_image';
+  /** Emit `<meta name="robots" content="noindex">` — for private surfaces like /admin. */
+  noIndex?: boolean;
 }
 
 const DEFAULT_TITLE = 'Fire Santa Run';
@@ -29,6 +31,7 @@ export function SEO({
   type = 'website',
   siteName = DEFAULT_SITE_NAME,
   twitterCard = 'summary_large_image',
+  noIndex = false,
 }: SEOProps) {
   const fullTitle = title ? `${title} | ${DEFAULT_TITLE}` : DEFAULT_TITLE;
 
@@ -37,6 +40,7 @@ export function SEO({
       {/* Basic Meta Tags - React 19 automatically hoists to <head> */}
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
+      {noIndex && <meta name="robots" content="noindex" />}
 
       {/* Open Graph Tags (Facebook, LinkedIn) */}
       <meta property="og:title" content={fullTitle} />

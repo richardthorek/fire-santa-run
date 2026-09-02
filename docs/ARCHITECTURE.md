@@ -86,9 +86,15 @@ retired (the legacy SWA workflow now runs quality checks only, and
 Azure Table Storage, partitioned by `brigadeId` for multi-brigade isolation —
 data must never leak across brigades. Core entities: brigades, routes,
 waypoints (two-table split), users (local profile only — see below), push
-subscriptions. Dev tables are prefixed `dev-`. There is no membership,
-invitation, or verification-request table: brigade membership and role are
-governed entirely by Station Manager (see below).
+subscriptions, viewer sessions, moderation flags. Dev tables are prefixed
+`dev`. There is no membership, invitation, or verification-request table:
+brigade membership and role are governed entirely by Station Manager (see
+below).
+
+`Brigade.publicListing` (`auto` default | `shown` | `hidden`) controls
+whether a brigade appears in the public `/brigades` directory — `auto` shows
+it only while it has a current or upcoming run. See
+[`ADMIN_PORTAL.md`](ADMIN_PORTAL.md).
 
 ## Auth & authorisation
 
@@ -123,6 +129,16 @@ provider for all three suite apps.
   (its own account settings) — no registration UI exists here.
 - Public read paths stay anonymous (tracking, viewer negotiate, analytics
   counts, brigade discovery).
+- **Platform admin** — a role above the per-brigade ones, for the operator of
+  the whole deployment. `AuthResult.isPlatformAdmin` is set from Station
+  Manager's own `isPlatformAdmin` flag (its `PLATFORM_ADMIN_EMAILS`, in the
+  `/api/auth/me` response) or Fire Santa Run's local `PLATFORM_ADMIN_EMAILS`
+  bridge. Gates the `/admin` portal and `/api/admin/*`
+  (`requirePlatformAdmin`). See [`ADMIN_PORTAL.md`](ADMIN_PORTAL.md).
+- **Content moderation** — run/brigade names and brigade logos are screened
+  by Azure AI Content Safety when they go public; a definite flag blocks the
+  write (422), an outage fails open with a review flag. See
+  [`ADMIN_PORTAL.md`](ADMIN_PORTAL.md).
 - Write/privileged paths require a valid token plus `checkBrigadeAccess()`:
   the token's `organizationId` must equal the target `brigadeId`, and its
   `role` must carry the required permission (`ROLE_PERMISSIONS`: `owner`/
@@ -195,9 +211,10 @@ backplane (e.g. Redis pub/sub) for the hub — tracked as a roadmap item in
 ## Infrastructure
 
 Bicep IaC in `infra/` provisions Azure Container Apps (Consumption,
-scale-to-zero), Table Storage, and Application Insights — see
-[`../infra/README.md`](../infra/README.md) and
-[`infra/modules/containerapps.bicep`](../infra/modules/containerapps.bicep).
+scale-to-zero), Table Storage, Application Insights, and an Azure AI Content
+Safety account (`modules/contentsafety.bicep`, S0 — moderates public
+run/brigade names and logos) — see [`../infra/README.md`](../infra/README.md)
+and [`infra/modules/containerapps.bicep`](../infra/modules/containerapps.bicep).
 
 - `Dockerfile` (repo root) — multi-stage build: React SPA (Vite), Hono server
   (tsc), then a minimal runtime image. Built by CI and pushed to GitHub

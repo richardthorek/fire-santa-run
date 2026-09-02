@@ -51,6 +51,12 @@ export interface SuiteSession {
   planCode: string | null;
   /** True when the org's plan (or standalone add-on) includes Fire Santa Run. */
   santaRunEnabled: boolean;
+  /**
+   * True when Station Manager reports this user as a platform administrator
+   * (SM's PLATFORM_ADMIN_EMAILS allowlist). Unlocks the /admin portal. Not
+   * org-scoped — it does not change when the user switches brigade.
+   */
+  isPlatformAdmin: boolean;
   memberships: SuiteMembership[];
 }
 
@@ -92,6 +98,7 @@ interface MeResponse {
   organization?: { name?: string; planCode?: string } | null;
   entitlements?: { santaRunEnabled?: boolean } | null;
   memberships?: { organizationId: string; organizationName: string; role: 'owner' | 'admin' | 'viewer' }[];
+  isPlatformAdmin?: boolean;
 }
 
 function toSession(token: string, me: MeResponse): SuiteSession {
@@ -104,6 +111,7 @@ function toSession(token: string, me: MeResponse): SuiteSession {
     role: me.role,
     planCode: me.organization?.planCode ?? null,
     santaRunEnabled: me.entitlements?.santaRunEnabled === true,
+    isPlatformAdmin: me.isPlatformAdmin === true,
     memberships: me.memberships ?? [],
   };
 }
