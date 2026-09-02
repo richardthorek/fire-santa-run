@@ -463,6 +463,71 @@ This ensures the new image is actually running and responding before the deploym
 
 ---
 
+## Custom domain (`santa.stationkit.com.au`)
+
+The public hostname is bound to the Container App ingress with an SNI TLS
+certificate. **How it survives redeploys:** `az deployment sub create` does a
+full PUT on the Container App, so anything the Bicep template doesn't restate is
+wiped. The custom-domain binding used to be applied only out-of-band, so an
+infra redeploy silently unbound it — the origin then had no certificate for the
+`santa.stationkit.com.au` SNI and Cloudflare returned **525 (SSL handshake
+failed)**. That happened on 2026-09-02.
+
+Now:
+
+- `infra/modules/containerapps.bicep` **declares** `ingress.customDomains` (and
+  an explicit `ingress.traffic` block), guarded by the `customDomainName` /
+  `customDomainCertificateId` params.
+- `infra/deploy.sh` **auto-discovers** the live binding (hostname + certificate
+  ID) and the running image *before* deploying and passes them back as
+  parameters, so a redeploy re-asserts them even when the param file leaves them
+  empty. Verified with `az deployment sub what-if`: with discovery the
+  `customDomains` array is unchanged; without it, it goes to `null`.
+- Seeded env vars are still applied afterwards by `seed-secrets.sh`, which CI
+  re-runs after every deploy.
+
+### The certificate is issued once, out-of-band
+
+Bicep does **not** create the managed certificate. Azure's free managed cert is
+issued and renewed by DigiCert, which validates via a CNAME that must resolve
+**directly** to the Container App's `*.azurecontainerapps.io` FQDN. The DNS
+record is proxied through Cloudflare (orange-cloud), which breaks that
+validation. So the certificate is created manually and then referenced:
+
+```bash
+RG=rg-santarun-dev-dev003        # the live resource group
+APP=santarun-app-dev003
+ENV=santarun-env-dev003
+
+# 1. Create + bind (needs the asuid TXT + CNAME records to resolve; if managed
+#    cert issuance fails because of the Cloudflare proxy, either flip the record
+#    to DNS-only briefly, or upload a Cloudflare Origin Certificate instead —
+#    see below).
+az containerapp hostname add  -g "$RG" -n "$APP" --hostname santa.stationkit.com.au
+CERT_ID=$(az containerapp env certificate list -g "$RG" -n "$ENV" \
+  --query "[?properties.subjectName=='santa.stationkit.com.au'].id | [0]" -o tsv)
+az containerapp hostname bind -g "$RG" -n "$APP" --hostname santa.stationkit.com.au \
+  --environment "$ENV" --certificate "$CERT_ID"
+
+# 2. (optional) Pin it in infra/parameters/<env>.bicepparam so it's declared
+#    even for a fresh environment:
+#      param customDomainName = 'santa.stationkit.com.au'
+#      param customDomainCertificateId = '<CERT_ID>'
+#    Otherwise deploy.sh discovers it from the live app each run.
+```
+
+### Cloudflare settings
+
+- The `santa` record proxies to the Container App FQDN. SSL/TLS mode must be
+  **Full (strict)** once a real cert is on the origin.
+- **Managed-cert renewal will fail while the record is proxied.** Long-term,
+  either (a) run the `santa` record DNS-only, or (b) put a **Cloudflare Origin
+  Certificate** (15-year, no renewal) on the Container App as an uploaded cert
+  and reference *that* ID — this is the durable option for a proxied origin.
+  Tracked in `MASTER_PLAN.md` → Operational readiness.
+
+---
+
 ## Free Tier Limits & Constraints
 
 ### Azure Container Apps (Consumption)
@@ -483,7 +548,7 @@ This ensures the new image is actually running and responding before the deploym
 ## Upgrade Path to Production
 
 1. Switch to `prod` parameters: `./infra/deploy.sh --env prod --suffix myprod`
-2. Bind a custom domain: `az containerapp hostname add` + `az containerapp hostname bind` (managed certificate) — see [Azure docs](https://learn.microsoft.com/en-us/azure/container-apps/custom-domains-managed-certificates)
+2. Bind a custom domain — see **[Custom domain](#custom-domain-santastationkitcomau)** above (`hostname add` + `bind` once, then the binding is preserved on every redeploy by `deploy.sh` + the Bicep `customDomain*` params)
 3. Set `VITE_SUITE_AUTH_URL`/`SUITE_AUTH_URL` to the production Station Manager origin (GitHub secrets, baked into the SPA build and passed to the container) — sign-in is entirely delegated to Station Manager, the StationKit suite identity provider (see `../docs/ARCHITECTURE.md`)
 4. Flip to `minReplicas=1` for the December season (`scale-season.sh`)
 5. If a single replica is ever not enough: add a shared backplane (e.g. Redis pub/sub) for the realtime hub, then raise `maxReplicas` in `infra/modules/containerapps.bicep`
@@ -509,7 +574,21 @@ Confirm the image built correctly — `dist/` (client) and `server/dist/` (serve
 - Container Apps ingress supports WebSockets on the default `transport: auto` setting — no extra config needed.
 
 **Container App stuck on the placeholder image:**
-CI hasn't pushed a real image yet (first deploy only) — either wait for CI to run on `main`, or push one manually and run `az containerapp update --image ...` (see "Building and Pushing the Image" above).
+CI hasn't pushed a real image yet (first deploy only) — either wait for CI to run on `main`, or push one manually and run `az containerapp update --image ...` (see "Building and Pushing the Image" above). After the first real image, `deploy.sh` reads the running image before an infra redeploy and passes it back as a parameter, so a Bicep PUT no longer reverts to the placeholder.
+
+**Custom domain returns Cloudflare 525 (SSL handshake failed):**
+The hostname is unbound from the Container App ingress — the origin has no
+certificate for that SNI. Re-bind it (see **[Custom domain](#custom-domain-santastationkitcomau)**):
+```bash
+RG=rg-santarun-dev-dev003; APP=santarun-app-dev003; ENV=santarun-env-dev003
+CERT_ID=$(az containerapp env certificate list -g "$RG" -n "$ENV" \
+  --query "[?properties.subjectName=='santa.stationkit.com.au'].id | [0]" -o tsv)
+az containerapp hostname add  -g "$RG" -n "$APP" --hostname santa.stationkit.com.au
+az containerapp hostname bind -g "$RG" -n "$APP" --hostname santa.stationkit.com.au \
+  --environment "$ENV" --certificate "$CERT_ID"
+```
+If it keeps recurring, an infra redeploy is running without the binding params —
+confirm `deploy.sh`'s discovery step logs `custom domain: santa.stationkit.com.au`.
 
 ---
 

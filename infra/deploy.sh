@@ -139,6 +139,55 @@ if [[ "$ENVIRONMENT" == "prod" && "$DRY_RUN" == "false" ]]; then
   echo ""
 fi
 
+# ─── Preserve live state across the full-PUT deploy ──────────────────────────
+# `az deployment sub create` does a full PUT on the Container App: anything the
+# Bicep template doesn't restate is reset. Two things that matter are only known
+# at runtime, so read them off the live app and feed them back as parameters:
+#   • the running image  — otherwise the PUT reverts it to the placeholder
+#   • the custom-domain binding + its certificate — otherwise the hostname is
+#     unbound and the origin stops answering TLS for it (Cloudflare 525; this
+#     is exactly what took santa.stationkit.com.au down on 2026-09-02).
+# Seeded env vars are handled separately by seed-secrets.sh, which CI re-runs
+# after every deploy. Explicit --image / --registry-* args still win.
+
+# Resolve the name suffix the same way seed-secrets.sh does: explicit --suffix,
+# else the `param nameSuffix = '...'` line in the environment's bicepparam.
+RESOLVED_SUFFIX="$NAME_SUFFIX"
+if [[ -z "$RESOLVED_SUFFIX" && -f "$PARAMS_FILE" ]]; then
+  RESOLVED_SUFFIX=$(grep -E "^\s*param\s+nameSuffix\s*=" "$PARAMS_FILE" \
+    | sed -E "s/.*=\s*'([^']+)'.*/\1/" | head -n1)
+fi
+
+DISCOVER_RG="rg-santarun-${ENVIRONMENT}-${RESOLVED_SUFFIX}"
+DISCOVER_APP="santarun-app-${RESOLVED_SUFFIX}"
+DISCOVERED_IMAGE=""
+DISCOVERED_DOMAIN=""
+DISCOVERED_CERT_ID=""
+
+if [[ -n "$RESOLVED_SUFFIX" ]] && az containerapp show -g "$DISCOVER_RG" -n "$DISCOVER_APP" &>/dev/null; then
+  echo "🔎 Reading live state from '$DISCOVER_APP' to preserve it across the deploy..."
+
+  LIVE_IMAGE=$(az containerapp show -g "$DISCOVER_RG" -n "$DISCOVER_APP" \
+    --query "properties.template.containers[0].image" -o tsv 2>/dev/null || true)
+  if [[ -n "$LIVE_IMAGE" && "$LIVE_IMAGE" != mcr.microsoft.com/k8se/quickstart* ]]; then
+    DISCOVERED_IMAGE="$LIVE_IMAGE"
+    echo "   image        : $DISCOVERED_IMAGE"
+  fi
+
+  # First bound custom domain + its certificate (single-domain setup).
+  DISCOVERED_DOMAIN=$(az containerapp show -g "$DISCOVER_RG" -n "$DISCOVER_APP" \
+    --query "properties.configuration.ingress.customDomains[0].name" -o tsv 2>/dev/null || true)
+  DISCOVERED_CERT_ID=$(az containerapp show -g "$DISCOVER_RG" -n "$DISCOVER_APP" \
+    --query "properties.configuration.ingress.customDomains[0].certificateId" -o tsv 2>/dev/null || true)
+  if [[ -n "$DISCOVERED_DOMAIN" && -n "$DISCOVERED_CERT_ID" ]]; then
+    echo "   custom domain: $DISCOVERED_DOMAIN"
+  elif [[ -n "$DISCOVERED_DOMAIN" ]]; then
+    echo "   ⚠️  custom domain '$DISCOVERED_DOMAIN' is bound without a certificate — not preserved."
+    DISCOVERED_DOMAIN=""
+  fi
+  echo ""
+fi
+
 # ─── Deploy ──────────────────────────────────────────────────────────────────
 
 DEPLOYMENT_NAME="santarun-${ENVIRONMENT}-$(date +%Y%m%d-%H%M%S)"
@@ -147,10 +196,25 @@ EXTRA_PARAM_ARGS=()
 [[ -n "$NAME_SUFFIX" ]] && EXTRA_PARAM_ARGS+=("nameSuffix=$NAME_SUFFIX")
 [[ -n "$LOCATION" ]] && EXTRA_PARAM_ARGS+=("location=$LOCATION")
 [[ -n "$CIAM_DIRECTORY_NAME" ]] && EXTRA_PARAM_ARGS+=("ciamDirectoryName=$CIAM_DIRECTORY_NAME")
-[[ -n "$CONTAINER_IMAGE" ]] && EXTRA_PARAM_ARGS+=("containerImage=$CONTAINER_IMAGE")
+
+# Explicit --image wins; otherwise fall back to the discovered running image.
+EFFECTIVE_IMAGE="${CONTAINER_IMAGE:-$DISCOVERED_IMAGE}"
+[[ -n "$EFFECTIVE_IMAGE" ]] && EXTRA_PARAM_ARGS+=("containerImage=$EFFECTIVE_IMAGE")
 [[ -n "$REGISTRY_SERVER" ]] && EXTRA_PARAM_ARGS+=("registryServer=$REGISTRY_SERVER")
 [[ -n "$REGISTRY_USERNAME" ]] && EXTRA_PARAM_ARGS+=("registryUsername=$REGISTRY_USERNAME")
 [[ -n "${REGISTRY_PASSWORD:-}" ]] && EXTRA_PARAM_ARGS+=("registryPassword=$REGISTRY_PASSWORD")
+
+# Re-assert the discovered custom-domain binding unless the param file already
+# pins one (a non-empty customDomainName there takes precedence).
+PARAMFILE_DOMAIN=""
+if [[ -f "$PARAMS_FILE" ]]; then
+  PARAMFILE_DOMAIN=$( (grep -E "^\s*param\s+customDomainName\s*=" "$PARAMS_FILE" || true) \
+    | sed -E "s/.*=\s*'([^']*)'.*/\1/" | head -n1)
+fi
+if [[ -z "$PARAMFILE_DOMAIN" && -n "$DISCOVERED_DOMAIN" && -n "$DISCOVERED_CERT_ID" ]]; then
+  EXTRA_PARAM_ARGS+=("customDomainName=$DISCOVERED_DOMAIN")
+  EXTRA_PARAM_ARGS+=("customDomainCertificateId=$DISCOVERED_CERT_ID")
+fi
 
 if [[ "$DRY_RUN" == "true" ]]; then
   echo "🔍 Validating Bicep template (dry run)..."

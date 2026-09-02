@@ -19,3 +19,10 @@ param environment = 'dev'
 param location = 'australiaeast'
 
 param ciamDirectoryName = ''
+
+// Custom domain — leave empty for a plain dev environment (default FQDN only).
+// If a dev/staging box does have a hostname bound, infra/deploy.sh discovers it
+// from the live app and re-asserts it automatically, so the full-PUT deploy no
+// longer drops the binding. See infra/README.md → "Custom domain".
+param customDomainName = ''
+param customDomainCertificateId = ''

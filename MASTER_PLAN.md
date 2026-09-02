@@ -225,9 +225,11 @@ cost/SKU decision, is explicitly called out below rather than done silently.
   making suite sign-in more frictionless on top of an open broadcast
   endpoint would have been the wrong order. That fix is now merged, so this
   is unblocked.
-- Fire Santa Run: finish the `santa.stationkit.com.au` Cloudflare DNS/TLS +
-  Container Apps custom-domain binding (tracked in Operational readiness
-  below).
+- ~~Fire Santa Run: finish the `santa.stationkit.com.au` Cloudflare DNS/TLS +
+  Container Apps custom-domain binding~~ — **bound 2026-09-02**; redeploy no
+  longer drops it. Remaining follow-ups (managed-cert renewal vs. Cloudflare
+  proxy, `APP_BASE_URL`/`CORS_ORIGIN` narrowing) tracked in Operational
+  readiness below.
 - Flip the CSP above from Report-Only to enforcing: load the app in a real
   browser (production, or a local build with a real `VITE_MAPBOX_TOKEN`),
   exercise the map, sign-in, and push opt-in, confirm devtools shows zero
@@ -503,10 +505,24 @@ before relying on the unified suite login in production.
   `CORS_ORIGIN` is overridden. `APP_BASE_URL` (used to build outbound links —
   SMS broadcasts, VAPID subject) deliberately still defaults
   to `firesantarun.com.au` — don't flip it until DNS for the new subdomain is
-  actually live, or generated links 404. **Still open (infra/ops, not code):**
-  Cloudflare DNS + TLS for `santa.stationkit.com.au` and its Container Apps
-  custom-domain binding; once live, flip `APP_BASE_URL` and narrow
-  `CORS_ORIGIN` back to the single new origin, retiring `firesantarun.com.au`.
+  actually live, or generated links 404. **Custom-domain binding (done
+  2026-09-02):** `santa.stationkit.com.au` is bound to the Container App with an
+  SNI cert. It went down that day (Cloudflare 525) because an infra redeploy
+  full-PUT the app and dropped the binding, which lived only out-of-band. Fixed:
+  `infra/modules/containerapps.bicep` now declares `ingress.customDomains` +
+  `traffic` (guarded by `customDomainName` / `customDomainCertificateId`
+  params), and `infra/deploy.sh` discovers the live hostname/cert/image
+  pre-deploy and passes them back so a redeploy re-asserts them — verified with
+  `az deployment sub what-if`. See `infra/README.md` → "Custom domain".
+  **Still open:** (1) the DNS record is Cloudflare-proxied, which breaks
+  DigiCert managed-cert *renewal* — before the current cert expires, either run
+  `santa` DNS-only or move the origin to a Cloudflare Origin Certificate
+  (uploaded cert, 15-year, referenced by the same `customDomainCertificateId`
+  param). (2) Once traffic has fully cut over, flip `APP_BASE_URL` to
+  `https://santa.stationkit.com.au` and narrow `CORS_ORIGIN` back to the single
+  new origin, retiring `firesantarun.com.au`. (3) The live app runs in the
+  `dev`-named RG/suffix (`rg-santarun-dev-dev003`), not the `prod1` in
+  `prod.bicepparam` — the param files are stale relative to reality.
   As of 2026-07-19 the StationKit SSO integration itself is fully wired (see
   "StationKit suite identity" above) — the cross-subdomain silent-SSO cookie
   only actually reaches Santa Run once this domain move lands, since the

@@ -263,6 +263,11 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # ── Step 3: Deploy infrastructure (only if Bicep/Dockerfile changed) ─
+      # deploy.sh does a full-PUT `az deployment sub create`. It reads the live
+      # app first and feeds the running image + custom-domain binding back as
+      # parameters, so the PUT preserves them instead of reverting to the
+      # placeholder image / dropping the hostname (the 2026-09-02 Cloudflare 525
+      # outage). Seeded env vars are re-applied by Step 6 afterwards.
       - name: Deploy infrastructure (Bicep)
         if: env.IAC_CHANGED == 'true'
         run: |
