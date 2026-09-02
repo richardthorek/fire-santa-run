@@ -3,8 +3,15 @@ name: CI/CD Pipeline
 # Unified CI/CD Pipeline — Single workflow handles all checks and deployment.
 #
 # Every push/PR runs: change detection → lint → type-check → unit tests → E2E.
-# Push to main ALSO runs: OIDC validation → deploy IaC (if changed) → build/push
-# image (if code changed) → seed secrets → deploy.
+# Push to main ALSO runs the deploy job — but only when something deployable
+# changed. `detect-changes` decides:
+#   - iac-changed  → run `./infra/deploy.sh` (Bicep + seed-secrets). Matches
+#                    infra/*.bicep|*.bicepparam and infra/deploy.sh|seed-secrets.sh
+#                    ONLY — not infra docs, the blocklist data, or the Dockerfile.
+#   - code-changed → rebuild + push the image and cut a new revision. Matches
+#                    anything that ships in the image (incl. the Dockerfile);
+#                    excludes docs/, .github/, e2e/, and all of infra/.
+# A docs-/CI-only push skips the deploy job entirely.
 #
 # Security: CodeQL scanning runs via GitHub's default setup (enabled in repo settings).
 #
@@ -75,33 +82,47 @@ jobs:
 
       - name: Detect changed files
         id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
           # On pull requests, compare against the merge base; on pushes, compare against the previous commit
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BASE="${{ github.event.pull_request.base.sha }}"
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            BASE="$PR_BASE_SHA"
           else
-            BASE="${{ github.event.before }}"
+            BASE="$PUSH_BEFORE_SHA"
           fi
 
-          # Default to assuming changes if we can't compute diff (first push, etc.)
-          if [[ -z "$BASE" ]] || [[ "$BASE" == "0000000000000000000000000000000000000000" ]]; then
-            echo "iac-changed=true" >> $GITHUB_OUTPUT
-            echo "code-changed=true" >> $GITHUB_OUTPUT
+          # Default to assuming changes if we can't compute a diff (first push, force-push, etc.)
+          if [[ -z "$BASE" ]] || [[ "$BASE" == "0000000000000000000000000000000000000000" ]] \
+             || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "iac-changed=true" >> "$GITHUB_OUTPUT"
+            echo "code-changed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Detect IaC changes (Bicep, deploy scripts, parameters)
-          if git diff --name-only "$BASE"..HEAD | grep -qE '(infra/|Dockerfile)'; then
-            echo "iac-changed=true" >> $GITHUB_OUTPUT
+          FILES=$(git diff --name-only "$BASE"..HEAD)
+          echo "Changed files:"; printf '  %s\n' $FILES
+
+          # IaC changed = a file that actually alters what `./infra/deploy.sh`
+          # does: the Bicep templates/params, or the two scripts the pipeline's
+          # infra step runs (deploy.sh, and seed-secrets.sh which it calls).
+          # NOT infra/*.md, infra/.env.example, the blocklist data, backup/ or
+          # scale-season.sh — and NOT the Dockerfile, which is an image change.
+          if printf '%s\n' "$FILES" | grep -qE '^infra/.*\.(bicep|bicepparam)$|^infra/(deploy|seed-secrets)\.sh$'; then
+            echo "iac-changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "iac-changed=false" >> $GITHUB_OUTPUT
+            echo "iac-changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Detect code changes (everything except CI config and docs)
-          if git diff --name-only "$BASE"..HEAD | grep -qvE '(^\.github/|\.md$|\.github/|LICENSE)'; then
-            echo "code-changed=true" >> $GITHUB_OUTPUT
+          # Code changed = a file that ends up in the container image. Excludes
+          # docs, CI config, editor config, e2e specs, and everything under
+          # infra/ (infra never ships in the image). The Dockerfile counts.
+          if printf '%s\n' "$FILES" | grep -qvE '^\.github/|^docs/|^infra/|^e2e/|^\.vscode/|\.md$|^LICENSE$'; then
+            echo "code-changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "code-changed=false" >> $GITHUB_OUTPUT
+            echo "code-changed=false" >> "$GITHUB_OUTPUT"
           fi
 
   # ─────────────────────────────────────────────────────────────────────────
@@ -226,10 +247,15 @@ jobs:
 
   deploy:
     needs: [quality_checks, e2e, detect-changes, freeze-check]
+    # Skip the whole job on a docs-/CI-only push — nothing to deploy. A manual
+    # workflow_dispatch always runs (that's the point of triggering it).
     if: |
       github.actor != 'dependabot[bot]' &&
       needs.freeze-check.outputs.frozen != 'true' &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' &&
+        (needs.detect-changes.outputs.iac-changed == 'true' ||
+         needs.detect-changes.outputs.code-changed == 'true')))
     runs-on: ubuntu-latest
     name: Deploy to Azure Container Apps
     environment: copilot
