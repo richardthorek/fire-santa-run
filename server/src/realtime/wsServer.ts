@@ -18,8 +18,11 @@ import type { Duplex } from 'node:stream';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { hub, MAX_TOTAL_CONNECTIONS } from './hub.js';
 import { verifyWsToken, type RealtimeRole } from './wsToken.js';
+import { alertOps } from '../utils/opsAlert.js';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
+/** Warn well before the hard cap so there's time to react, not just a 503 postmortem. */
+const CONNECTION_WARNING_THRESHOLD = Math.floor(MAX_TOTAL_CONNECTIONS * 0.8);
 
 interface TaggedSocket extends WebSocket {
   isAlive?: boolean;
@@ -65,9 +68,26 @@ export function attachRealtime(server: Server): void {
       }
     }
 
-    if (hub.totalConnections() >= MAX_TOTAL_CONNECTIONS) {
+    const currentConnections = hub.totalConnections();
+    if (currentConnections >= MAX_TOTAL_CONNECTIONS) {
+      alertOps(
+        'connections-at-cap',
+        'Realtime connection cap reached',
+        `hub.totalConnections() is at or above MAX_TOTAL_CONNECTIONS (${MAX_TOTAL_CONNECTIONS}). New viewer/broadcaster connections are being rejected with 503 across every brigade, not just the route driving the load.`,
+      );
       rejectUpgrade(socket, 503, 'Service Unavailable');
       return;
+    }
+    // >= not ===: connections churn as people join/leave, so the count can
+    // skip past the exact threshold value without ever landing on it. The
+    // 30-minute per-kind cooldown inside alertOps() (not this check) is what
+    // stops this firing on every subsequent connection once above the line.
+    if (currentConnections >= CONNECTION_WARNING_THRESHOLD) {
+      alertOps(
+        'connections-near-cap',
+        'Realtime connections approaching the cap',
+        `hub.totalConnections() has crossed ${CONNECTION_WARNING_THRESHOLD} of ${MAX_TOTAL_CONNECTIONS} (80%). No action taken automatically — this is a heads-up while there's still headroom.`,
+      );
     }
 
     wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {

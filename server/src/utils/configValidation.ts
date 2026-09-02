@@ -84,6 +84,19 @@ export function evaluateServerConfig(): ServerConfigResult {
           'generate a pair with `npx web-push generate-vapid-keys`.',
       );
     }
+
+    // Ops alert email (utils/opsAlert.ts) is optional: with any of these
+    // three unset, alerts are logged only, not emailed — never fatal. But a
+    // partial set is always a mistake.
+    const opsAlertVars = ['AZURE_COMMUNICATION_CONNECTION_STRING', 'EMAIL_FROM_ADDRESS', 'OPS_ALERT_EMAIL'];
+    const opsAlertSet = opsAlertVars.filter((v) => process.env[v]);
+    if (opsAlertSet.length > 0 && opsAlertSet.length < opsAlertVars.length) {
+      const missing = opsAlertVars.filter((v) => !process.env[v]);
+      warnings.push(
+        `Ops alert email partially configured — missing ${missing.join(', ')}; alerts will be logged only. ` +
+          'See infra/.env.example.',
+      );
+    }
   }
 
   return { isDevMode: devMode, fatal, warnings };

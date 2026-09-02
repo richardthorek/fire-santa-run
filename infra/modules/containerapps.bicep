@@ -62,6 +62,12 @@ param registryUsername string = ''
 @secure()
 param registryPassword string = ''
 
+@description('vCPU allocation for the single replica. Matches the current production default (0.25) unless overridden — e.g. for a registration-informed vertical bump around a cluster of known scheduled runs (see MASTER_PLAN.md, infra/README.md). Container Apps Consumption enforces a fixed vCPU:memory ratio (1 : 2 GiB) and only accepts specific paired values (0.25/0.5Gi, 0.5/1Gi, 0.75/1.5Gi, 1.0/2Gi, ...) — an invalid pairing is rejected at deploy time by Azure itself, not silently accepted, so double-check the current allowed set (`az containerapp show --query properties.template.containers[0].resources` on an existing app, or the Container Apps docs) before picking a new value rather than trusting this comment alone.')
+param containerCpu string = '0.25'
+
+@description('Memory allocation for the single replica — must pair with containerCpu per the ratio note above. Matches the current production default (0.5Gi) unless overridden.')
+param containerMemory string = '0.5Gi'
+
 var envName = 'santarun-env-${nameSuffix}'
 var appName = 'santarun-app-${nameSuffix}'
 var hasRegistry = !empty(registryServer) && !empty(registryPassword)
@@ -127,10 +133,12 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'server'
           image: containerImage
           resources: {
-            // Smallest Consumption allocation — this is a lightweight Node
-            // API + static-file server, not a compute-heavy workload.
-            cpu: json('0.25')
-            memory: '0.5Gi'
+            // Parameterized (default matches the prior hardcoded smallest
+            // Consumption allocation) so a registration-informed vertical
+            // bump for a specific event window doesn't require editing this
+            // template — see the containerCpu/containerMemory params above.
+            cpu: json(containerCpu)
+            memory: containerMemory
           }
           env: [
             { name: 'PORT', value: '8080' }

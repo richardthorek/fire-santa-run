@@ -233,11 +233,16 @@ cost/SKU decision, is explicitly called out below rather than done silently.
   exercise the map, sign-in, and push opt-in, confirm devtools shows zero
   violations for legitimate requests, then rename the header — see the
   comment above `buildCsp()` in `server/src/app.ts`.
+- Turn on ops alert emails: get the connection string from Station Manager's
+  existing ACS instance and set `AZURE_COMMUNICATION_CONNECTION_STRING` /
+  `EMAIL_FROM_ADDRESS` / `OPS_ALERT_EMAIL` via `infra/seed-secrets.sh` — see
+  `infra/.env.example` for the exact `az communication list-key` command and
+  roadmap item 7 below for what ships once this is set.
 
-**Not started — awaiting an infra/cost decision (see roadmap item 7):**
-capacity/scaling work for December concurrency (Container Apps sizing, a
-realtime backplane so `maxReplicas` can exceed 1, alerting). Deliberately not
-touched without walking through the cost tradeoffs first.
+Capacity/scaling approach (registration-informed vertical warming, minimum-
+viable alerting) is covered in the roadmap below (item 7) — most of it
+shipped as code in this pass; the ACS wiring above and an actual load test
+are what's left, both needing Azure access from a different session.
 
 Public-growth and polish shipped in the latest pass:
 
@@ -319,26 +324,69 @@ before relying on the unified suite login in production.
    below).
 6. **Billing UX depth** — receipts/renewal reminders, grace-period messaging
    refinements, optional multi-year.
-7. **December capacity — awaiting an infra/cost decision, not yet started.**
-   The December-readiness review (above) revised this item's urgency: the
-   single Container Apps replica (0.25 vCPU / 0.5Gi, hard-pinned `maxReplicas: 1`
-   because the realtime hub's state is in-process) plus the global
-   `MAX_TOTAL_CONNECTIONS = 5000` cap is *plausibly reachable organically* on
-   Christmas Eve — every brigade's run lands in the same few-hour window on
-   the same process, with no per-route fairness — not only in a viral-single-route
-   scenario. Two options, different cost/effort:
-   (a) **vertical** — raise the December CPU/memory allocation via the
-   existing `infra/scale-season.sh` path; bounded ceiling, cheap, no
-   architecture change, but still one replica, one point of failure.
-   (b) **horizontal** — add a shared pub/sub backplane (e.g. Redis) behind
-   `server/src/realtime/hub.ts` so `maxReplicas` can exceed 1; genuinely
-   removes the ceiling, more engineering effort and an ongoing resource cost.
-   Also bundle in this pass: minimum-viable alerting (Application Insights is
-   already provisioned and collecting telemetry — nothing currently pages
-   anyone on a 503 spike or connections approaching the cap) and an actual
-   load test before committing to a number. **Deliberately not started**:
-   needs a walkthrough of the cost/SKU tradeoff first, not a unilateral
-   infra change.
+7. **December capacity — registration-informed, not blanket.** The
+   December-readiness review (above) initially flagged the single Container
+   Apps replica (hard-pinned `maxReplicas: 1` because the realtime hub's
+   state is in-process) plus the global `MAX_TOTAL_CONNECTIONS = 5000` cap as
+   plausibly reachable organically on Christmas Eve. Owner context that
+   revises that: **this is year 1** — a dozen registered brigades would be a
+   strong result — so that ceiling is very unlikely to bind this season. The
+   chosen approach going forward, once brigades start registering, is
+   **proactive and event-driven, not a blanket month-long toggle or a
+   reactive autoscaler**: use real registration data to warm (and, if a
+   cluster of runs on one night genuinely warrants it, vertically size up)
+   the single replica around specific known windows, informed by an actual
+   number instead of a guess.
+
+   **Shipped:**
+   - `npm run report:upcoming-runs` (`scripts/upcoming-runs-report.js`) —
+     reads the routes/brigades tables directly (there's deliberately no
+     cross-brigade "list every run" API) and prints every scheduled run
+     grouped by date, flagging any night with more than one brigade running.
+     Run this periodically through the season to see clustering as brigades
+     register, then decide when to run `infra/scale-season.sh` around that
+     specific window.
+   - `containerCpu`/`containerMemory` are now Bicep parameters
+     (`infra/main.bicep`, `infra/modules/containerapps.bicep`), defaulted to
+     the original smallest allocation — a future vertical bump for a
+     specific event window no longer needs editing the template.
+   - Minimum-viable app-level alerting (`server/src/utils/opsAlert.ts`):
+     emails when realtime connections approach/hit the 5,000 cap
+     (`server/src/realtime/wsServer.ts`) or the broadcast failure rate spikes
+     (`server/src/routes/broadcast.ts`), debounced per alert kind. Deliberately
+     app-level rather than a generic Azure Monitor metric alert — "connections
+     near the cap" is in-process state a platform metric can't see. Sends via
+     Station Manager's *existing* Azure Communication Services instance
+     (shared, not a second ACS resource — it already has a verified domain)
+     — see `infra/.env.example` for how to get its connection string. Configure
+     `AZURE_COMMUNICATION_CONNECTION_STRING` / `EMAIL_FROM_ADDRESS` /
+     `OPS_ALERT_EMAIL` via `infra/seed-secrets.sh` to turn it on; unset, it
+     just logs instead of emailing.
+   - Not covered by app-level alerting: the process crashing or failing to
+     start at all (a dead process can't send its own "I'm down" email). An
+     Application Insights availability ping on `/api/health` would close
+     that gap — cheap, standard, not yet set up; worth adding if this grows
+     past a hobby-scale deployment.
+
+   **Deliberately not built this season**: a shared pub/sub backplane (e.g.
+   Redis) behind `server/src/realtime/hub.ts` so `maxReplicas` could exceed
+   1, and per-run dedicated compute (a separate container provisioned per
+   scheduled run). Both solve a scale/isolation problem this product doesn't
+   have yet at year-1 volumes, at a cost (the former: real engineering effort
+   plus an ongoing resource cost; the latter: a multi-week rebuild — a
+   routing/discovery layer in front of per-run workers, since the realtime
+   hub's connections are pinned to one process and the REST API can't be
+   per-run since brigades plan at any time, not just during their own run)
+   disproportionate to the actual traffic expected. Revisit once real
+   registration/viewer numbers from an actual season exist, not before —
+   the horizontal-backplane path is the natural next step if the shared
+   instance's ceiling is ever genuinely approached; per-run isolation would
+   only earn its complexity at a scale or noisy-neighbour risk well beyond
+   that.
+   - Still open, no code involved: an actual load test before December
+     (nobody has measured real per-connection cost on this exact
+     Consumption allocation) — needs a deployed target, so a different
+     session with Azure access.
 8. **Write a "brigade membership under Station Manager" user doc.** The
    2026-07-19 docs cleanup deleted `ADMIN_USER_GUIDE.md`,
    `MEMBERSHIP_SYSTEM.md`, `API_AUTHENTICATION.md`,

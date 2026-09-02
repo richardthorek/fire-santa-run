@@ -6,9 +6,35 @@ import { validateToken, checkBrigadeAccess, type AuthResult } from '../utils/aut
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { notifyRunStartOnce } from '../utils/push.js';
 import { hub } from '../realtime/hub.js';
+import { alertOps } from '../utils/opsAlert.js';
 
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://firesantarun.com.au';
 const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
+
+// A handful of 500s is normal noise (a bad request body, a transient storage
+// blip); a burst is not — it's the signal something's actually wrong with
+// the path that moves Santa. Counts unexpected failures only (the catch
+// blocks below, not ordinary 400/403/404 validation responses).
+const FAILURE_WINDOW_MS = 5 * 60_000;
+const FAILURE_ALERT_THRESHOLD = 10;
+let failureWindowStart = Date.now();
+let failureCount = 0;
+
+function recordBroadcastFailure(context: string): void {
+  const now = Date.now();
+  if (now - failureWindowStart >= FAILURE_WINDOW_MS) {
+    failureWindowStart = now;
+    failureCount = 0;
+  }
+  failureCount++;
+  if (failureCount >= FAILURE_ALERT_THRESHOLD) {
+    alertOps(
+      'broadcast-failure-rate',
+      'Elevated broadcast failure rate',
+      `${failureCount} broadcast-related requests failed with a 500 in the last ${FAILURE_WINDOW_MS / 60_000} minutes (most recent: ${context}).`,
+    );
+  }
+}
 
 interface LocationBroadcast {
   routeId: string;
@@ -148,6 +174,7 @@ broadcastRouter.post('/broadcast', async (c) => {
     return c.json({ success: true, routeId: body.routeId, timestamp: body.timestamp }, 200);
   } catch (error: any) {
     console.error('Error broadcasting location:', error);
+    recordBroadcastFailure('POST /broadcast');
     return c.json({ error: 'Failed to broadcast location', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });
@@ -192,6 +219,7 @@ broadcastRouter.post('/broadcast/editor-presence', async (c) => {
     return c.json({ success: true }, 200);
   } catch (error: any) {
     console.error('Error broadcasting editor presence:', error);
+    recordBroadcastFailure('POST /broadcast/editor-presence');
     return c.json({ error: 'Failed to broadcast editor presence', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });
@@ -232,6 +260,7 @@ broadcastRouter.post('/broadcast/status', async (c) => {
     return c.json({ success: true, routeId: body.routeId, status: message.status }, 200);
   } catch (error: any) {
     console.error('Error broadcasting run status:', error);
+    recordBroadcastFailure('POST /broadcast/status');
     return c.json({ error: 'Failed to broadcast run status', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });

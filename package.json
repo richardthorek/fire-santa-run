@@ -24,6 +24,7 @@
     "test:smoke": "node scripts/smoke-test.js",
     "test:load": "node scripts/load-test.js",
     "test:mobile-guide": "node scripts/mobile-testing-guide.js",
+    "report:upcoming-runs": "node scripts/upcoming-runs-report.js",
     "audit:a11y": "npm run test:a11y && echo '✅ Accessibility tests passed'",
     "audit:lighthouse": "node scripts/lighthouse-audit.js",
     "audit:perf": "npm run build && concurrently --kill-others --success first \"npm run preview\" \"node scripts/lighthouse-audit.js\""
