@@ -42,13 +42,14 @@ In development mode (`VITE_DEV_MODE=true`), RFS station data is:
 2. Cached in browser `localStorage` for 7 days
 3. Re-fetched automatically when cache expires
 
-### Production Mode (Azure Functions)
+### Production mode
 
-In production mode, RFS station data is:
-1. Accessed via `/api/rfs-stations` Azure Function
-2. Proxied through Azure to avoid CORS issues
-3. Cached with HTTP headers for 24 hours
-4. Can be optionally stored in Azure Table Storage for faster access
+There is no `server/` proxy route for this dataset today — production also
+fetches directly from the ArcGIS API client-side, the same as dev mode. A
+`/api/rfs-stations` proxy (to sidestep CORS/rate limits and cache
+server-side) was speculative/never implemented; the API in "Usage" below
+already tolerates calling the ArcGIS endpoint directly, and no such route
+exists in `server/src/routes/` to call instead.
 
 ## Usage
 
@@ -101,15 +102,12 @@ const results = await searchStations({
 
 **Example Requests**:
 
+There is no proxy endpoint to call — query the ArcGIS source directly (see
+`utils/fireStationData.ts` or equivalent for the exact query shape used
+client-side):
+
 ```bash
-# Get stations in Victoria
-curl "https://your-app.azurestaticapps.net/api/rfs-stations?state=VIC&limit=50"
-
-# Search by name
-curl "https://your-app.azurestaticapps.net/api/rfs-stations?name=Griffith"
-
-# Find stations near coordinates
-curl "https://your-app.azurestaticapps.net/api/rfs-stations?lat=-37.5&lng=143.5&radius=50&limit=10"
+curl "https://services.ga.gov.au/gis/rest/services/Emergency_Management_Facilities/MapServer/4/query?where=facility_state='VICTORIA'&outFields=*&f=json"
 ```
 
 **Response Format**:
@@ -260,15 +258,13 @@ const stations = await getAllStations();
 console.log(`Loaded ${stations.length} stations`);
 ```
 
-### API Testing (Production)
+### API testing
+
+There's no local proxy to start — test the ArcGIS source directly, the same
+call the frontend makes:
 
 ```bash
-# Test API endpoint locally
-cd api
-npm start
-
-# In another terminal
-curl "http://localhost:7071/api/rfs-stations?state=NSW&limit=5"
+curl "https://services.ga.gov.au/gis/rest/services/Emergency_Management_Facilities/MapServer/4/query?where=facility_state='NEW SOUTH WALES'&outFields=*&resultRecordCount=5&f=json"
 ```
 
 ## Troubleshooting

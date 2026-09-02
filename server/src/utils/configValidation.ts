@@ -11,29 +11,27 @@
  *   broadcasting will fail until it is configured).
  */
 
+import { STORAGE_CONNECTION_STRING, isDevMode as devModeFlag } from './storage.js';
+
 export interface ServerConfigResult {
   isDevMode: boolean;
   fatal: string[];
   warnings: string[];
 }
 
-function isDevMode(): boolean {
-  return process.env.DEV_MODE === 'true';
-}
-
 export function evaluateServerConfig(): ServerConfigResult {
-  const devMode = isDevMode();
+  const devMode = devModeFlag;
   const fatal: string[] = [];
   const warnings: string[] = [];
 
-  const storageConn =
-    process.env.AZURE_STORAGE_CONNECTION_STRING ||
-    process.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
-
-  if (!storageConn) {
+  // storage.ts itself defaults DEV_MODE to Azurite when no explicit
+  // connection string is set (see AZURITE_CONNECTION_STRING there), so
+  // STORAGE_CONNECTION_STRING — not the raw env vars — is the source of
+  // truth for "is storage actually configured."
+  if (!STORAGE_CONNECTION_STRING) {
     const msg =
       'AZURE_STORAGE_CONNECTION_STRING is not set — data persistence will fail.';
-    if (devMode) warnings.push(`${msg} (dev mode: localStorage path may be used by the client)`);
+    if (devMode) warnings.push(`${msg} (unexpected in dev mode — storage.ts should have defaulted to Azurite)`);
     else fatal.push(msg);
   }
 
@@ -41,7 +39,7 @@ export function evaluateServerConfig(): ServerConfigResult {
   // no managed Web PubSub. The signed-token secret for privileged WS connections
   // falls back to a hash of the storage connection string, so no extra config is
   // required; warn only if there is nothing to derive a secret from in prod.
-  if (!devMode && !process.env.REALTIME_WS_SECRET && !storageConn) {
+  if (!devMode && !process.env.REALTIME_WS_SECRET && !STORAGE_CONNECTION_STRING) {
     warnings.push(
       'No REALTIME_WS_SECRET and no storage connection string — realtime WS token signing will use an insecure fallback.',
     );

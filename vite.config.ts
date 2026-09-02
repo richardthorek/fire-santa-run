@@ -65,9 +65,17 @@ export default defineConfig(( env: ConfigEnv ): UserConfig => {
     server: isDev
       ? {
           proxy: {
+            // server/ (the same Hono backend production runs), not the
+            // retired api/ Functions app — see package.json's dev:server.
             '/api': {
-              target: 'http://localhost:7071',
+              target: 'http://localhost:8080',
               changeOrigin: true,
+              // Forward WebSocket upgrades too — server/'s /api/ws is a real
+              // endpoint now (unlike api/'s Web PubSub client, which local dev
+              // never actually exercised; VITE_DEV_MODE=true still bypasses
+              // this entirely via BroadcastChannel, but VITE_DEV_MODE=false
+              // locally now gets the genuine realtime path, not a dead one).
+              ws: true,
             },
           },
         }

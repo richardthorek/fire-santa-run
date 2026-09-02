@@ -9,7 +9,7 @@ import { hub } from '../realtime/hub.js';
 import { alertOps } from '../utils/opsAlert.js';
 
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://firesantarun.com.au';
-const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
+const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
 // A handful of 500s is normal noise (a bad request body, a transient storage
 // blip); a burst is not — it's the signal something's actually wrong with

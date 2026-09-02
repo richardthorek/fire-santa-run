@@ -10,6 +10,7 @@ import { healthRouter } from './routes/health.js';
 import { telemetryRouter } from './routes/telemetry.js';
 import { pushRouter } from './routes/push.js';
 import { auditRouter } from './routes/audit.js';
+import { ogImageRouter } from './routes/ogImage.js';
 
 const isDevMode = process.env.DEV_MODE === 'true';
 // CORS_ORIGIN may be a comma-separated list. Default covers both the current
@@ -132,6 +133,7 @@ export function createApp() {
   app.route('/api/analytics', analyticsRouter);
   app.route('/api/push', pushRouter);
   app.route('/api/audit', auditRouter);
+  app.route('/api', ogImageRouter);
 
   return app;
 }

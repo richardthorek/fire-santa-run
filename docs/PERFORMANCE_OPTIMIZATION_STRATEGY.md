@@ -1,5 +1,13 @@
 # Performance Optimization Strategy
 
+> **Stale, 2026-09:** this doc's SSR proposal predates the move to a single
+> `server/` (Hono) backend and the retirement of the local-only Azure
+> Functions app (`api/`) — a "new Azure Function" is no longer an option at
+> all, and never shipped in production either way. If SSR for the tracking
+> page is revisited, it would be a `server/` route, not an Azure Function.
+> The rest of this doc (bundle-splitting, lazy-loading, CSR optimisation) is
+> unaffected and still describes real, current options.
+
 ## Executive Summary
 
 **Current Performance Status:**

@@ -35,26 +35,17 @@ One container image, one process, one Container App — realtime tracking is no
 longer a separate managed service; it is fanned out in-process (see "Realtime
 tracking" below). This is the whole runtime: no Web PubSub, no App Service.
 
-## Two backends, one behaviour (with one realtime exception)
+## One backend for production and local dev
 
-There are **two API implementations**:
-
-| Path | Runtime | Used by |
-| --- | --- | --- |
-| `server/` | Hono on Node.js (Azure Container Apps) | **Production** |
-| `api/` | Azure Functions v4 | **Local dev** (`npm run dev`) and legacy Functions path |
-
-When you change auth, entitlement, or storage logic, update **both** and keep
-them aligned. **Realtime is the one deliberate exception**: `server/` fans out
-WebSocket messages natively in-process (`server/src/realtime/`), but Azure
-Functions on the Consumption plan cannot hold a persistent native WebSocket
-connection the way a plain Node process can — that constraint is exactly why
-production moved off Functions in the first place. `api/`'s negotiate/broadcast
-routes still use the (retired-from-production) Azure Web PubSub client for that
-reason. In practice this doesn't cost local dev anything: `npm run dev` runs
-with `VITE_DEV_MODE=true`, so the client uses the `BroadcastChannel` dev-mode
-path and never calls `api/`'s realtime routes at all. Don't wire a Web PubSub
-resource back in to "fix" this — it's an intentional, harmless divergence.
+`server/` (Hono on Node.js) is the only API implementation — it runs in
+production on Azure Container Apps, and `npm run dev` runs the same code
+locally (`dev:server`, with `DEV_MODE=true`) against Azurite as a local Table
+Storage emulator (`dev:storage`). There is no second backend to keep in sync
+by hand any more: the previous local-only Azure Functions app (`api/`) was
+retired in 2026-09, pre-launch, once Container Apps replaced Azure Static Web
+Apps as the production target and `api/` had no remaining reason to exist —
+see `docs/DEV_MODE.md` for the local setup and `docs/INDEX.md`'s 2026-09
+cleanup note for why.
 
 Production hosting is Azure Container Apps + Hono. The historical Azure Static
 Web Apps deployment and the later Azure App Service deployment are both
@@ -162,7 +153,7 @@ subscription was retired 2026-07-19). Entitlement is a single flag,
   talks to Stripe.
 - Enforced server-side with a single check, `!authResult.santaRunEnabled`
   (402 on route create/edit and broadcaster/editor negotiate — see
-  `server/src/routes/{routes,negotiate}.ts` / the `api/` mirrors), and
+  `server/src/routes/{routes,negotiate}.ts`), and
   mirrored client-side via `useBrigade().isEntitled` to drive UX —
   `EntitlementGate` stops unentitled organisations at the editor door instead
   of letting them hit a wall on save; `EntitlementBanner` prompts on the

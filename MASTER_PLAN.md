@@ -289,6 +289,51 @@ approaches $0 (Consumption scale-to-zero); `scale-season.sh` now flips
 per-process state, so the Container App is pinned to `maxReplicas: 1` until
 a shared backplane is added — tracked in the roadmap below.
 
+### Single-backend consolidation — `api/` (Azure Functions) retired (2026-09)
+
+Pre-launch, so safe to do now rather than after: `api/`, the Azure Functions
+app that only ever backed local dev (a holdover from the pre-Container-Apps
+Static Web Apps era), is deleted. `server/` (Hono) is the sole backend —
+`npm run dev` now runs it locally too, against **Azurite** (a local Table
+Storage emulator, new dev dependency) instead of real Azure Storage, so
+local dev still needs no cloud account. Net effect: one API implementation
+to maintain and reason about, not two kept in sync by hand.
+
+- `npm run dev` = Azurite + `server/` (`DEV_MODE=true`) + Vite, concurrently.
+  `npm run setup` installs root + `server/` deps only.
+- `server/src/utils/storage.ts` defaults to Azurite's well-known connection
+  string when `DEV_MODE=true` and no real connection string is set.
+- `vite.config.ts`'s dev proxy target moved from `localhost:7071` (Functions)
+  to `localhost:8080` (`server/`), with WebSocket upgrade forwarding added so
+  `VITE_DEV_MODE=false` locally now exercises the real realtime path too.
+- Fixed a genuine pre-existing bug found during the removal: `analytics.ts`
+  used un-hyphenated dev table names (`devroutes`/`devviewersessions`) while
+  every other route file used the hyphenated `dev-` convention, so dev-mode
+  analytics queries were silently hitting empty tables.
+- Found and fixed a real feature gap the deletion would otherwise have
+  caused: OG image generation (`GET /api/og-image`, used by `SEO.tsx` /
+  `TrackingView.tsx` for social-preview cards on shared tracking links) only
+  ever existed in `api/` — it had never been ported to `server/`, so
+  production would have silently lost social-preview images the moment
+  `api/` was deleted. Ported `og-image.ts`, `utils/ogImageBuilder.ts`
+  (pure-function SVG builder, now unit-tested again at
+  `src/__tests__/ogImageBuilder.test.ts`), and `utils/blobStorage.ts`
+  (optional Blob Storage caching, no-ops without a connection string) into
+  `server/`, added `@azure/storage-blob` as a `server/` dependency, and
+  wired the route into `app.ts`. Config (`MAPBOX_TOKEN`,
+  `AZURE_BLOB_STORAGE_CONNECTION_STRING`) was already documented in
+  `.env.example` and needed no changes.
+- CI gained a `server/` typecheck step (previously only the frontend was
+  typechecked in CI).
+- Docs updated to match: `docs/DEV_MODE.md` (rewritten), `docs/ARCHITECTURE.md`,
+  `CLAUDE.md`, `.github/copilot-instructions.md`, `docs/FIRE_STATION_DATASET.md`.
+  `docs/SECRETS_MANAGEMENT.md` and `docs/GITHUB_SECRETS_SETUP.md` deleted —
+  both described a pre-Container-Apps deploy model; `infra/README.md` was
+  already the accurate source for that content.
+- `.devcontainer/devcontainer.json` added the same week, sized for this end
+  state (Node 22, Azure CLI, GitHub CLI, Docker-outside-of-Docker, Claude
+  Code — no Functions Core Tools).
+
 ## Roadmap — what's next
 
 Ordered by leverage. Public-side items move the needle most because the public

@@ -35,14 +35,10 @@ infra/.env.prod
 infra/.env.*
 !infra/.env.example
 
-# API specific
-api/node_modules
-api/dist
-
-# Azure Functions
-local.settings.json
+# Azurite (local Table Storage emulator, server/'s dev storage default)
 __blobstorage__
 __queuestorage__
+__tablestorage__
 __azurite_db*__.json
 
 # Build artifacts

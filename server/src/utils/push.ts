@@ -13,8 +13,8 @@ import webpush from 'web-push';
 import { createHash } from 'node:crypto';
 import { getTableClient, isDevMode } from './storage.js';
 
-const PUSH_TABLE = isDevMode ? 'dev-pushsubscriptions' : 'pushsubscriptions';
-const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
+const PUSH_TABLE = isDevMode ? 'devpushsubscriptions' : 'pushsubscriptions';
+const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 /** RowKey for the per-route metadata entity (start-notification marker). */
 const META_ROW_KEY = '!meta';
 /** Re-notify guard: one start push per route per this window. */

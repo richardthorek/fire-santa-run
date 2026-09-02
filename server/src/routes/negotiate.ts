@@ -5,7 +5,7 @@ import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { signWsToken } from '../realtime/wsToken.js';
 
-const ROUTES_TABLE = isDevMode ? 'dev-routes' : 'routes';
+const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
 /**
  * Build the wss:// base for this deployment from APP_BASE_URL (the public

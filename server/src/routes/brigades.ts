@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 
-const BRIGADES_TABLE = isDevMode ? 'dev-brigades' : 'brigades';
+const BRIGADES_TABLE = isDevMode ? 'devbrigades' : 'brigades';
 
 function escapeODataValue(value: string): string {
   return value.replace(/'/g, "''");

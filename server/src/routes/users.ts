@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { validateToken } from '../utils/auth.js';
 
-const USERS_TABLE = isDevMode ? 'dev-users' : 'users';
+const USERS_TABLE = isDevMode ? 'devusers' : 'users';
 
 /**
  * Local profile fields that aren't already covered by the Station Manager

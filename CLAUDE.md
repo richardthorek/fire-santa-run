@@ -10,8 +10,8 @@ React 19 + TypeScript PWA for Australian fire brigades and community groups to p
 
 | Task | Command |
 | --- | --- |
-| Install | `npm install` |
-| Dev (client + Functions API) | `npm run dev` |
+| Install | `npm run setup` (root + `server/`) |
+| Dev (Azurite + server + client) | `npm run dev` |
 | Dev client only | `npm run dev:client` (Vite, http://localhost:5173) |
 | Type check + build | `npm run build` (`tsc -b && vite build`) |
 | Lint | `npm run lint` |
@@ -34,13 +34,12 @@ src/
   utils/        Helpers (routeHelpers, navigation, membershipRules, ...) — most unit-tested
   types/        index.ts — Route, Waypoint, LiveLocation, RouteAnalytics, etc.
   config/       mapbox.ts
-api/            Azure Functions — used by LOCAL dev (npm run dev)
-server/         Hono backend — used by PRODUCTION (Azure Container Apps); realtime WS hub lives in server/src/realtime/
+server/         Hono backend — used for BOTH production (Azure Container Apps) and local dev; realtime WS hub lives in server/src/realtime/
 infra/          Bicep IaC + deploy scripts
 docs/           Detailed docs (see docs/INDEX.md)
 ```
 
-> **Two backends, one behavior.** `api/` (Functions) runs locally; `server/` (Hono) runs in production. When changing realtime/auth/storage logic, update BOTH and keep them aligned.
+> **One backend.** `server/` (Hono) runs in production and, via `npm run dev`, locally too (against Azurite instead of real Azure Table Storage). The old local-only Azure Functions app (`api/`) was retired 2026-09, pre-launch — see `docs/DEV_MODE.md`.
 
 ## Core conventions
 
