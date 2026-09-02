@@ -100,8 +100,9 @@ and, for `server/`, either export `DEV_MODE=false` (or just don't set it —
 it defaults to false) before running `dev:server` on its own. With
 `DEV_MODE=false`, `server/` requires a real `AZURE_STORAGE_CONNECTION_STRING`
 (a real Azure account, or a dev account with `dev`-prefixed tables — see
-`server/src/routes/*.ts`'s `isDevMode ? 'dev-...' : '...'` table-name
-pattern, which is a *separate* mechanism from the `DEV_MODE` flag and still
+`server/src/routes/*.ts`'s `isDevMode ? 'devroutes' : 'routes'` table-name
+pattern (unhyphenated — Azure Table Storage names allow only letters and
+digits), which is a *separate* mechanism from the `DEV_MODE` flag and still
 applies) and validates bearer tokens against the real `SUITE_AUTH_URL`
 (defaults to `https://stationkit.com.au`), so you'll need an actual Station
 Manager account and a real bearer token to exercise authenticated routes.

@@ -223,11 +223,13 @@ SETTINGS=(
 # WebSocket connections present — optional (falls back to a hash of the
 # storage connection string) but worth setting explicitly in prod.
 # AZURE_COMMUNICATION_CONNECTION_STRING / EMAIL_FROM_ADDRESS / OPS_ALERT_EMAIL
-# enable operational alert emails (server/src/utils/opsAlert.ts) — the first
-# two come from `az deployment sub create`'s emailAlertsConnectionString /
-# emailAlertsFromAddress outputs once deployed with deployEmailAlerts=true
-# (see infra/modules/email-service.bicep); OPS_ALERT_EMAIL is whichever
-# mailbox should receive them.
+# enable operational alert emails (server/src/utils/opsAlert.ts). This app
+# deliberately does NOT provision its own Azure Communication Services
+# resource — it reuses Station Manager's existing instance. Retrieve the
+# connection string with `az communication list-key` against that resource
+# and reuse its sender address; infra/.env.example and infra/README.md
+# ("Ops alert emails") spell out the exact command. OPS_ALERT_EMAIL is
+# whichever mailbox should receive the alerts.
 MISSING_SECRETS=()
 for name in SUITE_AUTH_URL VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET \
             AZURE_COMMUNICATION_CONNECTION_STRING EMAIL_FROM_ADDRESS OPS_ALERT_EMAIL; do

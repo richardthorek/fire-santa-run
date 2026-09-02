@@ -1,4 +1,4 @@
-import { defineConfig, type ConfigEnv, type UserConfig } from 'vite'
+import { defineConfig, loadEnv, type ConfigEnv, type UserConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -22,8 +22,16 @@ export default defineConfig(( env: ConfigEnv ): UserConfig => {
   // deploy workflow only ever sets the correctly-named, non-VITE_ backend
   // variable (infra/seed-secrets.sh), so this is not currently exploited —
   // this guard makes sure a future misconfiguration can't silently ship it.
+  //
+  // Check both process.env AND the .env files: Vite inlines VITE_-prefixed
+  // values from .env / .env.local / .env.[mode] into the bundle too, but does
+  // not copy them onto process.env — so a real key dropped into
+  // .env.production would bypass a process.env-only check.
   if (!isDev) {
-    const leaked = process.env.VITE_AZURE_STORAGE_CONNECTION_STRING;
+    const fileEnv = loadEnv(mode ?? 'production', process.cwd(), '');
+    const leaked =
+      process.env.VITE_AZURE_STORAGE_CONNECTION_STRING ??
+      fileEnv.VITE_AZURE_STORAGE_CONNECTION_STRING;
     if (leaked && /AccountKey=/i.test(leaked)) {
       throw new Error(
         'Refusing to build: VITE_AZURE_STORAGE_CONNECTION_STRING is set to what looks like ' +

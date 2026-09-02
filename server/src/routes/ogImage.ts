@@ -23,6 +23,7 @@ import { Hono } from 'hono';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { getCachedBlob, setCachedBlob } from '../utils/blobStorage.js';
 import { buildOGImageSVG } from '../utils/ogImageBuilder.js';
+import { PUBLIC_ROUTE_STATUSES } from '../utils/routeVisibility.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 const BRIGADES_TABLE = isDevMode ? 'devbrigades' : 'brigades';
@@ -89,7 +90,11 @@ ogImageRouter.get('/og-image', async (c) => {
     return c.json({ error: 'Failed to fetch route/brigade data' }, 500);
   }
 
-  if (!routeEntity) {
+  // Only render previews for routes a non-member is allowed to see — the same
+  // boundary GET /routes/:id enforces. A draft's name, date and geometry must
+  // not be retrievable via /og-image just because the caller knows a valid
+  // brigadeId+routeId pair (brigadeIds are enumerable via GET /brigades/public).
+  if (!routeEntity || !PUBLIC_ROUTE_STATUSES.has(routeEntity.status)) {
     return c.json({ error: 'Route not found' }, 404);
   }
 

@@ -69,7 +69,12 @@ export class HttpStorageAdapter implements IStorageAdapter {
 
   // Routes
   async getRoutes(brigadeId: string): Promise<Route[]> {
-    const response = await fetch(`${this.apiBaseUrl}/routes?brigadeId=${encodeURIComponent(brigadeId)}`);
+    // Send the bearer token: the server only returns non-public (draft) routes
+    // to an authenticated member of the owning brigade. Without it, a brigade
+    // admin's own Dashboard would silently drop their drafts.
+    const response = await fetch(`${this.apiBaseUrl}/routes?brigadeId=${encodeURIComponent(brigadeId)}`, {
+      headers: await getApiAuthHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch routes: ${response.statusText}`);
     }
@@ -77,7 +82,10 @@ export class HttpStorageAdapter implements IStorageAdapter {
   }
 
   async getRoute(brigadeId: string, routeId: string): Promise<Route | null> {
-    const response = await fetch(`${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}?brigadeId=${encodeURIComponent(brigadeId)}`);
+    // Authenticated so a member can open their own drafts (see getRoutes).
+    const response = await fetch(`${this.apiBaseUrl}/routes/${encodeURIComponent(routeId)}?brigadeId=${encodeURIComponent(brigadeId)}`, {
+      headers: await getApiAuthHeaders(),
+    });
     if (response.status === 404) {
       return null;
     }

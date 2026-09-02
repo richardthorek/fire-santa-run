@@ -20,7 +20,7 @@
  *   AZURE_STORAGE_CONNECTION_STRING=... node scripts/upcoming-runs-report.js --dev
  *   AZURE_STORAGE_CONNECTION_STRING=... node scripts/upcoming-runs-report.js --all
  *
- * --dev   reads the dev-prefixed tables (dev-routes / dev-brigades) instead
+ * --dev   reads the dev-prefixed tables (devroutes / devbrigades) instead
  *         of production's.
  * --all   also lists draft/unpublished routes (default: published/active/
  *         completed only — what will actually go live).
@@ -38,8 +38,10 @@ if (!connectionString) {
   process.exit(1);
 }
 
-const ROUTES_TABLE = isDev ? 'dev-routes' : 'routes';
-const BRIGADES_TABLE = isDev ? 'dev-brigades' : 'brigades';
+// Azure Table Storage table names allow only letters and digits — the dev
+// tables server/ reads are unhyphenated (see server/src/routes/*.ts).
+const ROUTES_TABLE = isDev ? 'devroutes' : 'routes';
+const BRIGADES_TABLE = isDev ? 'devbrigades' : 'brigades';
 const RELEVANT_STATUSES = includeAll
   ? null
   : new Set(['published', 'active', 'completed']);

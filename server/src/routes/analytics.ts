@@ -360,23 +360,32 @@ analyticsRouter.get('/routes/:routeId/sessions', async (c) => {
       return c.json({ error: 'Missing routeId parameter' }, 400);
     }
 
-    const routesClient = await getTableClient(ROUTES_TABLE);
-    let brigadeId = '';
-    const routeEntities = routesClient.listEntities({
-      queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` }
-    });
-    for await (const entity of routeEntities) {
-      brigadeId = typeof entity.partitionKey === 'string' ? entity.partitionKey : '';
-      break;
-    }
-    if (!brigadeId) {
-      return c.json({ error: 'Route not found' }, 404);
-    }
-
+    // Authenticate before touching storage: this endpoint used to run a
+    // cross-partition RowKey scan of the routes table (the broadcast hot
+    // path's account) before any auth check, so an unauthenticated caller
+    // could force one scan per request with rotating fake routeIds. Now the
+    // token is validated first, and the route is resolved by a point read in
+    // the caller's own brigade partition — a route in another brigade (or a
+    // fake id) is a 404 either way, no scan, no brigade enumeration.
     const authResult = await validateToken(c.req.raw);
     if (!authResult.authenticated) {
       return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
     }
+    const brigadeId = authResult.organizationId;
+    if (!brigadeId) {
+      return c.json({ error: 'Route not found' }, 404);
+    }
+
+    const routesClient = await getTableClient(ROUTES_TABLE);
+    try {
+      await routesClient.getEntity(brigadeId, routeId);
+    } catch (routeError: any) {
+      if (routeError?.statusCode === 404) {
+        return c.json({ error: 'Route not found' }, 404);
+      }
+      throw routeError;
+    }
+
     const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'manage_routes');
     if (!permissionCheck.authorized) {
       return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);

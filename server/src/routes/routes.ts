@@ -2,6 +2,7 @@
 import { Hono } from 'hono';
 import { validateToken, checkBrigadeAccess } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
+import { PUBLIC_ROUTE_STATUSES } from '../utils/routeVisibility.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
@@ -127,12 +128,6 @@ function validateRoutePayload(route: any): string | null {
   }
   return null;
 }
-
-// Statuses visible to anyone who is not an actual member of the owning
-// brigade. Drafts and internal comments (real display names attached) are
-// not meant to leak to a caller who merely knows the brigadeId — and it is
-// not a secret; GET /brigades/public hands out every brigade's id.
-const PUBLIC_ROUTE_STATUSES = new Set(['published', 'active', 'completed', 'archived']);
 
 routesRouter.get('/', async (c) => {
   try {

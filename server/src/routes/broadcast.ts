@@ -48,20 +48,6 @@ interface LocationBroadcast {
 
 export const broadcastRouter = new Hono<{ Variables: { authResult: AuthResult } }>();
 
-function escapeODataValue(value: string): string {
-  return value.replace(/'/g, "''");
-}
-
-/** Resolve which brigade owns a route (routes are keyed by brigadeId partition). Mirrors negotiate.ts. */
-async function getRouteBrigadeId(routeId: string): Promise<string | null> {
-  const client = await getTableClient(ROUTES_TABLE);
-  const entities = client.listEntities({ queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` } });
-  for await (const entity of entities) {
-    return typeof entity.partitionKey === 'string' ? entity.partitionKey : null;
-  }
-  return null;
-}
-
 // Launch hardening (#345): cap broadcast volume per client. Navigation sends
 // a location every 5s (12/min) and presence heartbeats every 15s (4/min);
 // 40/min leaves ample headroom for retries without allowing flooding.
@@ -99,11 +85,25 @@ async function requireRouteOwner(
   routeId: string,
   permission: 'start_navigation' | 'manage_routes',
 ): Promise<{ brigadeId: string } | Response> {
-  const brigadeId = await getRouteBrigadeId(routeId);
+  const authResult = c.get('authResult');
+  const brigadeId = authResult.organizationId;
   if (!brigadeId) {
     return c.json({ error: 'Route not found' }, 404);
   }
-  const authResult = c.get('authResult');
+  // Point-read the route in the caller's own brigade partition rather than a
+  // cross-partition RowKey scan: checkBrigadeAccess below already requires the
+  // route's brigade to equal authResult.organizationId, so a route in any
+  // other partition would be rejected anyway — and this runs on every location
+  // broadcast (12/min per navigator).
+  const client = await getTableClient(ROUTES_TABLE);
+  try {
+    await client.getEntity(brigadeId, routeId);
+  } catch (err: any) {
+    if (err?.statusCode === 404) {
+      return c.json({ error: 'Route not found' }, 404);
+    }
+    throw err;
+  }
   const permissionCheck = checkBrigadeAccess(authResult, brigadeId, permission);
   if (!permissionCheck.authorized) {
     return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);

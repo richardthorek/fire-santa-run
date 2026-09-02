@@ -1,6 +1,9 @@
-const fs = require('fs');
-const path = require('path');
-const { TableClient, TableServiceClient } = require('@azure/data-tables');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { TableClient, TableServiceClient } from '@azure/data-tables';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DEFAULT_DATA_FILE = path.resolve(__dirname, '../Rural_Country_Fire_Service_Facilities.geojson');
 const SEED_LIMIT = Number(process.env.SEED_LIMIT || '100');
