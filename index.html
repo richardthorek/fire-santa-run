@@ -11,8 +11,12 @@
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link rel="dns-prefetch" href="https://api.mapbox.com" />
+    <link rel="dns-prefetch" href="https://stationkit.com.au" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Station Manager (suite auth) is a separate origin hit on every load for
+         silent SSO — warm the connection early so it isn't on the critical path. -->
+    <link rel="preconnect" href="https://stationkit.com.au" crossorigin>
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />

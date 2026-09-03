@@ -36,6 +36,13 @@ interface RouteConnections {
   lastRunStatus?: string;
   /** Parsed run-status value, kept for cheap server-side checks (push gating). */
   runStatusValue?: string;
+  /**
+   * Opt-in "families waiting here" pins from public viewers, keyed by an opaque
+   * client-generated pin id. Ephemeral (memory only, never persisted), pruned by
+   * TTL, and only ever fanned out to the navigator in coarsened aggregate form —
+   * never echoed to other viewers. See ViewerPinsMessage in src/types.
+   */
+  viewerPins?: Map<string, { lng: number; lat: number; at: number }>;
 }
 
 const routes = new Map<string, RouteConnections>();
@@ -43,6 +50,13 @@ let totalConnections = 0;
 
 /** Hard cap across all routes — a safety brake against connection floods. */
 export const MAX_TOTAL_CONNECTIONS = 5000;
+
+/** Viewer pins older than this are dropped (viewer left without telling us). */
+const VIEWER_PIN_TTL_MS = 15 * 60 * 1000;
+/** Per-route cap so a misbehaving client can't inflate the waiting count. */
+const MAX_VIEWER_PINS_PER_ROUTE = 2000;
+/** Grid snap for aggregation: 3 dp ≈ 110m. Coordinates are already coarsened client-side. */
+const roundGrid = (n: number): number => Math.round(n * 1000) / 1000;
 
 function getRoute(routeId: string): RouteConnections {
   let conns = routes.get(routeId);
@@ -75,6 +89,45 @@ function safeSend(ws: WebSocket, data: string): void {
   }
 }
 
+/**
+ * Fan out the coarsened, aggregated waiting-spot pins to the navigator's read
+ * side ONLY. Viewers never receive this — they must not be able to see each
+ * other. Prunes stale pins as a side effect.
+ */
+function pushViewerPins(routeId: string): void {
+  const conns = routes.get(routeId);
+  if (!conns) return;
+
+  const pins = conns.viewerPins;
+  if (pins) {
+    const now = Date.now();
+    for (const [id, pin] of pins) {
+      if (now - pin.at > VIEWER_PIN_TTL_MS) pins.delete(id);
+    }
+  }
+
+  const cellMap = new Map<string, { lng: number; lat: number; count: number }>();
+  if (pins) {
+    for (const pin of pins.values()) {
+      const lng = roundGrid(pin.lng);
+      const lat = roundGrid(pin.lat);
+      const key = `${lng},${lat}`;
+      const cell = cellMap.get(key);
+      if (cell) cell.count += 1;
+      else cellMap.set(key, { lng, lat, count: 1 });
+    }
+  }
+
+  const data = JSON.stringify({
+    type: 'viewer-pins',
+    routeId,
+    cells: [...cellMap.values()],
+    total: pins?.size ?? 0,
+    timestamp: Date.now(),
+  });
+  for (const ws of conns.broadcasters) safeSend(ws, data);
+}
+
 export const hub = {
   totalConnections(): number {
     return totalConnections;
@@ -90,6 +143,8 @@ export const hub = {
       if (conns.lastLocation) safeSend(ws, conns.lastLocation);
       if (conns.lastRunStatus) safeSend(ws, conns.lastRunStatus);
     }
+    // The navigator's read side gets the current waiting-spot aggregate on join.
+    if (role === 'broadcaster') pushViewerPins(routeId);
   },
 
   remove(routeId: string, role: RealtimeRole, ws: WebSocket): void {
@@ -126,8 +181,12 @@ export const hub = {
     const conns = getRoute(routeId);
     conns.runStatusValue = message.status;
     conns.lastRunStatus = JSON.stringify(message);
-    // Once the run is over, drop the cached position so it can't be replayed.
-    if (isTerminalStatus(message.status)) conns.lastLocation = undefined;
+    // Once the run is over, drop the cached position and every waiting-spot pin.
+    if (isTerminalStatus(message.status)) {
+      conns.lastLocation = undefined;
+      conns.viewerPins?.clear();
+      pushViewerPins(routeId);
+    }
     for (const ws of conns.viewers) safeSend(ws, conns.lastRunStatus);
     for (const ws of conns.broadcasters) safeSend(ws, conns.lastRunStatus);
   },
@@ -143,6 +202,29 @@ export const hub = {
     if (!conns) return;
     const data = JSON.stringify(message);
     for (const ws of conns.editors) safeSend(ws, data);
+  },
+
+  /**
+   * Record (or move) one opt-in viewer's waiting-spot pin and re-push the
+   * aggregate to the navigator. `lng`/`lat` are expected already coarsened by
+   * the route handler; they're snapped again during aggregation.
+   */
+  setViewerPin(routeId: string, pinId: string, lng: number, lat: number): void {
+    const conns = getRoute(routeId);
+    if (!conns.viewerPins) conns.viewerPins = new Map();
+    if (!conns.viewerPins.has(pinId) && conns.viewerPins.size >= MAX_VIEWER_PINS_PER_ROUTE) {
+      return; // at cap — ignore new pins, existing ones can still move
+    }
+    conns.viewerPins.set(pinId, { lng, lat, at: Date.now() });
+    pushViewerPins(routeId);
+  },
+
+  /** Remove one viewer's waiting-spot pin (they turned sharing off / left). */
+  removeViewerPin(routeId: string, pinId: string): void {
+    const conns = routes.get(routeId);
+    if (conns?.viewerPins?.delete(pinId)) {
+      pushViewerPins(routeId);
+    }
   },
 
   /** Push the authoritative live viewer count to everyone watching the route. */

@@ -80,8 +80,8 @@ const updateButtonStyle: CSSProperties = {
 
 function App() {
   const [initialized, setInitialized] = useState(false);
-  const { user, isLoading: authLoading } = useAuth();
-  const { brigade, isLoading: brigadeLoading } = useBrigade();
+  const { user } = useAuth();
+  const { brigade } = useBrigade();
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
   const { isUpdateAvailable, applyUpdate } = useServiceWorker();
 
@@ -105,9 +105,12 @@ function App() {
     init();
   }, [isDevMode, initialized]);
 
-  // In dev mode, wait for mock data to be seeded before rendering any route so
-  // pages that read storage on mount (dashboard, discovery) don't race the seed.
-  if (authLoading || brigadeLoading || (isDevMode && !initialized)) {
+  // Public pages (landing, live tracking, brigade discovery) must never wait on
+  // authentication — that's a call to Station Manager, a separate origin. Auth
+  // resolves in the background; routes that require a session gate themselves
+  // via <ProtectedRoute>. The only global wait is the dev-mode mock-data seed,
+  // so pages that read storage on mount don't race it.
+  if (isDevMode && !initialized) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <div style={{ textAlign: 'center' }}>

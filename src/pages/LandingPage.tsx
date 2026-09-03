@@ -26,22 +26,9 @@ export function LandingPage() {
     navigate('/login');
   };
 
-  if (isLoading) {
-    return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        backgroundColor: 'var(--neutral-50)',
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '64px', marginBottom: '1rem' }}>🎅</div>
-          <p style={{ color: 'var(--neutral-700)' }}>Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // No auth gate here: this is the public front door and must paint immediately.
+  // If the visitor turns out to be signed in, the effect above redirects them
+  // to the dashboard once the background session restore completes.
 
   return (
     <>

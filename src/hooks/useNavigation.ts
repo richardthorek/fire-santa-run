@@ -26,6 +26,15 @@ import {
 import { getDirections } from '../utils/mapbox';
 import { calculateRealTimeETAs } from '../utils/routeHelpers';
 
+/**
+ * Radius (metres) within which the navigator is considered "arrived" at a stop
+ * and it auto-completes. Phone GPS under tree cover / near buildings drifts
+ * 20–40m, and stop pins often sit on a house set back from the road, so 50m was
+ * too tight to fire reliably. The manual "Skip to next stop" control is the
+ * fallback when it still doesn't.
+ */
+const WAYPOINT_ARRIVAL_RADIUS_M = 75;
+
 export interface NavigationState {
   isNavigating: boolean;
   currentStepIndex: number;
@@ -64,7 +73,13 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
   const [updatedRoute, setUpdatedRoute] = useState<Route>(route);
   const [rerouteCount, setRerouteCount] = useState(0);
   
-  const lastAnnouncedStepRef = useRef<number>(-1);
+  // Per-step voice de-duplication: a step gets at most one "approach"
+  // announcement (spoken once when first within range) and one "now"
+  // announcement (within ~40m). Sets rather than a single "last step" marker so
+  // GPS jitter that flips findCurrentStep between adjacent steps can't re-trigger
+  // an announcement. Cleared on start and after a reroute (steps change).
+  const announcedApproachStepsRef = useRef<Set<number>>(new Set());
+  const announcedImminentStepsRef = useRef<Set<number>>(new Set());
   const lastAnnouncedWaypointRef = useRef<string | null>(null);
   const hasAnnouncedOffRouteRef = useRef(false);
   const rerouteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -169,7 +184,8 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
   // Start navigation
   const startNavigation = useCallback(() => {
     setIsNavigating(true);
-    lastAnnouncedStepRef.current = -1;
+    announcedApproachStepsRef.current.clear();
+    announcedImminentStepsRef.current.clear();
     lastAnnouncedWaypointRef.current = null;
     hasAnnouncedOffRouteRef.current = false;
 
@@ -209,28 +225,39 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
 
   // Mark waypoint as completed
   const completeWaypoint = useCallback((waypointId: string) => {
-    setCompletedWaypointIds(prev => [...prev, waypointId]);
-
     const waypoint = updatedRoute.waypoints.find(wp => wp.id === waypointId);
-    if (waypoint) {
-      waypoint.isCompleted = true;
-      waypoint.actualArrival = new Date().toISOString();
-      
-      if (onWaypointComplete) {
-        onWaypointComplete(waypoint);
-      }
+    if (!waypoint || waypoint.isCompleted) return;
 
-      // Announce completion
-      if (voiceEnabled && lastAnnouncedWaypointRef.current !== waypointId) {
-        voiceService.speak(announceWaypointArrival(waypoint.name), 'high').catch(() => {
-          // Ignore voice errors
-        });
-        lastAnnouncedWaypointRef.current = waypointId;
-      }
+    const actualArrival = new Date().toISOString();
+
+    // Immutable update: mutating the waypoint object in place left `updatedRoute`
+    // with the same identity, so the derived navigation state (next waypoint,
+    // distances, the bottom panel) didn't re-render — the "current stop" card
+    // stayed stuck on the completed waypoint.
+    setUpdatedRoute(prev => ({
+      ...prev,
+      waypoints: prev.waypoints.map(wp =>
+        wp.id === waypointId ? { ...wp, isCompleted: true, actualArrival } : wp,
+      ),
+    }));
+    setCompletedWaypointIds(prev => (prev.includes(waypointId) ? prev : [...prev, waypointId]));
+
+    if (onWaypointComplete) {
+      onWaypointComplete({ ...waypoint, isCompleted: true, actualArrival });
     }
 
-    // Check if all waypoints are completed
-    const allCompleted = updatedRoute.waypoints.every(wp => wp.isCompleted);
+    // Announce completion
+    if (voiceEnabled && lastAnnouncedWaypointRef.current !== waypointId) {
+      voiceService.speak(announceWaypointArrival(waypoint.name), 'high').catch(() => {
+        // Ignore voice errors
+      });
+      lastAnnouncedWaypointRef.current = waypointId;
+    }
+
+    // Check if this completion was the last outstanding waypoint
+    const allCompleted = updatedRoute.waypoints.every(
+      wp => wp.isCompleted || wp.id === waypointId,
+    );
     if (allCompleted) {
       setIsNavigating(false);
       if (voiceEnabled) {
@@ -302,6 +329,11 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
       // Increment reroute count and log event
       setRerouteCount(prev => prev + 1);
 
+      // New geometry means new steps — reset per-step voice de-dup so the
+      // rerouted instructions are announced.
+      announcedApproachStepsRef.current.clear();
+      announcedImminentStepsRef.current.clear();
+
       setIsRerouting(false);
       hasAnnouncedOffRouteRef.current = false;
     } catch (error) {
@@ -319,31 +351,41 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     const { currentStepIndex, distanceToNextManeuver, currentInstruction, nextWaypoint, isOffRoute: offRoute } = navigationState;
     const userLocation = position.coordinates;
 
-    // Voice announcements based on distance to maneuver
-    if (voiceEnabled && currentInstruction && currentStepIndex !== lastAnnouncedStepRef.current) {
-      if (distanceToNextManeuver < 50) {
-        // Immediate instruction
-        voiceService.speak(
-          formatInstructionForVoice(currentInstruction, distanceToNextManeuver),
-          'high'
-        ).catch(() => {
-          // Ignore voice errors (e.g., interrupted)
-        });
-        lastAnnouncedStepRef.current = currentStepIndex;
-      } else if (distanceToNextManeuver < 200 && distanceToNextManeuver > 150) {
-        // Advanced warning
-        voiceService.speak(
-          formatInstructionForVoice(currentInstruction, distanceToNextManeuver),
-          'low'
-        ).catch(() => {
-          // Ignore voice errors (e.g., interrupted)
-        });
+    // Voice announcements based on distance to the maneuver. Each step gets at
+    // most two spoken cues: one "approach" ("In 200 metres, turn right") the
+    // first time we're within range, and one "now" within ~40m. The old code
+    // re-queued the approach cue on every GPS tick inside a 150–200m band, so
+    // instructions stacked up and kept playing after the turn.
+    if (voiceEnabled && currentInstruction) {
+      if (
+        distanceToNextManeuver <= 40 &&
+        !announcedImminentStepsRef.current.has(currentStepIndex)
+      ) {
+        voiceService
+          .speak(formatInstructionForVoice(currentInstruction, distanceToNextManeuver), 'high')
+          .catch(() => {
+            // Ignore voice errors (e.g., interrupted)
+          });
+        announcedImminentStepsRef.current.add(currentStepIndex);
+        // Suppress a late approach cue for a step we're already on top of.
+        announcedApproachStepsRef.current.add(currentStepIndex);
+      } else if (
+        distanceToNextManeuver <= 250 &&
+        distanceToNextManeuver > 40 &&
+        !announcedApproachStepsRef.current.has(currentStepIndex)
+      ) {
+        voiceService
+          .speak(formatInstructionForVoice(currentInstruction, distanceToNextManeuver), 'low')
+          .catch(() => {
+            // Ignore voice errors (e.g., interrupted)
+          });
+        announcedApproachStepsRef.current.add(currentStepIndex);
       }
     }
 
     // Auto-complete waypoint when near
     // Queue waypoint for completion if not already completed or queued
-    if (nextWaypoint && isNearWaypoint(userLocation, nextWaypoint, 50)) {
+    if (nextWaypoint && isNearWaypoint(userLocation, nextWaypoint, WAYPOINT_ARRIVAL_RADIUS_M)) {
       if (!completedWaypointIds.includes(nextWaypoint.id) && 
           !waypointCompletionQueueRef.current.has(nextWaypoint.id)) {
         waypointCompletionQueueRef.current.add(nextWaypoint.id);

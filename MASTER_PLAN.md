@@ -438,6 +438,56 @@ was making the metrics visible; no summary/email logic lives here.
   public viewer's session join, not the leave half of the same endpoint),
   `route_analytics_viewed` (organiser opens a route's analytics).
 
+### First-load latency — public pages decoupled from suite auth (2026-09-03)
+
+First load could take ~20s. Two causes: the Container App's off-season
+scale-to-zero cold start (deferred — flip `scale-season.sh` for December), and
+`App.tsx` holding **every** route, including the public no-login ones, behind a
+blocking `restoreSession()` call to Station Manager (a separate origin, itself
+cold-start-prone, with no timeout).
+
+- The global auth/brigade gate is removed from `App.tsx`; public pages
+  (landing, `/track`, `/demo`, brigade discovery) render immediately.
+  `<ProtectedRoute>` still gates authed routes.
+- `AuthContext` gives the boot session-restore a soft budget (1.5s with no
+  stored token, 4s with one) then renders as anonymous; the restore finishes
+  in the background and updates the UI if a session lands.
+- `restoreSession()` fetches now carry an 8s `AbortSignal.timeout`.
+- `index.html` preconnects to `stationkit.com.au`; the service worker's
+  `/api/` NetworkFirst route is now same-origin only (it was also catching —
+  and caching — Station Manager's cross-origin auth calls).
+
+### Live-test fixes + opt-in viewer pins (2026-09-03)
+
+From a two-device live test (navigator + public viewer):
+
+- **Navigator "you are here" marker restored** — `NavigationMap` was keyed on
+  the route object, whose identity changes on every ETA recalc (~30s) and
+  reroute, so the map was torn down and rebuilt and the position marker (a ref
+  pointing at the removed map) was never re-added. Map is now created once with
+  a `mapLoaded` gate; the marker is a heading arrow (map turns so travel is up).
+- **Voice no longer repeats every ~10m** — the 150–200m "advance warning"
+  branch re-queued on every GPS tick without recording that it had spoken.
+  Replaced with per-step de-dup: one approach cue (within 250m), one "now" cue
+  (within 40m), reset on start / reroute.
+- **Waypoint auto-advance** — `completeWaypoint` mutated state in place so the
+  derived nav state / bottom card didn't re-render. Now an immutable update;
+  arrival radius 50m → 75m; added an always-visible "Skip to next stop" control.
+- **Public viewer's Santa marker** — the bob-animation class sat on the marker
+  root, and a running CSS `transform` animation overrides the inline transform
+  Mapbox uses to position the marker (pinning it to the map corner). Moved to an
+  inner element.
+- **Navigator now sees "👀 N watching"** (the count was received but never
+  surfaced from `useLocationBroadcast`).
+- **Opt-in "families waiting here" pins** — a public viewer can choose to share
+  their spot with the brigade. Coordinates are rounded to ~110m in the browser
+  and again on the server, held **in memory only** in the realtime hub (never
+  Table Storage), fanned out to the navigator only as a grid-snapped aggregate
+  (heat circles + "📍 N waiting"), and dropped on a 15-min TTL / sharing-off /
+  terminal run status. New `POST /api/viewer-pins` (+ `/config`), gated by
+  `VIEWER_PINS_ENABLED` (default on). Privacy policy updated. Precise viewer
+  positions are never transmitted or shown.
+
 ## Roadmap — what's next
 
 Ordered by leverage. Public-side items move the needle most because the public

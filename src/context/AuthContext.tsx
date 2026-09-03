@@ -7,6 +7,7 @@ import {
   signUp as suiteSignUp,
   signOut as suiteSignOut,
   switchOrg as suiteSwitchOrg,
+  getStoredToken,
   type SuiteSession,
   type SuiteMembership,
   type SignUpInput,
@@ -125,6 +126,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false;
+
+    // Don't hold the app — including the public, no-login pages — on the
+    // loading screen while we wait on Station Manager (a separate origin that
+    // can be cold). Give the restore a short budget, then render as anonymous;
+    // if a session resolves afterwards it's applied in the background and the
+    // UI updates. A visitor with a stored token is probably signed in, so wait
+    // a little longer for them before falling back to the anonymous view.
+    const softTimeoutMs = getStoredToken() ? 4000 : 1500;
+    const softTimer = window.setTimeout(() => {
+      if (!cancelled) setIsLoading(false);
+    }, softTimeoutMs);
+
     (async () => {
       try {
         const session = await restoreSession();
@@ -137,14 +150,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('[Auth] Failed to restore session:', error);
-        clearSession();
+        if (!cancelled) clearSession();
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          window.clearTimeout(softTimer);
+          setIsLoading(false);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
+      window.clearTimeout(softTimer);
     };
   }, [isDevMode, applySession, clearSession]);
 

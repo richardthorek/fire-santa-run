@@ -23,6 +23,10 @@ export interface NavigationPanelProps {
   completedWaypoints: number;
   totalWaypoints: number;
   waypoints: Waypoint[];
+  /** Live count of public viewers watching this run. Null until the first push. */
+  viewerCount?: number | null;
+  /** How many opt-in viewers have shared a waiting spot along the route. */
+  waitingCount?: number | null;
   rerouteCount?: number;
 }
 
@@ -39,6 +43,8 @@ export function NavigationPanel({
   completedWaypoints,
   totalWaypoints,
   waypoints,
+  viewerCount = null,
+  waitingCount = null,
   rerouteCount = 0,
 }: NavigationPanelProps) {
   // Find waypoint after next - memoized to avoid recalculation on every render
@@ -116,6 +122,24 @@ export function NavigationPanel({
                 style={{ fontSize: '0.75rem', color: '#D84315', fontWeight: 600 }}
               >
                 <span aria-hidden="true">🔄 </span>{rerouteCount} reroute{rerouteCount === 1 ? '' : 's'}
+              </span>
+            )}
+            {viewerCount !== null && viewerCount > 0 && (
+              <span
+                aria-label={`${viewerCount} ${viewerCount === 1 ? 'person is' : 'people are'} watching live`}
+                title={`${viewerCount} ${viewerCount === 1 ? 'person is' : 'people are'} watching live`}
+                style={{ fontSize: '0.75rem', color: '#2E7D32', fontWeight: 700 }}
+              >
+                <span aria-hidden="true">👀 </span>{viewerCount} watching
+              </span>
+            )}
+            {waitingCount !== null && waitingCount > 0 && (
+              <span
+                aria-label={`${waitingCount} ${waitingCount === 1 ? 'group has' : 'groups have'} shared a waiting spot`}
+                title={`${waitingCount} ${waitingCount === 1 ? 'group has' : 'groups have'} shared where they're waiting`}
+                style={{ fontSize: '0.75rem', color: '#E65100', fontWeight: 700 }}
+              >
+                <span aria-hidden="true">📍 </span>{waitingCount} waiting
               </span>
             )}
             <span style={{ fontSize: '0.875rem', color: '#616161' }}>
@@ -250,7 +274,7 @@ export function NavigationPanel({
                 cursor: 'pointer',
                 backgroundColor: 'white',
                 color: '#D32F2F',
-                minWidth: '120px',
+                minWidth: '100px',
                 minHeight: TOUCH_TARGET.minimum,
                 transition: 'all 0.2s',
               }}
@@ -258,6 +282,28 @@ export function NavigationPanel({
               Stop
             </button>
           </div>
+
+          {/* Manual fallback: advance to the next stop when GPS hasn't
+              auto-detected arrival (pin set back from the road, weak signal). */}
+          <button
+            onClick={onSkipToNext}
+            aria-label={`Mark ${nextWaypoint.name || 'this stop'} done and move to the next stop`}
+            style={{
+              width: '100%',
+              marginTop: '0.5rem',
+              padding: '0.6rem',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              border: 'none',
+              background: 'none',
+              color: '#616161',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              minHeight: TOUCH_TARGET.minimum,
+            }}
+          >
+            Skip to next stop ⏭
+          </button>
         </div>
       ) : (
         <div>
