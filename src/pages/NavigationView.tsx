@@ -23,6 +23,10 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [keepScreenOn, setKeepScreenOn] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
+  // Location access must be requested from a direct tap — iOS Safari silently
+  // denies geolocation calls made from a mount effect instead of a user
+  // gesture, with no native prompt at all. See handleEnableLocation below.
+  const [locationEnabled, setLocationEnabled] = useState(false);
   const { saveRoute } = useRoutes();
   // Filled in below once useLocationBroadcast has run; useNavigation's
   // onRouteComplete callback fires long after both hooks are initialised.
@@ -66,6 +70,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
       }
     },
     voiceEnabled,
+    locationEnabled,
   });
 
   // Keep screen awake during navigation (only when user has enabled the toggle)
@@ -90,11 +95,13 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   // Stable identity so NavigationMap's layer effect doesn't run every GPS tick.
   const viewerCells = useMemo(() => viewerPins?.cells ?? [], [viewerPins]);
 
-  // Auto-start navigation on mount and mark route as active
+  // Start navigation once the user has granted the location tap, and mark
+  // the route as active. Gated on locationEnabled rather than firing on
+  // mount so the geolocation request carries the tap's user gesture.
   useEffect(() => {
-    if (!hasStarted) {
+    if (locationEnabled && !hasStarted) {
       startNavigation();
-      
+
       // Update route status to active
       if (route.status !== 'active') {
         const activeRoute = {
@@ -106,10 +113,23 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
           console.error('Failed to update route status:', error);
         });
       }
-      
+
       setHasStarted(true);
     }
-  }, [hasStarted, startNavigation, route, saveRoute]);
+  }, [locationEnabled, hasStarted, startNavigation, route, saveRoute]);
+
+  const handleEnableLocation = useCallback(() => {
+    setLocationEnabled(true);
+  }, []);
+
+  // Skip the tap gate when permission is already resolved — e.g. the
+  // "Navigate" button that brought the user here already primed the
+  // request within its own click gesture (see primeGeolocationPermission).
+  useEffect(() => {
+    if (!locationEnabled && (permission === 'granted' || permission === 'denied')) {
+      setLocationEnabled(true);
+    }
+  }, [locationEnabled, permission]);
 
   const handleStopNavigation = useCallback(() => {
     stopNavigation();
@@ -169,6 +189,49 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     onNextWaypoint: handleSkipToNext,
     isNavigating: navigationState.isNavigating,
   });
+
+  // Require an explicit tap before requesting location. iOS Safari denies
+  // geolocation requests made outside a user gesture without ever showing
+  // the native permission prompt, so we can't request this on mount.
+  if (!locationEnabled) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          padding: '2rem',
+          textAlign: 'center',
+          backgroundColor: '#FAFAFA',
+        }}
+      >
+        <div style={{ fontSize: '48px', marginBottom: '1rem' }}>📍</div>
+        <h2 style={{ color: '#212121', marginBottom: '1rem' }}>Enable Location</h2>
+        <p style={{ color: '#616161', marginBottom: '2rem', maxWidth: '400px' }}>
+          Navigation needs your location to guide the run. Tap below and allow access when your
+          device asks.
+        </p>
+        <button
+          onClick={handleEnableLocation}
+          style={{
+            padding: '0.75rem 1.5rem',
+            fontSize: '1rem',
+            fontWeight: 'bold',
+            border: 'none',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            background: 'linear-gradient(135deg, #43A047 0%, #2E7D32 100%)',
+            color: 'white',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+          }}
+        >
+          Enable Location &amp; Start
+        </button>
+      </div>
+    );
+  }
 
   // Handle location errors
   if (locationError) {
