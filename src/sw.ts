@@ -91,9 +91,13 @@ registerRoute(
   })
 );
 
-// General API routes - Network First with cache fallback
+// General API routes - Network First with cache fallback.
+// Same-origin only: cross-origin services that happen to use an `/api/` path
+// (Station Manager's auth endpoints on stationkit.com.au) must not be routed
+// through this cache — their availability should only affect auth, and a
+// cached session response could be served stale.
 registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/'),
+  ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/api/'),
   new NetworkFirst({
     cacheName: 'api-cache',
     networkTimeoutSeconds: 10,

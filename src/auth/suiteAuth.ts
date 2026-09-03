@@ -35,6 +35,24 @@ export const SUITE_AUTH_URL = RAW_URL.trim().replace(/\/+$/, '');
 
 const TOKEN_KEY = 'auth_token';
 
+/**
+ * Network budget for the boot-time session-restore calls. Station Manager is a
+ * separately-deployed origin (and can be scaled to zero) — without a cap, a
+ * slow or cold response there would hang the whole app on the loading screen.
+ * The app treats a timeout here as "not signed in" and carries on; the real
+ * session, if any, is picked up on the next load or an explicit sign-in.
+ */
+const SESSION_RESTORE_TIMEOUT_MS = 8000;
+
+/** `AbortSignal.timeout`, guarded for runtimes that lack it (returns undefined). */
+function timeoutSignal(ms: number): AbortSignal | undefined {
+  try {
+    return AbortSignal.timeout(ms);
+  } catch {
+    return undefined;
+  }
+}
+
 export interface SuiteMembership {
   organizationId: string;
   organizationName: string;
@@ -117,9 +135,10 @@ function toSession(token: string, me: MeResponse): SuiteSession {
 }
 
 /** Resolve a token into a full session via GET /api/auth/me. Returns null on 401. */
-async function fetchSession(token: string): Promise<SuiteSession | null> {
+async function fetchSession(token: string, timeoutMs?: number): Promise<SuiteSession | null> {
   const res = await fetch(`${SUITE_AUTH_URL}/api/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
+    signal: timeoutMs ? timeoutSignal(timeoutMs) : undefined,
   });
   if (res.status === 401 || res.status === 403 || res.status === 404) return null;
   if (!res.ok) throw new Error('Account service unavailable');
@@ -235,6 +254,7 @@ export async function restoreSession(): Promise<SuiteSession | null> {
   try {
     const res = await fetch(`${SUITE_AUTH_URL}/api/auth/session`, {
       credentials: 'include',
+      signal: timeoutSignal(SESSION_RESTORE_TIMEOUT_MS),
     });
     if (res.ok) {
       const me = (await res.json()) as MeResponse & { token: string };
@@ -242,14 +262,14 @@ export async function restoreSession(): Promise<SuiteSession | null> {
       return toSession(me.token, me);
     }
   } catch {
-    // Network error reaching the cookie-SSO endpoint — fall through to the
-    // stored-token path below (may still work if we're just offline briefly).
+    // Network error or timeout reaching the cookie-SSO endpoint — fall through
+    // to the stored-token path below (may still work if we're just offline briefly).
   }
 
   const token = getStoredToken();
   if (!token) return null;
   try {
-    const session = await fetchSession(token);
+    const session = await fetchSession(token, SESSION_RESTORE_TIMEOUT_MS);
     if (!session) clearStoredToken();
     return session;
   } catch {
