@@ -4,6 +4,7 @@ import { useRoutes } from '../hooks';
 import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist, ImportModal, ExportMenu, EntitlementBanner } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
+import { primeGeolocationPermission } from '../utils/primeGeolocation';
 import {
   isApproachingAutoArchive,
   daysUntilAutoArchive,
@@ -959,6 +960,7 @@ export function Dashboard() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            primeGeolocationPermission();
                             navigate(`/routes/${route.id}/navigate`);
                           }}
                           style={{

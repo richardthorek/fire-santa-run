@@ -58,11 +58,16 @@ export interface UseNavigationOptions {
   onRouteComplete?: (rerouteCount: number) => void;
   onWaypointComplete?: (waypoint: Waypoint) => void;
   voiceEnabled?: boolean;
+  /** Gates the underlying geolocation watch. iOS Safari silently denies
+   *  location requests that aren't triggered by a direct user gesture (no
+   *  native prompt, just an immediate PERMISSION_DENIED) — so callers should
+   *  default this to false and only flip it true from a tap handler. */
+  locationEnabled?: boolean;
 }
 
-export function useNavigation({ route, onRouteComplete, onWaypointComplete, voiceEnabled = true }: UseNavigationOptions) {
-  const { position, error: locationError, permission } = useGeolocation({ 
-    watch: true, 
+export function useNavigation({ route, onRouteComplete, onWaypointComplete, voiceEnabled = true, locationEnabled = true }: UseNavigationOptions) {
+  const { position, error: locationError, permission } = useGeolocation({
+    watch: locationEnabled,
     enableHighAccuracy: true,
     backgroundTracking: true,
   });

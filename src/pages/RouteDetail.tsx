@@ -18,6 +18,7 @@ import type { Brigade } from '../storage/types';
 import { storageAdapter } from '../storage';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { duplicateRoute } from '../utils/routeHelpers';
+import { primeGeolocationPermission } from '../utils/primeGeolocation';
 import { predictRouteDuration, CONFIDENCE_LABELS } from '../utils/etaPrediction';
 import { format } from 'date-fns';
 import { COLORS, FLOATING_PANEL, Z_INDEX } from '../utils/constants';
@@ -524,10 +525,14 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
           }}>
             {/* Navigate Button - Always shown */}
             <button
-              onClick={() => canNavigate 
-                ? navigate(`/routes/${route.id}/navigate`)
-                : alert('Route must have waypoints and navigation data. Please edit the route to add stops.')
-              }
+              onClick={() => {
+                if (!canNavigate) {
+                  alert('Route must have waypoints and navigation data. Please edit the route to add stops.');
+                  return;
+                }
+                primeGeolocationPermission();
+                navigate(`/routes/${route.id}/navigate`);
+              }}
               disabled={!canNavigate}
               style={{
                 padding: '0.875rem 1rem',

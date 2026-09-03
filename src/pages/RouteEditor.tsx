@@ -10,6 +10,7 @@ import { reverseGeocode, getDirections, type GeocodingResult } from '../utils/ma
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
 import { getDefaultMapCenter } from '../utils/mapCenter';
+import { primeGeolocationPermission } from '../utils/primeGeolocation';
 import { DEFAULT_CENTER } from '../config/mapbox';
 import type { Route, RouteTemplate, Waypoint } from '../types';
 
@@ -377,7 +378,10 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {route.geometry && route.navigationSteps && route.navigationSteps.length > 0 && (
               <button
-                onClick={() => navigate(`/routes/${route.id}/navigate`)}
+                onClick={() => {
+                  primeGeolocationPermission();
+                  navigate(`/routes/${route.id}/navigate`);
+                }}
                 style={{
                   padding: '0.5rem 1rem',
                   border: 'none',
