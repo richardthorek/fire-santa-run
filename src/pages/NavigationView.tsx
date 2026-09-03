@@ -3,7 +3,7 @@
  * Main turn-by-turn navigation interface for brigade operators
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigation, useRoutes, useLocationBroadcast, useMediaSession } from '../hooks';
 import { useWakeLock } from '../utils/wakeLock';
 import { NavigationHeader } from '../components/NavigationHeader';
@@ -74,7 +74,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   );
 
   // Broadcast location updates for real-time tracking
-  const { isOnline, broadcastRunCompleted, broadcastRunStatus } = useLocationBroadcast({
+  const { isOnline, viewerCount, viewerPins, broadcastRunCompleted, broadcastRunStatus } = useLocationBroadcast({
     routeId: route.id,
     position,
     routeProgress: {
@@ -86,6 +86,9 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     nextWaypointEta: navigationState.etaToNextWaypoint || undefined,
   });
   broadcastRunCompletedRef.current = broadcastRunCompleted;
+
+  // Stable identity so NavigationMap's layer effect doesn't run every GPS tick.
+  const viewerCells = useMemo(() => viewerPins?.cells ?? [], [viewerPins]);
 
   // Auto-start navigation on mount and mark route as active
   useEffect(() => {
@@ -288,6 +291,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
         route={updatedRoute}
         userPosition={position}
         completedWaypointIds={navigationState.completedWaypointIds}
+        viewerCells={viewerCells}
       />
 
       {/* Offline Banner — shown whenever the device loses internet connectivity.
@@ -510,8 +514,10 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
         onSkipToNext={handleSkipToNext}
         onStopNavigation={handleStopNavigation}
         completedWaypoints={navigationState.completedWaypointIds.length}
-        totalWaypoints={route.waypoints.length}
-        waypoints={route.waypoints}
+        totalWaypoints={updatedRoute.waypoints.length}
+        waypoints={updatedRoute.waypoints}
+        viewerCount={viewerCount}
+        waitingCount={viewerPins?.total ?? null}
         rerouteCount={navigationState.rerouteCount}
       />
     </div>

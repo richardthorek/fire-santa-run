@@ -4,6 +4,7 @@ import { routesRouter } from './routes/routes.js';
 import { usersRouter } from './routes/users.js';
 import { negotiateRouter } from './routes/negotiate.js';
 import { broadcastRouter } from './routes/broadcast.js';
+import { viewerPinsRouter } from './routes/viewerPins.js';
 import { fireStationsRouter } from './routes/fire-stations.js';
 import { analyticsRouter } from './routes/analytics.js';
 import { healthRouter } from './routes/health.js';
@@ -130,6 +131,7 @@ export function createApp() {
   app.route('/api/users', usersRouter);
   app.route('/api', negotiateRouter);
   app.route('/api', broadcastRouter);
+  app.route('/api', viewerPinsRouter);
   app.route('/api', fireStationsRouter);
   app.route('/api/analytics', analyticsRouter);
   app.route('/api/push', pushRouter);

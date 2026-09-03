@@ -153,6 +153,22 @@ export interface ViewerCountMessage {
 }
 
 /**
+ * Aggregated, coarsened view of where opt-in public viewers are waiting, pushed
+ * to the navigator (and route editors) only — never back to other viewers.
+ * Each cell is a ~100m grid square (viewer coordinates are rounded to 3 decimal
+ * places before they leave the browser AND again on the server) with a count of
+ * how many viewers snapped to it. Individual viewer positions are never sent.
+ */
+export interface ViewerPinsMessage {
+  type: 'viewer-pins';
+  routeId: string;
+  cells: { lng: number; lat: number; count: number }[];
+  /** Total opt-in viewers currently sharing a waiting spot. */
+  total: number;
+  timestamp: number;
+}
+
+/**
  * Live status of a run as the navigator experiences it — distinct from the
  * route's stored lifecycle {@link RouteStatus}. Broadcast in real time so
  * public tracking pages react instantly:

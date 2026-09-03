@@ -80,6 +80,22 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   const [viewerPin, setViewerPin] = useState<[number, number] | null>(null);
   const [pinBusy, setPinBusy] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
+  // Opt-in: also share this spot with the brigade (coarsened, ephemeral). The
+  // pin id is per-tab and survives a refresh so the server updates one pin.
+  const [shareWaiting, setShareWaiting] = useState(false);
+  const [pinSharingOffered, setPinSharingOffered] = useState(false);
+  const [viewerPinId] = useState<string>(() => {
+    try {
+      const key = 'santa-viewer-pin-id';
+      const existing = sessionStorage.getItem(key);
+      if (existing) return existing;
+      const fresh = crypto.randomUUID();
+      sessionStorage.setItem(key, fresh);
+      return fresh;
+    } catch {
+      return crypto.randomUUID();
+    }
+  });
   // "Notify me": web push before the run starts. Key stays null when the
   // deployment has no VAPID keys. When the server HAS push but this browser
   // can't (iOS Safari, in-app webviews), we show guidance instead of hiding.
@@ -367,11 +383,19 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
     if (santaMarkerRef.current) {
       santaMarkerRef.current.setLngLat(location.location);
     } else {
+      // Mapbox positions the marker by writing an inline `transform` onto the
+      // element it's given. The bob animation also animates `transform`, and a
+      // running CSS animation overrides inline styles — so putting the animation
+      // class on the marker root pins Santa to the map's top-left corner. Keep
+      // the animation on an inner element instead.
       const el = document.createElement('div');
-      el.className = 'santa-marker-icon'; // Uses CSS animation for bouncing
-      el.style.fontSize = '56px';
-      el.style.cursor = 'pointer';
-      el.textContent = '🎅';
+      const inner = document.createElement('div');
+      inner.className = 'santa-marker-icon'; // CSS bob animation
+      inner.style.fontSize = '56px';
+      inner.style.lineHeight = '1';
+      inner.style.cursor = 'pointer';
+      inner.textContent = '🎅';
+      el.appendChild(inner);
 
       const marker = new mapboxgl.Marker(el)
         .setLngLat(location.location)
@@ -441,6 +465,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   const clearMySpot = useCallback(() => {
     setViewerPin(null);
     setPinError(null);
+    setShareWaiting(false);
     pinMarkerRef.current?.remove();
     pinMarkerRef.current = null;
   }, []);
@@ -514,6 +539,73 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
 
   // Reverse-geocode Santa's current position to get street name / suburb
   const { street, suburb } = useReverseGeocode(currentLocation?.location ?? null);
+
+  // Does this deployment offer viewer-spot sharing? Controls whether the opt-in
+  // checkbox is shown at all (default hidden until confirmed enabled).
+  useEffect(() => {
+    if (demo) return;
+    let cancelled = false;
+    fetch('/api/viewer-pins/config')
+      .then((r) => (r.ok ? r.json() : { enabled: false }))
+      .then((d: { enabled?: boolean }) => {
+        if (!cancelled) setPinSharingOffered(!!d.enabled);
+      })
+      .catch(() => {
+        /* leave hidden */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [demo]);
+
+  // Push (or clear) the shared waiting spot whenever the toggle, the pin, or the
+  // run state changes. Coordinates are rounded to ~110m before they leave here;
+  // the server rounds again and only ever shows the brigade an aggregate.
+  const runEnded =
+    route?.status === 'completed' || runStatus === 'completed' || runStatus === 'aborted';
+  const hasSharedRef = useRef(false);
+  useEffect(() => {
+    if (demo || !pinSharingOffered) return;
+
+    const active = shareWaiting && viewerPin && !runEnded;
+    // Nothing to send: sharing is off and we never turned it on this session.
+    if (!active && !hasSharedRef.current) return;
+    if (active) hasSharedRef.current = true;
+
+    const body = active
+      ? JSON.stringify({
+          routeId,
+          pinId: viewerPinId,
+          lng: Math.round(viewerPin![0] * 1000) / 1000,
+          lat: Math.round(viewerPin![1] * 1000) / 1000,
+        })
+      : JSON.stringify({ routeId, pinId: viewerPinId });
+
+    fetch('/api/viewer-pins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+    }).catch(() => {
+      /* best effort */
+    });
+  }, [demo, pinSharingOffered, shareWaiting, viewerPin, runEnded, routeId, viewerPinId]);
+
+  // Best-effort clear when the tab closes / navigates away.
+  useEffect(() => {
+    if (demo || !pinSharingOffered) return;
+    return () => {
+      if (!hasSharedRef.current) return;
+      try {
+        navigator.sendBeacon?.(
+          '/api/viewer-pins',
+          new Blob([JSON.stringify({ routeId, pinId: viewerPinId })], { type: 'application/json' }),
+        );
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [demo, pinSharingOffered, routeId, viewerPinId]);
 
   // Loading state
   if (loading) {
@@ -1170,38 +1262,68 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                     backgroundColor: 'rgba(67, 160, 71, 0.08)',
                     borderRadius: 'var(--border-radius-xs)',
                     borderLeft: '4px solid var(--christmas-green)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    justifyContent: 'space-between',
                   }}
                 >
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-900)', fontWeight: 600 }}>
-                    {mySpotEta
-                      ? mySpotEta.passed
-                        ? '🏠 Santa has already passed your spot — catch him further along the route!'
-                        : `🏠 Santa is ${formatDistance(mySpotEta.meters)} from your spot — about ${mySpotEta.minutes} min away`
-                      : '🏠 Your spot is pinned — your personal ETA will appear when Santa starts.'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={clearMySpot}
-                    aria-label="Remove my spot pin"
-                    style={{
-                      flexShrink: 0,
-                      width: '28px',
-                      height: '28px',
-                      border: 'none',
-                      borderRadius: '50%',
-                      background: 'var(--neutral-100)',
-                      color: 'var(--neutral-700)',
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      fontWeight: 700,
-                    }}
-                  >
-                    ✕
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-900)', fontWeight: 600 }}>
+                      {mySpotEta
+                        ? mySpotEta.passed
+                          ? '🏠 Santa has already passed your spot — catch him further along the route!'
+                          : `🏠 Santa is ${formatDistance(mySpotEta.meters)} from your spot — about ${mySpotEta.minutes} min away`
+                        : '🏠 Your spot is pinned — your personal ETA will appear when Santa starts.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={clearMySpot}
+                      aria-label="Remove my spot pin"
+                      style={{
+                        flexShrink: 0,
+                        width: '28px',
+                        height: '28px',
+                        border: 'none',
+                        borderRadius: '50%',
+                        background: 'var(--neutral-100)',
+                        color: 'var(--neutral-700)',
+                        cursor: 'pointer',
+                        fontSize: '0.875rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Opt-in: also share this spot with the brigade so they get a
+                      feel for where families are waiting. Coarsened + ephemeral. */}
+                  {pinSharingOffered && !demo && (
+                    <label
+                      style={{
+                        display: 'flex',
+                        gap: '0.5rem',
+                        alignItems: 'flex-start',
+                        marginTop: '0.65rem',
+                        paddingTop: '0.55rem',
+                        borderTop: '1px solid rgba(67, 160, 71, 0.25)',
+                        fontSize: '0.8rem',
+                        color: 'var(--neutral-800)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={shareWaiting}
+                        onChange={(e) => setShareWaiting(e.target.checked)}
+                        style={{ marginTop: '0.15rem', flexShrink: 0, width: '16px', height: '16px' }}
+                      />
+                      <span>
+                        📣 Let the crew see roughly where we&apos;re waiting
+                        <span style={{ display: 'block', color: 'var(--neutral-600)', fontSize: '0.72rem', marginTop: '0.15rem' }}>
+                          Shown to the brigade as an approximate area (~100&nbsp;m), only during tonight&apos;s
+                          run. Never saved.
+                        </span>
+                      </span>
+                    </label>
+                  )}
                 </div>
               ) : (
                 <button

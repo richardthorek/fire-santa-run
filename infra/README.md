@@ -288,6 +288,7 @@ you provide.
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push keys for "notify me when Santa starts" (optional — hides the button when unset) | `infra/.env.<env>` |
 | `VAPID_SUBJECT` | Contact URI sent to push services (optional; defaults to a `mailto:`) | `infra/.env.<env>` |
 | `REALTIME_WS_SECRET` | Signs the short-lived tokens broadcaster/editor WebSocket connections present (optional — falls back to a hash of the storage connection string) | `infra/.env.<env>` |
+| `VIEWER_PINS_ENABLED` | `false` disables the opt-in "families waiting here" sharing on tracking pages (the navigator's waiting-spot heat map). Any other value (incl. unset) ⇒ enabled. Pins are memory-only, coarsened to ~110m, and never persisted. | `infra/.env.<env>` (optional) |
 | `CONTENT_SAFETY_ENDPOINT` / `CONTENT_SAFETY_KEY` | Azure AI Content Safety account (moderates public run/brigade names + logos — see [`../docs/ADMIN_PORTAL.md`](../docs/ADMIN_PORTAL.md)). Provisioned by `modules/contentsafety.bicep`; seeder reads the endpoint live and sets the key as a Container App **secret**. Unset ⇒ screening disabled (fail-open), logged as a startup warning. | read live from Azure |
 | `CONTENT_SAFETY_BLOCK_SEVERITY` / `CONTENT_SAFETY_BLOCKLIST` | Optional moderation tuning — block threshold (0/2/4/6, code default **2**) and extra blocklist names (code default **`profanity`**) | `infra/.env.<env>` |
 

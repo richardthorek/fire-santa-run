@@ -34,7 +34,7 @@ export function useLocationBroadcast({
   const lastBroadcastTimeRef = useRef(0);
   const lastPositionRef = useRef<[number, number] | null>(null);
 
-  const { sendLocation, sendRunStatus, isConnected } = useWebPubSub({
+  const { sendLocation, sendRunStatus, isConnected, viewerCount, viewerPins } = useWebPubSub({
     routeId,
     role: 'broadcaster',
   });
@@ -105,6 +105,10 @@ export function useLocationBroadcast({
   return {
     isConnected,
     isOnline,
+    /** Live count of public viewers watching this run (pushed from the server). */
+    viewerCount,
+    /** Coarsened, aggregated waiting-spot pins from opt-in viewers. */
+    viewerPins,
     broadcastRunCompleted,
     broadcastRunStatus,
   };

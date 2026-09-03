@@ -51,6 +51,15 @@ export function PrivacyPolicyPage() {
             Basic, anonymised analytics (such as a count of how many people viewed a route)
             may be recorded to help brigades understand reach.
           </li>
+          <li>
+            <strong>Sharing a waiting spot is optional.</strong> On a live tracking page you
+            can choose to &ldquo;let the crew see roughly where we&apos;re waiting&rdquo;. If
+            you turn that on, your location is rounded to an approximate area (about 100&nbsp;m)
+            before it leaves your device, held only in memory for the length of that run, and
+            shown to the brigade only as a combined heat map &mdash; never as an individual
+            point, never linked to you, and never written to storage. Turn it off, remove your
+            pin, or close the page and it is discarded.
+          </li>
         </ul>
 
         <h2>How we use it</h2>
@@ -72,6 +81,8 @@ export function PrivacyPolicyPage() {
         <h2>Who can see your data</h2>
         <ul>
           <li>Live run location is public during the run — that is the point of the service.</li>
+          <li>An optional shared waiting spot is visible only to the brigade running that
+            route, only for the length of the run, and only as a coarse aggregate.</li>
           <li>Member contact details and brigade administration data are visible only to
             that brigade&apos;s admins, never across brigades.</li>
           <li>We do not sell personal data or share it with advertisers.</li>

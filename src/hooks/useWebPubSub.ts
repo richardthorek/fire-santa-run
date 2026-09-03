@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { LocationBroadcast, ViewerCountMessage, RunStatus, RunStatusMessage } from '../types';
+import type { LocationBroadcast, ViewerCountMessage, ViewerPinsMessage, RunStatus, RunStatusMessage } from '../types';
 import { getApiAuthHeaders } from '../auth/apiToken';
 
 const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
@@ -20,6 +20,11 @@ interface WebPubSubConnectionState {
   isConnecting: boolean;
   error: string | null;
   viewerCount: number | null;
+  /**
+   * Aggregated waiting-spot pins from opt-in viewers — only ever populated for
+   * the broadcaster (navigator) role; the server never sends this to viewers.
+   */
+  viewerPins: { cells: ViewerPinsMessage['cells']; total: number } | null;
   /** Live run status pushed from the navigator (null until one is received). */
   runStatus: RunStatus | null;
   /** Optional operator note attached to the current run status. */
@@ -46,6 +51,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     isConnecting: false,
     error: null,
     viewerCount: null,
+    viewerPins: null,
     runStatus: null,
     runStatusMessage: null,
   });
@@ -186,6 +192,10 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
               const viewerCountMsg = data as ViewerCountMessage;
               setState(prev => ({ ...prev, viewerCount: viewerCountMsg.count }));
             }
+            else if (data.type === 'viewer-pins') {
+              const msg = data as ViewerPinsMessage;
+              setState(prev => ({ ...prev, viewerPins: { cells: msg.cells, total: msg.total } }));
+            }
             // Handle live run status (paused / aborted / completed / active)
             else if (data.type === 'run-status') {
               applyRunStatus(data as RunStatusMessage);
@@ -248,6 +258,9 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
           if (msgType === 'viewer-count') {
             const viewerCountMsg = data as ViewerCountMessage;
             setState(prev => ({ ...prev, viewerCount: viewerCountMsg.count }));
+          } else if (msgType === 'viewer-pins') {
+            const msg = data as ViewerPinsMessage;
+            setState(prev => ({ ...prev, viewerPins: { cells: msg.cells, total: msg.total } }));
           } else if (msgType === 'run-status') {
             applyRunStatus(data as RunStatusMessage);
           } else if (onLocationUpdateRef.current) {
@@ -283,6 +296,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
         isConnecting: false,
         error: error instanceof Error ? error.message : 'Failed to connect',
         viewerCount: null,
+        viewerPins: null,
         runStatus: null,
         runStatusMessage: null,
       });
@@ -327,7 +341,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       broadcastChannelRef.current = null;
     }
 
-    setState({ isConnected: false, isConnecting: false, error: null, viewerCount: null, runStatus: null, runStatusMessage: null });
+    setState({ isConnected: false, isConnecting: false, error: null, viewerCount: null, viewerPins: null, runStatus: null, runStatusMessage: null });
   }, [logViewerLeave]);
 
   /**
