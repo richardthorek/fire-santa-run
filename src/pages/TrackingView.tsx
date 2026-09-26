@@ -16,6 +16,7 @@ import { formatDistance, getDirections } from '../utils/mapbox';
 import { calculateDistance, alongPathDistance } from '../utils/navigation';
 import { getPushEnvironment, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute, type PushEnvironmentKind } from '../utils/push';
 import { DEMO_ROUTE, startDemoSimulator } from '../utils/demoRoute';
+import { isLocationStale, minutesSinceUpdate, isRunRunningLate } from '../utils/trackingStatus';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 /** Fallback parade pace when the truck isn't reporting speed: ~12 km/h. */
@@ -75,6 +76,33 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   // The path drawn on the map: stored geometry wins, fallback otherwise.
   const displayGeometry = route?.geometry ?? fetchedGeometry;
+
+  // When the last live broadcast arrived — drives the "Santa's signal may be
+  // patchy" staleness chip. Re-checked on a timer, not just on new broadcasts,
+  // since staleness is defined by time passing with nothing new arriving.
+  const [lastLocationUpdateAt, setLastLocationUpdateAt] = useState<number | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 15_000);
+    return () => clearInterval(id);
+  }, []);
+  // How many whole minutes the run's scheduled start is overdue with no
+  // broadcast yet — null until ~10 min past start (see isRunRunningLate).
+  const [minutesRunLate, setMinutesRunLate] = useState<number | null>(null);
+  // Signal's gone quiet: Santa was broadcasting but nothing's arrived for a
+  // while. Computed here (ahead of this component's early returns) so it can
+  // drive both the marker-dimming effect below and the status chip in the
+  // final render. Only meaningful once we've heard from him at least once,
+  // and not once the run has actually finished.
+  const isSignalStale =
+    !demo &&
+    route?.status !== 'completed' &&
+    !!currentLocation &&
+    isLocationStale(lastLocationUpdateAt, nowTick);
+  const staleMinutes = lastLocationUpdateAt ? minutesSinceUpdate(lastLocationUpdateAt, nowTick) : 0;
+  // Whether the post-run summary overlay is showing (closable so the frozen
+  // map underneath can be seen, reopenable from a small floating button).
+  const [showThankYou, setShowThankYou] = useState(true);
 
   // "My spot": the viewer's own location pin for a personal Santa ETA.
   const [viewerPin, setViewerPin] = useState<[number, number] | null>(null);
@@ -340,6 +368,17 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
     }
   }, [mapLoaded, displayGeometry]);
 
+  // Dim + pulse the Santa marker while the signal is stale, so the map itself
+  // signals "this position may be old" rather than just a chip out of view.
+  useEffect(() => {
+    const marker = santaMarkerRef.current;
+    if (!marker) return;
+    const el = marker.getElement();
+    el.style.transition = 'opacity 0.4s ease';
+    el.style.opacity = isSignalStale ? '0.5' : '1';
+    el.style.animation = isSignalStale ? 'santa-stale-pulse 2s ease-in-out infinite' : '';
+  });
+
   // Live waypoint progress from broadcasts: colour completed stops green.
   useEffect(() => {
     if (!route) return;
@@ -367,8 +406,11 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
     }
 
     setCurrentLocation(location);
+    setLastLocationUpdateAt(Date.now());
     if (typeof location.currentWaypointIndex === 'number') {
-      // Never go backwards — guards against out-of-order messages.
+      // Never go backwards — guards against out-of-order messages. (The
+      // looping demo simulator is the one exception: it explicitly resets
+      // liveWaypointIndex to 0 via onLapRestart before this fires again.)
       setLiveWaypointIndex(prev => Math.max(prev, location.currentWaypointIndex!));
     }
 
@@ -512,12 +554,26 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
 
   // Connect to Web PubSub for real-time updates (skipped in demo mode — the
   // simulator below produces the same messages locally).
-  const { isConnected, isConnecting, error: connectionError, viewerCount, runStatus, runStatusMessage } = useWebPubSub({
+  const webPubSub = useWebPubSub({
     routeId,
     role: 'viewer',
     onLocationUpdate: handleLocationUpdate,
     enabled: !demo,
   });
+  const { isConnected, isConnecting, error: connectionError, viewerCount, runStatus, runStatusMessage } = webPubSub;
+  // Reconnect status: consumes useWebPubSub's `connectionStatus` field when
+  // present (added alongside its reconnect-hardening work); falls back to
+  // isConnecting-after-a-prior-connection when that field isn't there yet.
+  const connectionStatus = 'connectionStatus' in webPubSub
+    ? (webPubSub as unknown as { connectionStatus?: 'connecting' | 'connected' | 'reconnecting' }).connectionStatus
+    : undefined;
+  const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
+  useEffect(() => {
+    if (isConnected) setHasConnectedOnce(true);
+  }, [isConnected]);
+  const isReconnecting = !demo && (
+    connectionStatus ? connectionStatus === 'reconnecting' : (isConnecting && hasConnectedOnce)
+  );
 
   // Demo simulator: march Santa along the displayed path once it resolves.
   // Routed through a ref so the interval always calls the latest closure.
@@ -529,6 +585,9 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
       coordinates: displayGeometry.coordinates as [number, number][],
       waypoints: DEMO_ROUTE.waypoints,
       onUpdate: (b) => handleLocationUpdateRef.current(b),
+      // Real runs never go backwards, but the demo deliberately loops — reset
+      // progress for the new lap instead of showing every stop as "done" forever.
+      onLapRestart: () => setLiveWaypointIndex(0),
     });
     return stop;
   }, [demo, displayGeometry, mapLoaded]);
@@ -606,6 +665,47 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
       }
     };
   }, [demo, pinSharingOffered, routeId, viewerPinId]);
+
+  // "Santa's running late": once ~10 min past the scheduled start with no
+  // broadcast yet, stop saying "about to begin" forever and say so. Re-checked
+  // on a timer since nothing else re-renders this page while waiting.
+  useEffect(() => {
+    if (demo || !route || currentLocation || route.status === 'completed' || !countdownComplete) {
+      setMinutesRunLate(null);
+      return;
+    }
+    const startEpoch = new Date(`${route.date}T${route.startTime || '00:00'}`).getTime();
+    const check = () => {
+      const lateBy = Math.floor((Date.now() - startEpoch) / 60_000);
+      setMinutesRunLate(isRunRunningLate(startEpoch) ? lateBy : null);
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
+  }, [demo, route, currentLocation, countdownComplete]);
+
+  const routeStatus = route?.status;
+  // While waiting for Santa to start broadcasting past the countdown, poll the
+  // route's own status every minute — a brigade may mark it active/completed/
+  // cancelled from the dashboard without ever opening a live connection here.
+  useEffect(() => {
+    if (demo || !countdownComplete || currentLocation || routeStatus === 'completed' || routeStatus === 'archived') return;
+    let cancelled = false;
+    const id = setInterval(() => {
+      storageAdapter
+        .getPublicRoute(routeId)
+        .then((r) => {
+          if (!cancelled && r) setRoute(r);
+        })
+        .catch(() => {
+          /* best effort — keep showing the last known state */
+        });
+    }, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [demo, countdownComplete, currentLocation, routeId, routeStatus]);
 
   // Loading state
   if (loading) {
@@ -715,13 +815,51 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
         type="website"
         twitterCard="summary_large_image"
       />
+      {/* Scoped pulse for the Santa marker while its signal is stale — kept
+          local rather than added to index.css since it's only used here. */}
+      <style>{`
+        @keyframes santa-stale-pulse {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 0.85; }
+        }
+      `}</style>
       <div className="full-viewport" style={{ position: 'relative', width: '100%' }}>
       {/* Map Container */}
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
-      {/* Post-event Thank You Overlay (archive mode) */}
-      {route.status === 'completed' && (
-        <ThankYouOverlay route={route} />
+      {/* Post-event Thank You Overlay (archive mode) — closable so the frozen
+          map is reachable, reopenable from a small floating button. */}
+      {route.status === 'completed' && showThankYou && (
+        <ThankYouOverlay route={route} onClose={() => setShowThankYou(false)} />
+      )}
+      {route.status === 'completed' && !showThankYou && (
+        <button
+          type="button"
+          onClick={() => setShowThankYou(true)}
+          style={{
+            position: 'absolute',
+            bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1000,
+            minHeight: '44px',
+            padding: '0.6rem 1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            background: 'linear-gradient(135deg, var(--santa-red) 0%, #B21E1E 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '999px',
+            fontWeight: 700,
+            fontSize: '0.9rem',
+            fontFamily: 'var(--font-body)',
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(214,40,40,0.35)',
+          }}
+        >
+          🎁 View run summary
+        </button>
       )}
 
       {/* Emergency stop — the truck was called away mid-run. Shown live over the
@@ -754,30 +892,75 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
         </div>
       )}
 
-      {/* Temporary pause — Santa's stopped for a moment. Keeps the last position
-          on the map and reassures viewers rather than looking frozen. */}
-      {runStatus === 'paused' && route.status !== 'completed' && (
+      {/* Status chip stack — paused / reconnecting / stale-signal. Stacked in one
+          column below the header so they never overlap each other or the map's
+          other floating controls. */}
+      {route.status !== 'completed' && (runStatus === 'paused' || isReconnecting || isSignalStale) && (
         <div
-          role="status"
-          aria-live="polite"
           style={{
             position: 'absolute',
             top: 'calc(env(safe-area-inset-top, 0px) + 5.5rem)',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 1200,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.4rem',
             maxWidth: 'calc(100% - 2rem)',
-            background: 'rgba(255, 167, 38, 0.97)',
-            color: '#3E2723',
-            padding: '0.55rem 1rem',
-            borderRadius: '999px',
-            fontWeight: 700,
-            fontSize: '0.9rem',
-            boxShadow: 'var(--ui-shadow)',
-            textAlign: 'center',
           }}
         >
-          ⏸️ {runStatusMessage || 'Santa’s taking a quick break — back on the move shortly!'}
+          {runStatus === 'paused' && (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                background: 'rgba(255, 167, 38, 0.97)',
+                color: '#3E2723',
+                padding: '0.55rem 1rem',
+                borderRadius: '999px',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                boxShadow: 'var(--ui-shadow)',
+                textAlign: 'center',
+              }}
+            >
+              ⏸️ {runStatusMessage || 'Santa’s taking a quick break — back on the move shortly!'}
+            </div>
+          )}
+
+          {/* Reconnecting takes priority over the stale-signal chip — they
+              describe the same underlying problem (no fresh data). */}
+          {isReconnecting ? (
+            <div
+              style={{
+                background: 'rgba(66, 66, 66, 0.92)',
+                color: '#fff',
+                padding: '0.4rem 0.9rem',
+                borderRadius: '999px',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                boxShadow: 'var(--ui-shadow)',
+              }}
+            >
+              🔄 Reconnecting…
+            </div>
+          ) : isSignalStale ? (
+            <div
+              style={{
+                background: 'rgba(211, 47, 47, 0.92)',
+                color: '#fff',
+                padding: '0.4rem 0.9rem',
+                borderRadius: '999px',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                textAlign: 'center',
+                boxShadow: 'var(--ui-shadow)',
+              }}
+            >
+              📡 Last seen {staleMinutes} min ago — Santa&apos;s signal may be patchy
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -1131,6 +1314,17 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               }}>
                 <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-700)' }}>
                   ⏳ Waiting for Santa to start broadcasting...
+                </p>
+              </div>
+            ) : countdownComplete && minutesRunLate !== null ? (
+              <div style={{
+                padding: '1rem',
+                backgroundColor: 'rgba(255, 167, 38, 0.12)',
+                borderRadius: 'var(--border-radius-xs)',
+                borderLeft: '4px solid var(--summer-gold)',
+              }}>
+                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-900)', fontWeight: 600 }}>
+                  🎅 Santa's running a little late — this page will update automatically.
                 </p>
               </div>
             ) : countdownComplete ? (

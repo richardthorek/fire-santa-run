@@ -54,7 +54,7 @@ describe('Integration: Route Publishing Flow', () => {
     // Valid route
     const validRoute = createMockRoute({
       name: 'Christmas Eve Run',
-      date: '2024-12-24',
+      date: '2099-12-24',
       startTime: '18:00',
       waypoints: [createMockWaypoint(0), createMockWaypoint(1)],
     });
@@ -65,7 +65,7 @@ describe('Integration: Route Publishing Flow', () => {
     // Create draft route
     const draftRoute = createMockRoute({
       name: 'Santa Run 2024',
-      date: '2024-12-24',
+      date: '2099-12-24',
       startTime: '18:00',
       status: 'draft',
       waypoints: [
@@ -92,7 +92,7 @@ describe('Integration: Route Publishing Flow', () => {
     const draftRoute = createMockRoute({
       name: 'Christmas Eve Santa Run 2024',
       description: 'Annual community route',
-      date: '2024-12-24',
+      date: '2099-12-24',
       startTime: '18:00',
       status: 'draft',
       waypoints: [

@@ -48,6 +48,19 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
 
   const formattedStart = formatRouteStartDateTime(startDate, startTime);
 
+  // The visible H:M:S digits tick every second, which would spam screen
+  // readers if announced live. Instead, a separate visually-hidden region
+  // holds minute-granularity text — its content (and so the announcement)
+  // only actually changes once a minute even though this component re-renders
+  // every second.
+  const minutesRemaining = Math.max(0, Math.ceil(countdown.total / 60_000));
+  const minuteAnnouncement =
+    minutesRemaining <= 0
+      ? 'Santa starts any moment now'
+      : minutesRemaining === 1
+        ? 'Santa starts in about 1 minute'
+        : `Santa starts in about ${minutesRemaining} minutes`;
+
   return (
     <div
       style={{
@@ -72,11 +85,16 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
         🎅 Santa starts in&hellip;
       </p>
 
-      {/* HH:MM:SS display */}
+      {/* Minute-granularity announcement — visually hidden, updates at most
+          once a minute so screen readers aren't spammed by the second tick. */}
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {minuteAnnouncement}
+      </span>
+
+      {/* HH:MM:SS display — purely visual; ticking every second is fine
+          on-screen, but is deliberately not exposed as a live region. */}
       <div
-        aria-live="polite"
-        aria-atomic="true"
-        aria-label={`Countdown: ${countdown.hours} hours, ${countdown.minutes} minutes, ${countdown.seconds} seconds`}
+        aria-hidden="true"
         style={{
           display: 'flex',
           alignItems: 'center',

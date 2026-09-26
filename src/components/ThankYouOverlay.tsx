@@ -10,9 +10,12 @@ import { formatDistance, formatDuration } from '../utils/mapbox';
 
 export interface ThankYouOverlayProps {
   route: Route;
+  /** Closes the overlay to reveal the frozen map underneath. When omitted, no
+   * close button is shown (kept optional for any other embeddings). */
+  onClose?: () => void;
 }
 
-export function ThankYouOverlay({ route }: ThankYouOverlayProps) {
+export function ThankYouOverlay({ route, onClose }: ThankYouOverlayProps) {
   const completedStops = route.waypoints.filter((w) => w.isCompleted).length;
   const totalStops = route.waypoints.length;
 
@@ -53,6 +56,7 @@ export function ThankYouOverlay({ route }: ThankYouOverlayProps) {
       {/* Festive card */}
       <div
         style={{
+          position: 'relative',
           background: 'rgba(255,255,255,0.97)',
           borderRadius: '24px',
           padding: 'clamp(1.5rem, 5vw, 2.5rem)',
@@ -63,6 +67,34 @@ export function ThankYouOverlay({ route }: ThankYouOverlayProps) {
           textAlign: 'center',
         }}
       >
+        {/* Close — reveals the frozen map underneath. ≥44px hit target. */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close summary and view the map"
+            style={{
+              position: 'absolute',
+              top: '0.5rem',
+              right: '0.5rem',
+              width: '44px',
+              height: '44px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: 'none',
+              borderRadius: '50%',
+              background: 'var(--neutral-100)',
+              color: 'var(--neutral-700)',
+              fontSize: '1.25rem',
+              lineHeight: 1,
+              cursor: 'pointer',
+            }}
+          >
+            ✕
+          </button>
+        )}
+
         {/* Hero emoji */}
         <div
           style={{

@@ -488,6 +488,22 @@ From a two-device live test (navigator + public viewer):
   `VIEWER_PINS_ENABLED` (default on). Privacy policy updated. Precise viewer
   positions are never transmitted or shown.
 
+### End-to-end UX review (2026-09-26)
+
+Navigator rebuilt around along-route progress (correct next turn after each
+maneuver and on looping routes), GPS-dropout tolerance, resume after reload,
+driving-zoom camera with re-centre, debounced off-route with auto-reroute, iOS
+voice unlock. Broadcaster health banner (incl. expired sign-in) and a
+pre-run/app-wide warning when under two hours of sign-in remain. Viewers
+reconnect after sleep/network loss, see "last seen" when Santa's signal is
+stale and "running late" past start time. Live runs are locked from
+edit/delete and past-dated runs can't be published (client + server); "Start
+Run" is the single go-live action. The navigator keeps the Station Manager
+sign-in alive (refresh on open, every 30 min, and on wake) via SM's new
+`POST /api/auth/refresh` (Station-Manager#865, 7-day absolute cap, membership
+re-checked) — SM must deploy first; until then Santa Run falls back to the
+expiry warnings.
+
 ## Roadmap — what's next
 
 Ordered by leverage. Public-side items move the needle most because the public
@@ -665,6 +681,8 @@ before relying on the unified suite login in production.
 
 ## Open decisions
 
+- Server route guards (live-run lock, past-date publish) have no automated
+  tests — `server/` has no test runner yet.
 - When to migrate the public map to open tiles (driven by Mapbox usage).
 - Whether to add a district/multi-brigade tier (the landing page already
   signals "coming soon").

@@ -5,7 +5,7 @@ import { useRoutes, useRouteEditor } from '../hooks';
 import { useTemplates } from '../hooks/useTemplates';
 import { useEditingPresence } from '../hooks/useEditingPresence';
 import { MapView, WaypointList, AddressSearch, ShareModal, EntitlementGate } from '../components';
-import { createNewRoute, generateShareableLink, canPublishRoute, generateWaypointId, generateTemplateId, DEFAULT_NAVIGATION_SETTINGS } from '../utils/routeHelpers';
+import { createNewRoute, generateShareableLink, canPublishRoute, getPublishBlockReason, isDateInPast, generateWaypointId, generateTemplateId, DEFAULT_NAVIGATION_SETTINGS } from '../utils/routeHelpers';
 import { reverseGeocode, getDirections, type GeocodingResult } from '../utils/mapbox';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { BREAKPOINTS, COLORS, Z_INDEX, MAP_LAYOUT } from '../utils/constants';
@@ -92,6 +92,8 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     isOptimizing,
     optimizationError,
     optimizationComparison,
+    isDirty,
+    markSaved,
   } = useRouteEditor(initialRoute || createNewRoute(user?.brigadeId || '', user?.email));
 
   // Multi-operator presence (#151): announce this editor and see who else has
@@ -132,6 +134,37 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
       resetRoute(fresh);
     }
   }, [mode, routeId, getRoute, user, navigate, resetRoute, initialRoute, brigadeLoading]);
+
+  // Warn before an unsaved edit is lost: browser close/refresh/tab-switch-away.
+  useEffect(() => {
+    if (!isDirty) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Chrome requires returnValue to be set to show the native prompt.
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
+  // In-app navigation away from the editor (Cancel, header Navigate button):
+  // BrowserRouter (not a data router) doesn't support useBlocker, so unsaved
+  // changes are guarded at each of these call sites instead.
+  const confirmDiscardIfDirty = useCallback(() => {
+    if (!isDirty) return true;
+    return window.confirm('You have unsaved changes. Leave without saving?');
+  }, [isDirty]);
+
+  const handleCancel = useCallback(() => {
+    if (!confirmDiscardIfDirty()) return;
+    navigate('/dashboard');
+  }, [confirmDiscardIfDirty, navigate]);
+
+  const handleNavigateToRun = useCallback(() => {
+    if (!confirmDiscardIfDirty()) return;
+    primeGeolocationPermission();
+    navigate(`/routes/${route.id}/navigate`);
+  }, [confirmDiscardIfDirty, navigate, route.id]);
 
   const handleMapClick = useCallback(async (coordinates: [number, number]) => {
     try {
@@ -228,6 +261,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
       };
 
       await saveRoute(routeToSave);
+      markSaved();
 
       if (shouldPublish) {
         // Publishing is the moment of highest sharing intent — surface the
@@ -248,7 +282,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [route, validate, saveRoute, getRoute, navigate]);
+  }, [route, validate, saveRoute, getRoute, navigate, markSaved]);
 
   const handleSaveAsTemplate = useCallback(async () => {
     if (!route.name.trim()) {
@@ -378,10 +412,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {route.geometry && route.navigationSteps && route.navigationSteps.length > 0 && (
               <button
-                onClick={() => {
-                  primeGeolocationPermission();
-                  navigate(`/routes/${route.id}/navigate`);
-                }}
+                onClick={handleNavigateToRun}
                 style={{
                   padding: '0.5rem 1rem',
                   border: 'none',
@@ -398,7 +429,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
               </button>
             )}
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={handleCancel}
               style={{
                 padding: '0.5rem 1rem',
                 border: '1px solid #e0e0e0',
@@ -461,7 +492,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                 fontWeight: 600,
                 fontSize: '0.875rem',
               }}
-              title={canPublishRoute(route) ? 'Publish route' : 'Complete all fields and add at least 2 waypoints'}
+              title={canPublishRoute(route) ? 'Publish route' : getPublishBlockReason(route)}
             >
               Publish
             </button>
@@ -623,12 +654,17 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    border: '1px solid #e0e0e0',
+                    border: `1px solid ${isDateInPast(route.date) ? COLORS.summerGold : '#e0e0e0'}`,
                     borderRadius: '8px',
                     fontSize: '1rem',
                     boxSizing: 'border-box',
                   }}
                 />
+                {isDateInPast(route.date) && (
+                  <p style={{ margin: '0.375rem 0 0 0', fontSize: '0.75rem', color: '#B26A00' }}>
+                    ⚠️ This date has passed — you can save as a draft, but you'll need a current or future date to publish.
+                  </p>
+                )}
               </div>
 
               <div>

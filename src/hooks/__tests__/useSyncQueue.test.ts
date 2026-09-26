@@ -12,7 +12,6 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 // ---------------------------------------------------------------------------
 
 const mockGetPendingActions = vi.fn();
-const mockGetPendingCount = vi.fn();
 const mockDequeueAction = vi.fn();
 const mockIncrementRetryCount = vi.fn();
 const mockDeduplicateActions = vi.fn();
@@ -20,7 +19,6 @@ const mockEnqueueAction = vi.fn();
 
 vi.mock('../../storage/syncQueue', () => ({
   getPendingActions: mockGetPendingActions,
-  getPendingCount: mockGetPendingCount,
   dequeueAction: mockDequeueAction,
   incrementRetryCount: mockIncrementRetryCount,
   deduplicateActions: mockDeduplicateActions,
@@ -59,11 +57,11 @@ describe('useSyncQueue', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsOnline = true;
-    mockGetPendingCount.mockResolvedValue(0);
     mockGetPendingActions.mockResolvedValue([]);
     mockDeduplicateActions.mockImplementation((actions) => actions);
     mockDequeueAction.mockResolvedValue(undefined);
     mockIncrementRetryCount.mockResolvedValue(undefined);
+    mockEnqueueAction.mockResolvedValue(undefined);
     mockSaveRoute.mockResolvedValue(undefined);
     mockDeleteRoute.mockResolvedValue(undefined);
   });
@@ -73,13 +71,32 @@ describe('useSyncQueue', () => {
   });
 
   it('initializes with pendingCount loaded from the queue', async () => {
-    mockGetPendingCount.mockResolvedValue(3);
+    mockGetPendingActions.mockResolvedValue([
+      { id: 'a1', type: 'save-route', brigadeId: 'b', payload: {}, timestamp: 1, retryCount: 0 },
+      { id: 'a2', type: 'save-route', brigadeId: 'b', payload: {}, timestamp: 2, retryCount: 0 },
+      { id: 'a3', type: 'save-route', brigadeId: 'b', payload: {}, timestamp: 3, retryCount: 0 },
+    ]);
 
     const { useSyncQueue } = await import('../useSyncQueue');
     const { result } = renderHook(() => useSyncQueue());
 
     await waitFor(() => {
       expect(result.current.pendingCount).toBe(3);
+    });
+  });
+
+  it('excludes actions that have used up all retries from pendingCount, exposing them as failedActions', async () => {
+    const failed = { id: 'gone', type: 'save-route', brigadeId: 'b', payload: {}, timestamp: 1, retryCount: 3 };
+    const pending = { id: 'still-going', type: 'save-route', brigadeId: 'b', payload: {}, timestamp: 2, retryCount: 1 };
+    mockGetPendingActions.mockResolvedValue([failed, pending]);
+
+    const { useSyncQueue } = await import('../useSyncQueue');
+    const { result } = renderHook(() => useSyncQueue());
+
+    await waitFor(() => {
+      expect(result.current.pendingCount).toBe(1);
+      expect(result.current.failedActions).toHaveLength(1);
+      expect(result.current.failedActions[0].id).toBe('gone');
     });
   });
 
@@ -127,7 +144,6 @@ describe('useSyncQueue', () => {
 
     mockGetPendingActions.mockResolvedValue([action]);
     mockDeduplicateActions.mockReturnValue([action]);
-    mockGetPendingCount.mockResolvedValue(0);
 
     const { useSyncQueue } = await import('../useSyncQueue');
     const { result } = renderHook(() => useSyncQueue());
@@ -152,7 +168,6 @@ describe('useSyncQueue', () => {
 
     mockGetPendingActions.mockResolvedValue([action]);
     mockDeduplicateActions.mockReturnValue([action]);
-    mockGetPendingCount.mockResolvedValue(0);
 
     const { useSyncQueue } = await import('../useSyncQueue');
     const { result } = renderHook(() => useSyncQueue());
@@ -238,7 +253,6 @@ describe('useSyncQueue', () => {
     mockGetPendingActions.mockResolvedValue([olderAction, newerAction]);
     // Deduplicate returns only the newer action
     mockDeduplicateActions.mockReturnValue([newerAction]);
-    mockGetPendingCount.mockResolvedValue(0);
 
     const { useSyncQueue } = await import('../useSyncQueue');
     const { result } = renderHook(() => useSyncQueue());
@@ -252,5 +266,85 @@ describe('useSyncQueue', () => {
     // The newer action should be applied and then dequeued
     expect(mockSaveRoute).toHaveBeenCalledTimes(1);
     expect(mockDequeueAction).toHaveBeenCalledWith('new-action');
+  });
+
+  it('does not retry an action that has already used up its retries', async () => {
+    const failed = {
+      id: 'gone',
+      type: 'save-route',
+      brigadeId: 'brigade-a',
+      payload: { id: 'route-1', brigadeId: 'brigade-a', name: 'R', date: '2024-12-24', startTime: '18:00', status: 'draft', waypoints: [], createdAt: '' },
+      timestamp: 1,
+      retryCount: 3,
+    };
+    mockGetPendingActions.mockResolvedValue([failed]);
+
+    const { useSyncQueue } = await import('../useSyncQueue');
+    const { result } = renderHook(() => useSyncQueue());
+
+    await act(async () => {
+      await result.current.processQueue();
+    });
+
+    expect(mockSaveRoute).not.toHaveBeenCalled();
+    expect(mockDeduplicateActions).not.toHaveBeenCalled();
+  });
+
+  it('retryFailedActions re-enqueues failed actions with a fresh retryCount and syncs', async () => {
+    const failed = {
+      id: 'gone',
+      type: 'save-route',
+      brigadeId: 'brigade-a',
+      payload: { id: 'route-1', brigadeId: 'brigade-a', name: 'R', date: '2024-12-24', startTime: '18:00', status: 'draft', waypoints: [], createdAt: '' },
+      timestamp: 1,
+      retryCount: 3,
+    };
+    // First load: the failed action is present. After re-enqueueing, simulate
+    // it now living under a fresh id with retryCount 0.
+    const refreshed = { ...failed, id: 'gone-retry', retryCount: 0 };
+    mockGetPendingActions
+      .mockResolvedValueOnce([failed]) // initial mount load
+      .mockResolvedValueOnce([failed]) // retryFailedActions: read failed set
+      .mockResolvedValueOnce([refreshed]) // refreshCount after re-enqueue
+      .mockResolvedValueOnce([refreshed]); // processQueue's own read
+    mockDeduplicateActions.mockReturnValue([refreshed]);
+
+    const { useSyncQueue } = await import('../useSyncQueue');
+    const { result } = renderHook(() => useSyncQueue());
+
+    await waitFor(() => expect(result.current.failedActions).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.retryFailedActions();
+    });
+
+    expect(mockEnqueueAction).toHaveBeenCalledWith({
+      type: 'save-route',
+      brigadeId: 'brigade-a',
+      payload: failed.payload,
+    });
+    expect(mockDequeueAction).toHaveBeenCalledWith('gone');
+    expect(mockSaveRoute).toHaveBeenCalledWith('brigade-a', failed.payload);
+  });
+
+  it('dismissFailedActions permanently removes failed actions without retrying', async () => {
+    const failed = { id: 'gone', type: 'delete-route', brigadeId: 'brigade-a', payload: { routeId: 'r1' }, timestamp: 1, retryCount: 3 };
+    mockGetPendingActions
+      .mockResolvedValueOnce([failed])
+      .mockResolvedValueOnce([failed])
+      .mockResolvedValueOnce([]);
+
+    const { useSyncQueue } = await import('../useSyncQueue');
+    const { result } = renderHook(() => useSyncQueue());
+
+    await waitFor(() => expect(result.current.failedActions).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.dismissFailedActions();
+    });
+
+    expect(mockDequeueAction).toHaveBeenCalledWith('gone');
+    expect(mockEnqueueAction).not.toHaveBeenCalled();
+    expect(mockDeleteRoute).not.toHaveBeenCalled();
   });
 });

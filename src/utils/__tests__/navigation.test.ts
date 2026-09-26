@@ -16,6 +16,10 @@ import {
   formatETA,
   getRemainingDistance,
   alongPathDistance,
+  computeCumulativeDistances,
+  computeStepAlongDistances,
+  projectOntoRoute,
+  updateSmoothedSpeed,
 } from '../navigation';
 import type { Waypoint, NavigationStep, GeoJSON } from '../../types';
 
@@ -183,135 +187,243 @@ describe('navigation', () => {
     });
   });
 
-  describe('findCurrentStep', () => {
-    it('should handle empty steps array', () => {
-      const userLocation: [number, number] = [151.2093, -33.8688];
-      const steps: NavigationStep[] = [];
+  describe('computeCumulativeDistances', () => {
+    it('starts at 0 and accumulates segment lengths', () => {
+      const coords: [number, number][] = [
+        [151.2000, -33.8688],
+        [151.2030, -33.8688],
+        [151.2060, -33.8688],
+      ];
+      const cumulative = computeCumulativeDistances(coords);
 
-      const result = findCurrentStep(userLocation, steps);
+      expect(cumulative).toHaveLength(3);
+      expect(cumulative[0]).toBe(0);
+      expect(cumulative[1]).toBeCloseTo(calculateDistance(coords[0], coords[1]), 0);
+      expect(cumulative[2]).toBeCloseTo(
+        calculateDistance(coords[0], coords[1]) + calculateDistance(coords[1], coords[2]),
+        0,
+      );
+    });
+  });
+
+  describe('projectOntoRoute (along-route matching)', () => {
+    // A straight east-west path, ~1.1km, vertex every ~275m.
+    const straightPath: GeoJSON.LineString = {
+      type: 'LineString',
+      coordinates: [
+        [151.2000, -33.8688],
+        [151.2030, -33.8688],
+        [151.2060, -33.8688],
+        [151.2090, -33.8688],
+        [151.2120, -33.8688],
+      ],
+    };
+    const straightCumulative = computeCumulativeDistances(straightPath.coordinates);
+
+    it('projects onto the nearest point and reports along-route distance', () => {
+      const user: [number, number] = [151.2030, -33.8688]; // exactly on vertex 1
+      const result = projectOntoRoute(user, straightPath, straightCumulative, null);
+
+      expect(result.offRouteDistance).toBeLessThan(1);
+      expect(result.alongRouteDistance).toBeCloseTo(straightCumulative[1], 0);
+    });
+
+    it('progress stays monotonic on a looping route that revisits an intersection', () => {
+      // A square loop that returns to its starting corner — a common
+      // Santa-run shape (a full lap of the block, back to the same corner).
+      const loopingPath: GeoJSON.LineString = {
+        type: 'LineString',
+        coordinates: [
+          [151.2000, -33.8688], // 0: the intersection — start of the loop
+          [151.2060, -33.8688], // 1: east
+          [151.2060, -33.8733], // 2: south
+          [151.2000, -33.8733], // 3: west
+          [151.2000, -33.8688], // 4: north — back to the SAME coordinate as vertex 0
+        ],
+      };
+      const cumulative = computeCumulativeDistances(loopingPath.coordinates);
+      const totalLength = cumulative[cumulative.length - 1];
+
+      // Early in the loop, near the start — matches the first (0-1) segment.
+      const early = projectOntoRoute([151.2005, -33.8688], loopingPath, cumulative, null);
+      expect(early.segmentIndex).toBe(0);
+
+      // Most of the way around, on the final leg heading back towards the
+      // shared intersection.
+      const approaching = projectOntoRoute(
+        [151.2000, -33.8690],
+        loopingPath,
+        cumulative,
+        cumulative[3] + 5,
+      );
+      expect(approaching.segmentIndex).toBe(3);
+      expect(approaching.alongRouteDistance).toBeGreaterThan(cumulative[3] - 1);
+
+      // GPS now reads the EXACT intersection coordinate again. A plain
+      // nearest-point search would find it equally well as "vertex 0"
+      // (along-route ~0, the already-passed first visit) or "vertex 4"
+      // (along-route = totalLength, the current one) — with the windowed
+      // hint from the previous tick, it resolves forward to the current
+      // pass, not back to the start.
+      const revisiting = projectOntoRoute(
+        [151.2000, -33.8688],
+        loopingPath,
+        cumulative,
+        approaching.alongRouteDistance,
+      );
+      expect(revisiting.segmentIndex).toBe(3); // NOT segment 0 (the earlier, already-passed visit)
+      expect(revisiting.alongRouteDistance).toBeGreaterThan(approaching.alongRouteDistance - 1);
+
+      // First fix of a run that starts and finishes at the same station: with
+      // no previous progress it must match the START, not the finish.
+      const firstFix = projectOntoRoute([151.2000, -33.8688], loopingPath, cumulative, null);
+      expect(firstFix.alongRouteDistance).toBeLessThan(1);
+      expect(revisiting.alongRouteDistance).toBeGreaterThan(totalLength - 1);
+    });
+
+    it('falls back to a full search when there is no usable previous match (e.g. after a reroute)', () => {
+      const user: [number, number] = [151.2090, -33.8688]; // near vertex 3
+      const result = projectOntoRoute(user, straightPath, straightCumulative, null);
+
+      expect(result.offRouteDistance).toBeLessThan(1);
+      expect(result.alongRouteDistance).toBeCloseTo(straightCumulative[3], 0);
+    });
+  });
+
+  describe('findCurrentStep (along-route)', () => {
+    // Steps' maneuver along-route distances, precomputed as computeStepAlongDistances would.
+    const stepAlongDistances = [0, 300, 700, 1000];
+
+    it('should handle no steps', () => {
+      const result = findCurrentStep(150, []);
 
       expect(result.stepIndex).toBe(0);
       expect(result.distanceToManeuver).toBe(0);
     });
 
-    it('should find current step based on location', () => {
-      const userLocation: [number, number] = [151.2093, -33.8688];
-      const steps: NavigationStep[] = [
-        {
-          distance: 100,
-          duration: 60,
-          instruction: 'Go straight',
-          maneuver: {
-            type: 'depart',
-            location: [151.2090, -33.8685],
-            instruction: 'Head north',
-          },
-        },
-        {
-          distance: 200,
-          duration: 120,
-          instruction: 'Turn left',
-          maneuver: {
-            type: 'turn',
-            location: [151.2095, -33.8690],
-            instruction: 'Turn left',
-          },
-        },
-      ];
+    it('returns the first maneuver still ahead of the user', () => {
+      const result = findCurrentStep(150, stepAlongDistances);
 
-      const result = findCurrentStep(userLocation, steps);
+      expect(result.stepIndex).toBe(1);
+      expect(result.distanceToManeuver).toBeCloseTo(150, 0);
+    });
 
-      expect(result.stepIndex).toBeGreaterThanOrEqual(0);
-      expect(result.stepIndex).toBeLessThan(steps.length);
-      expect(result.distanceToManeuver).toBeGreaterThanOrEqual(0);
+    it('never reports a maneuver already passed', () => {
+      // User is just past maneuver 1 (300m) but hasn't reached maneuver 2 (700m) yet.
+      const result = findCurrentStep(310, stepAlongDistances);
+
+      expect(result.stepIndex).toBe(2);
+      expect(result.stepIndex).not.toBe(1);
+    });
+
+    it('holds on the final step once every maneuver has been passed', () => {
+      const result = findCurrentStep(1200, stepAlongDistances);
+
+      expect(result.stepIndex).toBe(stepAlongDistances.length - 1);
+    });
+
+    it('does not flicker back to an earlier step for a maneuver essentially reached (epsilon tolerance)', () => {
+      // At 299m, still 1m short of maneuver 1 (300m) — within the small
+      // epsilon tolerance, so it should already report the NEXT maneuver
+      // rather than briefly re-showing the one at 300m as "current".
+      const result = findCurrentStep(299, stepAlongDistances);
+
+      expect(result.stepIndex).toBe(2);
     });
   });
 
-  describe('calculateRouteProgress', () => {
-    it('should return 0 for no waypoints', () => {
-      const userLocation: [number, number] = [151.2093, -33.8688];
-      const routeGeometry: GeoJSON.LineString = {
-        type: 'LineString',
-        coordinates: [[151.2090, -33.8685], [151.2095, -33.8690]],
-      };
-      const waypoints: Waypoint[] = [];
-
-      const progress = calculateRouteProgress(userLocation, routeGeometry, waypoints);
-
-      expect(progress).toBe(0);
-    });
-
-    it('should calculate progress based on completed waypoints', () => {
-      const userLocation: [number, number] = [151.2093, -33.8688];
+  describe('computeStepAlongDistances', () => {
+    it('computes an along-route distance for each step maneuver', () => {
       const routeGeometry: GeoJSON.LineString = {
         type: 'LineString',
         coordinates: [
-          [151.2090, -33.8685],
-          [151.2095, -33.8690],
-          [151.2100, -33.8695],
+          [151.2000, -33.8688],
+          [151.2030, -33.8688],
+          [151.2060, -33.8688],
         ],
       };
-      const waypoints: Waypoint[] = [
-        { id: '1', coordinates: [151.2090, -33.8685], order: 0, isCompleted: true },
-        { id: '2', coordinates: [151.2095, -33.8690], order: 1, isCompleted: false },
-        { id: '3', coordinates: [151.2100, -33.8695], order: 2, isCompleted: false },
+      const cumulative = computeCumulativeDistances(routeGeometry.coordinates);
+      const steps: NavigationStep[] = [
+        {
+          distance: 0,
+          duration: 0,
+          instruction: 'Depart',
+          maneuver: { type: 'depart', location: [151.2000, -33.8688] },
+        },
+        {
+          distance: 0,
+          duration: 0,
+          instruction: 'Turn left',
+          maneuver: { type: 'turn', modifier: 'left', location: [151.2060, -33.8688] },
+        },
       ];
 
-      const progress = calculateRouteProgress(userLocation, routeGeometry, waypoints);
+      const result = computeStepAlongDistances(routeGeometry, steps, cumulative);
 
-      expect(progress).toBeGreaterThan(0);
-      expect(progress).toBeLessThanOrEqual(100);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeCloseTo(0, 0);
+      expect(result[1]).toBeCloseTo(cumulative[cumulative.length - 1], 0);
+    });
+  });
+
+  describe('calculateRouteProgress (along-route)', () => {
+    it('should return 0 when the route has no length', () => {
+      expect(calculateRouteProgress(0, 0)).toBe(0);
     });
 
-    it('should return progress towards 100 when all completed', () => {
-      const userLocation: [number, number] = [151.2100, -33.8695];
-      const routeGeometry: GeoJSON.LineString = {
-        type: 'LineString',
-        coordinates: [
-          [151.2090, -33.8685],
-          [151.2100, -33.8695],
-        ],
-      };
-      const waypoints: Waypoint[] = [
-        { id: '1', coordinates: [151.2090, -33.8685], order: 0, isCompleted: true },
-        { id: '2', coordinates: [151.2100, -33.8695], order: 1, isCompleted: true },
-      ];
+    it('reports along-route progress as a percentage of total length', () => {
+      expect(calculateRouteProgress(250, 1000)).toBeCloseTo(25, 0);
+    });
 
-      const progress = calculateRouteProgress(userLocation, routeGeometry, waypoints);
+    it('clamps to 100 when along-route distance exceeds total length', () => {
+      expect(calculateRouteProgress(1200, 1000)).toBe(100);
+    });
 
-      expect(progress).toBeGreaterThan(70); // Should be high
+    it('clamps to 0 for a negative along-route distance', () => {
+      expect(calculateRouteProgress(-50, 1000)).toBe(0);
     });
   });
 
   describe('isOffRoute', () => {
-    it('should return false when on route', () => {
-      const userLocation: [number, number] = [151.2093, -33.8688];
-      const routeGeometry: GeoJSON.LineString = {
-        type: 'LineString',
-        coordinates: [
-          [151.2090, -33.8685],
-          [151.2095, -33.8690],
-        ],
-      };
-
-      const result = isOffRoute(userLocation, routeGeometry, 1000);
-
-      expect(result).toBe(false);
+    it('should return false when within the threshold', () => {
+      expect(isOffRoute(20, 100)).toBe(false);
     });
 
-    it('should return true when far from route', () => {
-      const userLocation: [number, number] = [151.2200, -33.8800]; // Far away
-      const routeGeometry: GeoJSON.LineString = {
-        type: 'LineString',
-        coordinates: [
-          [151.2090, -33.8685],
-          [151.2095, -33.8690],
-        ],
-      };
+    it('should return true when beyond the threshold', () => {
+      expect(isOffRoute(150, 100)).toBe(true);
+    });
+  });
 
-      const result = isOffRoute(userLocation, routeGeometry, 100);
+  describe('updateSmoothedSpeed (ETA smoothing)', () => {
+    it('adopts the first reading directly', () => {
+      expect(updateSmoothedSpeed(null, 5)).toBe(5);
+    });
 
-      expect(result).toBe(true);
+    it('smooths towards a new reading rather than jumping straight to it', () => {
+      const next = updateSmoothedSpeed(5, 10, 0.3);
+      expect(next).toBeCloseTo(6.5, 5); // 5 + 0.3 * (10 - 5)
+      expect(next).toBeGreaterThan(5);
+      expect(next).toBeLessThan(10);
+    });
+
+    it('ignores a null reading and keeps the previous smoothed value', () => {
+      expect(updateSmoothedSpeed(7, null)).toBe(7);
+    });
+
+    it('ignores a near-zero reading (stopped at a stop) and keeps the previous value', () => {
+      expect(updateSmoothedSpeed(7, 0.1, 0.3, 0.5)).toBe(7);
+    });
+
+    it('treats a null previous value plus a near-zero reading as still unknown', () => {
+      expect(updateSmoothedSpeed(null, 0.1, 0.3, 0.5)).toBeNull();
+    });
+
+    it('converges towards a steady speed over repeated readings', () => {
+      let speed: number | null = null;
+      for (let i = 0; i < 20; i++) {
+        speed = updateSmoothedSpeed(speed, 4, 0.3);
+      }
+      expect(speed).toBeCloseTo(4, 5);
     });
   });
 

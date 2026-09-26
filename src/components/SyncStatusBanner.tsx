@@ -6,6 +6,7 @@
  * - Offline with queued changes → amber "X change(s) queued" banner
  * - Actively syncing           → blue "Syncing…" banner with spinner
  * - Sync complete              → green "All changes synced ✓" (auto-dismisses)
+ * - Changes gave up retrying   → red "X changes couldn't be saved" with Retry/Dismiss
  * - Sync error                 → red error banner with retry button
  *
  * The banner sits directly below the OfflineBanner in AppLayout so users
@@ -20,8 +21,17 @@ function plural(count: number, word: string): string {
 }
 
 export function SyncStatusBanner() {
-  const { pendingCount, isSyncing, lastSyncError, syncComplete, processQueue, clearError } =
-    useSyncQueue();
+  const {
+    pendingCount,
+    isSyncing,
+    lastSyncError,
+    syncComplete,
+    failedActions,
+    processQueue,
+    clearError,
+    retryFailedActions,
+    dismissFailedActions,
+  } = useSyncQueue();
   const { isOnline } = useNetworkStatus();
 
   // Syncing in progress.
@@ -35,6 +45,36 @@ export function SyncStatusBanner() {
       >
         <span style={spinnerStyle} aria-hidden="true" />
         <span>Syncing {plural(pendingCount, 'change')}…</span>
+      </div>
+    );
+  }
+
+  // Changes that used up all automatic retries — kept in the queue for a
+  // manual retry or dismiss rather than silently dropped.
+  if (failedActions.length > 0) {
+    return (
+      <div
+        role="alert"
+        aria-live="assertive"
+        aria-label={`${plural(failedActions.length, 'change')} couldn't be saved`}
+        style={bannerStyle('#B71C1C', '#FFEBEE', '#B71C1C')}
+      >
+        <span role="img" aria-hidden="true">⚠️</span>
+        <span>{plural(failedActions.length, 'change')} couldn't be saved</span>
+        <button
+          onClick={() => retryFailedActions()}
+          style={retryButtonStyle}
+          aria-label="Retry failed changes"
+        >
+          Retry
+        </button>
+        <button
+          onClick={() => dismissFailedActions()}
+          style={dismissButtonStyle}
+          aria-label="Dismiss failed changes"
+        >
+          Dismiss
+        </button>
       </div>
     );
   }

@@ -45,6 +45,14 @@ export interface DemoSimulatorOptions {
   intervalMs?: number;
   /** Simulated speed in metres per tick step (default ~parade pace). */
   metersPerTick?: number;
+  /**
+   * Called once the loop wraps back to the start of the path, immediately
+   * before `onUpdate` fires for that tick — lets the caller reset any
+   * monotonically-increasing progress state (e.g. TrackingView's
+   * liveWaypointIndex) for the new lap, since real runs never go backwards
+   * but the looping demo deliberately does.
+   */
+  onLapRestart?: () => void;
 }
 
 /**
@@ -58,6 +66,7 @@ export function startDemoSimulator({
   onUpdate,
   intervalMs = 2000,
   metersPerTick = 60,
+  onLapRestart,
 }: DemoSimulatorOptions): () => void {
   if (coordinates.length < 2) return () => {};
 
@@ -67,13 +76,15 @@ export function startDemoSimulator({
   const timer = setInterval(() => {
     // Advance by metersPerTick along the polyline, looping at the end.
     let remaining = metersPerTick;
+    let looped = false;
     while (remaining > 0) {
       const from = coordinates[segment];
       const to = coordinates[segment + 1];
       if (!to) {
-        // End of route: pause Santa at the final stop, then restart the loop.
+        // End of route: restart the loop from the beginning.
         segment = 0;
         intoSegment = 0;
+        looped = true;
         break;
       }
       const segmentLength = calculateDistance(from, to);
@@ -105,6 +116,8 @@ export function startDemoSimulator({
         passed = Math.max(passed, i + 1);
       }
     }
+
+    if (looped) onLapRestart?.();
 
     onUpdate({
       routeId: DEMO_ROUTE_ID,

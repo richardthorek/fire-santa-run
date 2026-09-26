@@ -16,16 +16,34 @@
  */
 
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
+
+/**
+ * True on full-screen map routes where a fixed bottom banner would cover the
+ * map's own floating controls (tracking bottom sheet, "Follow Santa" button,
+ * in-truck navigator panel).
+ */
+function isFullScreenMapRoute(pathname: string): boolean {
+  if (pathname === '/demo' || pathname.startsWith('/demo/')) return true;
+  if (pathname.startsWith('/track/')) return true;
+  // /routes/:id/navigate is the in-truck navigator — also a full-screen map.
+  // Other /routes/* pages (editor, detail, poster) are not, so match narrowly.
+  if (/^\/routes\/[^/]+\/navigate\/?$/.test(pathname)) return true;
+  return false;
+}
 
 export function InstallBanner() {
   const { isInstallable, isIOS, isInstalled, isDismissed, promptInstall, dismiss } =
     useInstallPrompt();
+  const location = useLocation();
 
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
 
-  // Nothing to show if installed, dismissed, or not installable
+  // Nothing to show if installed, dismissed, not installable, or covering a
+  // full-screen map view's own floating controls.
   if (isInstalled || isDismissed || !isInstallable) return null;
+  if (isFullScreenMapRoute(location.pathname)) return null;
 
   return (
     <div

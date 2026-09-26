@@ -19,7 +19,8 @@ import { useLocationBroadcast } from '../useLocationBroadcast';
 // Mock dependencies
 // ---------------------------------------------------------------------------
 
-const mockSendLocation = vi.fn();
+const mockSendLocation = vi.fn().mockResolvedValue({ ok: true });
+const mockSendRunStatus = vi.fn().mockResolvedValue({ ok: true });
 const mockDisconnect = vi.fn();
 const mockConnect = vi.fn();
 
@@ -33,9 +34,15 @@ vi.mock('../useWebPubSub', () => ({
     error: null,
     viewerCount: null,
     sendLocation: mockSendLocation,
+    sendRunStatus: mockSendRunStatus,
     disconnect: mockDisconnect,
     connect: mockConnect,
   }),
+}));
+
+vi.mock('../../auth/suiteAuth', () => ({
+  restoreSession: vi.fn().mockResolvedValue(null),
+  refreshSession: vi.fn().mockResolvedValue(null),
 }));
 
 // Default: device is online
@@ -76,6 +83,7 @@ describe('useLocationBroadcast', () => {
     mockIsConnected = true;
     mockIsOnline = true;
     mockSendLocation.mockClear();
+    mockSendRunStatus.mockClear();
   });
 
   afterEach(() => {
@@ -241,5 +249,105 @@ describe('useLocationBroadcast', () => {
     expect(mockSendLocation).toHaveBeenCalledWith(
       expect.objectContaining({ nextWaypointEta: ETA })
     );
+  });
+
+  describe('broadcastHealth', () => {
+    it('starts and stays "ok" while sends succeed', async () => {
+      const { result } = renderHook(() =>
+        useLocationBroadcast({
+          routeId: ROUTE_ID,
+          position: makePosition(),
+          routeProgress,
+          isNavigating: true,
+        })
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(result.current.broadcastHealth).toBe('ok');
+      expect(result.current.lastSuccessfulBroadcastAt).not.toBeNull();
+    });
+
+    it('degrades then fails after consecutive non-auth failures', async () => {
+      mockSendLocation.mockResolvedValue({ ok: false, status: 500 });
+
+      const { result, rerender } = renderHook(
+        ({ position }: { position: ReturnType<typeof makePosition> }) =>
+          useLocationBroadcast({ routeId: ROUTE_ID, position, routeProgress, isNavigating: true }),
+        { initialProps: { position: makePosition() } }
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(result.current.broadcastHealth).toBe('degraded');
+
+      act(() => {
+        vi.advanceTimersByTime(6000);
+      });
+      rerender({ position: makePosition(151.21, -33.87) });
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(result.current.broadcastHealth).toBe('failing');
+    });
+
+    it('goes "auth-expired" on a 401 when silent session restore fails', async () => {
+      mockSendLocation.mockResolvedValue({ ok: false, status: 401 });
+
+      const { result } = renderHook(() =>
+        useLocationBroadcast({
+          routeId: ROUTE_ID,
+          position: makePosition(),
+          routeProgress,
+          isNavigating: true,
+        })
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(result.current.broadcastHealth).toBe('auth-expired');
+    });
+
+    it('recovers to "ok" on a 401 followed by a successful silent restore + retry', async () => {
+      const { restoreSession } = await import('../../auth/suiteAuth');
+      vi.mocked(restoreSession).mockResolvedValueOnce({
+        token: 'fresh-token',
+        userId: 'u1',
+        email: 'a@b.com',
+        planCode: null,
+        santaRunEnabled: true,
+        isPlatformAdmin: false,
+        memberships: [],
+      });
+      mockSendLocation
+        .mockResolvedValueOnce({ ok: false, status: 401 })
+        .mockResolvedValueOnce({ ok: true });
+
+      const { result } = renderHook(() =>
+        useLocationBroadcast({
+          routeId: ROUTE_ID,
+          position: makePosition(),
+          routeProgress,
+          isNavigating: true,
+        })
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(mockSendLocation).toHaveBeenCalledTimes(2);
+      expect(result.current.broadcastHealth).toBe('ok');
+    });
   });
 });

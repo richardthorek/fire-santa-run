@@ -70,7 +70,7 @@ describe('Integration: Route Creation Flow', () => {
     const metadata = {
       name: 'Christmas Eve Santa Run 2024',
       description: 'Annual route through the suburbs',
-      date: '2024-12-24',
+      date: '2099-12-24',
       startTime: '18:00',
     };
     
@@ -110,7 +110,7 @@ describe('Integration: Route Creation Flow', () => {
     // Valid route
     const validRoute = createMockRoute({
       name: 'Christmas Eve Run',
-      date: '2024-12-24',
+      date: '2099-12-24',
       startTime: '18:00',
       waypoints: [createMockWaypoint(0), createMockWaypoint(1)],
     });
@@ -144,7 +144,7 @@ describe('Integration: Route Creation Flow', () => {
       ...newRoute,
       name: 'Christmas Eve Route 2024',
       description: 'Main suburban route',
-      date: '2024-12-24',
+      date: '2099-12-24',
       startTime: '18:00',
     };
     

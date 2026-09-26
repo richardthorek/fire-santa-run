@@ -19,3 +19,7 @@ export { useTileCache } from './useTileCache';
 export type { TileCacheState } from './useTileCache';
 export { useMediaSession } from './useMediaSession';
 export type { UseMediaSessionOptions } from './useMediaSession';
+export { useSessionExpiry } from './useSessionExpiry';
+export type { SessionExpiryState } from './useSessionExpiry';
+export { useSessionKeepAlive } from './useSessionKeepAlive';
+export type { SessionKeepAliveState } from './useSessionKeepAlive';

@@ -6,6 +6,15 @@
  *   broadcaster/editor roles). In-process fan-out — no Azure Web PubSub.
  * - Dev mode: BroadcastChannel API for cross-tab local testing.
  * The hook name is retained for churn; it no longer uses Azure Web PubSub.
+ *
+ * Reconnection (production WS path): exponential backoff with jitter, capped
+ * at ~30s, with no hard attempt limit — a viewer's tab left open overnight
+ * should keep trying quietly rather than giving up. A failed negotiate call
+ * (not just a socket close) also schedules a retry. Bringing the tab back to
+ * the foreground (`visibilitychange` → visible) or regaining connectivity
+ * (`online`) resets the backoff and retries immediately, so a phone that was
+ * asleep or briefly offline catches up fast instead of waiting out whatever
+ * delay it had backed off to.
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -15,9 +24,20 @@ import { getApiAuthHeaders } from '../auth/apiToken';
 const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
+/** Result of a broadcaster send — lets callers (useLocationBroadcast) track health. */
+export interface BroadcastSendResult {
+  ok: boolean;
+  /** HTTP status of the failed response, when the failure was a non-OK response rather than a network error. */
+  status?: number;
+}
+
+export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting';
+
 interface WebPubSubConnectionState {
   isConnected: boolean;
   isConnecting: boolean;
+  /** Coarse connection lifecycle for UI — see {@link ConnectionStatus}. */
+  connectionStatus: ConnectionStatus;
   error: string | null;
   viewerCount: number | null;
   /**
@@ -45,10 +65,21 @@ function generateSessionId(): string {
   return crypto.randomUUID();
 }
 
+const BASE_RECONNECT_DELAY_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 30000;
+
+/** Exponential backoff with jitter, capped at MAX_RECONNECT_DELAY_MS. */
+function computeReconnectDelay(attempt: number): number {
+  const exp = Math.min(MAX_RECONNECT_DELAY_MS, BASE_RECONNECT_DELAY_MS * 2 ** attempt);
+  // Jitter within the top half of the window so retries from many tabs/devices spread out.
+  return Math.round(exp * (0.5 + Math.random() * 0.5));
+}
+
 export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, shareSource, enabled = true }: UseWebPubSubOptions) {
   const [state, setState] = useState<WebPubSubConnectionState>({
     isConnected: false,
     isConnecting: false,
+    connectionStatus: 'connecting',
     error: null,
     viewerCount: null,
     viewerPins: null,
@@ -72,12 +103,20 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
   // True once the consumer unmounts / disconnects, so a socket closing during
   // teardown does not trigger a reconnect.
   const disposedRef = useRef(false);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+  // Mirrors "is there a live/pending connection" synchronously, so the
+  // visibility/online handlers (and connect() itself) can guard against
+  // opening a second socket without waiting on a state update.
+  const connectionOpenRef = useRef(false);
+  // Holds the latest `connect` closure so scheduleReconnect (defined before
+  // connect, and with stable identity) never calls a stale one — same pattern
+  // as onLocationUpdateRef above: assigned synchronously during render.
+  const connectRef = useRef<() => void>(() => {});
   const sessionIdRef = useRef<string>(generateSessionId());
   const sessionStartTimeRef = useRef<number>(Date.now());
   const viewerCountIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const MAX_RECONNECT_ATTEMPTS = 5;
-  const RECONNECT_DELAY_MS = 3000;
   // 30s keeps the badge feeling live while quartering the request volume of
   // the old 10s poll — every open tracking page runs this loop, and the free
   // App Service tiers pay for each request in shared CPU quota.
@@ -168,15 +207,37 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
   }, [routeId, role]);
 
   /**
+   * Schedule a reconnect attempt with exponential backoff + jitter. No hard
+   * attempt cap — a tab left open should keep quietly retrying. Safe to call
+   * repeatedly; it always clears any previously-scheduled attempt first.
+   */
+  const scheduleReconnect = useCallback(() => {
+    if (disposedRef.current || !enabledRef.current) return;
+
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    const delay = computeReconnectDelay(reconnectAttemptsRef.current);
+    reconnectAttemptsRef.current++;
+    setState(prev => ({ ...prev, isConnected: false, isConnecting: false, connectionStatus: 'reconnecting' }));
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      reconnectTimeoutRef.current = null;
+      connectRef.current();
+    }, delay);
+  }, []);
+
+  /**
    * Connect to Web PubSub or BroadcastChannel
    */
   const connect = useCallback(async () => {
-    setState(prev => {
-      if (prev.isConnecting || prev.isConnected) {
-        return prev;
-      }
-      return { ...prev, isConnecting: true, error: null };
-    });
+    // Guard against opening a second connection (e.g. a visibility/online
+    // trigger racing with an in-flight connect or an already-open socket).
+    if (connectionOpenRef.current) return;
+    connectionOpenRef.current = true;
+
+    setState(prev => ({ ...prev, isConnecting: true, connectionStatus: 'connecting', error: null }));
 
     try {
       if (isDevMode) {
@@ -208,7 +269,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
         };
 
         broadcastChannelRef.current = channel;
-        setState(prev => ({ ...prev, isConnected: true, isConnecting: false, error: null }));
+        setState(prev => ({ ...prev, isConnected: true, isConnecting: false, connectionStatus: 'connected', error: null }));
         console.log(`[Dev Mode] Connected to BroadcastChannel: ${channelName}`);
 
         // Log viewer join
@@ -237,7 +298,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
         wsRef.current = ws;
 
         ws.onopen = () => {
-          setState(prev => ({ ...prev, isConnected: true, isConnecting: false, error: null }));
+          setState(prev => ({ ...prev, isConnected: true, isConnecting: false, connectionStatus: 'connected', error: null }));
           reconnectAttemptsRef.current = 0;
           console.log(`[Realtime] Connected for route: ${routeId}`);
           // The server pushes authoritative viewer counts over the socket, so
@@ -269,18 +330,15 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
         };
 
         ws.onclose = () => {
-          setState(prev => ({ ...prev, isConnected: false, isConnecting: false }));
           wsRef.current = null;
+          connectionOpenRef.current = false;
 
           // Attempt to reconnect (unless we're tearing down on purpose).
-          if (!disposedRef.current && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-            reconnectAttemptsRef.current++;
-            console.log(`[Realtime] Reconnecting attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS}...`);
-            reconnectTimeoutRef.current = setTimeout(() => {
-              connect();
-            }, RECONNECT_DELAY_MS);
-          } else if (!disposedRef.current) {
-            setState(prev => ({ ...prev, error: 'Connection lost. Please refresh the page.' }));
+          if (!disposedRef.current) {
+            console.log('[Realtime] Connection lost, scheduling reconnect...');
+            scheduleReconnect();
+          } else {
+            setState(prev => ({ ...prev, isConnected: false, isConnecting: false }));
           }
         };
 
@@ -291,17 +349,29 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       }
     } catch (error) {
       console.error('[WebPubSub] Connection error:', error);
-      setState({
+      connectionOpenRef.current = false;
+      if (wsRef.current) {
+        try {
+          wsRef.current.close();
+        } catch {
+          /* ignore */
+        }
+        wsRef.current = null;
+      }
+      setState(prev => ({
+        ...prev,
         isConnected: false,
         isConnecting: false,
         error: error instanceof Error ? error.message : 'Failed to connect',
-        viewerCount: null,
-        viewerPins: null,
-        runStatus: null,
-        runStatusMessage: null,
-      });
+      }));
+      // A failed negotiate (or any other connect-time throw) should retry
+      // just like a socket close does — previously only onclose scheduled one.
+      if (!disposedRef.current) {
+        scheduleReconnect();
+      }
     }
-  }, [routeId, role, logViewerJoin, fetchViewerCount, applyRunStatus]);
+  }, [routeId, role, logViewerJoin, fetchViewerCount, applyRunStatus, scheduleReconnect]);
+  connectRef.current = connect;
 
   /**
    * Disconnect from Web PubSub or BroadcastChannel
@@ -309,6 +379,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
   const disconnect = useCallback(() => {
     // Mark disposed so a socket close during teardown doesn't trigger reconnect.
     disposedRef.current = true;
+    connectionOpenRef.current = false;
 
     // Log viewer leave before disconnecting
     logViewerLeave();
@@ -341,16 +412,19 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
       broadcastChannelRef.current = null;
     }
 
-    setState({ isConnected: false, isConnecting: false, error: null, viewerCount: null, viewerPins: null, runStatus: null, runStatusMessage: null });
+    setState({ isConnected: false, isConnecting: false, connectionStatus: 'connecting', error: null, viewerCount: null, viewerPins: null, runStatus: null, runStatusMessage: null });
   }, [logViewerLeave]);
 
   /**
-   * Send location update (broadcaster only)
+   * Send location update (broadcaster only). Returns whether the send
+   * succeeded (and the HTTP status on a non-OK response) so callers such as
+   * useLocationBroadcast can track broadcast health — this hook no longer
+   * just swallows failures into a console.error.
    */
-  const sendLocation = useCallback(async (location: LocationBroadcast) => {
+  const sendLocation = useCallback(async (location: LocationBroadcast): Promise<BroadcastSendResult> => {
     if (role !== 'broadcaster') {
       console.warn('[WebPubSub] Only broadcasters can send location updates');
-      return;
+      return { ok: false };
     }
 
     try {
@@ -360,6 +434,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
           broadcastChannelRef.current.postMessage(location);
           console.log('[Dev Mode] Broadcasted location:', location);
         }
+        return { ok: true };
       } else {
         // Production mode: Send via API. Broadcasting Santa's position is an
         // authenticated action — attach the signed-in user's bearer token.
@@ -373,13 +448,16 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to broadcast location: ${response.statusText}`);
+          console.error(`[WebPubSub] Failed to broadcast location: ${response.statusText}`);
+          return { ok: false, status: response.status };
         }
 
         console.log('[Production] Broadcasted location:', location);
+        return { ok: true };
       }
     } catch (error) {
       console.error('[WebPubSub] Failed to send location:', error);
+      return { ok: false };
     }
   }, [role]);
 
@@ -387,16 +465,17 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
    * Set the live run status (broadcaster only): paused / aborted / resumed
    * (active) / completed. Fans out to every viewer via the hub.
    */
-  const sendRunStatus = useCallback(async (status: RunStatus, message?: string) => {
+  const sendRunStatus = useCallback(async (status: RunStatus, message?: string): Promise<BroadcastSendResult> => {
     if (role !== 'broadcaster') {
       console.warn('[WebPubSub] Only broadcasters can set run status');
-      return;
+      return { ok: false };
     }
     const payload: RunStatusMessage = { type: 'run-status', routeId, status, message, timestamp: Date.now() };
     try {
       if (isDevMode) {
         broadcastChannelRef.current?.postMessage(payload);
         applyRunStatus(payload); // reflect locally for the operator's own view
+        return { ok: true };
       } else {
         const response = await fetch(`${API_BASE_URL}/broadcast/status`, {
           method: 'POST',
@@ -404,12 +483,14 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
           body: JSON.stringify({ routeId, status, message }),
         });
         if (!response.ok) {
-          throw new Error(`Failed to set run status: ${response.statusText}`);
+          console.error(`[WebPubSub] Failed to set run status: ${response.statusText}`);
+          return { ok: false, status: response.status };
         }
+        return { ok: true };
       }
     } catch (error) {
       console.error('[WebPubSub] Failed to set run status:', error);
-      throw error;
+      return { ok: false };
     }
   }, [role, routeId, applyRunStatus]);
 
@@ -421,6 +502,7 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
 
     // Fresh connection lifecycle — allow reconnects again after a prior teardown.
     disposedRef.current = false;
+    reconnectAttemptsRef.current = 0;
     connect();
 
     // Handle page unload to log viewer leave
@@ -436,6 +518,38 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId, role, enabled]);
+
+  /**
+   * Reconnect immediately (resetting backoff) when the tab regains focus or
+   * the device comes back online. Only meaningful for the production WS path
+   * — dev mode's BroadcastChannel doesn't have a "connection" to lose.
+   */
+  useEffect(() => {
+    if (isDevMode || !enabled) return;
+
+    const reconnectNow = () => {
+      if (disposedRef.current || connectionOpenRef.current) return;
+      // Cancel any pending backoff timer and retry immediately with a clean slate.
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      reconnectAttemptsRef.current = 0;
+      connect();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') reconnectNow();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', reconnectNow);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', reconnectNow);
+    };
+  }, [enabled, connect]);
 
   return {
     ...state,

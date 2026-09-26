@@ -1,9 +1,13 @@
 /**
  * PublicBrigadePage — public, unauthenticated brigade profile at /brigade/:slug.
  *
- * Shows brigade identity (name, location, logo, contact), splits the brigade's
- * public routes into upcoming vs past (each links to the live tracker), and
- * offers a "Claim this brigade" call-to-action when the brigade is unclaimed.
+ * Shows brigade identity (name, location, logo, contact) and splits the
+ * brigade's public routes into upcoming vs past (each links to the live
+ * tracker). There is no "claim this brigade" flow: a brigade record is 1:1
+ * with a Station Manager Organization and can only be created by an
+ * authenticated, entitled member of that org (see server/src/routes/brigades.ts
+ * POST /), so every brigade that exists here was created by a real, signed-in
+ * crew — which is what the "Verified brigade" badge reflects.
  *
  * Implements launch issue #147.
  */

@@ -8,6 +8,7 @@ import {
   signOut as suiteSignOut,
   switchOrg as suiteSwitchOrg,
   getStoredToken,
+  SESSION_REFRESHED_EVENT,
   type SuiteSession,
   type SuiteMembership,
   type SignUpInput,
@@ -164,6 +165,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(softTimer);
     };
   }, [isDevMode, applySession, clearSession]);
+
+  // Pick up any identity/entitlement changes from a background
+  // useSessionKeepAlive refresh (src/auth/suiteAuth.ts refreshSession) —
+  // least-invasive way to keep this context in sync without a dedicated
+  // refresh entry point of its own.
+  useEffect(() => {
+    if (isDevMode) return;
+    const onSessionRefreshed = (event: Event) => {
+      const session = (event as CustomEvent<SuiteSession>).detail;
+      if (session) applySession(session);
+    };
+    window.addEventListener(SESSION_REFRESHED_EVENT, onSessionRefreshed);
+    return () => window.removeEventListener(SESSION_REFRESHED_EVENT, onSessionRefreshed);
+  }, [isDevMode, applySession]);
 
   const login = async (email: string, password: string) => {
     if (isDevMode) return;
