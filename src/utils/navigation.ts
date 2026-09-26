@@ -160,39 +160,183 @@ export function alongPathDistance(
 }
 
 /**
- * Find current navigation step based on user's location
+ * Cumulative along-route distance (metres) for every vertex of a route
+ * LineString. `result[i]` is the path length from the start of the route to
+ * `coordinates[i]`; `result[0]` is always 0 and `result[last]` is the total
+ * route length.
+ */
+export function computeCumulativeDistances(
+  coordinates: ReadonlyArray<ReadonlyArray<number>>
+): number[] {
+  const coords = coordinates as [number, number][];
+  const cumulative: number[] = [0];
+  for (let i = 0; i < coords.length - 1; i++) {
+    cumulative.push(cumulative[i] + calculateDistance(coords[i], coords[i + 1]));
+  }
+  return cumulative;
+}
+
+export interface RouteProjection {
+  /** The projected point on the route line. */
+  point: [number, number];
+  /** Along-route (path) distance from the start of the route to the projection, in metres. */
+  alongRouteDistance: number;
+  /** Perpendicular distance from `userLocation` to the route line, in metres. */
+  offRouteDistance: number;
+  /** Index of the segment (between coordinates[i] and coordinates[i+1]) the projection falls on. */
+  segmentIndex: number;
+}
+
+/** Beyond this off-route distance a windowed match is considered unreliable
+ *  (e.g. right after a reroute, or a big jump from a GPS glitch), so a full
+ *  route search is used instead. */
+const WINDOW_FALLBACK_OFFROUTE_METERS = 150;
+
+/**
+ * Project the user's location onto the route line and return the along-route
+ * distance to that projection.
+ *
+ * Santa runs crawl along streets that often loop back and cross themselves,
+ * so simply finding the globally closest point on the route can snap onto an
+ * earlier (or later) pass of the same street rather than the one the truck is
+ * actually on. `previousAlongRouteDistance` — the along-route distance
+ * matched on the previous GPS tick — narrows the search to a window just
+ * ahead of (and a little behind, for GPS jitter) that previous match, so
+ * progress stays monotonic and loops resolve to the current pass. When there
+ * is no previous match, or the windowed match is a poor fit (large
+ * `offRouteDistance` — e.g. just after a reroute changed the geometry), a
+ * full search of the route is used instead.
+ */
+export function projectOntoRoute(
+  userLocation: [number, number],
+  routeGeometry: GeoJSON.LineString,
+  cumulativeDistances: number[],
+  previousAlongRouteDistance: number | null = null,
+  options: { windowAheadMeters?: number; windowBehindMeters?: number } = {}
+): RouteProjection {
+  const { windowAheadMeters = 400, windowBehindMeters = 40 } = options;
+  const coords = routeGeometry.coordinates as [number, number][];
+  const totalLength = cumulativeDistances[cumulativeDistances.length - 1] ?? 0;
+
+  // Tie-break tolerance: on a route that loops back over itself, two passes
+  // of the same street can sit on top of one another. On a near-tie prefer
+  // the candidate closest (along the route) to where we last were — or to the
+  // start on the first fix. Preferring the later pass outright would snap a
+  // run that starts and finishes at the station straight to the finish.
+  const TIE_BREAK_METERS = 0.5;
+  const anchorAlong = previousAlongRouteDistance ?? 0;
+
+  const searchRange = (fromSegment: number, toSegment: number): RouteProjection | null => {
+    let best: RouteProjection | null = null;
+    for (let i = fromSegment; i < toSegment; i++) {
+      const start = coords[i];
+      const end = coords[i + 1];
+      const point = closestPointOnSegment(userLocation, start, end);
+      const offRouteDistance = calculateDistance(userLocation, point);
+      const alongRouteDistance = cumulativeDistances[i] + calculateDistance(start, point);
+
+      if (
+        !best ||
+        offRouteDistance < best.offRouteDistance - TIE_BREAK_METERS ||
+        (offRouteDistance < best.offRouteDistance + TIE_BREAK_METERS &&
+          Math.abs(alongRouteDistance - anchorAlong) < Math.abs(best.alongRouteDistance - anchorAlong))
+      ) {
+        best = { point, offRouteDistance, alongRouteDistance, segmentIndex: i };
+      }
+    }
+    return best;
+  };
+
+  const segmentCount = coords.length - 1;
+  let windowed: RouteProjection | null = null;
+
+  if (previousAlongRouteDistance !== null && segmentCount > 0) {
+    const lo = previousAlongRouteDistance - windowBehindMeters;
+    const hi = previousAlongRouteDistance + windowAheadMeters;
+
+    let fromSegment = 0;
+    let toSegment = segmentCount;
+    for (let i = 0; i < cumulativeDistances.length - 1; i++) {
+      if (cumulativeDistances[i] <= lo) fromSegment = i;
+      if (cumulativeDistances[i] < hi) toSegment = i + 1;
+    }
+    fromSegment = Math.max(0, Math.min(fromSegment, segmentCount - 1));
+    toSegment = Math.max(fromSegment + 1, Math.min(toSegment, segmentCount));
+
+    windowed = searchRange(fromSegment, toSegment);
+  }
+
+  if (!windowed || windowed.offRouteDistance > WINDOW_FALLBACK_OFFROUTE_METERS) {
+    const global = searchRange(0, segmentCount);
+    if (global && (!windowed || global.offRouteDistance < windowed.offRouteDistance)) {
+      windowed = global;
+    }
+  }
+
+  if (!windowed) {
+    return { point: coords[0] ?? userLocation, offRouteDistance: 0, alongRouteDistance: 0, segmentIndex: 0 };
+  }
+
+  return {
+    ...windowed,
+    alongRouteDistance: Math.max(0, Math.min(totalLength, windowed.alongRouteDistance)),
+  };
+}
+
+/**
+ * Precompute the along-route distance of every step's maneuver location, once
+ * per route geometry (i.e. on load and after a reroute) — not per GPS tick.
+ */
+export function computeStepAlongDistances(
+  routeGeometry: GeoJSON.LineString,
+  steps: NavigationStep[],
+  cumulativeDistances: number[]
+): number[] {
+  return steps.map(
+    step => projectOntoRoute(step.maneuver.location, routeGeometry, cumulativeDistances, null).alongRouteDistance
+  );
+}
+
+/** Small tolerance so a maneuver the user is essentially on top of doesn't
+ *  flicker back to "current" due to GPS/projection jitter. */
+const MANEUVER_EPSILON_METERS = 5;
+
+/**
+ * Find the current navigation step from the user's along-route progress.
+ *
+ * Replaces the old "nearest maneuver by straight-line distance" approach,
+ * which could pick a maneuver already passed (the old instruction would
+ * persist after the turn) and broke down on loops that revisit the same
+ * intersection. Along-route progress is monotonic (see `projectOntoRoute`),
+ * so the next maneuver is simply the first step whose maneuver lies ahead of
+ * the user's current along-route position.
  */
 export function findCurrentStep(
-  userLocation: [number, number],
-  steps: NavigationStep[]
+  userAlongRouteDistance: number,
+  stepAlongDistances: number[]
 ): {
   stepIndex: number;
   distanceToManeuver: number;
 } {
-  if (steps.length === 0) {
+  if (stepAlongDistances.length === 0) {
     return { stepIndex: 0, distanceToManeuver: 0 };
   }
 
-  // Find the step whose maneuver location is closest ahead of user
-  let bestStepIndex = 0;
-  let minDistance = Infinity;
-
-  for (let i = 0; i < steps.length; i++) {
-    const distance = calculateDistance(userLocation, steps[i].maneuver.location);
-    
-    // Prefer steps ahead of current position
-    if (distance < minDistance) {
-      minDistance = distance;
-      bestStepIndex = i;
+  for (let i = 0; i < stepAlongDistances.length; i++) {
+    if (stepAlongDistances[i] > userAlongRouteDistance + MANEUVER_EPSILON_METERS) {
+      return {
+        stepIndex: i,
+        distanceToManeuver: Math.max(0, stepAlongDistances[i] - userAlongRouteDistance),
+      };
     }
   }
 
-  const distanceToManeuver = calculateDistance(
-    userLocation,
-    steps[bestStepIndex].maneuver.location
-  );
-
-  return { stepIndex: bestStepIndex, distanceToManeuver };
+  // Every maneuver has been passed — hold on the final step (arrival).
+  const lastIndex = stepAlongDistances.length - 1;
+  return {
+    stepIndex: lastIndex,
+    distanceToManeuver: Math.max(0, stepAlongDistances[lastIndex] - userAlongRouteDistance),
+  };
 }
 
 /**
@@ -203,45 +347,30 @@ export function findNextWaypoint(waypoints: Waypoint[]): Waypoint | null {
 }
 
 /**
- * Calculate route progress percentage
+ * Calculate route progress percentage.
+ *
+ * Takes the user's already-computed along-route distance and the route's
+ * total length (both from the single per-tick `projectOntoRoute` call) rather
+ * than re-deriving position on the route from a segment index — the old
+ * "segmentIndex / totalSegments" approach treated every segment as equal
+ * length, which skews badly on routes with long straight legs and short,
+ * tightly-spaced turning segments.
  */
 export function calculateRouteProgress(
-  userLocation: [number, number],
-  routeGeometry: GeoJSON.LineString,
-  waypoints: Waypoint[]
+  alongRouteDistance: number,
+  totalRouteLength: number
 ): number {
-  const completedWaypoints = waypoints.filter(wp => wp.isCompleted).length;
-  const totalWaypoints = waypoints.length;
-  
-  if (totalWaypoints === 0) return 0;
-  
-  // Base progress on completed waypoints (80% weight)
-  const waypointProgress = (completedWaypoints / totalWaypoints) * 80;
-  
-  // Add progress towards next waypoint (20% weight)
-  const nextWaypoint = findNextWaypoint(waypoints);
-  if (!nextWaypoint || completedWaypoints === 0) {
-    return waypointProgress;
-  }
-  
-  // Find distance along route
-  const { segmentIndex } = findClosestPointOnRoute(userLocation, routeGeometry);
-  const totalSegments = routeGeometry.coordinates.length - 1;
-  const segmentProgress = (segmentIndex / totalSegments) * 20;
-  
-  return Math.min(100, waypointProgress + segmentProgress);
+  if (totalRouteLength <= 0) return 0;
+  return Math.min(100, Math.max(0, (alongRouteDistance / totalRouteLength) * 100));
 }
 
 /**
- * Check if user is off route
+ * Check if a (perpendicular, off-route) distance from the route exceeds the
+ * threshold. Takes the distance directly (from a `projectOntoRoute` result)
+ * so callers doing per-tick matching don't project the same point twice.
  */
-export function isOffRoute(
-  userLocation: [number, number],
-  routeGeometry: GeoJSON.LineString,
-  thresholdMeters: number = 100
-): boolean {
-  const { distance } = findClosestPointOnRoute(userLocation, routeGeometry);
-  return distance > thresholdMeters;
+export function isOffRoute(offRouteDistanceMeters: number, thresholdMeters: number = 100): boolean {
+  return offRouteDistanceMeters > thresholdMeters;
 }
 
 /**
@@ -255,6 +384,36 @@ export function calculateETA(
   const speed = speedMetersPerSecond || (fallbackSpeedKmh * 1000) / 3600;
   const timeSeconds = distanceMeters / speed;
   return new Date(Date.now() + timeSeconds * 1000);
+}
+
+/** Below this speed a GPS reading is treated as "stopped" (e.g. paused at a
+ *  stop, waiting at lights) rather than fed into the smoothed speed — a Santa
+ *  run crawls at 5-15 km/h, so a stray near-zero reading would otherwise
+ *  collapse the ETA estimate to "arriving now" or blow it out wildly. */
+export const MIN_MOVING_SPEED_MPS = 0.5;
+
+/** EMA smoothing factor for GPS speed — higher reacts faster, lower is smoother. */
+export const SPEED_EMA_ALPHA = 0.3;
+
+/**
+ * Exponential moving average of GPS speed, for a stable ETA. Raw GPS speed on
+ * a slow-moving truck is jittery from one fix to the next and drops out
+ * entirely (0 or null) while stopped, so a null/near-zero reading is ignored
+ * and the previous smoothed value is kept rather than reset.
+ */
+export function updateSmoothedSpeed(
+  previousSmoothedSpeed: number | null,
+  rawSpeedMetersPerSecond: number | null,
+  alpha: number = SPEED_EMA_ALPHA,
+  minMovingSpeedMetersPerSecond: number = MIN_MOVING_SPEED_MPS
+): number | null {
+  if (rawSpeedMetersPerSecond === null || rawSpeedMetersPerSecond < minMovingSpeedMetersPerSecond) {
+    return previousSmoothedSpeed;
+  }
+  if (previousSmoothedSpeed === null) {
+    return rawSpeedMetersPerSecond;
+  }
+  return previousSmoothedSpeed + alpha * (rawSpeedMetersPerSecond - previousSmoothedSpeed);
 }
 
 /**

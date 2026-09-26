@@ -3,7 +3,7 @@
  * Displays the map with route, waypoints, and current location during navigation
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { MAPBOX_CONFIG, DEFAULT_MAP_STYLE } from '../config/mapbox';
@@ -36,6 +36,9 @@ export function NavigationMap({
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const waypointMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
+  // Whether the camera should keep following the user. Cleared as soon as the
+  // driver drags or zooms the map by hand; restored by the "Re-centre" button.
+  const [isFollowing, setIsFollowing] = useState(true);
 
   // Initialize the map ONCE. The `route` object identity changes on every ETA
   // recalculation (~30s) and every reroute — keying the map on it tore the map
@@ -67,9 +70,21 @@ export function NavigationMap({
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
     map.on('load', () => setMapLoaded(true));
 
+    // Stop auto-following as soon as the driver interacts with the map by
+    // hand (drag or pinch/scroll zoom) — `originalEvent` is only set on
+    // user-initiated moves, not on our own programmatic easeTo calls below,
+    // so this doesn't fight the follow camera on every GPS tick.
+    const handleMoveStart = (event: mapboxgl.MapboxEvent) => {
+      if ('originalEvent' in event && event.originalEvent) {
+        setIsFollowing(false);
+      }
+    };
+    map.on('movestart', handleMoveStart);
+
     mapRef.current = map;
 
     return () => {
+      map.off('movestart', handleMoveStart);
       map.remove();
       mapRef.current = null;
       userMarkerRef.current = null;
@@ -229,29 +244,70 @@ export function NavigationMap({
       userMarkerRef.current.setLngLat(userPosition.coordinates);
     }
 
-    // Center map on user location with smooth animation
+    if (!isFollowing) return; // Driver is panning/zooming by hand — don't fight them.
+
+    // A single easeTo with center + bearing + zoom together. Two separate
+    // easeTo calls (one for center, one for bearing) cancel each other out —
+    // the second call's animation replaces the first mid-flight, so the
+    // camera never actually reached the intended zoom and stayed put at the
+    // initial zoom 14. offset shifts the focal point so the user's marker
+    // sits in the lower third of the screen, like a turn-by-turn nav app.
     map.easeTo({
       center: userPosition.coordinates,
+      bearing: userPosition.heading !== null && userPosition.heading >= 0 ? userPosition.heading : map.getBearing(),
+      zoom: 17,
+      pitch: 50,
+      offset: [0, 120],
       duration: 1000,
     });
+  }, [mapLoaded, userPosition, isFollowing]);
 
-    // Turn the map so travel direction is "up" when heading is available.
-    if (userPosition.heading !== null && userPosition.heading >= 0) {
+  const handleRecenter = useCallback(() => {
+    setIsFollowing(true);
+    const map = mapRef.current;
+    if (map && userPosition) {
       map.easeTo({
-        bearing: userPosition.heading,
-        duration: 1000,
+        center: userPosition.coordinates,
+        bearing: userPosition.heading !== null && userPosition.heading >= 0 ? userPosition.heading : map.getBearing(),
+        zoom: 17,
+        pitch: 50,
+        offset: [0, 120],
+        duration: 600,
       });
     }
-  }, [mapLoaded, userPosition]);
+  }, [userPosition]);
 
   return (
-    <div
-      ref={mapContainerRef}
-      style={{
-        flex: 1,
-        width: '100%',
-        height: '100%',
-      }}
-    />
+    <div style={{ position: 'relative', flex: 1, width: '100%', height: '100%' }}>
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+      {!isFollowing && (
+        <button
+          onClick={handleRecenter}
+          aria-label="Re-centre map on your location"
+          style={{
+            position: 'absolute',
+            top: '8rem',
+            right: '1rem',
+            minWidth: '48px',
+            minHeight: '48px',
+            borderRadius: '24px',
+            border: 'none',
+            background: 'var(--santa-red)',
+            color: 'var(--snow)',
+            fontWeight: 700,
+            fontSize: '0.8125rem',
+            padding: '0 1rem',
+            boxShadow: 'var(--ui-shadow)',
+            cursor: 'pointer',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+          }}
+        >
+          <span aria-hidden="true">🎯</span> Re-centre
+        </button>
+      )}
+    </div>
   );
 }

@@ -73,6 +73,27 @@ class VoiceInstructionService {
   }
 
   /**
+   * Unlock speechSynthesis for iOS Safari, which only allows the API to
+   * actually produce audio when it's first invoked synchronously inside a
+   * user gesture's call stack — a later `speak()` call from an async effect
+   * or callback is silently swallowed. Call this directly inside a tap
+   * handler (e.g. "Enable Location & Start", the voice toggle), before any
+   * `await`. Speaks an inaudible, near-instant utterance to prime the API;
+   * safe to call repeatedly.
+   */
+  unlock(): void {
+    if (!this.synthesis) return;
+    try {
+      const utterance = new SpeechSynthesisUtterance(' ');
+      utterance.volume = 0;
+      utterance.rate = 10;
+      this.synthesis.speak(utterance);
+    } catch {
+      // Best-effort — some browsers throw if speechSynthesis is touched too early.
+    }
+  }
+
+  /**
    * Update voice settings
    */
   updateSettings(settings: Partial<VoiceSettings>) {
