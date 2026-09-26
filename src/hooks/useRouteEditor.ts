@@ -35,6 +35,11 @@ export function useRouteEditor(initialRoute: Route) {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationError, setOptimizationError] = useState<string | null>(null);
   const [optimizationComparison, setOptimizationComparison] = useState<OptimizationComparison | null>(null);
+  // Snapshot of the route as last loaded/saved — compared against the live
+  // `route` state to detect unsaved changes (RouteEditor uses this to warn
+  // before Cancel, in-app navigation, and tab close/refresh).
+  const [savedSnapshot, setSavedSnapshot] = useState<string>(() => JSON.stringify(initialRoute));
+  const isDirty = JSON.stringify(route) !== savedSnapshot;
 
   /**
    * Update route metadata (name, date, description, etc.)
@@ -302,10 +307,20 @@ export function useRouteEditor(initialRoute: Route) {
    * initialised with. Without an argument, resets to the initial route.
    */
   const resetRoute = useCallback((newRoute?: Route) => {
-    setRoute(newRoute ?? initialRoute);
+    const nextRoute = newRoute ?? initialRoute;
+    setRoute(nextRoute);
+    setSavedSnapshot(JSON.stringify(nextRoute));
     setOptimizationError(null);
     setOptimizationComparison(null);
   }, [initialRoute]);
+
+  /**
+   * Mark the current in-memory route as the saved baseline, clearing the
+   * dirty flag. Call this after a successful save.
+   */
+  const markSaved = useCallback(() => {
+    setSavedSnapshot(JSON.stringify(route));
+  }, [route]);
 
   return {
     route,
@@ -324,5 +339,7 @@ export function useRouteEditor(initialRoute: Route) {
     isOptimizing,
     optimizationError,
     optimizationComparison,
+    isDirty,
+    markSaved,
   };
 }

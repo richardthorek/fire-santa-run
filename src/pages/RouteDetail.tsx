@@ -13,11 +13,11 @@ import {
   ExportMenu,
   RouteComments
 } from '../components';
-import type { Route } from '../types';
+import type { Route, RouteStatus } from '../types';
 import type { Brigade } from '../storage/types';
 import { storageAdapter } from '../storage';
 import { formatDistance, formatDuration } from '../utils/mapbox';
-import { duplicateRoute } from '../utils/routeHelpers';
+import { duplicateRoute, canEditRoute, canDeleteRoute, routeEditNeedsPublicWarning } from '../utils/routeHelpers';
 import { primeGeolocationPermission } from '../utils/primeGeolocation';
 import { predictRouteDuration, CONFIDENCE_LABELS } from '../utils/etaPrediction';
 import { format } from 'date-fns';
@@ -46,6 +46,8 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const { isCached, isCaching, downloaded, total, error: tileError, downloadTiles, clearTileCache } =
     useTileCache(route);
+
+  const canNavigate = !!(route?.geometry && route?.navigationSteps && route.navigationSteps.length > 0);
 
   useEffect(() => {
     const loadRoute = async () => {
@@ -127,6 +129,33 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
     } finally {
       setIsRestoring(false);
     }
+  };
+
+  const handleEditClick = () => {
+    if (!route) return;
+    if (!canEditRoute(route.status)) return;
+    if (routeEditNeedsPublicWarning(route.status)) {
+      const confirmed = window.confirm(
+        'This run is public — changes will show on the tracking page and poster. Continue editing?'
+      );
+      if (!confirmed) return;
+    }
+    navigate(`/routes/${route.id}/edit`);
+  };
+
+  const handleNavigateClick = () => {
+    if (!route || !canNavigate) {
+      alert('Route must have waypoints and navigation data. Please edit the route to add stops.');
+      return;
+    }
+    if (route.status === 'published') {
+      const confirmed = window.confirm(
+        'Starting this run will make Santa live for the public — the tracking page will show real-time location. Start now?'
+      );
+      if (!confirmed) return;
+    }
+    primeGeolocationPermission();
+    navigate(`/routes/${route.id}/navigate`);
   };
 
   const handleStatusChange = async (newStatus: Route['status']) => {
@@ -213,8 +242,15 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
     );
   }
 
-  const canNavigate = route.geometry && route.navigationSteps && route.navigationSteps.length > 0;
   const canShare = route.status === 'published' || route.status === 'active' || route.status === 'completed';
+  // The Navigate button doubles as the single "go live" action for published
+  // (Start Run) and active (Resume Run) routes — see handleNavigateClick.
+  const isGoLiveAction = route.status === 'published' || route.status === 'active';
+  const navigateLabel = route.status === 'active'
+    ? '🔴 Resume Run'
+    : route.status === 'published'
+    ? '🚀 Start Run'
+    : '🧭 Navigate';
   // Predictive ETA (#145): adjust the estimate using the brigade's completed-run history
   const etaPrediction = route.status !== 'completed' && route.status !== 'archived'
     ? predictRouteDuration(route, routes)
@@ -326,6 +362,10 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               {showInfoPanel ? '✕ Close Info' : 'ℹ️ Route Info'}
             </button>
           </div>
+
+          {/* Lifecycle Stepper — Draft → Published → Live → Done, with the
+              next action called out so the run's status is never a mystery. */}
+          <LifecycleStepper status={route.status} />
 
           {/* Quick Stats Bar */}
           <div style={{
@@ -523,36 +563,37 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
             gap: '0.75rem',
             gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
           }}>
-            {/* Navigate Button - Always shown */}
+            {/* Navigate Button — the single "go live" action for published/active
+                routes (Start Run / Resume Run), sized and coloured to be the
+                unmistakable primary action; a plain preview Navigate otherwise. */}
             <button
-              onClick={() => {
-                if (!canNavigate) {
-                  alert('Route must have waypoints and navigation data. Please edit the route to add stops.');
-                  return;
-                }
-                primeGeolocationPermission();
-                navigate(`/routes/${route.id}/navigate`);
-              }}
+              onClick={handleNavigateClick}
               disabled={!canNavigate}
+              title={!canNavigate ? 'Route must have waypoints and navigation data. Please edit the route to add stops.' : undefined}
               style={{
                 padding: '0.875rem 1rem',
+                gridColumn: isGoLiveAction ? '1 / -1' : undefined,
                 background: canNavigate
-                  ? `linear-gradient(135deg, ${COLORS.skyBlue} 0%, ${COLORS.oceanBlue} 100%)`
+                  ? isGoLiveAction
+                    ? `linear-gradient(135deg, ${COLORS.fireRed} 0%, ${COLORS.fireRedDark} 100%)`
+                    : `linear-gradient(135deg, ${COLORS.skyBlue} 0%, ${COLORS.oceanBlue} 100%)`
                   : COLORS.neutral200,
                 color: canNavigate ? 'white' : COLORS.neutral700,
                 border: 'none',
                 borderRadius: FLOATING_PANEL.borderRadius.button,
-                fontSize: '0.875rem',
-                fontWeight: 600,
+                fontSize: isGoLiveAction ? '1rem' : '0.875rem',
+                fontWeight: 700,
                 cursor: canNavigate ? 'pointer' : 'not-allowed',
-                boxShadow: canNavigate ? '0 4px 12px rgba(41, 182, 246, 0.3)' : 'none',
+                boxShadow: canNavigate
+                  ? isGoLiveAction ? '0 6px 16px rgba(211, 47, 47, 0.4)' : '0 4px 12px rgba(41, 182, 246, 0.3)'
+                  : 'none',
                 transition: 'transform 0.2s',
                 opacity: canNavigate ? 1 : 0.6,
               }}
               onMouseEnter={(e) => canNavigate && (e.currentTarget.style.transform = 'translateY(-2px)')}
               onMouseLeave={(e) => canNavigate && (e.currentTarget.style.transform = 'translateY(0)')}
             >
-              🧭 Navigate
+              {navigateLabel}
             </button>
 
             {/* Preview Instructions Button */}
@@ -607,30 +648,42 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               👁️ Preview
             </button>
 
-            {/* Edit Button */}
+            {/* Edit Button — disabled for live (active) routes; published
+                routes get a "this is public" confirm inside handleEditClick. */}
             <button
-              onClick={() => navigate(`/routes/${route.id}/edit`)}
+              onClick={handleEditClick}
+              disabled={!canEditRoute(route.status)}
+              title={
+                !canEditRoute(route.status)
+                  ? 'This run is currently live — end it before making changes.'
+                  : routeEditNeedsPublicWarning(route.status)
+                  ? 'This run is public — changes will show on the tracking page and poster.'
+                  : undefined
+              }
               style={{
                 padding: '0.875rem 1rem',
                 background: 'white',
-                color: COLORS.neutral900,
-                border: `2px solid ${COLORS.neutral300}`,
+                color: canEditRoute(route.status) ? COLORS.neutral900 : COLORS.neutral700,
+                border: `2px solid ${canEditRoute(route.status) ? COLORS.neutral300 : COLORS.neutral200}`,
                 borderRadius: FLOATING_PANEL.borderRadius.button,
                 fontSize: '0.875rem',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: canEditRoute(route.status) ? 'pointer' : 'not-allowed',
+                opacity: canEditRoute(route.status) ? 1 : 0.6,
                 transition: 'all 0.2s',
               }}
               onMouseEnter={(e) => {
+                if (!canEditRoute(route.status)) return;
                 e.currentTarget.style.borderColor = COLORS.fireRed;
                 e.currentTarget.style.color = COLORS.fireRed;
               }}
               onMouseLeave={(e) => {
+                if (!canEditRoute(route.status)) return;
                 e.currentTarget.style.borderColor = COLORS.neutral300;
                 e.currentTarget.style.color = COLORS.neutral900;
               }}
             >
-              ✏️ Edit
+              {canEditRoute(route.status) ? '✏️ Edit' : '🔒 Edit'}
             </button>
 
             {/* Share Button */}
@@ -743,33 +796,18 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               </button>
             )}
 
-            {route.status === 'published' && (
-              <button
-                onClick={() => handleStatusChange('active')}
-                style={{
-                  flex: 1,
-                  minWidth: '140px',
-                  padding: '0.75rem 1rem',
-                  background: `linear-gradient(135deg, ${COLORS.fireRed} 0%, ${COLORS.fireRedDark} 100%)`,
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: FLOATING_PANEL.borderRadius.button,
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(211, 47, 47, 0.3)',
-                  transition: 'transform 0.2s',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-              >
-                🎅 Start Tracking
-              </button>
-            )}
+            {/* Going live is handled by the primary Navigate/Start Run button
+                above (which opens the navigator, where tracking actually
+                begins) — no separate "start" action here, so there's only
+                ever one path to going live. */}
 
             {route.status === 'active' && (
               <button
-                onClick={() => handleStatusChange('completed')}
+                onClick={() => {
+                  if (window.confirm('End this run now? The public tracking page will show the run as finished.')) {
+                    handleStatusChange('completed');
+                  }
+                }}
                 style={{
                   flex: 1,
                   minWidth: '140px',
@@ -786,7 +824,7 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
                 onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
-                ✅ End Tracking
+                🏁 End Run
               </button>
             )}
 
@@ -950,27 +988,39 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
               </div>
             )}
 
-            {/* Delete Button */}
+            {/* Delete Button — disabled for live/published routes (see
+                canDeleteRoute); those must be ended/unpublished first. */}
             <button
-              onClick={() => setDeleteConfirmOpen(true)}
+              onClick={() => canDeleteRoute(route.status) && setDeleteConfirmOpen(true)}
+              disabled={!canDeleteRoute(route.status)}
+              title={
+                !canDeleteRoute(route.status)
+                  ? route.status === 'active'
+                    ? 'This run is currently live — end it before deleting.'
+                    : 'This run is published and public — it can\'t be deleted while published.'
+                  : undefined
+              }
               style={{
                 flex: 1,
                 minWidth: '140px',
                 padding: '0.75rem 1rem',
                 background: 'white',
-                color: COLORS.fireRed,
-                border: `2px solid ${COLORS.fireRed}`,
+                color: canDeleteRoute(route.status) ? COLORS.fireRed : COLORS.neutral700,
+                border: `2px solid ${canDeleteRoute(route.status) ? COLORS.fireRed : COLORS.neutral300}`,
                 borderRadius: FLOATING_PANEL.borderRadius.button,
                 fontSize: '0.875rem',
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: canDeleteRoute(route.status) ? 'pointer' : 'not-allowed',
+                opacity: canDeleteRoute(route.status) ? 1 : 0.6,
                 transition: 'all 0.2s',
               }}
               onMouseEnter={(e) => {
+                if (!canDeleteRoute(route.status)) return;
                 e.currentTarget.style.background = COLORS.fireRed;
                 e.currentTarget.style.color = 'white';
               }}
               onMouseLeave={(e) => {
+                if (!canDeleteRoute(route.status)) return;
                 e.currentTarget.style.background = 'white';
                 e.currentTarget.style.color = COLORS.fireRed;
               }}
@@ -1083,5 +1133,88 @@ export function RouteDetail({ routeId }: RouteDetailProps) {
         </div>
       )}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle stepper — Draft → Published → Live → Done
+// ---------------------------------------------------------------------------
+
+const LIFECYCLE_STEPS: { key: 'draft' | 'published' | 'active' | 'completed'; label: string }[] = [
+  { key: 'draft', label: 'Draft' },
+  { key: 'published', label: 'Published' },
+  { key: 'active', label: 'Live' },
+  { key: 'completed', label: 'Done' },
+];
+
+const LIFECYCLE_NEXT_ACTION: Record<Route['status'], string> = {
+  draft: 'Next: publish this run to make it public',
+  published: 'Next: start the run to go live for the public',
+  active: 'Run is live — end it when Santa\'s finished',
+  completed: 'Run complete',
+  archived: 'Run complete and archived',
+};
+
+/**
+ * Compact "you are here" indicator for a route's status lifecycle, with the
+ * next action called out underneath so it's never a mystery what to do next.
+ * `archived` is shown as the same completed final step (it's a completed run
+ * that's been tidied away, not a distinct stage).
+ */
+function LifecycleStepper({ status }: { status: RouteStatus }) {
+  const effectiveStatus = status === 'archived' ? 'completed' : status;
+  const currentIndex = LIFECYCLE_STEPS.findIndex(s => s.key === effectiveStatus);
+
+  return (
+    <div style={{ marginTop: '0.875rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        {LIFECYCLE_STEPS.map((step, index) => {
+          const isDone = index < currentIndex;
+          const isCurrent = index === currentIndex;
+          const dotColor = isDone || isCurrent
+            ? (step.key === 'active' ? COLORS.fireRed : COLORS.christmasGreen)
+            : COLORS.neutral300;
+          return (
+            <div key={step.key} style={{ display: 'flex', alignItems: 'center', flex: index < LIFECYCLE_STEPS.length - 1 ? 1 : undefined }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+                <div
+                  aria-hidden="true"
+                  style={{
+                    width: isCurrent ? '14px' : '10px',
+                    height: isCurrent ? '14px' : '10px',
+                    borderRadius: '50%',
+                    backgroundColor: dotColor,
+                    boxShadow: isCurrent ? `0 0 0 3px ${dotColor}33` : 'none',
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{
+                  fontSize: '0.6875rem',
+                  fontWeight: isCurrent ? 700 : 500,
+                  color: isCurrent ? COLORS.neutral900 : COLORS.neutral700,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {step.label}
+                </span>
+              </div>
+              {index < LIFECYCLE_STEPS.length - 1 && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    flex: 1,
+                    height: '2px',
+                    marginBottom: '1.1rem',
+                    backgroundColor: index < currentIndex ? COLORS.christmasGreen : COLORS.neutral300,
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: COLORS.neutral700, textAlign: 'center' }}>
+        {LIFECYCLE_NEXT_ACTION[status]}
+      </p>
+    </div>
   );
 }

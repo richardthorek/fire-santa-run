@@ -8,7 +8,10 @@ import {
   generateWaypointId,
   generateShareableLink,
   canEditRoute,
+  routeEditNeedsPublicWarning,
   canPublishRoute,
+  getPublishBlockReason,
+  isDateInPast,
   canStartRoute,
   canDeleteRoute,
   sortWaypoints,
@@ -23,6 +26,9 @@ import {
   sortRoutes,
   type RouteFilterOptions,
 } from '../routeHelpers';
+
+/** Far-future date so publish-date checks never flake as the calendar advances. */
+const FUTURE_DATE = '2099-12-24';
 import type { Route, Waypoint, RouteStatus } from '../../types';
 
 describe('routeHelpers', () => {
@@ -79,20 +85,45 @@ describe('routeHelpers', () => {
       expect(canEditRoute('draft')).toBe(true);
     });
 
-    it('should not allow editing published routes', () => {
-      expect(canEditRoute('published')).toBe(false);
+    it('should allow editing published routes (with a public-facing warning)', () => {
+      expect(canEditRoute('published')).toBe(true);
     });
 
-    it('should not allow editing active routes', () => {
+    it('should not allow editing active (live) routes', () => {
       expect(canEditRoute('active')).toBe(false);
     });
 
-    it('should not allow editing completed routes', () => {
-      expect(canEditRoute('completed')).toBe(false);
+    it('should allow editing completed routes', () => {
+      expect(canEditRoute('completed')).toBe(true);
     });
 
-    it('should not allow editing archived routes', () => {
-      expect(canEditRoute('archived')).toBe(false);
+    it('should allow editing archived routes', () => {
+      expect(canEditRoute('archived')).toBe(true);
+    });
+  });
+
+  describe('routeEditNeedsPublicWarning', () => {
+    it('should require a warning only for published routes', () => {
+      expect(routeEditNeedsPublicWarning('published')).toBe(true);
+      expect(routeEditNeedsPublicWarning('draft')).toBe(false);
+      expect(routeEditNeedsPublicWarning('active')).toBe(false);
+      expect(routeEditNeedsPublicWarning('completed')).toBe(false);
+      expect(routeEditNeedsPublicWarning('archived')).toBe(false);
+    });
+  });
+
+  describe('isDateInPast', () => {
+    it('should treat a far-future date as not in the past', () => {
+      expect(isDateInPast(FUTURE_DATE)).toBe(false);
+    });
+
+    it('should treat a date before today as in the past', () => {
+      expect(isDateInPast('2020-01-01')).toBe(true);
+    });
+
+    it('should treat an empty/undefined date as not in the past', () => {
+      expect(isDateInPast('')).toBe(false);
+      expect(isDateInPast(undefined)).toBe(false);
     });
   });
 
@@ -102,7 +133,7 @@ describe('routeHelpers', () => {
       brigadeId: 'brigade-1',
       name: 'Santa Run 2024',
       description: 'Annual santa run',
-      date: '2024-12-24',
+      date: FUTURE_DATE,
       startTime: '18:00',
       status: 'draft',
       waypoints: [
@@ -134,6 +165,53 @@ describe('routeHelpers', () => {
     it('should not allow publishing published route', () => {
       const route = { ...validRoute, status: 'published' as RouteStatus };
       expect(canPublishRoute(route)).toBe(false);
+    });
+
+    it('should not allow publishing a route dated in the past', () => {
+      const route = { ...validRoute, date: '2020-01-01' };
+      expect(canPublishRoute(route)).toBe(false);
+    });
+
+    it('should allow a draft to be saved (not published) with a past date', () => {
+      // validateRoute (used for plain saves) doesn't check the date is in the
+      // future — only canPublishRoute (the publish gate) does.
+      const route = { ...validRoute, date: '2020-01-01' };
+      expect(validateRoute(route).valid).toBe(true);
+    });
+  });
+
+  describe('getPublishBlockReason', () => {
+    const validRoute: Route = {
+      id: 'route-1',
+      brigadeId: 'brigade-1',
+      name: 'Santa Run 2024',
+      date: FUTURE_DATE,
+      startTime: '18:00',
+      status: 'draft',
+      waypoints: [
+        { id: 'wp1', coordinates: [0, 0], order: 0, isCompleted: false },
+        { id: 'wp2', coordinates: [1, 1], order: 1, isCompleted: false },
+      ],
+      createdAt: '2024-01-01T00:00:00Z',
+    };
+
+    it('should return an empty string when the route can be published', () => {
+      expect(getPublishBlockReason(validRoute)).toBe('');
+    });
+
+    it('should call out a past date specifically', () => {
+      const route = { ...validRoute, date: '2020-01-01' };
+      expect(getPublishBlockReason(route)).toMatch(/past/i);
+    });
+
+    it('should flag missing fields before checking the date', () => {
+      const route = { ...validRoute, name: '', date: '2020-01-01' };
+      expect(getPublishBlockReason(route)).toMatch(/complete all fields/i);
+    });
+
+    it('should reject a non-draft route', () => {
+      const route = { ...validRoute, status: 'published' as RouteStatus };
+      expect(getPublishBlockReason(route)).toMatch(/draft/i);
     });
   });
 
@@ -474,13 +552,21 @@ describe('routeHelpers', () => {
       expect(duplicateTime).toBeLessThanOrEqual(after);
     });
 
-    it('should preserve brigadeId, description, date, and other metadata', () => {
+    it('should preserve brigadeId, description, and other metadata', () => {
       const duplicate = duplicateRoute(baseRoute);
 
       expect(duplicate.brigadeId).toBe(baseRoute.brigadeId);
       expect(duplicate.description).toBe(baseRoute.description);
-      expect(duplicate.date).toBe(baseRoute.date);
       expect(duplicate.startTime).toBe(baseRoute.startTime);
+    });
+
+    it('should reset the date to next Christmas Eve rather than carry over the source date', () => {
+      // Duplicating (e.g. copying last year's run) shouldn't inherit a date
+      // that's likely already in the past and would block re-publishing.
+      const duplicate = duplicateRoute(baseRoute);
+
+      expect(duplicate.date).not.toBe(baseRoute.date);
+      expect(isDateInPast(duplicate.date)).toBe(false);
     });
 
     it('should not mutate the original route', () => {

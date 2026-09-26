@@ -12,6 +12,7 @@ import {
   searchRoutes,
   filterRoutes,
   sortRoutes,
+  canEditRoute,
   type RouteFilterOptions,
   type RouteSortOptions,
 } from '../utils/routeHelpers';
@@ -954,70 +955,73 @@ export function Dashboard() {
                   </button>
                 ) : (
                   <>
-                    {/* Show navigation button if route has navigation data */}
-                    {route.geometry && route.navigationSteps && route.navigationSteps.length > 0 ? (
-                      <>
+                    {/* Navigate doubles as the single "go live" action for
+                        published (Start Run) and active (Resume Run) routes —
+                        matches RouteDetail's primary action, with the same
+                        confirm before making Santa live for the public. */}
+                    {route.geometry && route.navigationSteps && route.navigationSteps.length > 0 && (() => {
+                      const isGoLive = route.status === 'published' || route.status === 'active';
+                      const label = route.status === 'active' ? '🔴 Resume Run' : route.status === 'published' ? '🚀 Start Run' : '🧭 Navigate';
+                      return (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (route.status === 'published' && !window.confirm(
+                              'Starting this run will make Santa live for the public — the tracking page will show real-time location. Start now?'
+                            )) {
+                              return;
+                            }
                             primeGeolocationPermission();
                             navigate(`/routes/${route.id}/navigate`);
                           }}
                           style={{
-                            flex: 1,
+                            flex: isGoLive ? '1 1 100%' : 1,
                             padding: '0.5rem',
                             border: 'none',
                             borderRadius: '8px',
-                            background: 'linear-gradient(135deg, #29B6F6 0%, #0288D1 100%)',
+                            background: isGoLive
+                              ? 'linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)'
+                              : 'linear-gradient(135deg, #29B6F6 0%, #0288D1 100%)',
                             color: 'white',
                             cursor: 'pointer',
                             fontSize: '0.875rem',
-                            fontWeight: 600,
+                            fontWeight: 700,
                           }}
                         >
-                          🧭 Navigate
+                          {label}
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/routes/${route.id}/edit`);
-                          }}
-                          style={{
-                            flex: 1,
-                            padding: '0.5rem',
-                            border: '2px solid var(--fire-red)',
-                            borderRadius: '8px',
-                            background: 'white',
-                            color: 'var(--fire-red)',
-                            cursor: 'pointer',
-                            fontSize: '0.875rem',
-                            fontWeight: 600,
-                          }}
-                        >
-                          ✏️ Edit
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/routes/${route.id}/edit`);
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '0.5rem',
-                          border: '2px solid var(--fire-red)',
-                          borderRadius: '8px',
-                          background: 'white',
-                          color: 'var(--fire-red)',
-                          cursor: 'pointer',
-                          fontSize: '0.875rem',
-                          fontWeight: 600,
-                        }}
-                      >
-                        ✏️ Edit
-                      </button>
-                    )}
+                      );
+                    })()}
+                    {/* Edit — disabled for live (active) routes; published
+                        routes get a "this is public" confirm first. */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!canEditRoute(route.status)) return;
+                        if (route.status === 'published' && !window.confirm(
+                          'This run is public — changes will show on the tracking page and poster. Continue editing?'
+                        )) {
+                          return;
+                        }
+                        navigate(`/routes/${route.id}/edit`);
+                      }}
+                      disabled={!canEditRoute(route.status)}
+                      title={!canEditRoute(route.status) ? 'This run is currently live — end it before making changes.' : undefined}
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem',
+                        border: `2px solid ${canEditRoute(route.status) ? 'var(--fire-red)' : 'var(--neutral-300)'}`,
+                        borderRadius: '8px',
+                        background: 'white',
+                        color: canEditRoute(route.status) ? 'var(--fire-red)' : 'var(--neutral-700)',
+                        cursor: canEditRoute(route.status) ? 'pointer' : 'not-allowed',
+                        opacity: canEditRoute(route.status) ? 1 : 0.6,
+                        fontSize: '0.875rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {canEditRoute(route.status) ? '✏️ Edit' : '🔒 Edit'}
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

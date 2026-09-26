@@ -92,6 +92,51 @@ const MAX_COMMENT_TEXT_LENGTH = 1000;
 const MAX_USERNAME_LENGTH = 80;
 const VALID_ROUTE_STATUSES = new Set(['draft', 'published', 'active', 'completed', 'archived']);
 
+// Statuses a route may be deleted from, and be freely edited from — mirrors
+// canDeleteRoute/canEditRoute in src/utils/routeHelpers.ts (client-side gate;
+// this is the server-side enforcement of the same rule so the API can't be
+// hit directly to delete/mutate a live or public run).
+const DELETABLE_STATUSES = new Set(['draft', 'completed', 'archived']);
+
+/** Brigades operate on Australian local time regardless of the server's own timezone. */
+const BRIGADE_TIMEZONE = 'Australia/Sydney';
+
+/** Today's date as `YYYY-MM-DD` in Australian local time (en-CA formats that way natively). */
+function todayInBrigadeTimezone(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: BRIGADE_TIMEZONE }).format(new Date());
+}
+
+/** Whether a `route.date` string (`YYYY-MM-DD`) is strictly before today, in Australian local time. */
+function isDateBeforePublishToday(dateStr: string | undefined): boolean {
+  if (!dateStr) return false;
+  return dateStr < todayInBrigadeTimezone();
+}
+
+/**
+ * Core identity of a waypoint for the purposes of detecting a structural
+ * edit (added/removed/reordered/moved/relabelled stop) vs. a progress update
+ * (isCompleted/actualArrival/estimatedArrival) that the navigator writes via
+ * the same PUT while a run is active.
+ */
+function waypointCoreEqual(a: any, b: any): boolean {
+  const coordsA = Array.isArray(a?.coordinates) ? a.coordinates : [];
+  const coordsB = Array.isArray(b?.coordinates) ? b.coordinates : [];
+  return (
+    a?.id === b?.id &&
+    a?.order === b?.order &&
+    coordsA[0] === coordsB[0] &&
+    coordsA[1] === coordsB[1] &&
+    (a?.address || '') === (b?.address || '') &&
+    (a?.name || '') === (b?.name || '') &&
+    (a?.notes || '') === (b?.notes || '')
+  );
+}
+
+function waypointsStructurallyChanged(oldWaypoints: any[], newWaypoints: any[]): boolean {
+  if (oldWaypoints.length !== newWaypoints.length) return true;
+  return oldWaypoints.some((wp, i) => !waypointCoreEqual(wp, newWaypoints[i]));
+}
+
 /** Returns an error message, or null if the payload's bounds are acceptable. */
 function validateRoutePayload(route: any): string | null {
   if (route.name !== undefined && (typeof route.name !== 'string' || route.name.length > MAX_NAME_LENGTH)) {
@@ -254,6 +299,12 @@ routesRouter.post('/', async (c) => {
     if (!authResult.santaRunEnabled) {
       return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
+    if (route.status === 'published' && isDateBeforePublishToday(route.date)) {
+      return c.json(
+        { error: 'Invalid publish date', message: 'This route\'s date is in the past — update the date before publishing.' },
+        422,
+      );
+    }
     const blocked = await moderateRoute(c, route, authResult.email || authResult.userId || 'unknown');
     if (blocked) return blocked;
     const client = await getTableClient(ROUTES_TABLE);
@@ -282,9 +333,43 @@ routesRouter.put('/:id', async (c) => {
     if (!authResult.santaRunEnabled) {
       return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
+    const client = await getTableClient(ROUTES_TABLE);
+
+    // Look up the currently-stored route (if any) to enforce lifecycle rules
+    // that depend on the *previous* state — a live/active run's waypoints
+    // can't be restructured, and a route can't be newly published with a
+    // date that's already passed. Best-effort: a route that doesn't exist
+    // yet (PUT-as-create) or a lookup failure skips these state-dependent
+    // checks rather than blocking the write.
+    let existingRoute: ReturnType<typeof entityToRoute> | null = null;
+    try {
+      const existingEntity = await client.getEntity(route.brigadeId, routeId);
+      existingRoute = entityToRoute(existingEntity);
+    } catch {
+      existingRoute = null;
+    }
+
+    if (existingRoute?.status === 'active' && Array.isArray(route.waypoints)) {
+      if (waypointsStructurallyChanged(existingRoute.waypoints, route.waypoints)) {
+        return c.json(
+          {
+            error: 'Route is live',
+            message: 'This run is currently active on the road — waypoints can\'t be changed while live. End the run first.',
+          },
+          409,
+        );
+      }
+    }
+
+    if (route.status === 'published' && existingRoute?.status !== 'published' && isDateBeforePublishToday(route.date)) {
+      return c.json(
+        { error: 'Invalid publish date', message: 'This route\'s date is in the past — update the date before publishing.' },
+        422,
+      );
+    }
+
     const blocked = await moderateRoute(c, { ...route, id: routeId }, authResult.email || authResult.userId || 'unknown');
     if (blocked) return blocked;
-    const client = await getTableClient(ROUTES_TABLE);
     await client.updateEntity(routeToEntity({ ...route, id: routeId }), 'Merge');
     console.log(`Updated route: ${routeId} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);
     return c.json(route);
@@ -305,6 +390,21 @@ routesRouter.delete('/:id', async (c) => {
     const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'manage_routes');
     if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
     const client = await getTableClient(ROUTES_TABLE);
+
+    try {
+      const existingEntity = await client.getEntity(brigadeId, routeId);
+      const existingRoute = entityToRoute(existingEntity);
+      if (!DELETABLE_STATUSES.has(existingRoute.status)) {
+        const message = existingRoute.status === 'active'
+          ? 'This run is currently live — end it before deleting.'
+          : 'This run is published and public — it can\'t be deleted while published.';
+        return c.json({ error: 'Route cannot be deleted', message }, 409);
+      }
+    } catch (error: any) {
+      if (error.statusCode === 404) return c.json({ error: 'Route not found' }, 404);
+      throw error;
+    }
+
     await client.deleteEntity(brigadeId, routeId);
     console.log(`Deleted route: ${routeId} for brigade: ${brigadeId} by user: ${authResult.userId}`);
     return new Response(null, { status: 204 });

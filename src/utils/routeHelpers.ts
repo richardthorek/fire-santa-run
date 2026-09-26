@@ -51,22 +51,69 @@ export function generateShareableLink(routeId: string): string {
 }
 
 /**
- * Check if a route can be edited (only draft routes can be edited)
+ * Check if a route can be edited. Live (active) runs are broadcasting to the
+ * public and to the navigator in real time — waypoint/detail edits are
+ * blocked entirely while active. Published, draft, completed and archived
+ * routes may all be edited; a published route is already public, so callers
+ * should pair this with {@link routeEditNeedsPublicWarning} to warn the user
+ * before letting them in.
  */
 export function canEditRoute(status: RouteStatus): boolean {
-  return status === 'draft';
+  return status !== 'active';
 }
 
 /**
- * Check if a route can be published
+ * Whether editing this route should be preceded by a "this is public" warning
+ * — true only for published routes, which are already visible on the
+ * tracking page and poster.
+ */
+export function routeEditNeedsPublicWarning(status: RouteStatus): boolean {
+  return status === 'published';
+}
+
+/** Local (not UTC) today as `YYYY-MM-DD`, matching the format `route.date` is stored in. */
+export function getTodayLocalDateString(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** Whether a `route.date` string (`YYYY-MM-DD`) is strictly before today, locally. */
+export function isDateInPast(dateStr: string | undefined): boolean {
+  if (!dateStr) return false;
+  return dateStr < getTodayLocalDateString();
+}
+
+/**
+ * Check if a route can be published. Drafts may be saved with any date, but
+ * publishing (making the run public) with a date already in the past is
+ * blocked — it can never be a real, upcoming Santa run.
  */
 export function canPublishRoute(route: Route): boolean {
   return (
     route.status === 'draft' &&
     route.waypoints.length >= 2 &&
     route.name.trim() !== '' &&
-    route.date !== ''
+    route.date !== '' &&
+    !isDateInPast(route.date)
   );
+}
+
+/**
+ * Human-readable reason a route currently can't be published, or '' if it can.
+ * Used for button tooltips / inline messages.
+ */
+export function getPublishBlockReason(route: Route): string {
+  if (route.status !== 'draft') return 'Only draft routes can be published';
+  if (!route.name.trim() || route.waypoints.length < 2 || route.date === '') {
+    return 'Complete all fields and add at least 2 waypoints';
+  }
+  if (isDateInPast(route.date)) {
+    return 'Route date is in the past — choose a current or future date to publish';
+  }
+  return '';
 }
 
 /**
@@ -191,11 +238,16 @@ export function createNewRoute(brigadeId: string, createdBy?: string): Route {
  * Timestamps and sharing metadata from the original are not carried over.
  */
 export function duplicateRoute(source: Route): Route {
+  // Reset the date too (e.g. copying last year's run): the copy is a fresh
+  // draft and shouldn't inherit a date that's likely already in the past, or
+  // block publishing later. Defaults to next Christmas Eve, same as a new route.
+  const nextChristmas = getNextChristmasEveAt4pm();
   return {
     ...source,
     id: generateRouteId(),
     name: `${source.name} - Copy`,
     status: 'draft',
+    date: nextChristmas.date,
     waypoints: source.waypoints.map(wp => ({ ...wp, isCompleted: false, actualArrival: undefined })),
     createdAt: new Date().toISOString(),
     publishedAt: undefined,
@@ -380,42 +432,44 @@ export function calculateRealTimeETAs(
   const navSettings = settings || route.navigationSettings || DEFAULT_NAVIGATION_SETTINGS;
   const stopDurationSeconds = navSettings.stopDurationMinutes * 60;
 
-  const updatedWaypoints = [...route.waypoints];
   let cumulativeTime = currentTime.getTime();
 
-  updatedWaypoints.forEach((waypoint, index) => {
+  // Immutable: map to new waypoint objects rather than mutating in place.
+  // Mutating the shared waypoint objects left the route's own `waypoints`
+  // array containing the same object references it started with, which
+  // masked identity-based re-render checks and, on reroute, corrupted the
+  // waypoints the caller (`route.waypoints`) still held a reference to.
+  return route.waypoints.map((waypoint, index) => {
     if (index < currentWaypointIndex) {
       // Already completed - keep existing actual or estimated arrival
-      return;
+      return waypoint;
     }
 
     if (index === currentWaypointIndex) {
       // Next waypoint - calculate based on remaining distance and current speed
       // This is a simplified calculation; more accurate would use remaining steps
-      waypoint.estimatedArrival = new Date(cumulativeTime).toISOString();
-    } else {
-      // Future waypoints - add stop duration and travel time
-      cumulativeTime += stopDurationSeconds * 1000;
-
-      // Calculate travel time (simplified approach using even distribution)
-      const totalSteps = route.navigationSteps!.length;
-      const waypointSegments = route.waypoints.length - 1;
-      const stepsPerSegment = totalSteps / waypointSegments;
-
-      const segmentStartIdx = Math.floor((index - 1) * stepsPerSegment);
-      const segmentEndIdx = Math.floor(index * stepsPerSegment);
-
-      let segmentDuration = 0;
-      for (let i = segmentStartIdx; i < segmentEndIdx && i < totalSteps; i++) {
-        segmentDuration += calculateStepDuration(route.navigationSteps![i], navSettings);
-      }
-
-      cumulativeTime += segmentDuration * 1000;
-      waypoint.estimatedArrival = new Date(cumulativeTime).toISOString();
+      return { ...waypoint, estimatedArrival: new Date(cumulativeTime).toISOString() };
     }
-  });
 
-  return updatedWaypoints;
+    // Future waypoints - add stop duration and travel time
+    cumulativeTime += stopDurationSeconds * 1000;
+
+    // Calculate travel time (simplified approach using even distribution)
+    const totalSteps = route.navigationSteps!.length;
+    const waypointSegments = route.waypoints.length - 1;
+    const stepsPerSegment = totalSteps / waypointSegments;
+
+    const segmentStartIdx = Math.floor((index - 1) * stepsPerSegment);
+    const segmentEndIdx = Math.floor(index * stepsPerSegment);
+
+    let segmentDuration = 0;
+    for (let i = segmentStartIdx; i < segmentEndIdx && i < totalSteps; i++) {
+      segmentDuration += calculateStepDuration(route.navigationSteps![i], navSettings);
+    }
+
+    cumulativeTime += segmentDuration * 1000;
+    return { ...waypoint, estimatedArrival: new Date(cumulativeTime).toISOString() };
+  });
 }
 
 /**

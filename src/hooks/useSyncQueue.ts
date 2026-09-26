@@ -12,8 +12,9 @@
  *   - If an individual action fails, the hook continues processing the remaining
  *     actions rather than aborting the whole sync.
  *   - Failed actions increment their `retryCount`; once `MAX_RETRY_COUNT` is
- *     reached the action is permanently dropped from the queue to prevent it from
- *     blocking future syncs.
+ *     reached the action stops being auto-retried but is kept (not deleted)
+ *     in the same persisted IndexedDB queue, exposed as `failedActions` so
+ *     the UI (SyncStatusBanner) can offer a manual Retry/Dismiss.
  *   - `lastSyncError` is set to the most recent failure message. Use `clearError`
  *     to dismiss it (e.g., after the user has read it or triggered a retry).
  *
@@ -26,7 +27,6 @@ import { useNetworkStatus } from './useNetworkStatus';
 import { storageAdapter } from '../storage';
 import {
   getPendingActions,
-  getPendingCount,
   dequeueAction,
   incrementRetryCount,
   deduplicateActions,
@@ -48,7 +48,7 @@ const MAX_RETRY_COUNT = 3;
 const RECONNECT_DELAY_MS = 500;
 
 export interface SyncQueueState {
-  /** Number of actions currently waiting in the queue. */
+  /** Number of actions currently waiting (and still being retried) in the queue. */
   pendingCount: number;
   /** True while the queue is being drained after reconnection. */
   isSyncing: boolean;
@@ -56,10 +56,19 @@ export interface SyncQueueState {
   lastSyncError: string | null;
   /** True immediately after a successful sync (auto-clears after 4 s). */
   syncComplete: boolean;
+  /**
+   * Actions that failed every automatic retry and have given up — still
+   * persisted in the queue, awaiting a manual retry or dismiss.
+   */
+  failedActions: SyncAction[];
   /** Manually trigger a sync attempt (e.g., from a retry button). */
   processQueue: () => Promise<void>;
   /** Clear the last sync error. */
   clearError: () => void;
+  /** Re-queue every failed action (retryCount reset to 0) and sync immediately. */
+  retryFailedActions: () => Promise<void>;
+  /** Permanently discard every failed action without retrying it. */
+  dismissFailedActions: () => Promise<void>;
 }
 
 export function useSyncQueue(): SyncQueueState {
@@ -68,23 +77,30 @@ export function useSyncQueue(): SyncQueueState {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
   const [syncComplete, setSyncComplete] = useState(false);
+  const [failedActions, setFailedActions] = useState<SyncAction[]>([]);
   const isSyncingRef = useRef(false);
 
-  // Refresh the pending count from the queue.
+  // Refresh pending/failed counts from the queue. An action that has used up
+  // all its automatic retries is left in the queue (not deleted) so it
+  // survives reloads, but is split out here as "failed" rather than "pending".
   const refreshCount = useCallback(async () => {
-    const count = await getPendingCount();
-    setPendingCount(count);
+    const actions = await getPendingActions();
+    const failed = actions.filter((a) => a.retryCount >= MAX_RETRY_COUNT);
+    setFailedActions(failed);
+    setPendingCount(actions.length - failed.length);
   }, []);
 
-  // Load the initial count on mount.
+  // Load the initial counts on mount (also restores any failed actions left
+  // over from a previous session).
   useEffect(() => {
-    getPendingCount().then((count) => setPendingCount(count));
-  }, []);
+    refreshCount();
+  }, [refreshCount]);
 
   const processQueue = useCallback(async () => {
     if (isSyncingRef.current) return;
 
-    const actions = await getPendingActions();
+    const allActions = await getPendingActions();
+    const actions = allActions.filter((a) => a.retryCount < MAX_RETRY_COUNT);
     if (actions.length === 0) {
       await refreshCount();
       return;
@@ -111,12 +127,11 @@ export function useSyncQueue(): SyncQueueState {
         await dequeueAction(action.id);
       } catch (err) {
         encounteredError = true;
-        if (action.retryCount >= MAX_RETRY_COUNT) {
-          // Give up on this action after too many failures.
-          await dequeueAction(action.id);
-          console.warn('[SyncQueue] Dropping action after max retries:', action);
-        } else {
-          await incrementRetryCount(action.id);
+        await incrementRetryCount(action.id);
+        if (action.retryCount + 1 >= MAX_RETRY_COUNT) {
+          // Give up retrying automatically, but keep it persisted so the
+          // user can retry or dismiss it manually via SyncStatusBanner.
+          console.warn('[SyncQueue] Action failed after max retries, awaiting manual retry:', action);
         }
         const message = err instanceof Error ? err.message : 'Sync failed';
         setLastSyncError(message);
@@ -132,6 +147,25 @@ export function useSyncQueue(): SyncQueueState {
     if (!encounteredError) {
       setSyncComplete(true);
     }
+  }, [refreshCount]);
+
+  const retryFailedActions = useCallback(async () => {
+    const current = await getPendingActions();
+    const failed = current.filter((a) => a.retryCount >= MAX_RETRY_COUNT);
+    // Re-enqueue with a fresh retryCount of 0, then drop the old, exhausted entries.
+    for (const action of failed) {
+      await enqueueAction({ type: action.type, brigadeId: action.brigadeId, payload: action.payload });
+      await dequeueAction(action.id);
+    }
+    await refreshCount();
+    await processQueue();
+  }, [refreshCount, processQueue]);
+
+  const dismissFailedActions = useCallback(async () => {
+    const current = await getPendingActions();
+    const failed = current.filter((a) => a.retryCount >= MAX_RETRY_COUNT);
+    await Promise.all(failed.map((a) => dequeueAction(a.id)));
+    await refreshCount();
   }, [refreshCount]);
 
   // Auto-dismiss the syncComplete flag after 4 seconds.
@@ -155,7 +189,17 @@ export function useSyncQueue(): SyncQueueState {
 
   const clearError = useCallback(() => setLastSyncError(null), []);
 
-  return { pendingCount, isSyncing, lastSyncError, syncComplete, processQueue, clearError };
+  return {
+    pendingCount,
+    isSyncing,
+    lastSyncError,
+    syncComplete,
+    failedActions,
+    processQueue,
+    clearError,
+    retryFailedActions,
+    dismissFailedActions,
+  };
 }
 
 // ---------------------------------------------------------------------------
