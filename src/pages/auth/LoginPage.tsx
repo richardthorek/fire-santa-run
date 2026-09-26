@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- sanitizeReturnUrl/resolveReturnUrl are exported for unit testing (see __tests__/returnUrl.test.ts) */
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
@@ -5,6 +6,42 @@ import { browserSupportsWebAuthn } from '@simplewebauthn/browser';
 import { COLORS } from '../../utils/constants';
 
 type Mode = 'login' | 'signup';
+
+interface RouterFromState {
+  pathname?: string;
+  search?: string;
+  hash?: string;
+}
+
+/**
+ * Only accept an absolute-path `returnUrl` ('/dashboard', '/routes/new?x=1').
+ * Rejects anything that isn't rooted at '/' (e.g. a bare domain, `javascript:`,
+ * or a relative path) and protocol-relative URLs ('//evil.example.com') that
+ * browsers resolve to an off-site host despite starting with a single slash.
+ */
+export function sanitizeReturnUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (!value.startsWith('/') || value.startsWith('//')) return null;
+  return value;
+}
+
+/**
+ * Resolves where to send the user after sign-in: an explicit `?returnUrl=`
+ * query param (sanitised), else the full pathname+search+hash of the page
+ * ProtectedRoute redirected them from (`location.state.from`), else the
+ * dashboard.
+ */
+export function resolveReturnUrl(queryReturnUrl: string | null | undefined, state: unknown): string {
+  const sanitized = sanitizeReturnUrl(queryReturnUrl);
+  if (sanitized) return sanitized;
+
+  const from = (state as { from?: RouterFromState } | null | undefined)?.from;
+  if (from?.pathname) {
+    return `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`;
+  }
+
+  return '/dashboard';
+}
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -48,7 +85,7 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
 
   const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
-  const returnUrl = searchParams.get('returnUrl') || (location.state as { from?: { pathname?: string } })?.from?.pathname || '/dashboard';
+  const returnUrl = resolveReturnUrl(searchParams.get('returnUrl'), location.state);
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {

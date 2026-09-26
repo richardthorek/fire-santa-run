@@ -10,6 +10,7 @@ import { AppHeader } from './AppHeader';
 import { OfflineBanner } from './OfflineBanner';
 import { SyncStatusBanner } from './SyncStatusBanner';
 import { SkipLink } from './SkipLink';
+import { SessionExpiryBanner } from './SessionExpiryBanner';
 
 export interface AppLayoutProps {
   /**
@@ -29,6 +30,7 @@ export function AppLayout({ children, showHeader = true }: AppLayoutProps) {
       <SkipLink />
       <OfflineBanner />
       <SyncStatusBanner />
+      <SessionExpiryBanner />
       {showHeader && <AppHeader />}
       <main id="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
         {children}

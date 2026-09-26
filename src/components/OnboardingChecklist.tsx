@@ -51,8 +51,9 @@ function buildSteps(brigade: Brigade, routes: Route[]): Step[] {
   const hasRoute = routes.some(
     (r) => r.status === 'published' || r.status === 'active' || r.status === 'completed',
   );
+  const hasSlug = Boolean(brigade.slug);
 
-  return [
+  const steps: Step[] = [
     {
       id: 'profile',
       label: 'Set up your brigade profile (logo, contact details)',
@@ -65,13 +66,21 @@ function buildSteps(brigade: Brigade, routes: Route[]): Step[] {
       done: hasRoute,
       cta: { label: 'Create route', to: '/routes/new' },
     },
-    {
+  ];
+
+  // Only offer the "view your page" link once the brigade has a slug — an
+  // empty slug would otherwise link to `/brigade/` (the list page, not a
+  // brigade page).
+  if (hasSlug) {
+    steps.push({
       id: 'share',
       label: 'Share your brigade page with your community',
       done: false, // Always actionable — can't detect externally
       cta: { label: 'View your page', to: `/brigade/${brigade.slug}` },
-    },
-  ];
+    });
+  }
+
+  return steps;
 }
 
 export function OnboardingChecklist({ brigade, routes }: OnboardingChecklistProps) {
