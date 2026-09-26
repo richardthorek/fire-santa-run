@@ -498,7 +498,11 @@ pre-run/app-wide warning when under two hours of sign-in remain. Viewers
 reconnect after sleep/network loss, see "last seen" when Santa's signal is
 stale and "running late" past start time. Live runs are locked from
 edit/delete and past-dated runs can't be published (client + server); "Start
-Run" is the single go-live action.
+Run" is the single go-live action. The navigator keeps the Station Manager
+sign-in alive (refresh on open, every 30 min, and on wake) via SM's new
+`POST /api/auth/refresh` (Station-Manager#865, 7-day absolute cap, membership
+re-checked) — SM must deploy first; until then Santa Run falls back to the
+expiry warnings.
 
 ## Roadmap — what's next
 
@@ -677,11 +681,6 @@ before relying on the unified suite login in production.
 
 ## Open decisions
 
-- **Suite sign-in lifetime vs run night.** The Station Manager JWT and
-  `sk_session` cookie both last 24h with no refresh endpoint, so a crew signed
-  in the afternoon before can lapse mid-run. Santa Run now warns (<2h left) and
-  surfaces broadcast auth failures, but only a Station Manager change fixes it:
-  a refresh endpoint, or a sliding session while a broadcast is active.
 - Server route guards (live-run lock, past-date publish) have no automated
   tests — `server/` has no test runner yet.
 - When to migrate the public map to open tiles (driven by Mapbox usage).
