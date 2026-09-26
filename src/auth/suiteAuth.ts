@@ -86,11 +86,26 @@ export function getStoredToken(): string | null {
   }
 }
 
+/** Fired on `window` whenever the stored suite token changes (see storeToken). */
+export const TOKEN_CHANGED_EVENT = 'suiteauth:token-changed';
+
+/**
+ * Fired on `window` (CustomEvent<SuiteSession>) after a successful
+ * refreshSession() call, so AuthContext can pick up any changed identity
+ * fields without re-deriving them from the token alone.
+ */
+export const SESSION_REFRESHED_EVENT = 'suiteauth:session-refreshed';
+
 function storeToken(token: string): void {
   try {
     localStorage.setItem(TOKEN_KEY, token);
   } catch {
     // Storage unavailable (private mode) — session lasts until reload only.
+  }
+  try {
+    window.dispatchEvent(new Event(TOKEN_CHANGED_EVENT));
+  } catch {
+    // Non-browser environment — nothing listening anyway.
   }
 }
 
@@ -276,6 +291,54 @@ export async function restoreSession(): Promise<SuiteSession | null> {
     // Service unreachable — keep the token; the user may be offline.
     return null;
   }
+}
+
+/**
+ * Refresh the stored suite token via POST /api/auth/refresh — used to keep a
+ * brigade member's sign-in alive through a live Santa run (see
+ * useSessionKeepAlive). Returns the refreshed session and stores its new
+ * token on success. Returns null on 401 (session expired/max age reached) or
+ * 404 (user gone) — callers should treat that as "not signed in". On a
+ * network error the stored token is left untouched, since the device may
+ * just be briefly offline mid-run.
+ */
+export async function refreshSession(): Promise<SuiteSession | null> {
+  if (import.meta.env.VITE_DEV_MODE === 'true') return null;
+
+  const token = getStoredToken();
+  if (!token) return null;
+
+  let res: Response;
+  try {
+    res = await fetch(`${SUITE_AUTH_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+      // A stalled request on a weak mobile signal must not wedge the
+      // keep-alive's single-flight guard for the rest of the run.
+      signal: timeoutSignal(SESSION_RESTORE_TIMEOUT_MS),
+    });
+  } catch {
+    // Network error or timeout — keep the existing token, don't sign the user out.
+    return null;
+  }
+  if (!res.ok) return null;
+
+  let body: MeResponse & { token?: string };
+  try {
+    body = (await res.json()) as MeResponse & { token?: string };
+  } catch {
+    return null;
+  }
+  if (!body.token) return null;
+  storeToken(body.token);
+  const session = toSession(body.token, body);
+  try {
+    window.dispatchEvent(new CustomEvent(SESSION_REFRESHED_EVENT, { detail: session }));
+  } catch {
+    // Non-browser environment — nothing listening anyway.
+  }
+  return session;
 }
 
 /** Switch the active organization for a multi-org member; reissues the session. */

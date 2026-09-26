@@ -5,8 +5,9 @@
  * navigator doesn't get logged out mid-run.
  */
 
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { clearStoredToken } from '../auth/suiteAuth';
+import { clearStoredToken, refreshSession } from '../auth/suiteAuth';
 import { useSessionExpiry } from '../hooks/useSessionExpiry';
 
 const WARNING_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -24,15 +25,29 @@ export function SessionExpiryBanner() {
   const navigate = useNavigate();
   const location = useLocation();
   const { remainingMs } = useSessionExpiry();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   if (isDevMode || remainingMs === null || remainingMs >= WARNING_THRESHOLD_MS) {
     return null;
   }
 
-  const handleReSignIn = () => {
+  const goToLogin = () => {
     clearStoredToken();
     const returnUrl = `${location.pathname}${location.search}${location.hash}`;
     navigate(`/login?returnUrl=${encodeURIComponent(returnUrl)}`, { replace: true });
+  };
+
+  const handleReSignIn = async () => {
+    // Try a refresh first — if the token is still valid this keeps the
+    // member signed in without leaving the run screen. Only fall back to a
+    // full sign-in redirect once the token is actually beyond refreshing.
+    setIsRefreshing(true);
+    try {
+      const session = await refreshSession();
+      if (!session) goToLogin();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   return (
@@ -62,6 +77,7 @@ export function SessionExpiryBanner() {
       <button
         type="button"
         onClick={handleReSignIn}
+        disabled={isRefreshing}
         style={{
           background: 'var(--summer-gold-ink, #241A00)',
           color: 'var(--summer-gold, #F6A609)',
@@ -70,11 +86,12 @@ export function SessionExpiryBanner() {
           padding: '0.4rem 0.9rem',
           fontWeight: 700,
           fontSize: '0.8rem',
-          cursor: 'pointer',
+          cursor: isRefreshing ? 'default' : 'pointer',
           whiteSpace: 'nowrap',
+          opacity: isRefreshing ? 0.7 : 1,
         }}
       >
-        Re-sign in
+        {remainingMs <= 0 ? 'Sign in again' : 'Stay signed in'}
       </button>
     </div>
   );

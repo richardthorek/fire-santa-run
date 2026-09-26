@@ -5,7 +5,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useNavigation, useRoutes, useLocationBroadcast, useMediaSession, useSessionExpiry } from '../hooks';
+import { useNavigation, useRoutes, useLocationBroadcast, useMediaSession, useSessionExpiry, useSessionKeepAlive } from '../hooks';
 import { useWakeLock } from '../utils/wakeLock';
 import { voiceService } from '../utils/voice';
 import { NavigationHeader } from '../components/NavigationHeader';
@@ -58,6 +58,12 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   const navigate = useNavigate();
   const location = useLocation();
   const { remainingMs: sessionRemainingMs } = useSessionExpiry();
+  // Keep the Station Manager sign-in alive for the whole time the navigator
+  // is mounted: an immediate refresh on arrival covers a run starting on a
+  // sign-in that's been sitting idle, and the ongoing interval/visibility
+  // checks keep it alive through a long run (including before the operator
+  // taps to enable location).
+  useSessionKeepAlive(true);
   const sessionExpiresSoon =
     import.meta.env.VITE_DEV_MODE !== 'true' &&
     sessionRemainingMs !== null &&

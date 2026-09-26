@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWebPubSub, type BroadcastSendResult } from './useWebPubSub';
 import { useNetworkStatus } from './useNetworkStatus';
-import { restoreSession } from '../auth/suiteAuth';
+import { refreshSession, restoreSession } from '../auth/suiteAuth';
 import type { RouteProgress, LocationBroadcast, RunStatus } from '../types';
 import type { GeolocationCoordinates } from './useGeolocation';
 
@@ -81,6 +81,13 @@ export function useLocationBroadcast({
       }
       authRestoreAttemptedRef.current = true;
       try {
+        // A cheap token refresh first (no cookie/session lookup) — falls back
+        // to the fuller silent SSO/token restore if the token itself is
+        // beyond refreshing (expired past its max age, or the user is gone).
+        const refreshed = await refreshSession();
+        if (refreshed) {
+          return 'retry';
+        }
         const session = await restoreSession();
         if (session) {
           return 'retry';

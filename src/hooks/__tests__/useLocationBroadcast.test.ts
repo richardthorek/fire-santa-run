@@ -42,6 +42,7 @@ vi.mock('../useWebPubSub', () => ({
 
 vi.mock('../../auth/suiteAuth', () => ({
   restoreSession: vi.fn().mockResolvedValue(null),
+  refreshSession: vi.fn().mockResolvedValue(null),
 }));
 
 // Default: device is online
