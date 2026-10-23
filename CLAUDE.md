@@ -74,3 +74,7 @@ Production runs on **Azure Container Apps + Hono** (`server/`), scale-to-zero, s
 - Don't create new top-level planning docs — extend `MASTER_PLAN.md`.
 - Don't commit secrets, tokens, or connection strings.
 - Don't commit generated artifacts (lighthouse reports, `dist/`, coverage).
+
+## Suite knowledge base
+
+Before substantive changes, consider the guidance in the private repo `richardthorek/claude-knowledge`: `practices/ci-cd.md` (CI/CD), `practices/azure-choices.md` (hosting and data), `practices/token-efficiency.md` (model routing), `practices/design.md` (UI), and `setup/decisions.md`. Where this repo deliberately differs, keep the difference and say why in the PR description.
