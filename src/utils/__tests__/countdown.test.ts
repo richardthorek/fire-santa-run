@@ -3,7 +3,10 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { getCountdownTime, padCountdownUnit, formatRouteStartDateTime } from '../countdown';
+import { getCountdownTime, padCountdownUnit, formatRouteStartDateTime, zonedDateTimeToEpoch } from '../countdown';
+
+/** The fake clocks above are local wall-clock times, so these tests read the start in the machine's zone. */
+const LOCAL_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 describe('countdown utilities', () => {
   afterEach(() => {
@@ -16,7 +19,7 @@ describe('countdown utilities', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2024-12-25T00:00:00'));
 
-      const result = getCountdownTime('2024-12-24', '18:00');
+      const result = getCountdownTime('2024-12-24', '18:00', LOCAL_ZONE);
 
       expect(result.total).toBe(0);
       expect(result.hours).toBe(0);
@@ -28,7 +31,7 @@ describe('countdown utilities', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2024-12-24T18:00:00.000'));
 
-      const result = getCountdownTime('2024-12-24', '18:00');
+      const result = getCountdownTime('2024-12-24', '18:00', LOCAL_ZONE);
 
       expect(result.total).toBe(0);
     });
@@ -38,7 +41,7 @@ describe('countdown utilities', () => {
       // 3 hours before the start
       vi.setSystemTime(new Date('2024-12-24T15:00:00.000'));
 
-      const result = getCountdownTime('2024-12-24', '18:00');
+      const result = getCountdownTime('2024-12-24', '18:00', LOCAL_ZONE);
 
       expect(result.hours).toBe(3);
       expect(result.minutes).toBe(0);
@@ -51,7 +54,7 @@ describe('countdown utilities', () => {
       // 45 minutes before the start
       vi.setSystemTime(new Date('2024-12-24T17:15:00.000'));
 
-      const result = getCountdownTime('2024-12-24', '18:00');
+      const result = getCountdownTime('2024-12-24', '18:00', LOCAL_ZONE);
 
       expect(result.hours).toBe(0);
       expect(result.minutes).toBe(45);
@@ -63,7 +66,7 @@ describe('countdown utilities', () => {
       // 30 seconds before the start
       vi.setSystemTime(new Date('2024-12-24T17:59:30.000'));
 
-      const result = getCountdownTime('2024-12-24', '18:00');
+      const result = getCountdownTime('2024-12-24', '18:00', LOCAL_ZONE);
 
       expect(result.hours).toBe(0);
       expect(result.minutes).toBe(0);
@@ -75,7 +78,7 @@ describe('countdown utilities', () => {
       // 2h 30m 15s before the start
       vi.setSystemTime(new Date('2024-12-24T15:29:45.000'));
 
-      const result = getCountdownTime('2024-12-24', '18:00');
+      const result = getCountdownTime('2024-12-24', '18:00', LOCAL_ZONE);
 
       expect(result.hours).toBe(2);
       expect(result.minutes).toBe(30);
@@ -86,7 +89,7 @@ describe('countdown utilities', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2025-01-01T00:00:00'));
 
-      const result = getCountdownTime('2024-12-24', '18:00');
+      const result = getCountdownTime('2024-12-24', '18:00', LOCAL_ZONE);
 
       expect(result.total).toBe(0);
     });
@@ -128,5 +131,23 @@ describe('countdown utilities', () => {
       expect(result).toContain('not-a-date');
       expect(result).toContain('18:00');
     });
+  });
+});
+
+describe('zonedDateTimeToEpoch', () => {
+  it('reads a start time in the route zone, not the viewer zone', () => {
+    // 16:00 on 24 December in Sydney daylight time (UTC+11) is 05:00 UTC.
+    expect(zonedDateTimeToEpoch('2026-12-24', '16:00', 'Australia/Sydney')).toBe(Date.UTC(2026, 11, 24, 5, 0));
+  });
+
+  it('uses standard time outside daylight saving', () => {
+    // 09:00 on 1 July in Sydney (UTC+10) is 23:00 UTC on 30 June.
+    expect(zonedDateTimeToEpoch('2026-07-01', '09:00', 'Australia/Sydney')).toBe(Date.UTC(2026, 5, 30, 23, 0));
+  });
+});
+
+describe('formatRouteStartDateTime time zone', () => {
+  it('names the zone in the start line', () => {
+    expect(formatRouteStartDateTime('2026-12-24', '16:00', 'Australia/Sydney')).toMatch(/AEDT|GMT\+11/);
   });
 });

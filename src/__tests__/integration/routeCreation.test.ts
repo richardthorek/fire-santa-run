@@ -148,9 +148,12 @@ describe('Integration: Route Creation Flow', () => {
       startTime: '18:00',
     };
     
-    // Step 3: Add waypoints
+    // Step 3: Add waypoints; the editor then plans the driving path
+    const plannedPath: GeoJSON.LineString = { type: 'LineString', coordinates: [[151.2093, -33.8688], [151.2100, -33.8690]] };
     const routeWithWaypoints: Route = {
       ...routeWithMetadata,
+      geometry: plannedPath,
+      navigationSteps: [{ instruction: 'Head north', distance: 100, duration: 30, geometry: plannedPath, maneuver: { type: 'depart', location: [151.2093, -33.8688] } }],
       waypoints: [
         createMockWaypoint(0, {
           name: 'Fire Station',

@@ -58,6 +58,8 @@ export interface Route {
   description?: string;
   date: string;
   startTime: string;
+  /** IANA zone the start time is set in, e.g. 'Australia/Sydney'. */
+  timeZone?: string;
   endTime?: string;
   status: RouteStatus;
   waypoints: Waypoint[];

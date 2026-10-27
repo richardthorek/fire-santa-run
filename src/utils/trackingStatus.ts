@@ -42,3 +42,14 @@ export function isRunRunningLate(
   if (Number.isNaN(startEpochMs)) return false;
   return now - startEpochMs > thresholdMs;
 }
+
+/**
+ * True when a broadcast is newer than the last one shown. Compares the
+ * truck's own fix time, so a replayed or out-of-order message never moves
+ * Santa backwards or resets the freshness clock. `lastTimestamp` is `null`
+ * before the first broadcast.
+ */
+export function isNewerBroadcast(lastTimestamp: number | null, nextTimestamp: number): boolean {
+  if (Number.isNaN(nextTimestamp)) return false;
+  return lastTimestamp === null || nextTimestamp > lastTimestamp;
+}

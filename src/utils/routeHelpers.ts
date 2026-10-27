@@ -20,6 +20,7 @@ function getNextChristmasEveAt4pm(): { date: string; time: string } {
  */
 
 import type { Route, RouteStatus, Waypoint, NavigationSettings, NavigationStep } from '../types';
+import { DEFAULT_ROUTE_TIME_ZONE } from './countdown';
 
 /**
  * Generate a unique route ID
@@ -97,8 +98,17 @@ export function canPublishRoute(route: Route): boolean {
     route.waypoints.length >= 2 &&
     route.name.trim() !== '' &&
     route.date !== '' &&
-    !isDateInPast(route.date)
+    !isDateInPast(route.date) &&
+    hasPlannedPath(route)
   );
+}
+
+/**
+ * True once the route has a driving path and turn-by-turn steps. Start Run
+ * needs both, so a route without them must not be published either.
+ */
+export function hasPlannedPath(route: Pick<Route, 'geometry' | 'navigationSteps'>): boolean {
+  return !!route.geometry && !!route.navigationSteps && route.navigationSteps.length > 0;
 }
 
 /**
@@ -112,6 +122,9 @@ export function getPublishBlockReason(route: Route): string {
   }
   if (isDateInPast(route.date)) {
     return 'Route date is in the past — choose a current or future date to publish';
+  }
+  if (!hasPlannedPath(route)) {
+    return 'Waiting for the driving path — it is planned automatically from your stops, so check your connection';
   }
   return '';
 }
@@ -225,6 +238,7 @@ export function createNewRoute(brigadeId: string, createdBy?: string): Route {
     description: '',
     date: nextChristmas.date,
     startTime: nextChristmas.time,
+    timeZone: DEFAULT_ROUTE_TIME_ZONE,
     status: 'draft',
     waypoints: [],
     createdAt: new Date().toISOString(),

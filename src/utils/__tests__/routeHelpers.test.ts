@@ -128,6 +128,7 @@ describe('routeHelpers', () => {
   });
 
   describe('canPublishRoute', () => {
+    const plannedGeometry: GeoJSON.LineString = { type: 'LineString', coordinates: [[0, 0], [1, 1]] };
     const validRoute: Route = {
       id: 'route-1',
       brigadeId: 'brigade-1',
@@ -140,11 +141,18 @@ describe('routeHelpers', () => {
         { id: 'wp1', coordinates: [0, 0], order: 0, isCompleted: false },
         { id: 'wp2', coordinates: [1, 1], order: 1, isCompleted: false },
       ],
+      geometry: plannedGeometry,
+      navigationSteps: [{ instruction: 'Head north', distance: 100, duration: 60, geometry: plannedGeometry, maneuver: { type: 'depart', location: [0, 0] } }],
       createdAt: '2024-01-01T00:00:00Z',
     };
 
     it('should allow publishing valid draft route', () => {
       expect(canPublishRoute(validRoute)).toBe(true);
+    });
+
+    it('should not allow publishing a route whose driving path is not planned', () => {
+      expect(canPublishRoute({ ...validRoute, geometry: undefined })).toBe(false);
+      expect(canPublishRoute({ ...validRoute, navigationSteps: [] })).toBe(false);
     });
 
     it('should not allow publishing route without name', () => {
@@ -192,6 +200,8 @@ describe('routeHelpers', () => {
         { id: 'wp1', coordinates: [0, 0], order: 0, isCompleted: false },
         { id: 'wp2', coordinates: [1, 1], order: 1, isCompleted: false },
       ],
+      geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+      navigationSteps: [{ instruction: 'Head north', distance: 100, duration: 60, geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] }, maneuver: { type: 'depart', location: [0, 0] } }],
       createdAt: '2024-01-01T00:00:00Z',
     };
 

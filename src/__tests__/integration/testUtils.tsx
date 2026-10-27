@@ -247,6 +247,17 @@ export const createMockRoute = (overrides?: Partial<Route>): Route => ({
   startTime: '18:00',
   status: 'draft',
   waypoints: [],
+  // A planned driving path is required to publish, so mock routes start with one.
+  geometry: { type: 'LineString', coordinates: [[151.2093, -33.8688], [151.2103, -33.8698]] },
+  navigationSteps: [
+    {
+      instruction: 'Head north',
+      distance: 100,
+      duration: 30,
+      geometry: { type: 'LineString', coordinates: [[151.2093, -33.8688], [151.2103, -33.8698]] },
+      maneuver: { type: 'depart', location: [151.2093, -33.8688] },
+    },
+  ],
   createdAt: new Date().toISOString(),
   createdBy: 'test-user',
   ...overrides,
