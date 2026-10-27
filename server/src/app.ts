@@ -4,6 +4,7 @@ import { routesRouter } from './routes/routes.js';
 import { usersRouter } from './routes/users.js';
 import { negotiateRouter } from './routes/negotiate.js';
 import { broadcastRouter } from './routes/broadcast.js';
+import { jobsRouter } from './routes/jobs.js';
 import { viewerPinsRouter } from './routes/viewerPins.js';
 import { fireStationsRouter } from './routes/fire-stations.js';
 import { analyticsRouter } from './routes/analytics.js';
@@ -128,6 +129,7 @@ export function createApp() {
   // API routes
   app.route('/api/brigades', brigadesRouter);
   app.route('/api/routes', routesRouter);
+  app.route('/api/jobs', jobsRouter);
   app.route('/api/users', usersRouter);
   app.route('/api', negotiateRouter);
   app.route('/api', broadcastRouter);

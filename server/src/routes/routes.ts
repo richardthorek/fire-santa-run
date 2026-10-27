@@ -6,6 +6,7 @@ import { PUBLIC_ROUTE_STATUSES } from '../utils/routeVisibility.js';
 import { guardTextContent } from '../utils/moderation.js';
 import { emitMetric } from '../utils/telemetryMetrics.js';
 import { fromChunkedProps, toChunkedProps } from '../utils/chunkedJson.js';
+import { buildPlan, sendPlan, isPlausibleEmail } from '../utils/runPlanService.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
@@ -450,5 +451,64 @@ routesRouter.delete('/:id', async (c) => {
     console.error('Error deleting route:', error);
     if (error.statusCode === 404) return c.json({ error: 'Route not found' }, 404);
     return c.json({ error: 'Failed to delete route', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
+  }
+});
+
+/**
+ * Emails the run plan: to the signed-in organiser by default, or to another
+ * address the organiser types in. Needs manage access to the run's brigade.
+ */
+routesRouter.post('/:id/run-plan-email', async (c) => {
+  try {
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+
+    const body = await c.req.json().catch(() => ({})) as { brigadeId?: string; to?: string };
+    if (!body.brigadeId) return c.json({ error: 'Missing required field: brigadeId' }, 400);
+    const permissionCheck = checkBrigadeAccess(authResult, body.brigadeId, 'manage_routes');
+    if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
+
+    const to = (body.to ?? authResult.email ?? '').trim();
+    if (!to) return c.json({ error: 'No email address', message: 'Your sign-in has no email address to send the plan to.' }, 400);
+    if (!isPlausibleEmail(to)) return c.json({ error: 'Invalid email address', message: 'Enter a full email address, such as name@example.com.' }, 400);
+
+    const client = await getTableClient(ROUTES_TABLE);
+    const route = entityToRoute(await client.getEntity(body.brigadeId, c.req.param('id')));
+    const plan = await buildPlan(route as any);
+    const result = await sendPlan(plan, to);
+    if (!result.sent) return c.json({ error: 'Not sent', message: result.reason }, 502);
+    return c.json({ sent: true, to }, 200);
+  } catch (error: any) {
+    console.error('Error sending run plan email:', error);
+    return c.json({ error: 'Failed to send run plan email', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
+  }
+});
+
+/** The same plan as a PDF download, for the truck's clipboard. */
+routesRouter.get('/:id/run-plan.pdf', async (c) => {
+  try {
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+
+    const brigadeId = c.req.query('brigadeId');
+    if (!brigadeId) return c.json({ error: 'Missing required query: brigadeId' }, 400);
+    const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'manage_routes');
+    if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
+
+    const client = await getTableClient(ROUTES_TABLE);
+    const route = entityToRoute(await client.getEntity(brigadeId, c.req.param('id')));
+    const plan = await buildPlan(route as any);
+    const filename = `${(route.name || 'run').replace(/[^A-Za-z0-9 _-]+/g, '').trim().replace(/\s+/g, '-') || 'run'}-run-plan.pdf`;
+    return new Response(new Uint8Array(plan.pdf), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error building run plan PDF:', error);
+    return c.json({ error: 'Failed to build run plan PDF', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });
