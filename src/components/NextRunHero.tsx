@@ -1,8 +1,30 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Circle } from 'lucide-react';
 import type { Route } from '../types';
 import { CountdownTimer } from './CountdownTimer';
 import { getRunReadiness } from '../utils/routeHelpers';
+import { getApiAuthHeaders } from '../auth/apiToken';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+
+type PlanEmailState = { status: 'idle' | 'sending' | 'sent' | 'error'; message?: string };
+
+/** Emails the organiser's run plan (map, directions, stops and a clipboard PDF). */
+async function emailRunPlan(route: Route): Promise<PlanEmailState> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/routes/${encodeURIComponent(route.id)}/run-plan-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await getApiAuthHeaders()) },
+      body: JSON.stringify({ brigadeId: route.brigadeId }),
+    });
+    const body = await response.json().catch(() => ({})) as { to?: string; message?: string };
+    if (!response.ok) return { status: 'error', message: body.message || 'The plan could not be sent.' };
+    return { status: 'sent', message: `Sent to ${body.to}. The PDF is ready to print for the truck.` };
+  } catch {
+    return { status: 'error', message: 'The plan could not be sent. Check your connection and try again.' };
+  }
+}
 
 export interface NextRunHeroProps {
   route: Route;
@@ -14,6 +36,7 @@ export interface NextRunHeroProps {
  */
 export function NextRunHero({ route }: NextRunHeroProps) {
   const readiness = getRunReadiness(route);
+  const [planEmail, setPlanEmail] = useState<PlanEmailState>({ status: 'idle' });
   const ready = readiness.every(item => item.done);
 
   return (
@@ -54,6 +77,31 @@ export function NextRunHero({ route }: NextRunHeroProps) {
         >
           Open run
         </Link>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          disabled={planEmail.status === 'sending'}
+          onClick={async () => {
+            setPlanEmail({ status: 'sending' });
+            setPlanEmail(await emailRunPlan(route));
+          }}
+          style={{
+            padding: '0.6rem 1rem',
+            borderRadius: '10px',
+            border: '2px solid var(--santa-red)',
+            backgroundColor: 'transparent',
+            color: 'var(--santa-red)',
+            fontWeight: 700,
+            cursor: planEmail.status === 'sending' ? 'wait' : 'pointer',
+          }}
+        >
+          {planEmail.status === 'sending' ? 'Sending…' : 'Email run plan and print PDF'}
+        </button>
+        <p role="status" aria-live="polite" style={{ margin: 0, fontSize: '0.875rem', color: planEmail.status === 'error' ? 'var(--text-error-strong, #B01620)' : 'var(--neutral-700)' }}>
+          {planEmail.message ?? ''}
+        </p>
       </div>
 
       <CountdownTimer startDate={route.date} startTime={route.startTime} timeZone={route.timeZone} />
