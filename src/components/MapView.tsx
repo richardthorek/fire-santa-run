@@ -46,6 +46,9 @@ export function MapView({
   fitBoundsPadding = 50,
   brigadeStation,
 }: MapViewProps) {
+  // Latest click handler, read by the map's one-time click listener.
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -89,9 +92,11 @@ export function MapView({
       });
 
       // Handle map clicks
-      if (onMapClick && interactive) {
+      // The listener is attached once, when the map is created, so it reads the
+      // latest handler through a ref rather than the one passed on first render.
+      if (interactive) {
         map.current.on('click', (e) => {
-          onMapClick([e.lngLat.lng, e.lngLat.lat]);
+          onMapClickRef.current?.([e.lngLat.lng, e.lngLat.lat]);
         });
       }
     } catch (error) {

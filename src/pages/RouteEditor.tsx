@@ -696,18 +696,13 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         </form>
       )}
 
-      {/* Phones: address search across the top, so stops can be added straight away */}
+      {/* Phones: address search directly under the header, so stops can be added straight away.
+          It sits in the phone's column layout (order 1, after the header) rather than at a fixed offset. */}
       {isNarrow && !showSetupStep && (
         <div
           role="search"
           aria-label="Add a stop by address"
-          style={{
-            position: 'fixed',
-            top: 'calc(env(safe-area-inset-top, 0px) + 12.75rem)',
-            left: '0.5rem',
-            right: '0.5rem',
-            zIndex: 950,
-          }}
+          style={{ order: 1, padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface-raised)' }}
         >
           <AddressSearch
             onSelect={handleAddressSelect}
