@@ -16,6 +16,7 @@ import { BroadcastHealthBanner } from '../components/BroadcastHealthBanner';
 import { clearStoredToken } from '../auth/suiteAuth';
 import { isNearWaypoint } from '../utils/navigation';
 import { TOUCH_TARGET, Z_INDEX } from '../utils/constants';
+import { Moon, OctagonAlert, Pause, Play, Sun, Volume2, VolumeX } from 'lucide-react';
 import type { Route } from '../types';
 
 /** Warn before starting when the Station Manager sign-in has under two hours left. */
@@ -454,7 +455,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
           style={controlRailStyles.button}
           aria-label={voiceEnabled ? 'Disable voice' : 'Enable voice'}
         >
-          {voiceEnabled ? '🔊' : '🔇'}
+          {voiceEnabled ? <Volume2 size={24} aria-hidden="true" /> : <VolumeX size={24} aria-hidden="true" />}
         </button>
 
         {wakeLockSupported ? (
@@ -467,7 +468,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
             aria-label={keepScreenOn ? 'Disable keep screen on' : 'Enable keep screen on'}
             aria-pressed={keepScreenOn}
           >
-            {keepScreenOn ? '☀️' : '🌙'}
+            {keepScreenOn ? <Sun size={24} aria-hidden="true" /> : <Moon size={24} aria-hidden="true" />}
           </button>
         ) : (
           <div style={controlRailStyles.warningPill}>⚠️ Keep screen on manually</div>
@@ -482,22 +483,22 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
           aria-label={isPaused ? 'Resume run for viewers' : 'Pause run for viewers'}
           aria-pressed={isPaused}
         >
-          {isPaused ? '▶️' : '⏸️'}
+          {isPaused ? <Play size={24} aria-hidden="true" /> : <Pause size={24} aria-hidden="true" />}
         </button>
 
         <button
           onClick={handleEmergencyStop}
-          style={{ ...controlRailStyles.button, backgroundColor: 'rgba(211, 47, 47, 0.95)' }}
+          style={{ ...controlRailStyles.button, ...controlRailStyles.emergency }}
           aria-label="Emergency stop — Santa called away"
         >
-          🚨
+          <OctagonAlert size={24} aria-hidden="true" />
         </button>
       </div>
 
       {/* Paused indicator for the operator, so it's obvious viewers see a hold. */}
       {isPaused && (
         <div role="status" aria-live="polite" style={bannerStackStyles.pausedPill}>
-          ⏸️ Paused — viewers see “back shortly”
+          Paused — viewers see “back shortly”
         </div>
       )}
 
@@ -665,6 +666,12 @@ const controlRailStyles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: '0.75rem',
+  },
+  // Emergency stop sits apart from pause so a thumb can't hit it by mistake.
+  emergency: {
+    marginTop: '1.25rem',
+    backgroundColor: 'var(--santa-red)',
+    color: 'white',
   },
   button: {
     width: TOUCH_TARGET.recommended,

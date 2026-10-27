@@ -27,21 +27,28 @@ Design each surface for its real user and device:
 
 Key brand tokens — always reference the variable:
 
-- `--fire-red` `#D32F2F` (primary), `--fire-red-dark` `#B71C1C`
-- `--summer-gold` `#FFA726`; for **text** use the AA-safe
-  `--summer-gold-dark` `#F57C00` / `--summer-gold-darker` `#E65100`
-- `--christmas-green` `#43A047`, `--eucalyptus-green` `#66BB6A`
-- `--santa-red` `#D62828`, `--summer-gold` `#FFE600` (high-vis accent),
-  `--candy-white` `#FFFFFF`
+- `--santa-red` `#D8232A` (all primary actions), `--santa-red-dark` `#B01620`
+  for hover and pressed. `--fire-red` is an alias of `--santa-red`.
+- `--summer-gold` `#F6A609` is the accent. Put `--summer-gold-ink` `#241A00`
+  text on a gold fill. For gold **text** on white use `--summer-gold-dark`
+  `#B26A00` (AA, about 4.5:1).
+- `--christmas-green` `#1E9E62` for festive accents and success;
+  `--christmas-green-dark` `#0B5C3B` for text on light surfaces.
+- `--snow` `#FFFFFF` (`--candy-white` aliases it), `--paper` `#F4F6F9` page
+  background, `--ink` `#0C1220` primary text.
 - Neutrals `--neutral-50 … --neutral-900`
+- Dark mode is set by `[data-theme="dark"]` and redefines these tokens.
+  Pages that need a night view opt in; the tracker does not yet.
 
 Radii `--border-radius` (20) / `-md` / `-sm` / `-xs`; shadows `--ui-shadow*`.
 
 ## Typography
 
-- Headings: `--font-heading` (Baloo 2, with Fredoka One / Nunito fallbacks)
-- Body: `--font-body` (Nunito)
-- Playful accents: `--font-fun` (Fredoka One)
+- Headings and buttons: `--font-display` (Baloo 2); `--font-heading` is an alias
+- Body: `--font-body` (Public Sans)
+- Codes, route IDs and ETAs: `--font-mono` (JetBrains Mono)
+- Icons: Lucide (`lucide-react`). Keep emoji for decoration only, never for
+  controls or status.
 
 ## Buttons
 

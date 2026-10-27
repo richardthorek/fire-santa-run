@@ -55,7 +55,7 @@ docs/           Detailed docs (see docs/INDEX.md)
 
 The product aims for a slick, modern, information-rich UI with a fun Aussie-summer-Christmas theme. Don't regress it. Full rules: **[`docs/UI_GUIDELINES.md`](docs/UI_GUIDELINES.md)**.
 
-- **Design tokens live in `src/index.css` (`:root`)** — use the CSS variables, don't hardcode hex. Key tokens: `--fire-red` `#D32F2F`, `--summer-gold` `#FFA726`, `--christmas-green` `#43A047`; radii `--border-radius*`; shadows `--ui-shadow*`; fonts `--font-heading` (Baloo 2) / `--font-body` (Nunito). Use the WCAG-AA `--summer-gold-dark/darker` variants for text.
+- **Design tokens live in `src/index.css` (`:root`)** — use the CSS variables, don't hardcode hex. Key tokens: `--santa-red` `#D8232A`, `--summer-gold` `#F6A609`, `--christmas-green` `#1E9E62`; radii `--border-radius*`; shadows `--ui-shadow*`; fonts `--font-display` (Baloo 2) / `--font-body` (Public Sans). Use the WCAG-AA `--summer-gold-dark/darker` variants for text.
 - **Design each surface for its user**: public tracking, the demo, and the navigator (in-truck) view are **mobile-first** (design at 375px); the **route editor and dashboard are tablet/desktop-first** (planning is a lean-back task). Rounded corners, gradient buttons, festive but uncluttered. Target WCAG 2.1 AA — run `npm run test:a11y` after UI changes.
 
 ## Key docs (keep these current)
