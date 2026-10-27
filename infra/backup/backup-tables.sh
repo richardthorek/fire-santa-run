@@ -49,45 +49,18 @@ STAMP="$(date -u +%Y/%m/%d/%H%M%SZ)"
 OUTDIR="$(mktemp -d)"
 trap 'rm -rf "$OUTDIR"' EXIT
 
-mapfile -t TABLES < <(az storage table list "${AZ_AUTH[@]}" --query "[].name" -o tsv)
+# Export every table through the Tables SDK (scripts/backup/export-tables.mjs). The
+# Azure CLI's `storage entity query` fails on some tables, so it is not used here.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ACCOUNT_KEY="$ACCOUNT_KEY" node "$REPO_ROOT/scripts/backup/export-tables.mjs" "$OUTDIR" "$STORAGE_ACCOUNT"
+
+mapfile -t TABLES < <(jq -r 'keys[]' "$OUTDIR/_counts.json")
 if [[ ${#TABLES[@]} -eq 0 ]]; then
   echo "No tables found — nothing to back up."
   exit 0
 fi
-
-TOTAL_ENTITIES=0
-for table in "${TABLES[@]}"; do
-  echo "  · exporting $table"
-  # Page through entities with the continuation marker so large tables export in
-  # full, accumulating each page's .items into one JSON array per table.
-  marker=""
-  first=true
-  {
-    echo '['
-    while :; do
-      if [[ -n "$marker" ]]; then
-        page="$(az storage entity query --table-name "$table" "${AZ_AUTH[@]}" --marker "$marker" -o json)"
-      else
-        page="$(az storage entity query --table-name "$table" "${AZ_AUTH[@]}" -o json)"
-      fi
-      # Emit this page's items (comma-separated across pages).
-      items="$(echo "$page" | jq -c '.items[]?')"
-      if [[ -n "$items" ]]; then
-        while IFS= read -r item; do
-          if $first; then first=false; else echo ','; fi
-          printf '%s' "$item"
-        done <<< "$items"
-      fi
-      marker="$(echo "$page" | jq -r '.nextMarker // empty')"
-      [[ -z "$marker" ]] && break
-    done
-    echo
-    echo ']'
-  } > "$OUTDIR/$table.json"
-  count="$(jq 'length' "$OUTDIR/$table.json")"
-  TOTAL_ENTITIES=$((TOTAL_ENTITIES + count))
-  echo "    $count entities"
-done
+TOTAL_ENTITIES="$(jq '[.[]] | add // 0' "$OUTDIR/_counts.json")"
+rm -f "$OUTDIR/_counts.json"
 
 # Small manifest so a restore knows what a backup contained at a glance.
 jq -n \
