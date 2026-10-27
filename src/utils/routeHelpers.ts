@@ -20,6 +20,7 @@ function getNextChristmasEveAt4pm(): { date: string; time: string } {
  */
 
 import type { Route, RouteStatus, Waypoint, NavigationSettings, NavigationStep } from '../types';
+import { DEFAULT_ROUTE_TIME_ZONE } from './countdown';
 
 /**
  * Generate a unique route ID
@@ -237,6 +238,7 @@ export function createNewRoute(brigadeId: string, createdBy?: string): Route {
     description: '',
     date: nextChristmas.date,
     startTime: nextChristmas.time,
+    timeZone: DEFAULT_ROUTE_TIME_ZONE,
     status: 'draft',
     waypoints: [],
     createdAt: new Date().toISOString(),

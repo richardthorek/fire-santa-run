@@ -12,13 +12,15 @@ export interface CountdownTimerProps {
   startDate: string;
   /** Route start time in HH:MM (24-hour) format */
   startTime: string;
+  /** IANA zone the start time is set in; defaults to the brigade zone */
+  timeZone?: string;
   /** Called once when the countdown reaches zero */
   onComplete?: () => void;
   /** Called when the user clicks the Share button */
   onShare?: () => void;
 }
 
-export function CountdownTimer({ startDate, startTime, onComplete, onShare }: CountdownTimerProps) {
+export function CountdownTimer({ startDate, startTime, timeZone, onComplete, onShare }: CountdownTimerProps) {
   // Tick counter — incremented by setInterval to trigger re-renders.
   // Using useReducer so dispatch is stable and the interval only restarts
   // when startDate/startTime change, not on every render.
@@ -32,7 +34,7 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
   }, [onComplete]);
 
   // Countdown is derived on every render — no stored state needed.
-  const countdown = getCountdownTime(startDate, startTime);
+  const countdown = getCountdownTime(startDate, startTime, timeZone);
   const isComplete = countdown.total === 0;
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export function CountdownTimer({ startDate, startTime, onComplete, onShare }: Co
     return () => clearInterval(id);
   }, [isComplete, startDate, startTime, forceUpdate]);
 
-  const formattedStart = formatRouteStartDateTime(startDate, startTime);
+  const formattedStart = formatRouteStartDateTime(startDate, startTime, timeZone);
 
   // The visible H:M:S digits tick every second, which would spam screen
   // readers if announced live. Instead, a separate visually-hidden region

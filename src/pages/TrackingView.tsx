@@ -17,6 +17,7 @@ import { calculateDistance, alongPathDistance } from '../utils/navigation';
 import { getPushEnvironment, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute, type PushEnvironmentKind } from '../utils/push';
 import { DEMO_ROUTE, startDemoSimulator } from '../utils/demoRoute';
 import { isLocationStale, minutesSinceUpdate, isNewerBroadcast, isRunRunningLate } from '../utils/trackingStatus';
+import { DEFAULT_ROUTE_TIME_ZONE, zonedDateTimeToEpoch } from '../utils/countdown';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 /** Fallback parade pace when the truck isn't reporting speed: ~12 km/h. */
@@ -32,11 +33,11 @@ export interface TrackingViewProps {
  * Format "2026-12-24" + "19:30" as "Thu 24 Dec • 7:30 pm". Falls back to the
  * raw values if either part doesn't parse.
  */
-function formatRunDateTime(date: string, startTime: string): string {
-  const parsed = new Date(`${date}T${startTime || '00:00'}`);
+function formatRunDateTime(date: string, startTime: string, timeZone: string): string {
+  const parsed = new Date(zonedDateTimeToEpoch(date, startTime || '00:00', timeZone));
   if (Number.isNaN(parsed.getTime())) return `${date} • ⏰ ${startTime}`;
-  const day = parsed.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-  const time = parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const day = parsed.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone });
+  const time = parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone });
   return `${day} • ⏰ ${time}`;
 }
 
@@ -76,6 +77,8 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   // The path drawn on the map: stored geometry wins, fallback otherwise.
   const displayGeometry = route?.geometry ?? fetchedGeometry;
+  // The start time is the brigade's wall-clock time in the route's own zone.
+  const runTimeZone = route?.timeZone ?? DEFAULT_ROUTE_TIME_ZONE;
 
   // When the last live broadcast arrived — drives the "Santa's signal may be
   // patchy" staleness chip. Re-checked on a timer, not just on new broadcasts,
@@ -682,7 +685,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
       setMinutesRunLate(null);
       return;
     }
-    const startEpoch = new Date(`${route.date}T${route.startTime || '00:00'}`).getTime();
+    const startEpoch = zonedDateTimeToEpoch(route.date, route.startTime || '00:00', runTimeZone);
     const check = () => {
       const lateBy = Math.floor((Date.now() - startEpoch) / 60_000);
       setMinutesRunLate(isRunRunningLate(startEpoch) ? lateBy : null);
@@ -1021,7 +1024,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                   opacity: 0.95,
                   fontFamily: 'var(--font-body)',
                 }}>
-                  📅 {formatRunDateTime(route.date, route.startTime)}
+                  📅 {formatRunDateTime(route.date, route.startTime, runTimeZone)}
                 </p>
               </div>
               {demo && (
@@ -1350,6 +1353,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               <CountdownTimer
                 startDate={route.date}
                 startTime={route.startTime}
+                timeZone={runTimeZone}
                 onComplete={() => setCompletedForRouteId(routeId)}
                 onShare={() => setShowShareModal(true)}
               />

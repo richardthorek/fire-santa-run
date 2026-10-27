@@ -18,14 +18,15 @@ import { SEO } from '../components/SEO';
 import { safeImageSrc } from '../utils/publicBrigade';
 import { generateShareableLink } from '../utils/routeHelpers';
 import type { Route } from '../types';
+import { DEFAULT_ROUTE_TIME_ZONE, zonedDateTimeToEpoch } from '../utils/countdown';
 import type { Brigade } from '../storage/types';
 
-function formatPosterDate(date: string, startTime: string): { day: string; time: string } {
-  const parsed = new Date(`${date}T${startTime || '00:00'}`);
+function formatPosterDate(date: string, startTime: string, timeZone: string): { day: string; time: string } {
+  const parsed = new Date(zonedDateTimeToEpoch(date, startTime || '00:00', timeZone));
   if (Number.isNaN(parsed.getTime())) return { day: date, time: startTime };
   return {
-    day: parsed.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }),
-    time: parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
+    day: parsed.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', timeZone }),
+    time: parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone }),
   };
 }
 
@@ -75,7 +76,7 @@ export function RoutePosterPage() {
   }
 
   const shareUrl = route.shareableLink || generateShareableLink(route.id);
-  const { day, time } = formatPosterDate(route.date, route.startTime);
+  const { day, time } = formatPosterDate(route.date, route.startTime, route.timeZone ?? DEFAULT_ROUTE_TIME_ZONE);
   const logoSrc = safeImageSrc(brigade?.logo);
   const accent = brigade?.themeColor || 'var(--fire-red)';
 
