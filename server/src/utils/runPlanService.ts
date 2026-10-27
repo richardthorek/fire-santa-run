@@ -7,13 +7,27 @@ import { buildRunPlanHtml, buildRunPlanSubject, buildRunPlanText, buildStaticMap
 import { buildRunPlanPdf } from './runPlanPdf.js';
 import { sendRunPlanEmail, type SendResult } from './emailSender.js';
 
+/** A stop as stored on a run. */
+export interface PlanWaypoint {
+  name?: string;
+  address?: string;
+  coordinates: [number, number];
+  estimatedArrival?: string;
+}
+
+/** One turn-by-turn step as stored on a run. */
+export interface PlanNavigationStep {
+  instruction: string;
+  distance: number;
+}
+
 export interface RoutePlanSource {
   name?: string;
   date: string;
   startTime: string;
   timeZone?: string;
-  waypoints: any[];
-  navigationSteps?: any[];
+  waypoints: PlanWaypoint[];
+  navigationSteps?: PlanNavigationStep[];
   geometry?: { coordinates: [number, number][] };
   shareableLink?: string;
 }
@@ -36,13 +50,13 @@ export async function buildPlan(route: RoutePlanSource): Promise<BuiltPlan> {
     date: route.date,
     startTime: route.startTime,
     timeZoneLabel: `${timeZone.split('/').pop()?.replace(/_/g, ' ') ?? ''} time`,
-    stops: route.waypoints.map((wp: any, index: number) => ({
+    stops: route.waypoints.map((wp, index) => ({
       name: wp.name || `Stop ${index + 1}`,
       address: wp.address || undefined,
       coordinates: wp.coordinates as [number, number],
       plannedTime: wp.estimatedArrival ? clockFormat.format(new Date(wp.estimatedArrival)) : undefined,
     })),
-    steps: (route.navigationSteps || []).map((step: any) => ({ instruction: step.instruction, distance: step.distance })),
+    steps: (route.navigationSteps || []).map(step => ({ instruction: step.instruction, distance: step.distance })),
     geometry: route.geometry,
     shareUrl: route.shareableLink || undefined,
   };

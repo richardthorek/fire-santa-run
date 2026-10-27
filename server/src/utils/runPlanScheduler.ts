@@ -7,7 +7,7 @@
 import { getTableClient, isDevMode } from './storage.js';
 import { fromChunkedProps } from './chunkedJson.js';
 import { zonedDateTimeToEpoch } from './zonedTime.js';
-import { buildPlan, isPlausibleEmail, sendPlan, type RoutePlanSource } from './runPlanService.js';
+import { buildPlan, isPlausibleEmail, sendPlan, type PlanNavigationStep, type PlanWaypoint, type RoutePlanSource } from './runPlanService.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 const SWEEP_INTERVAL_MS = 15 * 60_000;
@@ -32,8 +32,8 @@ function entityToPlanSource(entity: Record<string, unknown>): RoutePlanSource {
     date: String(entity.date ?? ''),
     startTime: String(entity.startTime ?? '00:00'),
     timeZone: typeof entity.timeZone === 'string' && entity.timeZone ? entity.timeZone : undefined,
-    waypoints: fromChunkedProps<any[]>(entity, 'waypoints') ?? [],
-    navigationSteps: fromChunkedProps<any[]>(entity, 'navigationSteps'),
+    waypoints: fromChunkedProps<PlanWaypoint[]>(entity, 'waypoints') ?? [],
+    navigationSteps: fromChunkedProps<PlanNavigationStep[]>(entity, 'navigationSteps'),
     geometry: fromChunkedProps<{ coordinates: [number, number][] }>(entity, 'geometry'),
     shareableLink: typeof entity.shareableLink === 'string' ? entity.shareableLink : undefined,
   };
