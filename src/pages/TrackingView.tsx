@@ -1273,6 +1273,47 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               </div>
             </div>
 
+            {route.waypoints.length > 0 && (
+              <ol
+                aria-label="Planned stops"
+                style={{ listStyle: 'none', margin: '0 0 0.9rem', padding: 0, display: 'grid', gap: '0.35rem' }}
+              >
+                {route.waypoints.map((waypoint, index) => {
+                  const done = waypoint.isCompleted || index < liveWaypointIndex;
+                  const plannedTime = waypoint.estimatedArrival
+                    ? new Date(waypoint.estimatedArrival).toLocaleTimeString(undefined, {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        timeZone: runTimeZone,
+                      })
+                    : null;
+                  return (
+                    <li
+                      key={waypoint.id}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: '0.75rem',
+                        fontSize: '0.875rem',
+                        color: done ? 'var(--neutral-600)' : 'var(--ink)',
+                        textDecoration: done ? 'line-through' : 'none',
+                      }}
+                    >
+                      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                        {waypoint.name || `Stop ${index + 1}`}
+                        {done && <span className="sr-only"> (passed)</span>}
+                      </span>
+                      {plannedTime && (
+                        <span style={{ fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                          {plannedTime}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+
             {currentLocation ? (
               (() => {
                 // Build the location label: prefer street name, fall back to distance from next stop.
