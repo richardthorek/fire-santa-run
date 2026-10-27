@@ -696,6 +696,27 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         </form>
       )}
 
+      {/* Phones: address search across the top, so stops can be added straight away */}
+      {isNarrow && !showSetupStep && (
+        <div
+          role="search"
+          aria-label="Add a stop by address"
+          style={{
+            position: 'fixed',
+            top: 'calc(env(safe-area-inset-top, 0px) + 12.75rem)',
+            left: '0.5rem',
+            right: '0.5rem',
+            zIndex: 950,
+          }}
+        >
+          <AddressSearch
+            onSelect={handleAddressSelect}
+            proximity={route.waypoints.length > 0 ? route.waypoints[route.waypoints.length - 1].coordinates : undefined}
+            placeholder="Search an address to add a stop"
+          />
+        </div>
+      )}
+
       {/* Floating Right Sidebar Panel */}
       <div 
         className="route-editor-sidebar"
@@ -823,7 +844,8 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
           </div>
         </div>
 
-        {/* Address Search */}
+        {/* Address Search — on phones this lives in the top search bar instead */}
+        {!isNarrow && (
         <div>
           <h3 style={{ 
             margin: '0 0 1rem 0', 
@@ -845,6 +867,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
             Or click on the map to add a waypoint
           </p>
         </div>
+        )}
 
         {/* Waypoints List — sits directly under Add Waypoint (the list an
             organizer works with most); Route Tools + Advanced settings follow */}
