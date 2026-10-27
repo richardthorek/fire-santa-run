@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useBrigade } from '../context';
 import { useRoutes, useRouteEditor } from '../hooks';
@@ -17,6 +17,41 @@ import type { Route, RouteTemplate, Waypoint } from '../types';
 export interface RouteEditorProps {
   routeId?: string;
   mode: 'new' | 'edit';
+}
+
+/** Phones get the stops panel as a bottom sheet so the map stays visible above it. */
+const PANEL_PLACEMENT_NARROW: CSSProperties = {
+  position: 'fixed',
+  top: 'auto',
+  right: '0.5rem',
+  bottom: '0.5rem',
+  left: '0.5rem',
+  width: 'auto',
+  maxWidth: 'none',
+  maxHeight: '55vh',
+};
+
+const setupInputStyle: CSSProperties = {
+  width: '100%',
+  padding: '0.7rem',
+  border: '1px solid #e0e0e0',
+  borderRadius: '8px',
+  fontSize: '1rem',
+  boxSizing: 'border-box',
+  fontWeight: 400,
+};
+
+/** True below the phone breakpoint; updates when the window is resized. */
+function useNarrowScreen(): boolean {
+  const query = '(max-width: 640px)';
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const onChange = () => setNarrow(media.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
 }
 
 export function RouteEditor({ routeId, mode }: RouteEditorProps) {
@@ -166,7 +201,15 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
     navigate(`/routes/${route.id}/navigate`);
   }, [confirmDiscardIfDirty, navigate, route.id]);
 
+  // A new run starts with a short setup step (name, date, start time) before
+  // any stops can be added. Existing runs skip straight to the stops panel.
+  const [setupConfirmed, setSetupConfirmed] = useState(mode !== 'new');
+  const isNarrow = useNarrowScreen();
+  const showSetupStep = mode === 'new' && !setupConfirmed;
+  const setupReady = route.name.trim() !== '' && route.date !== '' && route.startTime !== '' && !isDateInPast(route.date);
+
   const handleMapClick = useCallback(async (coordinates: [number, number]) => {
+    if (showSetupStep) return;
     try {
       const address = await reverseGeocode(coordinates);
       addWaypoint(coordinates, address);
@@ -174,7 +217,7 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
       console.error('Failed to geocode:', error);
       addWaypoint(coordinates);
     }
-  }, [addWaypoint]);
+  }, [addWaypoint, showSetupStep]);
 
   const handleAddressSelect = useCallback((result: GeocodingResult) => {
     addWaypoint(
@@ -563,6 +606,96 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         </div>
       )}
 
+      {/* New run: name, date and start time before any stops are added */}
+      {showSetupStep && (
+        <form
+          aria-labelledby="route-setup-heading"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (setupReady) setSetupConfirmed(true);
+          }}
+          style={{
+            position: 'absolute',
+            top: isNarrow ? 'auto' : '6rem',
+            right: '1rem',
+            bottom: isNarrow ? '0.5rem' : 'auto',
+            left: isNarrow ? '0.5rem' : 'auto',
+            width: isNarrow ? 'auto' : 'min(400px, calc(100vw - 2rem))',
+            backgroundColor: 'var(--surface-raised)',
+            borderRadius: '16px',
+            padding: '1.25rem',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            border: '2px solid var(--christmas-green)',
+            display: 'grid',
+            gap: '1rem',
+            zIndex: 900,
+            ...(isNarrow ? { position: 'fixed' as const, maxHeight: '60vh', overflowY: 'auto' as const } : {}),
+          }}
+        >
+          <h2 id="route-setup-heading" style={{ margin: 0, fontSize: '1.25rem', color: 'var(--santa-red)', fontFamily: 'var(--font-display)' }}>
+            Set up your run
+          </h2>
+          <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-600)' }}>
+            Name it and choose when it starts. Then add stops by searching an address or clicking the map.
+          </p>
+          <label style={{ display: 'grid', gap: '0.375rem', fontWeight: 600, fontSize: '0.875rem' }}>
+            Run name
+            <input
+              type="text"
+              value={route.name}
+              onChange={(e) => updateMetadata({ name: e.target.value })}
+              placeholder={`e.g., Christmas Eve ${new Date().getFullYear()} - North Route`}
+              required
+              autoFocus
+              style={setupInputStyle}
+            />
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <label style={{ display: 'grid', gap: '0.375rem', fontWeight: 600, fontSize: '0.875rem' }}>
+              Date
+              <input
+                type="date"
+                value={route.date}
+                onChange={(e) => updateMetadata({ date: e.target.value })}
+                required
+                style={setupInputStyle}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: '0.375rem', fontWeight: 600, fontSize: '0.875rem' }}>
+              Start time
+              <input
+                type="time"
+                value={route.startTime}
+                onChange={(e) => updateMetadata({ startTime: e.target.value })}
+                required
+                style={setupInputStyle}
+              />
+            </label>
+          </div>
+          {route.date && isDateInPast(route.date) && (
+            <p role="alert" style={{ margin: 0, fontSize: '0.8125rem', color: '#B26A00' }}>
+              This date has passed. Choose a current or future date.
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={!setupReady}
+            style={{
+              padding: '0.8rem 1rem',
+              borderRadius: '10px',
+              border: 'none',
+              backgroundColor: setupReady ? 'var(--santa-red)' : 'var(--neutral-300)',
+              color: setupReady ? 'white' : 'var(--neutral-600)',
+              fontWeight: 700,
+              fontSize: '1rem',
+              cursor: setupReady ? 'pointer' : 'not-allowed',
+            }}
+          >
+            Continue to stops
+          </button>
+        </form>
+      )}
+
       {/* Floating Right Sidebar Panel */}
       <div 
         className="route-editor-sidebar"
@@ -580,10 +713,11 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         border: '2px solid var(--christmas-green)',
         overflowY: 'auto',
-        display: 'flex',
         flexDirection: 'column',
         gap: '1.5rem',
         zIndex: 900, // Lower than map controls (which are typically 1000)
+        ...(isNarrow ? PANEL_PLACEMENT_NARROW : {}),
+        display: showSetupStep ? 'none' : 'flex',
       }}>
         {/* Route Metadata Form */}
         <div>
