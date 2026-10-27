@@ -11,11 +11,13 @@ import { voiceService } from '../utils/voice';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { NavigationMap } from '../components/NavigationMap';
 import { NavigationPanel } from '../components/NavigationPanel';
+import { HoldToConfirmButton } from '../components/HoldToConfirmButton';
 import { OffRouteBanner } from '../components/OffRouteBanner';
 import { BroadcastHealthBanner } from '../components/BroadcastHealthBanner';
 import { clearStoredToken } from '../auth/suiteAuth';
 import { isNearWaypoint } from '../utils/navigation';
 import { TOUCH_TARGET, Z_INDEX } from '../utils/constants';
+import { Moon, OctagonAlert, Pause, Play, Sun, Volume2, VolumeX } from 'lucide-react';
 import type { Route } from '../types';
 
 /** Warn before starting when the Station Manager sign-in has under two hours left. */
@@ -222,13 +224,9 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   }, [isPaused, broadcastRunStatus]);
 
   // Emergency stop: the truck has been called away (e.g. a real callout). Tell
-  // viewers explicitly, then leave navigation. Guarded by a confirm because it
-  // ends the public run.
+  // viewers explicitly, then leave navigation. Only reached after the
+  // control is held down (HoldToConfirmButton), so a brush of the thumb can't end the run.
   const handleEmergencyStop = useCallback(() => {
-    const ok = window.confirm(
-      'End the run now and tell everyone Santa has been called away? Use this if the truck has to leave for an emergency.',
-    );
-    if (!ok) return;
     broadcastRunStatus('aborted', 'Santa has been called away to help. We’ll share a new time as soon as we can.');
     handleStopNavigation();
   }, [broadcastRunStatus, handleStopNavigation]);
@@ -454,7 +452,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
           style={controlRailStyles.button}
           aria-label={voiceEnabled ? 'Disable voice' : 'Enable voice'}
         >
-          {voiceEnabled ? '🔊' : '🔇'}
+          {voiceEnabled ? <Volume2 size={24} aria-hidden="true" /> : <VolumeX size={24} aria-hidden="true" />}
         </button>
 
         {wakeLockSupported ? (
@@ -467,7 +465,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
             aria-label={keepScreenOn ? 'Disable keep screen on' : 'Enable keep screen on'}
             aria-pressed={keepScreenOn}
           >
-            {keepScreenOn ? '☀️' : '🌙'}
+            {keepScreenOn ? <Sun size={24} aria-hidden="true" /> : <Moon size={24} aria-hidden="true" />}
           </button>
         ) : (
           <div style={controlRailStyles.warningPill}>⚠️ Keep screen on manually</div>
@@ -482,22 +480,22 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
           aria-label={isPaused ? 'Resume run for viewers' : 'Pause run for viewers'}
           aria-pressed={isPaused}
         >
-          {isPaused ? '▶️' : '⏸️'}
+          {isPaused ? <Play size={24} aria-hidden="true" /> : <Pause size={24} aria-hidden="true" />}
         </button>
 
-        <button
-          onClick={handleEmergencyStop}
-          style={{ ...controlRailStyles.button, backgroundColor: 'rgba(211, 47, 47, 0.95)' }}
-          aria-label="Emergency stop — Santa called away"
+        <HoldToConfirmButton
+          label="Emergency stop: hold for 1.5 seconds to end the run and tell viewers Santa has been called away"
+          onConfirm={handleEmergencyStop}
+          style={{ ...controlRailStyles.button, ...controlRailStyles.emergency }}
         >
-          🚨
-        </button>
+          <OctagonAlert size={24} aria-hidden="true" />
+        </HoldToConfirmButton>
       </div>
 
       {/* Paused indicator for the operator, so it's obvious viewers see a hold. */}
       {isPaused && (
         <div role="status" aria-live="polite" style={bannerStackStyles.pausedPill}>
-          ⏸️ Paused — viewers see “back shortly”
+          Paused — viewers see “back shortly”
         </div>
       )}
 
@@ -665,6 +663,12 @@ const controlRailStyles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: '0.75rem',
+  },
+  // Emergency stop sits apart from pause so a thumb can't hit it by mistake.
+  emergency: {
+    marginTop: '1.25rem',
+    backgroundColor: 'var(--santa-red)',
+    color: 'white',
   },
   button: {
     width: TOUCH_TARGET.recommended,

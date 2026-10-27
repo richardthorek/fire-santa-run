@@ -23,6 +23,15 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 /** Fallback parade pace when the truck isn't reporting speed: ~12 km/h. */
 const DEFAULT_PARADE_SPEED_MS = 3.4;
 
+/**
+ * Map paint needs concrete colours, not `var()`, so read the brand token at
+ * runtime. Keeps the route line on the same palette as the rest of the page.
+ */
+function readBrandToken(name: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
 export interface TrackingViewProps {
   routeId: string;
   /** Simulated demo run: baked-in route + scripted Santa, no backend. */
@@ -323,7 +332,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
       source: 'route',
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
-        'line-color': '#F77F00', // Gold accent
+        'line-color': readBrandToken('--summer-gold', '#F6A609'),
         'line-width': 20,
         'line-blur': 15,
         'line-opacity': 0.5,
@@ -350,7 +359,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
       source: 'route',
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
-        'line-color': '#D62828', // Santa red
+        'line-color': readBrandToken('--santa-red', '#D8232A'),
         'line-width': 12,
         'line-dasharray': [2, 2],
         'line-opacity': 1,
@@ -720,7 +729,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
           justifyContent: 'center',
           alignItems: 'center',
           height: '100vh',
-          backgroundColor: '#FAFAFA',
+          backgroundColor: 'var(--paper)',
         }}
       >
         <div style={{ textAlign: 'center' }}>
@@ -742,7 +751,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
           alignItems: 'center',
           minHeight: '100vh',
           padding: '2rem',
-          backgroundColor: '#FAFAFA',
+          backgroundColor: 'var(--paper)',
           textAlign: 'center',
         }}
       >
@@ -1256,6 +1265,47 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                 />
               </div>
             </div>
+
+            {route.waypoints.length > 0 && (
+              <ol
+                aria-label="Planned stops"
+                style={{ listStyle: 'none', margin: '0 0 0.9rem', padding: 0, display: 'grid', gap: '0.35rem' }}
+              >
+                {route.waypoints.map((waypoint, index) => {
+                  const done = waypoint.isCompleted || index < liveWaypointIndex;
+                  const plannedTime = waypoint.estimatedArrival
+                    ? new Date(waypoint.estimatedArrival).toLocaleTimeString(undefined, {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        timeZone: runTimeZone,
+                      })
+                    : null;
+                  return (
+                    <li
+                      key={waypoint.id}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: '0.75rem',
+                        fontSize: '0.875rem',
+                        color: done ? 'var(--neutral-600)' : 'var(--ink)',
+                        textDecoration: done ? 'line-through' : 'none',
+                      }}
+                    >
+                      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                        {waypoint.name || `Stop ${index + 1}`}
+                        {done && <span className="sr-only"> (passed)</span>}
+                      </span>
+                      {plannedTime && (
+                        <span style={{ fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                          {plannedTime}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
 
             {currentLocation ? (
               (() => {
