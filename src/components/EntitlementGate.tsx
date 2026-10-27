@@ -81,7 +81,7 @@ export function EntitlementGate({
             display: 'block',
             width: '100%',
             padding: '0.9rem 1.5rem',
-            background: 'linear-gradient(135deg, var(--fire-red), var(--summer-gold))',
+            background: 'var(--santa-red)',
             color: 'white',
             border: 'none',
             borderRadius: 'var(--border-radius, 12px)',

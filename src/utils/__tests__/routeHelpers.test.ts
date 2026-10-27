@@ -10,6 +10,8 @@ import {
   canEditRoute,
   routeEditNeedsPublicWarning,
   canPublishRoute,
+  findNextRun,
+  getRunReadiness,
   getPublishBlockReason,
   isDateInPast,
   canStartRoute,
@@ -868,5 +870,40 @@ describe('eventTimeZoneForNewRoute', () => {
     const device = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const expected = device && device !== 'UTC' ? device : 'Australia/Sydney';
     expect(createNewRoute('brigade-1').timeZone).toBe(expected);
+  });
+});
+
+describe('findNextRun', () => {
+  const base = { brigadeId: 'b', name: 'Run', description: '', status: 'published' as const, waypoints: [], createdAt: '2026-01-01T00:00:00Z' };
+  const now = new Date('2026-12-20T00:00:00Z');
+
+  it('prefers a live run', () => {
+    const routes = [
+      { ...base, id: 'upcoming', date: '2026-12-24', startTime: '19:00', timeZone: 'Australia/Sydney' },
+      { ...base, id: 'live', status: 'active' as const, date: '2026-12-19', startTime: '19:00' },
+    ];
+    expect(findNextRun(routes, now)?.id).toBe('live');
+  });
+
+  it('picks the earliest published run that has not started', () => {
+    const routes = [
+      { ...base, id: 'later', date: '2026-12-26', startTime: '19:00' },
+      { ...base, id: 'sooner', date: '2026-12-24', startTime: '19:00' },
+      { ...base, id: 'past', date: '2026-12-01', startTime: '19:00' },
+      { ...base, id: 'draft', status: 'draft' as const, date: '2026-12-22', startTime: '19:00' },
+    ];
+    expect(findNextRun(routes, now)?.id).toBe('sooner');
+  });
+
+  it('returns null when nothing is upcoming', () => {
+    expect(findNextRun([{ ...base, id: 'past', date: '2026-01-01', startTime: '19:00' }], now)).toBeNull();
+  });
+});
+
+describe('getRunReadiness', () => {
+  it('lists what is still missing, in order', () => {
+    const route = { id: 'r', brigadeId: 'b', name: 'Run', description: '', date: '2026-12-24', startTime: '19:00', status: 'published' as const, waypoints: [], createdAt: '2026-01-01T00:00:00Z' };
+    const readiness = getRunReadiness(route);
+    expect(readiness.map(item => item.done)).toEqual([false, false, false]);
   });
 });

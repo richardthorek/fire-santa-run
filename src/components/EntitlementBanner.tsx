@@ -17,7 +17,7 @@ export function EntitlementBanner() {
       role="region"
       aria-label="Fire Santa Run not enabled"
       style={{
-        background: 'linear-gradient(135deg, var(--fire-red), var(--summer-gold))',
+        background: 'var(--santa-red)',
         color: '#ffffff',
         borderRadius: 'var(--border-radius-lg, 16px)',
         padding: '1rem 1.25rem',

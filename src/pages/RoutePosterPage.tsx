@@ -18,7 +18,7 @@ import { SEO } from '../components/SEO';
 import { safeImageSrc } from '../utils/publicBrigade';
 import { generateShareableLink } from '../utils/routeHelpers';
 import type { Route } from '../types';
-import { DEFAULT_ROUTE_TIME_ZONE, formatEventStartInEventZone } from '../utils/countdown';
+import { DEFAULT_ROUTE_TIME_ZONE, formatClockTime, formatEventStartInEventZone } from '../utils/countdown';
 import type { Brigade } from '../storage/types';
 
 
@@ -69,6 +69,12 @@ export function RoutePosterPage() {
 
   const shareUrl = route.shareableLink || generateShareableLink(route.id);
   const { day, time } = formatEventStartInEventZone(route.date, route.startTime, route.timeZone ?? DEFAULT_ROUTE_TIME_ZONE);
+  const eventZone = route.timeZone ?? DEFAULT_ROUTE_TIME_ZONE;
+  const stopTimes = route.waypoints.map((waypoint, index) => ({
+    id: waypoint.id,
+    name: waypoint.name || `Stop ${index + 1}`,
+    time: waypoint.estimatedArrival ? formatClockTime(waypoint.estimatedArrival, eventZone) : '',
+  }));
   const logoSrc = safeImageSrc(brigade?.logo);
   const accent = brigade?.themeColor || 'var(--fire-red)';
 
@@ -97,7 +103,7 @@ export function RoutePosterPage() {
           onClick={() => window.print()}
           style={{
             padding: '0.7rem 1.5rem',
-            background: 'linear-gradient(135deg, var(--fire-red), var(--fire-red-dark, #B71C1C))',
+            background: 'var(--santa-red)',
             color: 'white',
             border: 'none',
             borderRadius: '10px',
@@ -182,6 +188,22 @@ export function RoutePosterPage() {
           <span>📅 {day}</span>
           <span>⏰ from {time}</span>
         </div>
+
+        {stopTimes.some(stop => stop.time) && (
+          <div style={{ width: '100%', margin: '0 0 6mm' }}>
+            <p style={{ fontSize: '4mm', fontWeight: 800, color: 'var(--neutral-700)', margin: '0 0 2mm', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Planned stops ({eventZone.split('/').pop()?.replace(/_/g, ' ')} time)
+            </p>
+            <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5mm 8mm', fontSize: '4.2mm', color: 'var(--neutral-900)' }}>
+              {stopTimes.map(stop => (
+                <li key={stop.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '3mm', borderBottom: '0.3mm solid var(--neutral-200)', paddingBottom: '1mm', minWidth: 0 }}>
+                  <span style={{ overflowWrap: 'anywhere', textAlign: 'left' }}>{stop.name}</span>
+                  <span style={{ fontWeight: 700, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{stop.time}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
 
         {/* QR code */}
         <div

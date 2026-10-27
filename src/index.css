@@ -16,6 +16,7 @@
   --christmas-green-dark: #0B5C3B;
 
   --snow:             #FFFFFF;
+  --surface-raised:   #FFFFFF;  /* cards and sheets that sit above the page */
 
   /* ---- Legacy aliases — keep existing components compiling ---- */
   --fire-red:         var(--santa-red);
@@ -123,6 +124,9 @@ code, .mono, .slug, .route-id, .category-code {
   --bg-primary:   #0A0F1A;
   --bg-secondary: #0E1522;
   --bg-card:      #121A29;
+  --surface-raised: #161F33;
+  --ink:            #EEF2F7;  /* primary text on dark surfaces */
+  --neutral-600:    #A9B4C6;  /* secondary text on dark surfaces */
   --text-primary: #F3F6FB;
   --text-secondary:#A6B0C4;
   --border-color: #233149;

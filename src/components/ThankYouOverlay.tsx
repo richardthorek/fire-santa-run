@@ -287,7 +287,7 @@ export function ThankYouOverlay({ route, onClose }: ThankYouOverlayProps) {
           style={{
             display: 'inline-block',
             padding: '0.875rem 2rem',
-            background: 'linear-gradient(135deg, var(--santa-red) 0%, #B21E1E 100%)',
+            background: 'var(--santa-red)',
             color: 'white',
             textDecoration: 'none',
             borderRadius: '14px',

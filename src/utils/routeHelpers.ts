@@ -20,7 +20,7 @@ function getNextChristmasEveAt4pm(): { date: string; time: string } {
  */
 
 import type { Route, RouteStatus, Waypoint, NavigationSettings, NavigationStep } from '../types';
-import { DEFAULT_ROUTE_TIME_ZONE, deviceTimeZone } from './countdown';
+import { DEFAULT_ROUTE_TIME_ZONE, deviceTimeZone, zonedDateTimeToEpoch } from './countdown';
 
 /**
  * Generate a unique route ID
@@ -687,4 +687,36 @@ export function sortRoutes(routes: Route[], sortOptions: RouteSortOptions): Rout
 
     return comparison * multiplier;
   });
+}
+
+/**
+ * The run the organiser should look at first: one that is live now, else the
+ * earliest published run that hasn't started yet. Start instants use each
+ * route's own zone. Returns null when nothing is live or upcoming.
+ */
+export function findNextRun(routes: Route[], now: Date = new Date()): Route | null {
+  const live = routes.find(route => route.status === 'active');
+  if (live) return live;
+
+  let next: Route | null = null;
+  let nextStart = Number.POSITIVE_INFINITY;
+  for (const route of routes) {
+    if (route.status !== 'published' || !route.date) continue;
+    const start = zonedDateTimeToEpoch(route.date, route.startTime || '00:00', route.timeZone ?? DEFAULT_ROUTE_TIME_ZONE);
+    if (Number.isNaN(start) || start < now.getTime()) continue;
+    if (start < nextStart) {
+      next = route;
+      nextStart = start;
+    }
+  }
+  return next;
+}
+
+/** What still needs doing before a run can go ahead, in the order an organiser meets it. */
+export function getRunReadiness(route: Route): { label: string; done: boolean }[] {
+  return [
+    { label: 'Driving path planned from your stops', done: hasPlannedPath(route) },
+    { label: 'At least two stops', done: route.waypoints.length >= 2 },
+    { label: 'Tracking link and poster ready to share', done: !!route.shareableLink },
+  ];
 }

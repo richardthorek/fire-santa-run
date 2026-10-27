@@ -600,7 +600,7 @@ const screenStyles: Record<string, React.CSSProperties> = {
     border: 'none',
     borderRadius: 'var(--border-radius-md)',
     cursor: 'pointer',
-    background: 'linear-gradient(135deg, var(--santa-red) 0%, var(--santa-red-dark) 100%)',
+    background: 'var(--santa-red)',
     color: 'var(--snow)',
     boxShadow: 'var(--ui-shadow)',
     minHeight: TOUCH_TARGET.recommended,

@@ -8,7 +8,7 @@
 }
 
 .ap__bar {
-  background: linear-gradient(135deg, var(--santa-red) 0%, var(--santa-red-dark) 100%);
+  background: var(--santa-red);
   color: var(--snow);
   padding: 1rem 1.5rem;
 }
