@@ -112,6 +112,11 @@ function isDateBeforePublishToday(dateStr: string | undefined): boolean {
   return dateStr < todayInBrigadeTimezone();
 }
 
+/** Whether a route carries the planned driving path that Start Run needs. */
+function hasPlannedPath(route: any): boolean {
+  return !!route?.geometry && Array.isArray(route?.navigationSteps) && route.navigationSteps.length > 0;
+}
+
 /**
  * Core identity of a waypoint for the purposes of detecting a structural
  * edit (added/removed/reordered/moved/relabelled stop) vs. a progress update
@@ -299,6 +304,12 @@ routesRouter.post('/', async (c) => {
     if (!authResult.santaRunEnabled) {
       return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
+    if (route.status === 'published' && !hasPlannedPath(route)) {
+      return c.json(
+        { error: 'Route not planned', message: 'Plan the driving path before publishing — Start Run needs it.' },
+        422,
+      );
+    }
     if (route.status === 'published' && isDateBeforePublishToday(route.date)) {
       return c.json(
         { error: 'Invalid publish date', message: 'This route\'s date is in the past — update the date before publishing.' },
@@ -361,6 +372,12 @@ routesRouter.put('/:id', async (c) => {
       }
     }
 
+    if (route.status === 'published' && existingRoute?.status !== 'published' && !hasPlannedPath(route)) {
+      return c.json(
+        { error: 'Route not planned', message: 'Plan the driving path before publishing — Start Run needs it.' },
+        422,
+      );
+    }
     if (route.status === 'published' && existingRoute?.status !== 'published' && isDateBeforePublishToday(route.date)) {
       return c.json(
         { error: 'Invalid publish date', message: 'This route\'s date is in the past — update the date before publishing.' },

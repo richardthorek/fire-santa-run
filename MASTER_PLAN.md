@@ -504,6 +504,14 @@ sign-in alive (refresh on open, every 30 min, and on wake) via SM's new
 re-checked) — SM must deploy first; until then Santa Run falls back to the
 expiry warnings.
 
+### Freshness and publish guard (2026-10-27)
+
+Viewer freshness now follows the truck's own fix time, not arrival time, so a
+replayed or late-joiner position shows "last seen" instead of live. Older or
+duplicate fixes are dropped. The personal ETA gives no time estimate while the
+signal is stale. A route can't be published until its driving path and steps
+exist (client gate and server PUT/POST guard), matching what Start Run needs.
+
 ## Roadmap — what's next
 
 Ordered by leverage. Public-side items move the needle most because the public
