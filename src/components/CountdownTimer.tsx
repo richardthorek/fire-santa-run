@@ -12,7 +12,7 @@ export interface CountdownTimerProps {
   startDate: string;
   /** Route start time in HH:MM (24-hour) format */
   startTime: string;
-  /** IANA zone the start time is set in; defaults to the brigade zone */
+  /** IANA zone the organiser set the start time in; viewers see their own zone first */
   timeZone?: string;
   /** Called once when the countdown reaches zero */
   onComplete?: () => void;

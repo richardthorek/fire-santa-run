@@ -108,6 +108,7 @@ export function validateImportedRoute(raw: unknown): { route: Route | null; issu
     description: typeof obj.description === 'string' ? obj.description : undefined,
     date: typeof obj.date === 'string' && !Number.isNaN(Date.parse(obj.date)) ? obj.date : new Date().toISOString().slice(0, 10),
     startTime: typeof obj.startTime === 'string' ? obj.startTime : '18:00',
+    timeZone: typeof obj.timeZone === 'string' ? obj.timeZone : undefined,
     endTime: typeof obj.endTime === 'string' ? obj.endTime : undefined,
     status: status as Route['status'],
     waypoints,

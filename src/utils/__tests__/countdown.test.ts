@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { getCountdownTime, padCountdownUnit, formatRouteStartDateTime, zonedDateTimeToEpoch } from '../countdown';
+import { getCountdownTime, padCountdownUnit, formatRouteStartDateTime, formatEventStartInEventZone, zonedDateTimeToEpoch } from '../countdown';
 
 /** The fake clocks above are local wall-clock times, so these tests read the start in the machine's zone. */
 const LOCAL_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -147,7 +147,41 @@ describe('zonedDateTimeToEpoch', () => {
 });
 
 describe('formatRouteStartDateTime time zone', () => {
-  it('names the zone in the start line', () => {
-    expect(formatRouteStartDateTime('2026-12-24', '16:00', 'Australia/Sydney')).toMatch(/AEDT|GMT\+11/);
+  it('shows the viewer zone first and the event zone in brackets when clocks differ', () => {
+    // 16:30 in Adelaide (UTC+10:30 in December) is 17:00 in Sydney (UTC+11).
+    const line = formatRouteStartDateTime('2026-12-24', '16:30', 'Australia/Adelaide', 'Australia/Sydney');
+    expect(line).toMatch(/^Thu,? 24 Dec 2026 at 5:00\s?pm AEDT \(4:30\s?pm ACDT in Adelaide\)$/);
+  });
+
+  it('omits the event zone when the viewer shares its clock time', () => {
+    const line = formatRouteStartDateTime('2026-12-24', '16:00', 'Australia/Sydney', 'Australia/Sydney');
+    expect(line).not.toContain('(');
+  });
+
+  it('names the event city, not the viewer, in brackets', () => {
+    const line = formatRouteStartDateTime('2026-12-24', '16:30', 'Australia/Adelaide', 'Australia/Sydney');
+    expect(line).toContain('in Adelaide');
+  });
+});
+
+describe('formatEventStartInEventZone', () => {
+  it('reads the start in the event zone, with the zone named', () => {
+    const { day, time } = formatEventStartInEventZone('2026-12-24', '16:30', 'Australia/Adelaide');
+    expect(day).toBe('Thursday 24 December');
+    expect(time).toMatch(/4:30\s?pm ACDT/);
+  });
+});
+
+describe('daylight saving', () => {
+  it('keeps a 7pm December run at 7pm on the day, whatever the clocks did in October', () => {
+    // Sydney moves to daylight time on 4 October 2026. A run set on 24 December
+    // at 19:00 is 19:00 local on the day: 08:00 UTC, not 07:00 UTC.
+    const epoch = zonedDateTimeToEpoch('2026-12-24', '19:00', 'Australia/Sydney');
+    expect(new Date(epoch).toISOString()).toBe('2026-12-24T08:00:00.000Z');
+  });
+
+  it('keeps a 7pm July run at 7pm on the day, on standard time', () => {
+    const epoch = zonedDateTimeToEpoch('2026-07-01', '19:00', 'Australia/Sydney');
+    expect(new Date(epoch).toISOString()).toBe('2026-07-01T09:00:00.000Z');
   });
 });

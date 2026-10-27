@@ -862,3 +862,11 @@ describe('routeHelpers', () => {
     });
   });
 });
+
+describe('eventTimeZoneForNewRoute', () => {
+  it('takes the organiser device zone for a new route', () => {
+    const device = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const expected = device && device !== 'UTC' ? device : 'Australia/Sydney';
+    expect(createNewRoute('brigade-1').timeZone).toBe(expected);
+  });
+});

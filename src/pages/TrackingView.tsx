@@ -17,7 +17,7 @@ import { calculateDistance, alongPathDistance } from '../utils/navigation';
 import { getPushEnvironment, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute, type PushEnvironmentKind } from '../utils/push';
 import { DEMO_ROUTE, startDemoSimulator } from '../utils/demoRoute';
 import { isLocationStale, minutesSinceUpdate, isNewerBroadcast, isRunRunningLate } from '../utils/trackingStatus';
-import { DEFAULT_ROUTE_TIME_ZONE, zonedDateTimeToEpoch } from '../utils/countdown';
+import { DEFAULT_ROUTE_TIME_ZONE, formatRouteStartDateTime, zonedDateTimeToEpoch } from '../utils/countdown';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 /** Fallback parade pace when the truck isn't reporting speed: ~12 km/h. */
@@ -42,13 +42,6 @@ export interface TrackingViewProps {
  * Format "2026-12-24" + "19:30" as "Thu 24 Dec • 7:30 pm". Falls back to the
  * raw values if either part doesn't parse.
  */
-function formatRunDateTime(date: string, startTime: string, timeZone: string): string {
-  const parsed = new Date(zonedDateTimeToEpoch(date, startTime || '00:00', timeZone));
-  if (Number.isNaN(parsed.getTime())) return `${date} • ⏰ ${startTime}`;
-  const day = parsed.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone });
-  const time = parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZone });
-  return `${day} • ⏰ ${time}`;
-}
 
 /** Escape user-provided text before interpolating into popup HTML. */
 function escapeHtml(value: string): string {
@@ -1033,7 +1026,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                   opacity: 0.95,
                   fontFamily: 'var(--font-body)',
                 }}>
-                  📅 {formatRunDateTime(route.date, route.startTime, runTimeZone)}
+                  📅 {formatRouteStartDateTime(route.date, route.startTime, runTimeZone)}
                 </p>
               </div>
               {demo && (
