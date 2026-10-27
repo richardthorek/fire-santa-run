@@ -14,8 +14,9 @@ test.describe('App smoke', () => {
       page.getByRole('heading', { name: /Santa Run Routes/i }),
     ).toBeVisible();
 
-    // Seeded mock route from utils/mockData.ts
-    await expect(page.getByText('Christmas Eve - South Route')).toBeVisible();
+    // Seeded mock route from utils/mockData.ts. It appears twice now: as the
+    // next-run hero and in the route list, so check the first match is visible.
+    await expect(page.getByText('Christmas Eve - South Route').first()).toBeVisible();
   });
 
   test('dev-mode banner is present', async ({ page }) => {
