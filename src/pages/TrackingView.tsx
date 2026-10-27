@@ -16,7 +16,8 @@ import { formatDistance, getDirections } from '../utils/mapbox';
 import { calculateDistance, alongPathDistance } from '../utils/navigation';
 import { getPushEnvironment, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute, type PushEnvironmentKind } from '../utils/push';
 import { DEMO_ROUTE, startDemoSimulator } from '../utils/demoRoute';
-import { isLocationStale, minutesSinceUpdate, isRunRunningLate } from '../utils/trackingStatus';
+import { isLocationStale, minutesSinceUpdate, isNewerBroadcast, isRunRunningLate } from '../utils/trackingStatus';
+import { DEFAULT_ROUTE_TIME_ZONE, formatRouteStartDateTime, zonedDateTimeToEpoch } from '../utils/countdown';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 /** Fallback parade pace when the truck isn't reporting speed: ~12 km/h. */
@@ -32,13 +33,6 @@ export interface TrackingViewProps {
  * Format "2026-12-24" + "19:30" as "Thu 24 Dec • 7:30 pm". Falls back to the
  * raw values if either part doesn't parse.
  */
-function formatRunDateTime(date: string, startTime: string): string {
-  const parsed = new Date(`${date}T${startTime || '00:00'}`);
-  if (Number.isNaN(parsed.getTime())) return `${date} • ⏰ ${startTime}`;
-  const day = parsed.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-  const time = parsed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  return `${day} • ⏰ ${time}`;
-}
 
 /** Escape user-provided text before interpolating into popup HTML. */
 function escapeHtml(value: string): string {
@@ -76,11 +70,15 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   // The path drawn on the map: stored geometry wins, fallback otherwise.
   const displayGeometry = route?.geometry ?? fetchedGeometry;
+  // The start time is the brigade's wall-clock time in the route's own zone.
+  const runTimeZone = route?.timeZone ?? DEFAULT_ROUTE_TIME_ZONE;
 
   // When the last live broadcast arrived — drives the "Santa's signal may be
   // patchy" staleness chip. Re-checked on a timer, not just on new broadcasts,
   // since staleness is defined by time passing with nothing new arriving.
   const [lastLocationUpdateAt, setLastLocationUpdateAt] = useState<number | null>(null);
+  // The newest truck fix accepted so far, used to drop replayed or older messages.
+  const lastFixAtRef = useRef<number | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNowTick(Date.now()), 15_000);
@@ -405,8 +403,14 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
       return;
     }
 
+    // Freshness is the truck's own fix time, not when this message arrived:
+    // a replayed or late-joiner position must not look live. Older or
+    // duplicate fixes are dropped so Santa never jumps backwards.
+    if (!isNewerBroadcast(lastFixAtRef.current, location.timestamp)) return;
+    lastFixAtRef.current = location.timestamp;
     setCurrentLocation(location);
-    setLastLocationUpdateAt(Date.now());
+    // A device clock running ahead must not make a position look fresher than now.
+    setLastLocationUpdateAt(Math.min(location.timestamp, Date.now()));
     if (typeof location.currentWaypointIndex === 'number') {
       // Never go backwards — guards against out-of-order messages. (The
       // looping demo simulator is the one exception: it explicitly resets
@@ -674,7 +678,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
       setMinutesRunLate(null);
       return;
     }
-    const startEpoch = new Date(`${route.date}T${route.startTime || '00:00'}`).getTime();
+    const startEpoch = zonedDateTimeToEpoch(route.date, route.startTime || '00:00', runTimeZone);
     const check = () => {
       const lateBy = Math.floor((Date.now() - startEpoch) / 60_000);
       setMinutesRunLate(isRunRunningLate(startEpoch) ? lateBy : null);
@@ -1013,7 +1017,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                   opacity: 0.95,
                   fontFamily: 'var(--font-body)',
                 }}>
-                  📅 {formatRunDateTime(route.date, route.startTime)}
+                  📅 {formatRouteStartDateTime(route.date, route.startTime, runTimeZone)}
                 </p>
               </div>
               {demo && (
@@ -1342,6 +1346,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               <CountdownTimer
                 startDate={route.date}
                 startTime={route.startTime}
+                timeZone={runTimeZone}
                 onComplete={() => setCompletedForRouteId(routeId)}
                 onShare={() => setShowShareModal(true)}
               />
@@ -1460,11 +1465,13 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
                     <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--neutral-900)', fontWeight: 600 }}>
-                      {mySpotEta
-                        ? mySpotEta.passed
-                          ? '🏠 Santa has already passed your spot — catch him further along the route!'
-                          : `🏠 Santa is ${formatDistance(mySpotEta.meters)} from your spot — about ${mySpotEta.minutes} min away`
-                        : '🏠 Your spot is pinned — your personal ETA will appear when Santa starts.'}
+                      {mySpotEta && isSignalStale
+                        ? `🏠 Last seen ${staleMinutes} min ago, ${formatDistance(mySpotEta.meters)} from your spot — no time estimate until his signal returns`
+                        : mySpotEta
+                          ? mySpotEta.passed
+                            ? '🏠 Santa has already passed your spot — catch him further along the route!'
+                            : `🏠 Santa is ${formatDistance(mySpotEta.meters)} from your spot — about ${mySpotEta.minutes} min away`
+                          : '🏠 Your spot is pinned — your personal ETA will appear when Santa starts.'}
                     </p>
                     <button
                       type="button"

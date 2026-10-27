@@ -20,6 +20,7 @@ function entityToRoute(entity: any) {
     description: entity.description,
     date: entity.date,
     startTime: entity.startTime,
+    timeZone: entity.timeZone || undefined,
     endTime: entity.endTime,
     status: entity.status,
     waypoints: entity.waypoints ? JSON.parse(entity.waypoints) : [],
@@ -53,6 +54,7 @@ function routeToEntity(route: any) {
     description: route.description || '',
     date: route.date,
     startTime: route.startTime,
+    timeZone: route.timeZone || '',
     endTime: route.endTime || '',
     status: route.status,
     waypoints: JSON.stringify(route.waypoints || []),
@@ -101,15 +103,33 @@ const DELETABLE_STATUSES = new Set(['draft', 'completed', 'archived']);
 /** Brigades operate on Australian local time regardless of the server's own timezone. */
 const BRIGADE_TIMEZONE = 'Australia/Sydney';
 
-/** Today's date as `YYYY-MM-DD` in Australian local time (en-CA formats that way natively). */
-function todayInBrigadeTimezone(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: BRIGADE_TIMEZONE }).format(new Date());
+/** Whether a string is a zone the runtime knows, e.g. 'Australia/Sydney'. */
+function isKnownTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-/** Whether a `route.date` string (`YYYY-MM-DD`) is strictly before today, in Australian local time. */
-function isDateBeforePublishToday(dateStr: string | undefined): boolean {
+/** Today's date as `YYYY-MM-DD` in the given zone (en-CA formats that way natively). */
+function todayInTimezone(timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+}
+
+/**
+ * Whether a `route.date` string (`YYYY-MM-DD`) is strictly before today in the
+ * route's own zone, falling back to the brigade zone when it has none.
+ */
+function isDateBeforePublishToday(dateStr: string | undefined, timeZone?: string): boolean {
   if (!dateStr) return false;
-  return dateStr < todayInBrigadeTimezone();
+  return dateStr < todayInTimezone(timeZone || BRIGADE_TIMEZONE);
+}
+
+/** Whether a route carries the planned driving path that Start Run needs. */
+function hasPlannedPath(route: any): boolean {
+  return !!route?.geometry && Array.isArray(route?.navigationSteps) && route.navigationSteps.length > 0;
 }
 
 /**
@@ -147,6 +167,9 @@ function validateRoutePayload(route: any): string | null {
   }
   if (route.status !== undefined && !VALID_ROUTE_STATUSES.has(route.status)) {
     return `status must be one of: ${[...VALID_ROUTE_STATUSES].join(', ')}`;
+  }
+  if (route.timeZone !== undefined && route.timeZone !== '' && (typeof route.timeZone !== 'string' || !isKnownTimeZone(route.timeZone))) {
+    return 'timeZone must be an IANA zone name such as Australia/Sydney';
   }
   if (route.waypoints !== undefined) {
     if (!Array.isArray(route.waypoints) || route.waypoints.length > MAX_WAYPOINTS) {
@@ -299,7 +322,13 @@ routesRouter.post('/', async (c) => {
     if (!authResult.santaRunEnabled) {
       return c.json({ error: 'Payment required', message: 'Fire Santa Run is not enabled for your organisation' }, 402);
     }
-    if (route.status === 'published' && isDateBeforePublishToday(route.date)) {
+    if (route.status === 'published' && !hasPlannedPath(route)) {
+      return c.json(
+        { error: 'Route not planned', message: 'Plan the driving path before publishing — Start Run needs it.' },
+        422,
+      );
+    }
+    if (route.status === 'published' && isDateBeforePublishToday(route.date, route.timeZone)) {
       return c.json(
         { error: 'Invalid publish date', message: 'This route\'s date is in the past — update the date before publishing.' },
         422,
@@ -361,7 +390,13 @@ routesRouter.put('/:id', async (c) => {
       }
     }
 
-    if (route.status === 'published' && existingRoute?.status !== 'published' && isDateBeforePublishToday(route.date)) {
+    if (route.status === 'published' && existingRoute?.status !== 'published' && !hasPlannedPath(route)) {
+      return c.json(
+        { error: 'Route not planned', message: 'Plan the driving path before publishing — Start Run needs it.' },
+        422,
+      );
+    }
+    if (route.status === 'published' && existingRoute?.status !== 'published' && isDateBeforePublishToday(route.date, route.timeZone)) {
       return c.json(
         { error: 'Invalid publish date', message: 'This route\'s date is in the past — update the date before publishing.' },
         422,
