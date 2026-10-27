@@ -210,7 +210,7 @@ export function CountdownTimer({ startDate, startTime, timeZone, onComplete, onS
           aria-label="Share Santa's route"
           style={{
             padding: '0.625rem 1.5rem',
-            background: 'linear-gradient(135deg, var(--santa-red), #B21E1E)',
+            background: 'var(--santa-red)',
             color: 'white',
             border: 'none',
             borderRadius: 'var(--border-radius-sm)',

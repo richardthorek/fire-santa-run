@@ -106,7 +106,7 @@
 }
 
 .pbp__claim {
-  background: linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%);
+  background: var(--santa-red);
   color: var(--candy-white);
   box-shadow: var(--ui-shadow);
   border: none;

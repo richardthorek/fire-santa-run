@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useRoutes } from '../hooks';
-import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist, ImportModal, ExportMenu, EntitlementBanner } from '../components';
+import { RouteStatusBadge, ShareModal, SEO, DashboardSkeleton, AppLayout, HighlightedText, OnboardingChecklist, ImportModal, ExportMenu, EntitlementBanner, NextRunHero } from '../components';
 import type { Route, RouteStatus } from '../types';
 import { formatDistance, formatDuration } from '../utils/mapbox';
 import { primeGeolocationPermission } from '../utils/primeGeolocation';
@@ -10,6 +10,7 @@ import {
   daysUntilAutoArchive,
   DEFAULT_ARCHIVE_THRESHOLD_DAYS,
   searchRoutes,
+  findNextRun,
   filterRoutes,
   sortRoutes,
   canEditRoute,
@@ -59,6 +60,7 @@ export function Dashboard() {
 
   // Non-archived routes (shown in 'all' and other status tabs)
   const activeRoutes = routes.filter(r => r.status !== 'archived');
+  const nextRun = useMemo(() => findNextRun(routes), [routes]);
 
   // Apply search, filter, and sort with useMemo for performance
   const filteredRoutes = useMemo(() => {
@@ -205,6 +207,8 @@ export function Dashboard() {
         <EntitlementBanner />
 
         {/* Onboarding checklist — shows once until dismissed (manages its own visibility) */}
+        {nextRun && <NextRunHero route={nextRun} />}
+
         {brigade && <OnboardingChecklist brigade={brigade} routes={routes} />}
         
         {/* Header */}
@@ -238,7 +242,7 @@ export function Dashboard() {
             aria-label="Create new Santa Run route"
             style={{
               padding: '0.875rem 1.75rem',
-              background: 'linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%)',
+              background: 'var(--santa-red)',
               color: 'white',
               textDecoration: 'none',
               borderRadius: 'var(--border-radius-sm)',

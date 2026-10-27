@@ -8,7 +8,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useWebPubSub, useReverseGeocode } from '../hooks';
 import { ShareModal, SEO, CountdownTimer, ThankYouOverlay } from '../components';
-import { MAPBOX_CONFIG, DEFAULT_MAP_STYLE } from '../config/mapbox';
+import { MAPBOX_CONFIG, DEFAULT_MAP_STYLE, lightPresetForHour } from '../config/mapbox';
 import mapboxgl from 'mapbox-gl';
 import { storageAdapter } from '../storage';
 import type { Route, LocationBroadcast } from '../types';
@@ -17,7 +17,7 @@ import { calculateDistance, alongPathDistance } from '../utils/navigation';
 import { getPushEnvironment, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute, type PushEnvironmentKind } from '../utils/push';
 import { DEMO_ROUTE, startDemoSimulator } from '../utils/demoRoute';
 import { isLocationStale, minutesSinceUpdate, isNewerBroadcast, isRunRunningLate } from '../utils/trackingStatus';
-import { DEFAULT_ROUTE_TIME_ZONE, formatRouteStartDateTime, zonedDateTimeToEpoch } from '../utils/countdown';
+import { DEFAULT_ROUTE_TIME_ZONE, formatClockTime, formatRouteStartDateTime, zonedDateTimeToEpoch } from '../utils/countdown';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 /** Fallback parade pace when the truck isn't reporting speed: ~12 km/h. */
@@ -82,6 +82,18 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   // The start time is the brigade's wall-clock time in the route's own zone.
   const runTimeZone = route?.timeZone ?? DEFAULT_ROUTE_TIME_ZONE;
 
+  // The tracker is night-first: dark tokens while it's open, the viewer's own
+  // theme restored on the way out.
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.dataset.theme;
+    root.dataset.theme = 'dark';
+    return () => {
+      if (previous === undefined) delete root.dataset.theme;
+      else root.dataset.theme = previous;
+    };
+  }, []);
+
   // When the last live broadcast arrived — drives the "Santa's signal may be
   // patchy" staleness chip. Re-checked on a timer, not just on new broadcasts,
   // since staleness is defined by time passing with nothing new arriving.
@@ -93,6 +105,24 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
     const id = setInterval(() => setNowTick(Date.now()), 15_000);
     return () => clearInterval(id);
   }, []);
+  // The Standard basemap follows the time of day where the run is: dawn, day,
+  // dusk or night. Re-checked on the existing clock tick, changed only when the
+  // preset does.
+  const lightPresetRef = useRef<string | null>(null);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapLoaded || !map || !DEFAULT_MAP_STYLE.includes('standard')) return;
+    const hour = Number(
+      new Intl.DateTimeFormat('en-AU', { hour: 'numeric', hourCycle: 'h23', timeZone: runTimeZone })
+        .formatToParts(new Date(nowTick))
+        .find(part => part.type === 'hour')?.value,
+    );
+    const preset = lightPresetForHour(hour);
+    if (lightPresetRef.current === preset) return;
+    lightPresetRef.current = preset;
+    map.setConfigProperty('basemap', 'lightPreset', preset);
+  }, [mapLoaded, nowTick, runTimeZone]);
+
   // How many whole minutes the run's scheduled start is overdue with no
   // broadcast yet — null until ~10 min past start (see isRunRunningLate).
   const [minutesRunLate, setMinutesRunLate] = useState<number | null>(null);
@@ -769,7 +799,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
             to="/brigades"
             style={{
               padding: '0.75rem 1.5rem',
-              background: 'linear-gradient(135deg, var(--fire-red) 0%, var(--fire-red-dark) 100%)',
+              background: 'var(--santa-red)',
               color: 'white',
               textDecoration: 'none',
               borderRadius: 'var(--border-radius-sm)',
@@ -860,7 +890,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
             display: 'flex',
             alignItems: 'center',
             gap: '0.5rem',
-            background: 'linear-gradient(135deg, var(--santa-red) 0%, #B21E1E 100%)',
+            background: 'var(--santa-red)',
             color: 'white',
             border: 'none',
             borderRadius: '999px',
@@ -988,7 +1018,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               top: 0,
               left: 0,
               right: 0,
-              background: 'linear-gradient(135deg, var(--santa-red), #B21E1E)',
+              background: 'var(--santa-red)',
               color: 'var(--candy-white)',
               fontFamily: 'var(--font-fun)',
               padding: 'calc(clamp(0.75rem, 2.5vw, 1.25rem) + env(safe-area-inset-top, 0px)) clamp(1rem, 3vw, 1.5rem) clamp(0.75rem, 2.5vw, 1.25rem)',
@@ -1142,7 +1172,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                   bottom: 'calc(100% + 0.75rem)',
                   right: 0,
                   padding: '0.625rem 1rem',
-                  background: 'white',
+                  background: 'var(--surface-raised)',
                   color: 'var(--santa-red)',
                   border: '2px solid var(--santa-red)',
                   borderRadius: '999px',
@@ -1161,7 +1191,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               className="status-card"
               aria-label="Santa run status"
               style={{
-                background: 'rgba(255, 255, 255, 0.92)',
+                background: 'color-mix(in srgb, var(--surface-raised) 92%, transparent)',
                 backdropFilter: 'blur(12px)',
                 WebkitBackdropFilter: 'blur(12px)',
                 borderRadius: 'var(--border-radius)',
@@ -1273,13 +1303,8 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
               >
                 {route.waypoints.map((waypoint, index) => {
                   const done = waypoint.isCompleted || index < liveWaypointIndex;
-                  const plannedTime = waypoint.estimatedArrival
-                    ? new Date(waypoint.estimatedArrival).toLocaleTimeString(undefined, {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        timeZone: runTimeZone,
-                      })
-                    : null;
+                  // Viewers see stop times on their own device clock.
+                  const plannedTime = waypoint.estimatedArrival ? formatClockTime(waypoint.estimatedArrival) : null;
                   return (
                     <li
                       key={waypoint.id}
@@ -1586,7 +1611,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
                     padding: '0.7rem 1rem',
                     border: '2px solid var(--christmas-green)',
                     borderRadius: 'var(--border-radius-xs)',
-                    background: 'white',
+                    background: 'var(--surface-raised)',
                     color: 'var(--christmas-green)',
                     cursor: pinBusy ? 'wait' : 'pointer',
                     fontWeight: 700,
@@ -1653,7 +1678,7 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
             display: 'flex',
             gap: '0.75rem',
             fontSize: '0.7rem',
-            background: 'rgba(255, 255, 255, 0.75)',
+            background: 'color-mix(in srgb, var(--surface-raised) 75%, transparent)',
             padding: '0.2rem 0.5rem',
             borderRadius: '6px',
             backdropFilter: 'blur(4px)',

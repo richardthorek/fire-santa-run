@@ -66,3 +66,5 @@ export type { ThankYouOverlayProps } from './ThankYouOverlay';
 export type { RoutePreviewModalProps } from './RoutePreviewModal';
 export { HoldToConfirmButton } from './HoldToConfirmButton';
 export type { HoldToConfirmButtonProps } from './HoldToConfirmButton';
+export { NextRunHero } from './NextRunHero';
+export type { NextRunHeroProps } from './NextRunHero';

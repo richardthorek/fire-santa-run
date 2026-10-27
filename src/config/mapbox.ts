@@ -34,3 +34,18 @@ export const MAP_STYLES = {
 
 // Default map style for navigation (standard with 3D buildings and pedestrian roads visible)
 export const DEFAULT_MAP_STYLE = MAP_STYLES.standard;
+
+/** Light presets the Standard basemap offers. */
+export type MapLightPreset = 'dawn' | 'day' | 'dusk' | 'night';
+
+/**
+ * The basemap light preset for a local hour (0-23), so the map looks like the
+ * time of day where the run is. Fixed hours approximate Australian sunrise and
+ * sunset; they don't track the season.
+ */
+export function lightPresetForHour(hour: number): MapLightPreset {
+  if (hour >= 5 && hour < 7) return 'dawn';
+  if (hour >= 7 && hour < 17) return 'day';
+  if (hour >= 17 && hour < 19) return 'dusk';
+  return 'night';
+}

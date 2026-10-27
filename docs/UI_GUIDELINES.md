@@ -52,7 +52,8 @@ Radii `--border-radius` (20) / `-md` / `-sm` / `-xs`; shadows `--ui-shadow*`.
 
 ## Buttons
 
-Gradient primaries, rounded corners, clear hover lift. **Never red-on-red** or
+Flat brand-red primaries (`--santa-red`, darker on press), rounded corners, no
+hover lift. Gradients are for decoration only, never for buttons. **Never red-on-red** or
 low-contrast text on a coloured fill. Enabled and disabled states must be
 unmistakably different — a disabled action should never look clickable, and an
 enabled one should never look disabled. See [`BUTTON_SYSTEM.md`](BUTTON_SYSTEM.md).

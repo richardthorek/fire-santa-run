@@ -138,3 +138,13 @@ export function formatEventStartInEventZone(date: string, startTime: string, eve
     time: at.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short', timeZone: eventZone }),
   };
 }
+
+/**
+ * Clock time of an ISO instant in a zone, e.g. "7:42 pm". Omit `timeZone` to
+ * use the viewer's device zone.
+ */
+export function formatClockTime(isoInstant: string, timeZone?: string): string {
+  const at = new Date(isoInstant);
+  if (Number.isNaN(at.getTime())) return '';
+  return at.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', timeZone });
+}
