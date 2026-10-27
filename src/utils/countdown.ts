@@ -7,7 +7,7 @@
 export const DEFAULT_ROUTE_TIME_ZONE = 'Australia/Sydney';
 
 /** Offset of `timeZone` from UTC at `epochMs`, in milliseconds. */
-function zoneOffsetMs(epochMs: number, timeZone: string): number {
+export function zoneOffsetMs(epochMs: number, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
     hourCycle: 'h23',
@@ -78,35 +78,63 @@ export function padCountdownUnit(value: number): string {
   return String(value).padStart(2, '0');
 }
 
+/** The zone the viewer's device is set to, e.g. 'Australia/Adelaide'. */
+export function deviceTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
 /**
- * Format a route's date and start time into a human-readable string.
- * e.g. "24 December 2024 at 6:00 PM"
+ * A city name for an IANA zone, e.g. 'Australia/Adelaide' -> 'Adelaide'.
+ * Used when naming the event's zone to a viewer in another zone.
+ */
+export function cityForTimeZone(timeZone: string): string {
+  const last = timeZone.split('/').pop() ?? timeZone;
+  return last.replace(/_/g, ' ');
+}
+
+/**
+ * Format a route's start for display. The viewer's device zone comes first, as
+ * the time they will see Santa arrive. When the event zone shows a different
+ * clock time, the event's own time follows in brackets, e.g.
+ * "Thu 24 Dec at 8:00 pm AEDT (7:30 pm ACDT in Adelaide)".
  *
- * @param date      Route date in YYYY-MM-DD format
- * @param startTime Route start time in HH:MM (24-hour) format
- * @param timeZone  IANA zone the start time is set in; the zone is named when it isn't the viewer's own
+ * @param date       Route date in YYYY-MM-DD format
+ * @param startTime  Route start time in HH:MM (24-hour) format, in the event zone
+ * @param eventZone  IANA zone the organiser set the start time in
+ * @param viewerZone IANA zone to show first; defaults to the device's zone
  */
 export function formatRouteStartDateTime(
   date: string,
   startTime: string,
-  timeZone: string = DEFAULT_ROUTE_TIME_ZONE,
+  eventZone: string = DEFAULT_ROUTE_TIME_ZONE,
+  viewerZone: string = deviceTimeZone(),
 ): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(startTime)) return `${date} at ${startTime}`;
-  const dt = new Date(zonedDateTimeToEpoch(date, startTime, timeZone));
-  if (isNaN(dt.getTime())) return `${date} at ${startTime}`;
+  const epoch = zonedDateTimeToEpoch(date, startTime, eventZone);
+  if (Number.isNaN(epoch)) return `${date} at ${startTime}`;
 
-  const dateStr = dt.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone,
-  });
-  const timeStr = dt.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone,
-    timeZoneName: 'short',
-  });
-  return `${dateStr} at ${timeStr}`;
+  const viewerTime = new Date(epoch);
+  const viewerDay = viewerTime.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: viewerZone });
+  const viewerClock = viewerTime.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short', timeZone: viewerZone });
+  const viewerLine = `${viewerDay} at ${viewerClock}`;
+
+  // Same clock time in both zones: nothing to add.
+  if (zoneOffsetMs(epoch, viewerZone) === zoneOffsetMs(epoch, eventZone)) return viewerLine;
+
+  const eventClock = viewerTime.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short', timeZone: eventZone });
+  return `${viewerLine} (${eventClock} in ${cityForTimeZone(eventZone)})`;
+}
+
+/**
+ * Format the organiser's start time in the event's own zone, for material that
+ * is read at the venue, such as the poster: "Thu 24 Dec, 7:30 pm ACDT".
+ */
+export function formatEventStartInEventZone(date: string, startTime: string, eventZone: string = DEFAULT_ROUTE_TIME_ZONE): { day: string; time: string } {
+  const epoch = zonedDateTimeToEpoch(date, startTime, eventZone);
+  if (Number.isNaN(epoch)) return { day: date, time: startTime };
+  const at = new Date(epoch);
+  return {
+    day: at.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: eventZone }),
+    time: at.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short', timeZone: eventZone }),
+  };
 }

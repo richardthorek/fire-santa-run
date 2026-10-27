@@ -20,7 +20,7 @@ function getNextChristmasEveAt4pm(): { date: string; time: string } {
  */
 
 import type { Route, RouteStatus, Waypoint, NavigationSettings, NavigationStep } from '../types';
-import { DEFAULT_ROUTE_TIME_ZONE } from './countdown';
+import { DEFAULT_ROUTE_TIME_ZONE, deviceTimeZone } from './countdown';
 
 /**
  * Generate a unique route ID
@@ -229,6 +229,22 @@ export function validateRoute(route: Partial<Route>): { valid: boolean; errors: 
 /**
  * Create a new route with default values
  */
+/**
+ * The zone a new route's start time is set in: the organiser's device zone, so
+ * an IANA name such as 'Australia/Adelaide' carries its own daylight-saving
+ * rules for whatever date the run is on. Falls back to the brigade zone if the
+ * device reports no usable zone.
+ */
+export function eventTimeZoneForNewRoute(): string {
+  try {
+    const zone = deviceTimeZone();
+    new Intl.DateTimeFormat('en-AU', { timeZone: zone });
+    return zone && zone !== 'UTC' ? zone : DEFAULT_ROUTE_TIME_ZONE;
+  } catch {
+    return DEFAULT_ROUTE_TIME_ZONE;
+  }
+}
+
 export function createNewRoute(brigadeId: string, createdBy?: string): Route {
   const nextChristmas = getNextChristmasEveAt4pm();
   return {
@@ -238,7 +254,7 @@ export function createNewRoute(brigadeId: string, createdBy?: string): Route {
     description: '',
     date: nextChristmas.date,
     startTime: nextChristmas.time,
-    timeZone: DEFAULT_ROUTE_TIME_ZONE,
+    timeZone: eventTimeZoneForNewRoute(),
     status: 'draft',
     waypoints: [],
     createdAt: new Date().toISOString(),
