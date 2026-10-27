@@ -64,3 +64,5 @@ export type { RoleBadgeProps } from './RoleBadge';
 export type { CountdownTimerProps } from './CountdownTimer';
 export type { ThankYouOverlayProps } from './ThankYouOverlay';
 export type { RoutePreviewModalProps } from './RoutePreviewModal';
+export { HoldToConfirmButton } from './HoldToConfirmButton';
+export type { HoldToConfirmButtonProps } from './HoldToConfirmButton';

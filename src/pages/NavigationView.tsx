@@ -11,6 +11,7 @@ import { voiceService } from '../utils/voice';
 import { NavigationHeader } from '../components/NavigationHeader';
 import { NavigationMap } from '../components/NavigationMap';
 import { NavigationPanel } from '../components/NavigationPanel';
+import { HoldToConfirmButton } from '../components/HoldToConfirmButton';
 import { OffRouteBanner } from '../components/OffRouteBanner';
 import { BroadcastHealthBanner } from '../components/BroadcastHealthBanner';
 import { clearStoredToken } from '../auth/suiteAuth';
@@ -223,13 +224,9 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   }, [isPaused, broadcastRunStatus]);
 
   // Emergency stop: the truck has been called away (e.g. a real callout). Tell
-  // viewers explicitly, then leave navigation. Guarded by a confirm because it
-  // ends the public run.
+  // viewers explicitly, then leave navigation. Only reached after the
+  // control is held down (HoldToConfirmButton), so a brush of the thumb can't end the run.
   const handleEmergencyStop = useCallback(() => {
-    const ok = window.confirm(
-      'End the run now and tell everyone Santa has been called away? Use this if the truck has to leave for an emergency.',
-    );
-    if (!ok) return;
     broadcastRunStatus('aborted', 'Santa has been called away to help. We’ll share a new time as soon as we can.');
     handleStopNavigation();
   }, [broadcastRunStatus, handleStopNavigation]);
@@ -486,13 +483,13 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
           {isPaused ? <Play size={24} aria-hidden="true" /> : <Pause size={24} aria-hidden="true" />}
         </button>
 
-        <button
-          onClick={handleEmergencyStop}
+        <HoldToConfirmButton
+          label="Emergency stop: hold for 1.5 seconds to end the run and tell viewers Santa has been called away"
+          onConfirm={handleEmergencyStop}
           style={{ ...controlRailStyles.button, ...controlRailStyles.emergency }}
-          aria-label="Emergency stop — Santa called away"
         >
           <OctagonAlert size={24} aria-hidden="true" />
-        </button>
+        </HoldToConfirmButton>
       </div>
 
       {/* Paused indicator for the operator, so it's obvious viewers see a hold. */}
