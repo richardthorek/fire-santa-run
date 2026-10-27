@@ -78,6 +78,8 @@ export interface UseNavigationOptions {
    *  from the same render, which can be one render behind the state update
    *  that triggered this callback). */
   onRouteComplete?: (rerouteCount: number, finalRoute: Route) => void;
+  /** Called after a reroute with the new path. */
+  onRerouted?: (update: RerouteUpdate) => void;
   /** Fired for every waypoint completion (auto-arrival or manual skip), with
    *  the full up-to-date waypoints array so callers can persist without
    *  reconstructing it from a possibly-stale route reference. */
@@ -90,7 +92,17 @@ export interface UseNavigationOptions {
   locationEnabled?: boolean;
 }
 
-export function useNavigation({ route, onRouteComplete, onWaypointComplete, voiceEnabled = true, locationEnabled = true }: UseNavigationOptions) {
+/** The path after an unplanned reroute, ready to save and share with viewers. */
+export interface RerouteUpdate {
+  geometry: NonNullable<Route['geometry']>;
+  navigationSteps: NonNullable<Route['navigationSteps']>;
+  distance: number;
+  estimatedDuration: number;
+  /** The stop the truck is now heading to. */
+  nextWaypointName?: string;
+}
+
+export function useNavigation({ route, onRouteComplete, onRerouted, onWaypointComplete, voiceEnabled = true, locationEnabled = true }: UseNavigationOptions) {
   const { position, error: locationError, permission } = useGeolocation({
     watch: locationEnabled,
     enableHighAccuracy: true,
@@ -382,6 +394,9 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
     }
   }, [updatedRoute.waypoints, completeWaypoint]);
 
+  const onReroutedRef = useRef(onRerouted);
+  onReroutedRef.current = onRerouted;
+
   // Reroute when off course
   const reroute = useCallback(async () => {
     if (!position || !navigationState.nextWaypoint || isRerouting) return;
@@ -444,6 +459,14 @@ export function useNavigation({ route, onRouteComplete, onWaypointComplete, voic
 
       // Increment reroute count and log event
       setRerouteCount(prev => prev + 1);
+
+      onReroutedRef.current?.({
+        geometry: newDirections.geometry,
+        navigationSteps: newDirections.steps,
+        distance: newDirections.distance,
+        estimatedDuration: newDirections.duration,
+        nextWaypointName: navigationState.nextWaypoint?.name,
+      });
 
       setIsRerouting(false);
     } catch (error) {

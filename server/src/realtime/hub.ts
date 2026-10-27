@@ -162,6 +162,13 @@ export const hub = {
     return routes.get(routeId)?.viewers.size ?? 0;
   },
 
+  /** Tell viewers the run's path has changed. Not cached: a late joiner loads the stored route instead. */
+  broadcastRouteUpdate(routeId: string, message: unknown): void {
+    const conns = getRoute(routeId);
+    const data = JSON.stringify(message);
+    for (const ws of conns.viewers) safeSend(ws, data);
+  },
+
   /** Fan out a Santa location / status message to viewers and the broadcaster's read side. */
   broadcastLocation(routeId: string, message: unknown): void {
     const conns = getRoute(routeId);

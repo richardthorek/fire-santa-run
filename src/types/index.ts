@@ -65,6 +65,8 @@ export interface Route {
   waypoints: Waypoint[];
   geometry?: GeoJSON.LineString;  // Mapbox Directions API route
   navigationSteps?: NavigationStep[]; // Turn-by-turn instructions
+  /** The path as published. Kept when the truck reroutes, so viewers can see the original line. */
+  publishedGeometry?: GeoJSON.LineString;
   distance?: number;              // Total distance in meters
   estimatedDuration?: number;     // Estimated duration in seconds
   actualDuration?: number;        // Actual duration in seconds
@@ -183,6 +185,15 @@ export interface ViewerPinsMessage {
  * - `completed` — the run finished normally (thank-you state).
  */
 export type RunStatus = 'active' | 'paused' | 'aborted' | 'completed';
+
+/** Sent when the navigator's path changes (an unplanned reroute). Viewers re-read the stored route. */
+export interface RouteUpdateMessage {
+  type: 'route-update';
+  routeId: string;
+  reason: string;
+  nextStop?: string;
+  timestamp: number;
+}
 
 export interface RunStatusMessage {
   type: 'run-status';

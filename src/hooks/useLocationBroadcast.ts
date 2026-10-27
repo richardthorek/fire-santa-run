@@ -53,7 +53,7 @@ export function useLocationBroadcast({
   const [broadcastHealth, setBroadcastHealth] = useState<BroadcastHealth>('ok');
   const [lastSuccessfulBroadcastAt, setLastSuccessfulBroadcastAt] = useState<number | null>(null);
 
-  const { sendLocation: sendLocationRaw, sendRunStatus: sendRunStatusRaw, isConnected, viewerCount, viewerPins } = useWebPubSub({
+  const { sendLocation: sendLocationRaw, sendRunStatus: sendRunStatusRaw, sendRouteUpdate, isConnected, viewerCount, viewerPins } = useWebPubSub({
     routeId,
     role: 'broadcaster',
   });
@@ -194,6 +194,8 @@ export function useLocationBroadcast({
     viewerPins,
     broadcastRunCompleted,
     broadcastRunStatus,
+    /** Tells viewers the path changed after an unplanned reroute. */
+    sendRouteUpdate,
     /** 'ok' | 'degraded' | 'failing' | 'auth-expired' — see BroadcastHealthBanner. */
     broadcastHealth,
     /** Epoch ms of the last broadcast that succeeded, or null if none yet this session. */

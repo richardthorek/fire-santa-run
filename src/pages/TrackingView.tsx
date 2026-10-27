@@ -12,7 +12,8 @@ import { MAPBOX_CONFIG, DEFAULT_MAP_STYLE, lightPresetForHour } from '../config/
 import mapboxgl from 'mapbox-gl';
 import { storageAdapter } from '../storage';
 import type { Route, LocationBroadcast } from '../types';
-import { formatDistance, getDirections } from '../utils/mapbox';
+import { formatDistance } from '../utils/mapbox';
+import type { RouteUpdateMessage } from '../types';
 import { calculateDistance, alongPathDistance } from '../utils/navigation';
 import { getPushEnvironment, getServerPublicKey, subscribeToRunStart, hasSubscribedToRoute, type PushEnvironmentKind } from '../utils/push';
 import { DEMO_ROUTE, startDemoSimulator } from '../utils/demoRoute';
@@ -75,10 +76,11 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   // Fallback path fetched client-side when a route was published without a
   // planned path (straight lines as a last resort), so viewers always see the
   // path Santa will take between stops — not just the stops.
-  const [fetchedGeometry, setFetchedGeometry] = useState<GeoJSON.LineString | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   // The path drawn on the map: stored geometry wins, fallback otherwise.
-  const displayGeometry = route?.geometry ?? fetchedGeometry;
+  const displayGeometry = route?.geometry;
+  // Shown when the truck has rerouted for an unplanned reason; cleared by the viewer.
+  const [rerouteNotice, setRerouteNotice] = useState<string | null>(null);
   // The start time is the brigade's wall-clock time in the route's own zone.
   const runTimeZone = route?.timeZone ?? DEFAULT_ROUTE_TIME_ZONE;
 
@@ -209,29 +211,6 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
       });
   }, [routeId, demo]);
 
-  // Resolve a fallback path when the stored route has none: Mapbox Directions
-  // → straight lines between stops. Routes are often published without an
-  // explicit "Plan Route" step, and watching Santa travel between stops is the
-  // whole point of sharing — so never show a bare scatter of waypoints.
-  useEffect(() => {
-    if (!route || route.geometry || route.waypoints.length < 2) return;
-
-    let cancelled = false;
-    const coords = route.waypoints.map((w) => w.coordinates);
-    getDirections(coords)
-      .then((directions) => {
-        if (!cancelled) setFetchedGeometry(directions.geometry);
-      })
-      .catch(() => {
-        // Directions unavailable (offline, quota, token) — draw straight
-        // segments so viewers still see the run's shape.
-        if (!cancelled) setFetchedGeometry({ type: 'LineString', coordinates: coords });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [route]);
-
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || !route || mapRef.current) return;
@@ -333,6 +312,46 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
       setMapLoaded(false);
     };
   }, [route]);
+
+  // The path as published, drawn thin and faint under the live route after an
+  // unplanned reroute. Violet with a white halo reads on light and dark basemaps.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    const published = route?.publishedGeometry && route.publishedGeometry !== route.geometry
+      ? route.publishedGeometry
+      : null;
+    if (!published) {
+      if (map.getLayer('route-published-line')) map.removeLayer('route-published-line');
+      if (map.getLayer('route-published-halo')) map.removeLayer('route-published-halo');
+      if (map.getSource('route-published')) map.removeSource('route-published');
+      return;
+    }
+
+    const feature: GeoJSON.Feature = { type: 'Feature', properties: {}, geometry: published };
+    const existing = map.getSource('route-published') as mapboxgl.GeoJSONSource | undefined;
+    if (existing) {
+      existing.setData(feature);
+      return;
+    }
+
+    map.addSource('route-published', { type: 'geojson', data: feature });
+    map.addLayer({
+      id: 'route-published-halo',
+      type: 'line',
+      source: 'route-published',
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': '#FFFFFF', 'line-width': 6, 'line-opacity': 0.7 },
+    });
+    map.addLayer({
+      id: 'route-published-line',
+      type: 'line',
+      source: 'route-published',
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': '#7C3AED', 'line-width': 2.5, 'line-dasharray': [1.5, 1.5], 'line-opacity': 0.9 },
+    });
+  }, [mapLoaded, route?.publishedGeometry, route?.geometry]);
 
   // Draw (or update) the route path with candy cane styling — glow, white
   // base, red dashes. Runs whenever the resolved geometry lands, which may be
@@ -597,10 +616,25 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
 
   // Connect to Web PubSub for real-time updates (skipped in demo mode — the
   // simulator below produces the same messages locally).
+  // The truck has rerouted: re-read the stored route, which holds the new path.
+  const handleRouteUpdate = (update: RouteUpdateMessage) => {
+    setRerouteNotice(
+      update.nextStop
+        ? `Santa has rerouted for an unplanned reason and is heading to ${update.nextStop}. The new route is shown solid; the original is shown faint.`
+        : 'Santa has rerouted for an unplanned reason. The new route is shown solid; the original is shown faint.',
+    );
+    storageAdapter.getPublicRoute(routeId).then(r => {
+      if (r) setRoute(r);
+    }).catch(() => {
+      // Keep the current line if the refresh fails; the next update retries.
+    });
+  };
+
   const webPubSub = useWebPubSub({
     routeId,
     role: 'viewer',
     onLocationUpdate: handleLocationUpdate,
+    onRouteUpdate: handleRouteUpdate,
     enabled: !demo,
   });
   const { isConnected, isConnecting, error: connectionError, viewerCount, runStatus, runStatusMessage } = webPubSub;
@@ -932,6 +966,41 @@ export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
           <p style={{ maxWidth: '28rem', fontSize: '1rem', lineHeight: 1.5, margin: 0 }}>
             {runStatusMessage || 'The crew has been called to help with something urgent, so tonight’s run has stopped. We’ll share a new time as soon as we can — thank you for understanding.'}
           </p>
+        </div>
+      )}
+
+      {/* Unplanned reroute: say so, and say where Santa is heading. Dismissable. */}
+      {rerouteNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            top: 'calc(env(safe-area-inset-top, 0px) + 9.5rem)',
+            left: '0.75rem',
+            right: '0.75rem',
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.75rem',
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--border-radius-xs)',
+            backgroundColor: 'var(--summer-gold)',
+            color: 'var(--summer-gold-ink)',
+            boxShadow: 'var(--ui-shadow)',
+            fontSize: '0.9rem',
+            fontWeight: 600,
+          }}
+        >
+          <span style={{ flex: 1, minWidth: 0 }}>{rerouteNotice}</span>
+          <button
+            type="button"
+            onClick={() => setRerouteNotice(null)}
+            aria-label="Dismiss reroute notice"
+            style={{ background: 'none', border: 'none', color: 'inherit', fontSize: '1.25rem', lineHeight: 1, cursor: 'pointer', padding: '0 0.25rem' }}
+          >
+            ×
+          </button>
         </div>
       )}
 
