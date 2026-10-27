@@ -19,6 +19,7 @@ import { isNearWaypoint } from '../utils/navigation';
 import { TOUCH_TARGET, Z_INDEX } from '../utils/constants';
 import { Moon, OctagonAlert, Pause, Play, Sun, Volume2, VolumeX } from 'lucide-react';
 import type { Route } from '../types';
+import type { RerouteUpdate } from '../hooks/useNavigation';
 
 /** Warn before starting when the Station Manager sign-in has under two hours left. */
 const SESSION_WARNING_MS = 2 * 60 * 60 * 1000;
@@ -41,6 +42,8 @@ export interface NavigationViewProps {
 const LOADING_HINT_DELAY_MS = 15_000;
 
 export function NavigationView({ route, onComplete, onExit }: NavigationViewProps) {
+  // Filled in once the broadcast hook exists; the navigation hook calls it after a reroute.
+  const handleReroutedRef = useRef<(update: RerouteUpdate) => void>(() => {});
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [keepScreenOn, setKeepScreenOn] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
@@ -88,7 +91,8 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     dismissOffRouteBanner,
   } = useNavigation({
     route,
-    onRouteComplete: async (finalRerouteCount, finalRoute) => {
+    onRerouted: (update) => handleReroutedRef.current(update),
+  onRouteComplete: async (finalRerouteCount, finalRoute) => {
       // Mark route as completed, saving the reroute count for summary display.
       // `finalRoute` (passed by the hook) already includes the very last
       // waypoint's completion — reading `updatedRoute` here would still be
@@ -137,6 +141,7 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
     viewerPins,
     broadcastRunCompleted,
     broadcastRunStatus,
+    sendRouteUpdate,
     broadcastHealth,
     lastSuccessfulBroadcastAt,
   } = useLocationBroadcast({
@@ -226,6 +231,25 @@ export function NavigationView({ route, onComplete, onExit }: NavigationViewProp
   // Emergency stop: the truck has been called away (e.g. a real callout). Tell
   // viewers explicitly, then leave navigation. Only reached after the
   // control is held down (HoldToConfirmButton), so a brush of the thumb can't end the run.
+  // Saves the new path for the run and tells viewers it has changed. The
+  // original published path is kept so viewers can still see it.
+  const handleRerouted = useCallback(async (update: RerouteUpdate) => {
+    const publishedGeometry = route.publishedGeometry ?? route.geometry;
+    saveRoute({
+      ...updatedRoute,
+      ...runMetaRef.current,
+      publishedGeometry,
+      geometry: update.geometry,
+      navigationSteps: update.navigationSteps,
+      distance: update.distance,
+      estimatedDuration: update.estimatedDuration,
+    }).catch(error => {
+      console.error('Failed to save rerouted path:', error);
+    });
+    await sendRouteUpdate('unplanned', update.nextWaypointName);
+  }, [route, updatedRoute, saveRoute, sendRouteUpdate]);
+  handleReroutedRef.current = handleRerouted;
+
   const handleEmergencyStop = useCallback(() => {
     broadcastRunStatus('aborted', 'Santa has been called away to help. We’ll share a new time as soon as we can.');
     handleStopNavigation();

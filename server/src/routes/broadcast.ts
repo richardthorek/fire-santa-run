@@ -276,6 +276,36 @@ broadcastRouter.post('/broadcast/status', async (c) => {
 });
 
 /**
+ * The navigator's path has changed (an unplanned reroute). Viewers are told to
+ * re-read the stored route, which already holds the new path.
+ */
+broadcastRouter.post('/broadcast/route-update', async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({})) as { routeId?: string; reason?: string; nextStop?: string };
+    if (!body.routeId || typeof body.routeId !== 'string') {
+      return c.json({ error: 'Missing required field: routeId' }, 400);
+    }
+
+    const ownerCheck = await requireRouteOwner(c, body.routeId, 'start_navigation');
+    if (ownerCheck instanceof Response) return ownerCheck;
+
+    hub.broadcastRouteUpdate(body.routeId, {
+      type: 'route-update' as const,
+      routeId: body.routeId,
+      reason: body.reason ? String(body.reason).slice(0, 160) : 'unplanned',
+      nextStop: body.nextStop ? String(body.nextStop).slice(0, 120) : undefined,
+      timestamp: Date.now(),
+    });
+
+    return c.json({ success: true, routeId: body.routeId }, 200);
+  } catch (error: any) {
+    console.error('Error broadcasting route update:', error);
+    recordBroadcastFailure('POST /broadcast/route-update');
+    return c.json({ error: 'Failed to broadcast route update', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
+  }
+});
+
+/**
  * Viewer count is now authoritative in the realtime hub (it knows exactly how
  * many sockets are connected per route) and pushed automatically on join/leave.
  * This endpoint is retained for backward compatibility and simply re-pushes the

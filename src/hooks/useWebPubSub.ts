@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { LocationBroadcast, ViewerCountMessage, ViewerPinsMessage, RunStatus, RunStatusMessage } from '../types';
+import type { LocationBroadcast, ViewerCountMessage, ViewerPinsMessage, RunStatus, RunStatusMessage, RouteUpdateMessage } from '../types';
 import { getApiAuthHeaders } from '../auth/apiToken';
 
 const isDevMode = import.meta.env.VITE_DEV_MODE === 'true';
@@ -55,6 +55,8 @@ interface UseWebPubSubOptions {
   routeId: string;
   role?: 'viewer' | 'broadcaster';
   onLocationUpdate?: (location: LocationBroadcast) => void;
+  /** Called when the navigator's path has changed; the stored route holds the new path. */
+  onRouteUpdate?: (update: RouteUpdateMessage) => void;
   shareSource?: string; // Track how viewer found the route (e.g., 'qr', 'direct', 'social')
   /** Set false to skip connecting entirely (e.g. the simulated demo run). */
   enabled?: boolean;
@@ -75,7 +77,7 @@ function computeReconnectDelay(attempt: number): number {
   return Math.round(exp * (0.5 + Math.random() * 0.5));
 }
 
-export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, shareSource, enabled = true }: UseWebPubSubOptions) {
+export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, onRouteUpdate, shareSource, enabled = true }: UseWebPubSubOptions) {
   const [state, setState] = useState<WebPubSubConnectionState>({
     isConnected: false,
     isConnecting: false,
@@ -98,6 +100,8 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
   // ref so the latest closure always runs (avoids stale route/state bugs).
   const onLocationUpdateRef = useRef(onLocationUpdate);
   onLocationUpdateRef.current = onLocationUpdate;
+  const onRouteUpdateRef = useRef(onRouteUpdate);
+  onRouteUpdateRef.current = onRouteUpdate;
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   // True once the consumer unmounts / disconnects, so a socket closing during
@@ -261,6 +265,9 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
             else if (data.type === 'run-status') {
               applyRunStatus(data as RunStatusMessage);
             }
+            else if (data.type === 'route-update') {
+              onRouteUpdateRef.current?.(data as RouteUpdateMessage);
+            }
             // Handle location updates
             else if (onLocationUpdateRef.current) {
               onLocationUpdateRef.current(data as LocationBroadcast);
@@ -324,6 +331,8 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
             setState(prev => ({ ...prev, viewerPins: { cells: msg.cells, total: msg.total } }));
           } else if (msgType === 'run-status') {
             applyRunStatus(data as RunStatusMessage);
+          } else if (msgType === 'route-update') {
+            onRouteUpdateRef.current?.(data as RouteUpdateMessage);
           } else if (onLocationUpdateRef.current) {
             onLocationUpdateRef.current(data as LocationBroadcast);
           }
@@ -494,6 +503,27 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     }
   }, [role, routeId, applyRunStatus]);
 
+  /** Tells viewers the run's path has changed. The new path is read from the stored route. */
+  const sendRouteUpdate = useCallback(async (reason: string, nextStop?: string): Promise<BroadcastSendResult> => {
+    if (role !== 'broadcaster') return { ok: false };
+    const payload: RouteUpdateMessage = { type: 'route-update', routeId, reason, nextStop, timestamp: Date.now() };
+    try {
+      if (isDevMode) {
+        broadcastChannelRef.current?.postMessage(payload);
+        return { ok: true };
+      }
+      const response = await fetch(`${API_BASE_URL}/broadcast/route-update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await getApiAuthHeaders()) },
+        body: JSON.stringify({ routeId, reason, nextStop }),
+      });
+      return response.ok ? { ok: true } : { ok: false, status: response.status };
+    } catch (error) {
+      console.error('[WebPubSub] Failed to send route update:', error);
+      return { ok: false };
+    }
+  }, [role, routeId]);
+
   /**
    * Auto-connect on mount
    */
@@ -557,5 +587,6 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, share
     disconnect,
     sendLocation,
     sendRunStatus,
+    sendRouteUpdate,
   };
 }
