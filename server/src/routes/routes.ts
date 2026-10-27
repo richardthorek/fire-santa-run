@@ -5,6 +5,7 @@ import { getTableClient, isDevMode } from '../utils/storage.js';
 import { PUBLIC_ROUTE_STATUSES } from '../utils/routeVisibility.js';
 import { guardTextContent } from '../utils/moderation.js';
 import { emitMetric } from '../utils/telemetryMetrics.js';
+import { fromChunkedProps, toChunkedProps } from '../utils/chunkedJson.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
@@ -23,9 +24,9 @@ function entityToRoute(entity: any) {
     timeZone: entity.timeZone || undefined,
     endTime: entity.endTime,
     status: entity.status,
-    waypoints: entity.waypoints ? JSON.parse(entity.waypoints) : [],
-    geometry: entity.geometry ? JSON.parse(entity.geometry) : undefined,
-    navigationSteps: entity.navigationSteps ? JSON.parse(entity.navigationSteps) : undefined,
+    waypoints: fromChunkedProps<any[]>(entity, 'waypoints') ?? [],
+    geometry: fromChunkedProps(entity, 'geometry'),
+    navigationSteps: fromChunkedProps(entity, 'navigationSteps'),
     distance: entity.distance,
     estimatedDuration: entity.estimatedDuration,
     actualDuration: entity.actualDuration,
@@ -57,9 +58,9 @@ function routeToEntity(route: any) {
     timeZone: route.timeZone || '',
     endTime: route.endTime || '',
     status: route.status,
-    waypoints: JSON.stringify(route.waypoints || []),
-    geometry: route.geometry ? JSON.stringify(route.geometry) : '',
-    navigationSteps: route.navigationSteps ? JSON.stringify(route.navigationSteps) : '',
+    ...toChunkedProps('waypoints', route.waypoints || []),
+    ...toChunkedProps('geometry', route.geometry),
+    ...toChunkedProps('navigationSteps', route.navigationSteps),
     distance: route.distance || 0,
     estimatedDuration: route.estimatedDuration || 0,
     actualDuration: route.actualDuration || 0,
