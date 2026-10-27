@@ -5,7 +5,6 @@ import { createApp } from './app.js';
 import { validateServerEnv } from './utils/configValidation.js';
 import { attachRealtime } from './realtime/wsServer.js';
 import { initAppInsights } from './utils/appInsights.js';
-import { startRunPlanScheduler } from './utils/runPlanScheduler.js';
 
 // Fail fast on invalid configuration before accepting any traffic.
 validateServerEnv();
@@ -113,7 +112,6 @@ console.log(`   Dev mode     : ${process.env.DEV_MODE === 'true'}`);
 
 const server = serve({ fetch: app.fetch, port }, (info) => {
   console.log(`\u2705 Server listening on http://localhost:${info.port}`);
-  startRunPlanScheduler();
 }) as Server;
 
 // Attach the native realtime WebSocket endpoint (/api/ws) to the same HTTP

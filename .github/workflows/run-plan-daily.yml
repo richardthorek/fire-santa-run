@@ -1,0 +1,40 @@
+name: Daily Run Plan Email
+
+# Emails each published run's plan to its organiser, 24 to 48 hours before the
+# start. Runs at 00:00 UTC each day, which is 10:00 in Adelaide and 11:00 in
+# Sydney, and covers the runs starting in the next 24-to-48-hour window. The app
+# scales to zero, so this workflow wakes it with a token-protected request.
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    name: Send due run plans
+    environment: copilot
+    steps:
+      - name: Validate configuration
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          JOB_TOKEN: ${{ secrets.RUN_PLAN_JOB_TOKEN }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$JOB_TOKEN" ]; then
+            echo "::error::Run-plan job needs the APP_URL variable and the RUN_PLAN_JOB_TOKEN secret in the 'copilot' environment."
+            exit 1
+          fi
+
+      - name: Run the daily sweep
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          JOB_TOKEN: ${{ secrets.RUN_PLAN_JOB_TOKEN }}
+        run: |
+          # Allow for a cold start: the app may be scaled to zero.
+          curl --fail --silent --show-error --retry 3 --retry-delay 20 --max-time 240 \
+            -X POST -H "x-job-token: ${JOB_TOKEN}" \
+            "${APP_URL%/}/api/jobs/run-plan-daily"

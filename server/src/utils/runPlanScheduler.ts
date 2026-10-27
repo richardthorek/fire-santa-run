@@ -1,8 +1,11 @@
 /**
  * Automatic run-plan email: each published run's plan goes to its organiser once,
- * 24 hours before the start. A sweep runs every 15 minutes, and a sent run is
- * marked with `runPlanAutoSentAt` so it isn't sent again. The app runs as a
- * single replica (see docs/ARCHITECTURE.md), so one sweep runs at a time.
+ * ahead of the start. A daily sweep (run by a scheduled workflow, see
+ * .github/workflows/run-plan-daily.yml) covers the runs that start 24 to 48 hours
+ * after it runs. Each run falls in exactly one daily window, so the organiser
+ * always gets at least 24 hours' notice whatever the run's time zone. A sent run
+ * is marked with `runPlanAutoSentAt` so it isn't sent again. The app scales to
+ * zero, so nothing here runs in the background; the workflow calls it.
  */
 import { getTableClient, isDevMode } from './storage.js';
 import { fromChunkedProps } from './chunkedJson.js';
@@ -10,10 +13,12 @@ import { zonedDateTimeToEpoch } from './zonedTime.js';
 import { buildPlan, isPlausibleEmail, sendPlan, type PlanNavigationStep, type PlanWaypoint, type RoutePlanSource } from './runPlanService.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
-const SWEEP_INTERVAL_MS = 15 * 60_000;
-const LEAD_TIME_MS = 24 * 60 * 60_000;
+const HOUR_MS = 60 * 60_000;
+/** A run is covered by the daily sweep that runs 24 to 48 hours before its start. */
+const WINDOW_START_MS = 24 * HOUR_MS;
+const WINDOW_END_MS = 48 * HOUR_MS;
 
-/** True when a run starts within the next 24 hours and hasn't had its automatic email yet. */
+/** True when a run starts 24 to 48 hours after `now` and hasn't had its automatic email yet. */
 export function isDueForAutoEmail(entity: Record<string, unknown>, now: number): boolean {
   if (entity.runPlanAutoSentAt) return false;
   const date = typeof entity.date === 'string' ? entity.date : '';
@@ -23,7 +28,7 @@ export function isDueForAutoEmail(entity: Record<string, unknown>, now: number):
   const start = zonedDateTimeToEpoch(date, startTime, timeZone);
   if (Number.isNaN(start)) return false;
   const untilStart = start - now;
-  return untilStart > 0 && untilStart <= LEAD_TIME_MS;
+  return untilStart >= WINDOW_START_MS && untilStart < WINDOW_END_MS;
 }
 
 function entityToPlanSource(entity: Record<string, unknown>): RoutePlanSource {
@@ -69,11 +74,7 @@ export async function sweepRunPlanEmails(now: number = Date.now()): Promise<numb
   return sent;
 }
 
-/** Starts the 15-minute sweep. Set RUN_PLAN_AUTO_EMAIL=false to turn it off. */
-export function startRunPlanScheduler(): void {
-  if (process.env.RUN_PLAN_AUTO_EMAIL === 'false') return;
-  const timer = setInterval(() => {
-    sweepRunPlanEmails().catch(error => console.error('[runPlan] automatic sweep failed:', error));
-  }, SWEEP_INTERVAL_MS);
-  timer.unref();
+/** The daily sweep, as the scheduled job calls it. */
+export function runDailyRunPlanSweep(): Promise<number> {
+  return sweepRunPlanEmails(Date.now());
 }
