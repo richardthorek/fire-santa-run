@@ -10,21 +10,54 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 type PlanEmailState = { status: 'idle' | 'sending' | 'sent' | 'error'; message?: string };
 
-/** Emails the organiser's run plan (map, directions, stops and a clipboard PDF). */
-async function emailRunPlan(route: Route): Promise<PlanEmailState> {
+/** Sends the run plan: to the signed-in organiser by default, or to `to` when given. */
+async function requestRunPlanEmail(route: Route, to?: string): Promise<PlanEmailState> {
   try {
     const response = await fetch(`${API_BASE_URL}/routes/${encodeURIComponent(route.id)}/run-plan-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await getApiAuthHeaders()) },
-      body: JSON.stringify({ brigadeId: route.brigadeId }),
+      body: JSON.stringify({ brigadeId: route.brigadeId, ...(to ? { to } : {}) }),
     });
     const body = await response.json().catch(() => ({})) as { to?: string; message?: string };
     if (!response.ok) return { status: 'error', message: body.message || 'The plan could not be sent.' };
-    return { status: 'sent', message: `Sent to ${body.to}. The PDF is ready to print for the truck.` };
+    return { status: 'sent', message: `Sent to ${body.to}.` };
   } catch {
     return { status: 'error', message: 'The plan could not be sent. Check your connection and try again.' };
   }
 }
+
+/** Downloads the run plan PDF through the browser, with the sign-in header. */
+async function downloadRunPlanPdf(route: Route): Promise<PlanEmailState> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/routes/${encodeURIComponent(route.id)}/run-plan.pdf?brigadeId=${encodeURIComponent(route.brigadeId)}`,
+      { headers: await getApiAuthHeaders() },
+    );
+    if (!response.ok) return { status: 'error', message: 'The PDF could not be made. Try again.' };
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${route.name || 'run'}-run-plan.pdf`.replace(/[^A-Za-z0-9 ._-]+/g, '');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    return { status: 'sent', message: 'PDF downloaded. Print it for the truck.' };
+  } catch {
+    return { status: 'error', message: 'The PDF could not be made. Check your connection and try again.' };
+  }
+}
+
+const planButtonStyle: React.CSSProperties = {
+  padding: '0.6rem 1rem',
+  borderRadius: '10px',
+  border: '2px solid',
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface NextRunHeroProps {
   route: Route;
@@ -37,6 +70,9 @@ export interface NextRunHeroProps {
 export function NextRunHero({ route }: NextRunHeroProps) {
   const readiness = getRunReadiness(route);
   const [planEmail, setPlanEmail] = useState<PlanEmailState>({ status: 'idle' });
+  const [otherAddress, setOtherAddress] = useState('');
+  const otherAddressValid = EMAIL_PATTERN.test(otherAddress.trim());
+  const busy = planEmail.status === 'sending';
   const ready = readiness.every(item => item.done);
 
   return (
@@ -79,32 +115,66 @@ export function NextRunHero({ route }: NextRunHeroProps) {
         </Link>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          disabled={planEmail.status === 'sending'}
-          onClick={async () => {
+      <CountdownTimer startDate={route.date} startTime={route.startTime} timeZone={route.timeZone} />
+
+      <div style={{ display: 'grid', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setPlanEmail({ status: 'sending' });
+              setPlanEmail(await requestRunPlanEmail(route));
+            }}
+            style={{ ...planButtonStyle, backgroundColor: 'var(--santa-red)', color: 'white', borderColor: 'var(--santa-red)' }}
+          >
+            {busy ? 'Sending…' : 'Email me the plan'}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setPlanEmail({ status: 'sending' });
+              setPlanEmail(await downloadRunPlanPdf(route));
+            }}
+            style={{ ...planButtonStyle, backgroundColor: 'transparent', color: 'var(--santa-red)', borderColor: 'var(--santa-red)' }}
+          >
+            Download PDF
+          </button>
+        </div>
+
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (!otherAddressValid || busy) return;
             setPlanEmail({ status: 'sending' });
-            setPlanEmail(await emailRunPlan(route));
+            setPlanEmail(await requestRunPlanEmail(route, otherAddress.trim()));
           }}
-          style={{
-            padding: '0.6rem 1rem',
-            borderRadius: '10px',
-            border: '2px solid var(--santa-red)',
-            backgroundColor: 'transparent',
-            color: 'var(--santa-red)',
-            fontWeight: 700,
-            cursor: planEmail.status === 'sending' ? 'wait' : 'pointer',
-          }}
+          style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}
         >
-          {planEmail.status === 'sending' ? 'Sending…' : 'Email run plan and print PDF'}
-        </button>
+          <label htmlFor="plan-other-address" style={{ fontSize: '0.875rem', fontWeight: 600 }}>Or send to</label>
+          <input
+            id="plan-other-address"
+            type="email"
+            value={otherAddress}
+            onChange={(event) => setOtherAddress(event.target.value)}
+            placeholder="name@example.com"
+            autoComplete="email"
+            style={{ flex: '1 1 220px', minWidth: 0, padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid var(--neutral-300)', fontSize: '0.9375rem' }}
+          />
+          <button
+            type="submit"
+            disabled={!otherAddressValid || busy}
+            style={{ ...planButtonStyle, backgroundColor: 'transparent', color: 'var(--santa-red)', borderColor: 'var(--santa-red)', opacity: !otherAddressValid || busy ? 0.5 : 1 }}
+          >
+            Send
+          </button>
+        </form>
+
         <p role="status" aria-live="polite" style={{ margin: 0, fontSize: '0.875rem', color: planEmail.status === 'error' ? 'var(--text-error-strong, #B01620)' : 'var(--neutral-700)' }}>
           {planEmail.message ?? ''}
         </p>
       </div>
-
-      <CountdownTimer startDate={route.date} startTime={route.startTime} timeZone={route.timeZone} />
 
       <div>
         <p style={{ margin: '0 0 0.5rem', fontWeight: 700, fontSize: '0.9375rem' }}>

@@ -6,9 +6,7 @@ import { PUBLIC_ROUTE_STATUSES } from '../utils/routeVisibility.js';
 import { guardTextContent } from '../utils/moderation.js';
 import { emitMetric } from '../utils/telemetryMetrics.js';
 import { fromChunkedProps, toChunkedProps } from '../utils/chunkedJson.js';
-import { buildRunPlanHtml, buildRunPlanSubject, buildRunPlanText, buildStaticMapUrl, type RunPlanInput } from '../utils/runPlan.js';
-import { buildRunPlanPdf } from '../utils/runPlanPdf.js';
-import { sendRunPlanEmail } from '../utils/emailSender.js';
+import { buildPlan, sendPlan, isPlausibleEmail } from '../utils/runPlanService.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
@@ -457,74 +455,60 @@ routesRouter.delete('/:id', async (c) => {
 });
 
 /**
- * Emails the organiser the run plan: a route map, the turn-by-turn directions and
- * the stops, with a one-page PDF for the truck's clipboard. Sent to the signed-in
- * organiser's own address, and only for a run in the brigade they manage.
+ * Emails the run plan: to the signed-in organiser by default, or to another
+ * address the organiser types in. Needs manage access to the run's brigade.
  */
 routesRouter.post('/:id/run-plan-email', async (c) => {
   try {
     const authResult = await validateToken(c.req.raw);
     if (!authResult.authenticated) return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
 
-    const body = await c.req.json().catch(() => ({})) as { brigadeId?: string };
+    const body = await c.req.json().catch(() => ({})) as { brigadeId?: string; to?: string };
     if (!body.brigadeId) return c.json({ error: 'Missing required field: brigadeId' }, 400);
     const permissionCheck = checkBrigadeAccess(authResult, body.brigadeId, 'manage_routes');
     if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
 
-    const to = authResult.email;
+    const to = (body.to ?? authResult.email ?? '').trim();
     if (!to) return c.json({ error: 'No email address', message: 'Your sign-in has no email address to send the plan to.' }, 400);
+    if (!isPlausibleEmail(to)) return c.json({ error: 'Invalid email address', message: 'Enter a full email address, such as name@example.com.' }, 400);
 
     const client = await getTableClient(ROUTES_TABLE);
     const route = entityToRoute(await client.getEntity(body.brigadeId, c.req.param('id')));
-
-    const timeZone = route.timeZone || 'Australia/Sydney';
-    const clockFormat = new Intl.DateTimeFormat('en-AU', { hour: 'numeric', minute: '2-digit', timeZone });
-    const input: RunPlanInput = {
-      name: route.name || 'Santa run',
-      date: route.date,
-      startTime: route.startTime,
-      timeZoneLabel: `${timeZone.split('/').pop()?.replace(/_/g, ' ') ?? ''} time`,
-      stops: (route.waypoints as any[]).map((wp, index) => ({
-        name: wp.name || `Stop ${index + 1}`,
-        address: wp.address || undefined,
-        coordinates: wp.coordinates as [number, number],
-        plannedTime: wp.estimatedArrival ? clockFormat.format(new Date(wp.estimatedArrival)) : undefined,
-      })),
-      steps: ((route.navigationSteps as any[]) || []).map(step => ({ instruction: step.instruction, distance: step.distance })),
-      geometry: route.geometry as { coordinates: [number, number][] } | undefined,
-      shareUrl: route.shareableLink || undefined,
-    };
-
-    // The map is fetched here and attached, so the email doesn't depend on
-    // remote images. If the map can't be drawn, the plan still goes out.
-    let mapPng: Buffer | null = null;
-    const mapUrl = buildStaticMapUrl(input, process.env.MAPBOX_TOKEN || '');
-    if (mapUrl && process.env.MAPBOX_TOKEN) {
-      try {
-        const mapResponse = await fetch(mapUrl);
-        if (mapResponse.ok) mapPng = Buffer.from(await mapResponse.arrayBuffer());
-      } catch (error) {
-        console.warn('[runPlanEmail] map could not be fetched:', error);
-      }
-    }
-
-    const pdf = await buildRunPlanPdf(input, mapPng);
-    const attachments = [
-      { name: 'run-plan.pdf', contentType: 'application/pdf', contentInBase64: pdf.toString('base64') },
-      ...(mapPng ? [{ name: 'route-map.png', contentType: 'image/png', contentInBase64: mapPng.toString('base64'), contentId: 'runmap' }] : []),
-    ];
-
-    const result = await sendRunPlanEmail({
-      to,
-      subject: buildRunPlanSubject(input),
-      html: buildRunPlanHtml(input, mapPng ? 'runmap' : null),
-      text: buildRunPlanText(input),
-      attachments,
-    });
+    const plan = await buildPlan(route as any);
+    const result = await sendPlan(plan, to);
     if (!result.sent) return c.json({ error: 'Not sent', message: result.reason }, 502);
     return c.json({ sent: true, to }, 200);
   } catch (error: any) {
     console.error('Error sending run plan email:', error);
     return c.json({ error: 'Failed to send run plan email', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
+  }
+});
+
+/** The same plan as a PDF download, for the truck's clipboard. */
+routesRouter.get('/:id/run-plan.pdf', async (c) => {
+  try {
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+
+    const brigadeId = c.req.query('brigadeId');
+    if (!brigadeId) return c.json({ error: 'Missing required query: brigadeId' }, 400);
+    const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'manage_routes');
+    if (!permissionCheck.authorized) return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
+
+    const client = await getTableClient(ROUTES_TABLE);
+    const route = entityToRoute(await client.getEntity(brigadeId, c.req.param('id')));
+    const plan = await buildPlan(route as any);
+    const filename = `${(route.name || 'run').replace(/[^A-Za-z0-9 _-]+/g, '').trim().replace(/\s+/g, '-') || 'run'}-run-plan.pdf`;
+    return new Response(new Uint8Array(plan.pdf), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch (error: any) {
+    console.error('Error building run plan PDF:', error);
+    return c.json({ error: 'Failed to build run plan PDF', message: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 });
