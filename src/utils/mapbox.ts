@@ -70,13 +70,14 @@ export async function searchAddress(query: string, proximity?: [number, number])
 /**
  * Reverse geocode coordinates to get address
  */
-export async function reverseGeocode(coordinates: [number, number]): Promise<string> {
+export async function reverseGeocode(coordinates: [number, number], types?: string): Promise<string> {
   if (!MAPBOX_TOKEN) {
     throw new Error('Mapbox token not configured');
   }
 
   const params = new URLSearchParams({
     access_token: MAPBOX_TOKEN,
+    ...(types ? { types } : {}),
   });
 
   const response = await fetch(

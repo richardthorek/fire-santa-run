@@ -34,6 +34,14 @@ function makeRoute(overrides: Partial<Route> = {}): Route {
 }
 
 describe('routeExport', () => {
+  describe('buildPrintableRouteSummary', () => {
+    it('offers a Print button that the user taps, with no script that prints on load', () => {
+      const html = buildPrintableRouteSummary(makeRoute());
+      expect(html).toContain('<button class="no-print print-button" type="button" onclick="window.print()">');
+      expect(html).not.toContain("addEventListener('load'");
+    });
+  });
+
   describe('safeFilename', () => {
     it('sanitises unsafe characters and lowercases', () => {
       expect(safeFilename('My Route! (2026) <v2>')).toBe('my-route-2026-v2');
