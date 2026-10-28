@@ -211,8 +211,10 @@ export function RouteEditor({ routeId, mode }: RouteEditorProps) {
   const handleMapClick = useCallback(async (coordinates: [number, number]) => {
     if (showSetupStep) return;
     try {
-      const address = await reverseGeocode(coordinates);
-      addWaypoint(coordinates, address);
+      // Restrict to street addresses so a tapped stop is labelled with the
+      // nearest address, not a nearby POI or place name.
+      const address = await reverseGeocode(coordinates, 'address');
+      addWaypoint(coordinates, address, address.split(',')[0]);
     } catch (error) {
       console.error('Failed to geocode:', error);
       addWaypoint(coordinates);
