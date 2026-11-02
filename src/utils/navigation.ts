@@ -417,7 +417,7 @@ export function updateSmoothedSpeed(
 }
 
 /**
- * Format ETA as time string
+ * Format ETA as time string in the viewer's local time
  */
 export function formatETA(date: Date): string {
   const hours = date.getHours();

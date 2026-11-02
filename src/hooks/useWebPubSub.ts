@@ -301,6 +301,10 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, onRou
 
         const { url } = await response.json();
 
+        // Unmounted (or disconnected) while negotiating: opening a socket now
+        // would leak it, since disconnect() has already run.
+        if (disposedRef.current) return;
+
         const ws = new WebSocket(url);
         wsRef.current = ws;
 

@@ -6,6 +6,7 @@ import { useBrigade } from '../context';
 import type { RouteAnalytics } from '../types';
 import { formatDuration } from '../utils/mapbox';
 import { generateMockAnalytics } from '../utils/mockData';
+import { getApiAuthHeaders } from '../auth/apiToken';
 
 const COLORS = ['#D32F2F', '#FFA726', '#43A047', '#1976D2', '#7B1FA2', '#00796B'];
 
@@ -31,7 +32,9 @@ export function AnalyticsDashboard() {
           const mockData = generateMockAnalytics(routeId);
           setAnalytics(mockData);
         } else {
-          const response = await fetch(`/api/analytics/routes/${routeId}`);
+          const response = await fetch(`/api/analytics/routes/${routeId}`, {
+            headers: await getApiAuthHeaders(),
+          });
           if (!response.ok) {
             throw new Error(`Failed to fetch analytics: ${response.statusText}`);
           }

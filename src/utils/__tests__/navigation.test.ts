@@ -465,10 +465,11 @@ describe('navigation', () => {
     });
 
     it('should handle midnight correctly', () => {
-      const date = new Date('2024-12-24T00:00:00Z');
+      // Local-time constructor so the expectation holds in any device timezone
+      const date = new Date(2024, 11, 24, 0, 0);
       const formatted = formatETA(date);
 
-      expect(formatted).toMatch(/12:00 AM/);
+      expect(formatted).toBe('12:00 AM');
     });
   });
 

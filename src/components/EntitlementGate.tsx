@@ -68,9 +68,8 @@ export function EntitlementGate({
         </p>
 
         <p style={{ color: 'var(--neutral-600)', fontSize: '0.9rem', margin: '0 0 1.5rem' }}>
-          Included with Station Manager&apos;s Basic and AI Pro plans, or available
-          standalone for <strong>$10/year</strong> (unlimited use) or{' '}
-          <strong>$15</strong> for a one-off month.
+          <strong>Free trial until New Year&apos;s.</strong> After that it&apos;s included with a
+          paid Station Kit subscription.
         </p>
 
         <a

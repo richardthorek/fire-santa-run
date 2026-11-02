@@ -131,20 +131,28 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
     const viewerSessionsClient = await getTableClient(VIEWER_SESSIONS_TABLE);
     const routesClient = await getTableClient(ROUTES_TABLE);
 
-    // Get route details to verify it exists and get brigadeId.
-    // Routes use brigadeId as partitionKey, so scan by rowKey to find it.
-    let brigadeId = '';
+    // Authenticate before touching storage, as GET /routes/:routeId/sessions
+    // does. This is organiser analytics (viewer locations, peaks, hourly views):
+    // it must not be readable by anyone holding the public QR link.
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) {
+      return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    }
+    const brigadeId = authResult.organizationId;
+    if (!brigadeId) {
+      return c.json({ error: 'Route not found' }, 404);
+    }
     try {
-      const routeEntities = routesClient.listEntities({
-        queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` }
-      });
-      for await (const entity of routeEntities) {
-        brigadeId = typeof entity.partitionKey === 'string' ? entity.partitionKey : '';
-        break;
+      await routesClient.getEntity(brigadeId, routeId);
+    } catch (routeError: any) {
+      if (routeError?.statusCode === 404) {
+        return c.json({ error: 'Route not found' }, 404);
       }
-    } catch (_error) {
-      // If lookup fails, continue with empty brigadeId
-      console.warn(`Could not determine brigadeId for route ${routeId}, continuing with analytics`);
+      throw routeError;
+    }
+    const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'manage_routes');
+    if (!permissionCheck.authorized) {
+      return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
     }
 
     // Get all viewer sessions for this route

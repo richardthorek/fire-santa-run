@@ -9,6 +9,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { MAPBOX_CONFIG, DEFAULT_MAP_STYLE } from '../config/mapbox';
 import type { Route } from '../types';
 import type { GeolocationCoordinates } from '../hooks/useGeolocation';
+import { escapeHtml } from '../utils/htmlEscape';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -173,8 +174,8 @@ export function NavigationMap({
         .setLngLat(waypoint.coordinates)
         .setPopup(
           new mapboxgl.Popup({ offset: 25 }).setHTML(
-            `<strong>${waypoint.name || waypoint.address || 'Waypoint'}</strong>${
-              waypoint.notes ? `<br/>${waypoint.notes}` : ''
+            `<strong>${escapeHtml(waypoint.name || waypoint.address || 'Waypoint')}</strong>${
+              waypoint.notes ? `<br/>${escapeHtml(waypoint.notes)}` : ''
             }`
           )
         )
