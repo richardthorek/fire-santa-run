@@ -117,4 +117,14 @@ const server = serve({ fetch: app.fetch, port }, (info) => {
 // Attach the native realtime WebSocket endpoint (/api/ws) to the same HTTP
 // server. This replaces Azure Web PubSub: fan-out happens in-process, with no
 // per-connection or per-message managed-service cost.
-attachRealtime(server);
+const realtime = attachRealtime(server);
+
+// Graceful shutdown: on SIGTERM (revision cutover or scale-in) tell live
+// sockets to reconnect, stop accepting new connections, and exit. The timer
+// caps the wait so a stuck keep-alive connection cannot delay the restart.
+process.once('SIGTERM', () => {
+  console.log('SIGTERM received: draining realtime sockets and shutting down');
+  realtime.drain();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 10_000).unref();
+});

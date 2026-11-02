@@ -428,9 +428,22 @@ routesRouter.put('/:id', async (c) => {
 
     const blocked = await moderateRoute(c, { ...route, id: routeId }, authResult.email || authResult.userId || 'unknown');
     if (blocked) return blocked;
-    await client.updateEntity(routeToEntity({ ...route, id: routeId }), 'Merge');
+    // Start from the stored route so fields the client omitted keep their
+    // stored values (routeToEntity would otherwise default them to ''/0 and
+    // the Merge update would write those). Server-owned fields always come
+    // from storage, and updatedAt is stamped here rather than trusted.
+    const merged = {
+      ...(existingRoute ?? {}),
+      ...route,
+      id: routeId,
+      createdAt: existingRoute?.createdAt ?? route.createdAt,
+      createdBy: existingRoute?.createdBy ?? route.createdBy,
+      viewCount: existingRoute?.viewCount ?? route.viewCount,
+      updatedAt: new Date().toISOString(),
+    };
+    await client.updateEntity(routeToEntity(merged), 'Merge');
     console.log(`Updated route: ${routeId} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);
-    return c.json(route);
+    return c.json(merged);
   } catch (error: any) {
     console.error('Error updating route:', error);
     if (error.statusCode === 404) return c.json({ error: 'Route not found' }, 404);

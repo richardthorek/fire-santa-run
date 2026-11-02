@@ -55,6 +55,12 @@ export const MAX_TOTAL_CONNECTIONS = 5000;
 const VIEWER_PIN_TTL_MS = 15 * 60 * 1000;
 /** Per-route cap so a misbehaving client can't inflate the waiting count. */
 const MAX_VIEWER_PINS_PER_ROUTE = 2000;
+/**
+ * Minimum viewers in a grid cell before it is shown. A cell of one or two
+ * would reveal an individual's approximate position to the navigator, so
+ * smaller cells are withheld (k-anonymity with k = 3).
+ */
+const MIN_PIN_GROUP = 3;
 /** Grid snap for aggregation: 3 dp ≈ 110m. Coordinates are already coarsened client-side. */
 const roundGrid = (n: number): number => Math.round(n * 1000) / 1000;
 
@@ -121,7 +127,7 @@ function pushViewerPins(routeId: string): void {
   const data = JSON.stringify({
     type: 'viewer-pins',
     routeId,
-    cells: [...cellMap.values()],
+    cells: [...cellMap.values()].filter((cell) => cell.count >= MIN_PIN_GROUP),
     total: pins?.size ?? 0,
     timestamp: Date.now(),
   });

@@ -169,7 +169,6 @@ export function useWebPubSub({ routeId, role = 'viewer', onLocationUpdate, onRou
             routeId,
             sessionId: sessionIdRef.current,
             joinedAt: new Date().toISOString(),
-            userAgent: navigator.userAgent,
             shareSource: shareSource || 'direct',
           }),
         });

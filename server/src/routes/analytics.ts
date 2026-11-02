@@ -84,6 +84,9 @@ analyticsRouter.post('/viewer-session', async (c) => {
 
     const tableClient = await getTableClient(VIEWER_SESSIONS_TABLE);
 
+    // Data minimisation: only what counts a view. IP address, user agent and
+    // location are deliberately not stored. Callers can forge them, and
+    // nothing in the app needs them to report views or peak viewers.
     const sessionId = body.sessionId;
     const entity = {
       partitionKey: body.routeId,
@@ -93,9 +96,6 @@ analyticsRouter.post('/viewer-session', async (c) => {
       joinedAt: body.joinedAt || new Date().toISOString(),
       leftAt: body.leftAt,
       viewDuration: body.viewDuration,
-      userAgent: body.userAgent,
-      ipAddress: body.ipAddress,
-      location: body.location ? JSON.stringify(body.location) : undefined,
       shareSource: body.shareSource,
     };
 
@@ -169,8 +169,6 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
         joinedAt: session.joinedAt as string,
         leftAt: session.leftAt as string | undefined,
         viewDuration: session.viewDuration as number | undefined,
-        userAgent: session.userAgent as string | undefined,
-        ipAddress: session.ipAddress as string | undefined,
         location: session.location ? JSON.parse(session.location as string) : undefined,
         shareSource: session.shareSource as string | undefined,
       });
@@ -421,8 +419,6 @@ analyticsRouter.get('/routes/:routeId/sessions', async (c) => {
         joinedAt: session.joinedAt as string,
         leftAt: session.leftAt as string | undefined,
         viewDuration: session.viewDuration as number | undefined,
-        userAgent: session.userAgent as string | undefined,
-        ipAddress: session.ipAddress as string | undefined,
         location: session.location ? JSON.parse(session.location as string) : undefined,
         shareSource: session.shareSource as string | undefined,
       });
