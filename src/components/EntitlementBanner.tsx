@@ -39,7 +39,7 @@ export function EntitlementBanner() {
             Enable Fire Santa Run for your organisation
           </div>
           <div style={{ fontSize: '0.85rem', opacity: 0.95 }}>
-            Included with Basic/AI Pro, or $10/year standalone. Ask your organisation owner.
+            Free trial until New Year&apos;s. Ask your organisation owner.
           </div>
         </div>
       </div>

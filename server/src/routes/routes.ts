@@ -7,6 +7,8 @@ import { guardTextContent } from '../utils/moderation.js';
 import { emitMetric } from '../utils/telemetryMetrics.js';
 import { fromChunkedProps, toChunkedProps } from '../utils/chunkedJson.js';
 import { buildPlan, sendPlan, isPlausibleEmail } from '../utils/runPlanService.js';
+import { redactForPublic } from '../utils/routeRedaction.js';
+import { mergeRouteUpdate } from '../utils/routeMerge.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
@@ -260,7 +262,8 @@ routesRouter.get('/', async (c) => {
     const routes = [];
     for await (const entity of entities) {
       const route = entityToRoute(entity);
-      if (isMember || PUBLIC_ROUTE_STATUSES.has(route.status)) routes.push(route);
+      if (isMember) routes.push(route);
+      else if (PUBLIC_ROUTE_STATUSES.has(route.status)) routes.push(redactForPublic(route));
     }
     return c.json(routes);
   } catch (error) {
@@ -286,9 +289,8 @@ routesRouter.get('/:id', async (c) => {
         const route = entityToRoute(entity);
         const authResult = await validateToken(c.req.raw);
         const isMember = authResult.authenticated && authResult.organizationId === brigadeId;
-        if (isMember || PUBLIC_ROUTE_STATUSES.has(route.status)) {
-          return c.json(route);
-        }
+        if (isMember) return c.json(route);
+        if (PUBLIC_ROUTE_STATUSES.has(route.status)) return c.json(redactForPublic(route));
         return c.json({ error: 'Route not found' }, 404);
       } catch (error: any) {
         if (error.statusCode === 404) return c.json({ error: 'Route not found' }, 404);
@@ -303,7 +305,7 @@ routesRouter.get('/:id', async (c) => {
     });
     for await (const entity of entities) {
       const route = entityToRoute(entity);
-      if (PUBLIC_ROUTE_STATUSES.has(route.status)) return c.json(route);
+      if (PUBLIC_ROUTE_STATUSES.has(route.status)) return c.json(redactForPublic(route));
       break;
     }
     return c.json({ error: 'Route not found' }, 404);
@@ -341,6 +343,14 @@ routesRouter.post('/', async (c) => {
     const blocked = await moderateRoute(c, route, authResult.email || authResult.userId || 'unknown');
     if (blocked) return blocked;
     const client = await getTableClient(ROUTES_TABLE);
+    // Route ids double as the realtime/public key (hub rooms, /track/:id), so an
+    // id already used by ANY brigade must be refused, not just one in this partition.
+    const idTaken = client.listEntities({
+      queryOptions: { filter: `RowKey eq '${escapeODataValue(route.id)}'` },
+    });
+    for await (const _existing of idTaken) {
+      return c.json({ error: 'Route already exists' }, 409);
+    }
     await client.createEntity(routeToEntity(route));
     console.log(`Created route: ${route.id} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);
     emitMetric('route_created', { routeId: route.id, brigadeId: route.brigadeId });
@@ -409,9 +419,11 @@ routesRouter.put('/:id', async (c) => {
 
     const blocked = await moderateRoute(c, { ...route, id: routeId }, authResult.email || authResult.userId || 'unknown');
     if (blocked) return blocked;
-    await client.updateEntity(routeToEntity({ ...route, id: routeId }), 'Merge');
+    // Omitted fields keep their stored values; see utils/routeMerge.ts.
+    const merged = mergeRouteUpdate(existingRoute, route, routeId, new Date());
+    await client.updateEntity(routeToEntity(merged), 'Merge');
     console.log(`Updated route: ${routeId} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);
-    return c.json(route);
+    return c.json(merged);
   } catch (error: any) {
     console.error('Error updating route:', error);
     if (error.statusCode === 404) return c.json({ error: 'Route not found' }, 404);

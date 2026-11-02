@@ -3,6 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { MAPBOX_CONFIG, DEFAULT_CENTER, DEFAULT_MAP_STYLE } from '../config/mapbox';
 import type { Waypoint } from '../types';
+import { escapeHtml } from '../utils/htmlEscape';
 
 // Import Mapbox token from config
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -160,8 +161,8 @@ export function MapView({
         .setPopup(
           new mapboxgl.Popup({ offset: 25 }).setHTML(`
             <div style="padding: 8px;">
-              <strong>${waypoint.name || `Waypoint ${index + 1}`}</strong>
-              ${waypoint.address ? `<br/><small>${waypoint.address}</small>` : ''}
+              <strong>${escapeHtml(waypoint.name || `Waypoint ${index + 1}`)}</strong>
+              ${waypoint.address ? `<br/><small>${escapeHtml(waypoint.address)}</small>` : ''}
             </div>
           `)
         )

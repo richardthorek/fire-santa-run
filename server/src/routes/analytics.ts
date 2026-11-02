@@ -84,6 +84,9 @@ analyticsRouter.post('/viewer-session', async (c) => {
 
     const tableClient = await getTableClient(VIEWER_SESSIONS_TABLE);
 
+    // Data minimisation: only what counts a view. IP address, user agent and
+    // location are deliberately not stored. Callers can forge them, and
+    // nothing in the app needs them to report views or peak viewers.
     const sessionId = body.sessionId;
     const entity = {
       partitionKey: body.routeId,
@@ -93,9 +96,6 @@ analyticsRouter.post('/viewer-session', async (c) => {
       joinedAt: body.joinedAt || new Date().toISOString(),
       leftAt: body.leftAt,
       viewDuration: body.viewDuration,
-      userAgent: body.userAgent,
-      ipAddress: body.ipAddress,
-      location: body.location ? JSON.stringify(body.location) : undefined,
       shareSource: body.shareSource,
     };
 
@@ -131,20 +131,28 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
     const viewerSessionsClient = await getTableClient(VIEWER_SESSIONS_TABLE);
     const routesClient = await getTableClient(ROUTES_TABLE);
 
-    // Get route details to verify it exists and get brigadeId.
-    // Routes use brigadeId as partitionKey, so scan by rowKey to find it.
-    let brigadeId = '';
+    // Authenticate before touching storage, as GET /routes/:routeId/sessions
+    // does. This is organiser analytics (viewer locations, peaks, hourly views):
+    // it must not be readable by anyone holding the public QR link.
+    const authResult = await validateToken(c.req.raw);
+    if (!authResult.authenticated) {
+      return c.json({ error: 'Unauthorized', message: authResult.error || 'Authentication required' }, 401);
+    }
+    const brigadeId = authResult.organizationId;
+    if (!brigadeId) {
+      return c.json({ error: 'Route not found' }, 404);
+    }
     try {
-      const routeEntities = routesClient.listEntities({
-        queryOptions: { filter: `RowKey eq '${escapeODataValue(routeId)}'` }
-      });
-      for await (const entity of routeEntities) {
-        brigadeId = typeof entity.partitionKey === 'string' ? entity.partitionKey : '';
-        break;
+      await routesClient.getEntity(brigadeId, routeId);
+    } catch (routeError: any) {
+      if (routeError?.statusCode === 404) {
+        return c.json({ error: 'Route not found' }, 404);
       }
-    } catch (_error) {
-      // If lookup fails, continue with empty brigadeId
-      console.warn(`Could not determine brigadeId for route ${routeId}, continuing with analytics`);
+      throw routeError;
+    }
+    const permissionCheck = checkBrigadeAccess(authResult, brigadeId, 'manage_routes');
+    if (!permissionCheck.authorized) {
+      return c.json({ error: 'Forbidden', message: permissionCheck.error || 'Insufficient permissions' }, 403);
     }
 
     // Get all viewer sessions for this route
@@ -161,8 +169,6 @@ analyticsRouter.get('/routes/:routeId', async (c) => {
         joinedAt: session.joinedAt as string,
         leftAt: session.leftAt as string | undefined,
         viewDuration: session.viewDuration as number | undefined,
-        userAgent: session.userAgent as string | undefined,
-        ipAddress: session.ipAddress as string | undefined,
         location: session.location ? JSON.parse(session.location as string) : undefined,
         shareSource: session.shareSource as string | undefined,
       });
@@ -413,8 +419,6 @@ analyticsRouter.get('/routes/:routeId/sessions', async (c) => {
         joinedAt: session.joinedAt as string,
         leftAt: session.leftAt as string | undefined,
         viewDuration: session.viewDuration as number | undefined,
-        userAgent: session.userAgent as string | undefined,
-        ipAddress: session.ipAddress as string | undefined,
         location: session.location ? JSON.parse(session.location as string) : undefined,
         shareSource: session.shareSource as string | undefined,
       });

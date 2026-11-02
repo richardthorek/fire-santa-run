@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, LayoutDashboard, Users, Settings2, ShieldCheck, ShieldAlert, LogOut } from 'lucide-react';
+import { User, LayoutDashboard, Settings2, ShieldCheck, ShieldAlert, LogOut } from 'lucide-react';
 import { useAuth, useBrigade } from '../context';
 import { COLORS } from '../utils/constants';
 
@@ -254,26 +254,12 @@ export function AppHeader({ show = true }: AppHeaderProps) {
                 />
                 {brigade && (
                   <MenuLink
-                    to={`/dashboard/${brigade.id}/members`}
-                    icon={<Users size={20} aria-hidden="true" />}
-                    label="Manage Members"
-                    onClick={() => setMenuOpen(false)}
-                  />
-                )}
-                {brigade && (
-                  <MenuLink
                     to={`/dashboard/${brigade.id}/settings`}
                     icon={<Settings2 size={20} aria-hidden="true" />}
                     label="Brigade Settings"
                     onClick={() => setMenuOpen(false)}
                   />
                 )}
-                <MenuLink
-                  to="/brigades/claim"
-                  icon={<ShieldCheck size={20} aria-hidden="true" />}
-                  label={brigade ? 'Switch Brigade' : 'Claim Brigade'}
-                  onClick={() => setMenuOpen(false)}
-                />
                 {isPlatformAdmin && (
                   <MenuLink
                     to="/admin"

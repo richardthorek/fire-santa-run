@@ -298,8 +298,13 @@ if storage_conn:
   SEED_ARGS=(--env "$ENVIRONMENT")
   [[ -n "$NAME_SUFFIX" ]] && SEED_ARGS+=(--suffix "$NAME_SUFFIX")
   if [[ -x "${SCRIPT_DIR}/seed-secrets.sh" ]]; then
-    "${SCRIPT_DIR}/seed-secrets.sh" "${SEED_ARGS[@]}" \
-      || echo "⚠️  Secret seeding failed. Run infra/seed-secrets.sh manually once resources are ready."
+    # Fatal: the Bicep deploy above replaces the app's environment and secrets,
+    # so a failed seed leaves the new revision without storage or auth config.
+    # Failing here stops the pipeline instead of reporting a green deploy.
+    if ! "${SCRIPT_DIR}/seed-secrets.sh" "${SEED_ARGS[@]}"; then
+      echo "❌ Secret seeding failed; the app may be missing configuration. Re-run infra/seed-secrets.sh and redeploy." >&2
+      exit 1
+    fi
   else
     echo "⚠️  infra/seed-secrets.sh not found or not executable; skipping settings seed."
   fi

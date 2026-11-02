@@ -33,7 +33,7 @@ function rejectUpgrade(socket: Duplex, status: number, reason: string): void {
   socket.destroy();
 }
 
-export function attachRealtime(server: Server): void {
+export function attachRealtime(server: Server): { drain: () => void } {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (req, socket, head) => {
@@ -146,4 +146,15 @@ export function attachRealtime(server: Server): void {
   wss.on('close', () => clearInterval(interval));
 
   console.log('✅ Realtime WebSocket endpoint attached at /api/ws');
+
+  return {
+    // Called on SIGTERM (revision cutover, scale-in). Close code 1012 tells the
+    // client this is a restart, so it reconnects straight away instead of
+    // treating it as a failure.
+    drain: () => {
+      for (const client of wss.clients) {
+        client.close(1012, 'Server restarting');
+      }
+    },
+  };
 }

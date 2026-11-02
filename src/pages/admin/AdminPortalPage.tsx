@@ -416,11 +416,14 @@ function ModerationTab({ onChange }: { onChange: () => void }) {
   const open = useMemo(() => (data ?? []).filter((f) => f.status === 'blocked' || f.status === 'pending'), [data]);
 
   async function resolve(f: ModerationFlag, action: 'approve' | 'remove' | 'dismiss') {
-    const note = action === 'approve'
-      ? window.prompt('Optional note (why this is a false positive):') ?? undefined
+    const promptText = action === 'approve'
+      ? 'Optional note (why this is a false positive):'
       : action === 'remove'
-        ? window.prompt('Confirm you have taken the content down (edit the brigade / unpublish or delete the run first). Optional note:') ?? undefined
-        : window.prompt('Optional note:') ?? undefined;
+        ? 'Confirm you have taken the content down (edit the brigade / unpublish or delete the run first). Optional note:'
+        : 'Optional note:';
+    const note = window.prompt(promptText);
+    // Cancel returns null: abort rather than applying the action without a note.
+    if (note === null) return;
     setBusy(f.id);
     setActionError(null);
     try {

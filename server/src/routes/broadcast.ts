@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
-import { rateLimit, clientIp } from '../utils/rateLimit.js';
+import { rateLimit } from '../utils/rateLimit.js';
 import { validateToken, checkBrigadeAccess, type AuthResult } from '../utils/auth.js';
 import { getTableClient, isDevMode } from '../utils/storage.js';
 import { notifyRunStartOnce } from '../utils/push.js';
@@ -161,7 +161,7 @@ broadcastRouter.post('/broadcast', async (c) => {
     // slow down or fail a location update.
     const authResult = c.get('authResult');
     console.log(
-      `[broadcast] route=${body.routeId} brigade=${ownerCheck.brigadeId} user=${authResult.userId} ip=${clientIp(c)}`,
+      `[broadcast] route=${body.routeId} brigade=${ownerCheck.brigadeId} user=${authResult.userId}`,
     );
 
     // First broadcast of a run wakes the "notify me" subscribers. Deliberately

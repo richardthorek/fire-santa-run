@@ -430,9 +430,8 @@ export function BrigadeSettingsPage() {
               </span>
             </div>
             <p className="bsp__hint">
-              Fire Santa Run has no billing of its own — it&apos;s included with Station Manager&apos;s
-              Basic and AI Pro plans, or available standalone for $10/year (unlimited use) or $15 for
-              a one-off month.{' '}
+              Fire Santa Run has no billing of its own. It&apos;s a free trial until New Year&apos;s, and after
+              that it&apos;s included with a paid Station Kit subscription.{' '}
               <a href={`${SUITE_AUTH_URL}/admin/organization`} target="_blank" rel="noopener noreferrer">
                 Manage in Station Manager
               </a>

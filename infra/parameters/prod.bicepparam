@@ -20,6 +20,14 @@ param location = 'australiaeast'
 
 param ciamDirectoryName = ''
 
+// Keep one warm replica with a 0.5 vCPU / 1 GiB allocation in production.
+// Without these pins every infra deploy resets the app to scale-to-zero at
+// 0.25 vCPU, which drops live viewers and slows the first request of a run.
+// 0.5 vCPU pairs with 1 GiB on Consumption (see containerapps.bicep).
+param minReplicas = 1
+param containerCpu = '0.5'
+param containerMemory = '1Gi'
+
 // Custom domain bound to the Container App ingress.
 //
 // Leave BOTH empty to let infra/deploy.sh auto-discover and re-assert whatever

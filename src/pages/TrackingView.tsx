@@ -19,6 +19,7 @@ import { getPushEnvironment, getServerPublicKey, subscribeToRunStart, hasSubscri
 import { DEMO_ROUTE, startDemoSimulator } from '../utils/demoRoute';
 import { isLocationStale, minutesSinceUpdate, isNewerBroadcast, isRunRunningLate } from '../utils/trackingStatus';
 import { DEFAULT_ROUTE_TIME_ZONE, formatClockTime, formatRouteStartDateTime, zonedDateTimeToEpoch } from '../utils/countdown';
+import { escapeHtml } from '../utils/htmlEscape';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 /** Fallback parade pace when the truck isn't reporting speed: ~12 km/h. */
@@ -43,16 +44,6 @@ export interface TrackingViewProps {
  * Format "2026-12-24" + "19:30" as "Thu 24 Dec • 7:30 pm". Falls back to the
  * raw values if either part doesn't parse.
  */
-
-/** Escape user-provided text before interpolating into popup HTML. */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 export function TrackingView({ routeId, demo = false }: TrackingViewProps) {
   const [route, setRoute] = useState<Route | null>(null);

@@ -232,7 +232,6 @@ fi
 # is available (file or shell), so a partial seed never touches an existing key.
 
 SETTINGS=(
-  "AZURE_STORAGE_CONNECTION_STRING=$STORAGE_CONN"
   "DEV_MODE=false"
   "NODE_ENV=production"
   "PORT=8080"
@@ -240,14 +239,23 @@ SETTINGS=(
   "APP_BASE_URL=$APP_ORIGIN"
 )
 
+# Credentials are Container App *secrets*, referenced from env vars with
+# secretref:. A plain env var is readable by anyone with Reader on the app
+# (`az containerapp show` prints it), and the storage key grants full access
+# to every brigade's data. Secret names are kept short (platform limit).
+SECRET_DEFS=()
+add_secret() { # KEY SECRET_NAME VALUE
+  SECRET_DEFS+=("$2=$3")
+  SETTINGS+=("$1=secretref:$2")
+}
+
+add_secret AZURE_STORAGE_CONNECTION_STRING storage-conn "$STORAGE_CONN"
+
 # Content Safety — only set when the account was found (see above). Both must
 # be present for moderation to run; a partial pair leaves screening disabled.
-# The key goes in as a Container App *secret* (referenced via secretref:), not
-# a plain env var — `az containerapp show` prints plain env values.
-CONTENT_SAFETY_SECRET_NAME="content-safety-key"
 if [[ -n "$CONTENT_SAFETY_ENDPOINT_VALUE" && -n "$CONTENT_SAFETY_KEY_VALUE" ]]; then
   SETTINGS+=("CONTENT_SAFETY_ENDPOINT=$CONTENT_SAFETY_ENDPOINT_VALUE")
-  SETTINGS+=("CONTENT_SAFETY_KEY=secretref:${CONTENT_SAFETY_SECRET_NAME}")
+  add_secret CONTENT_SAFETY_KEY content-safety-key "$CONTENT_SAFETY_KEY_VALUE"
 fi
 
 # Optional secrets — SUITE_AUTH_URL points at the Station Manager deployment.
@@ -273,14 +281,20 @@ fi
 # CONTENT_SAFETY_BLOCK_SEVERITY — min category severity (0/2/4/6) that blocks a
 #   save/publish; defaults to 2 ("Low") in code for this family product.
 MISSING_SECRETS=()
+# RUN_PLAN_JOB_TOKEN authorises the daily run-plan sweep (.github/workflows/
+# run-plan-daily.yml). Without it in the app, run-plan emails never send.
+SECRET_NAMES=" VAPID_PRIVATE_KEY REALTIME_WS_SECRET AZURE_COMMUNICATION_CONNECTION_STRING RUN_PLAN_JOB_TOKEN "
 for name in SUITE_AUTH_URL VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT REALTIME_WS_SECRET \
             AZURE_COMMUNICATION_CONNECTION_STRING EMAIL_FROM_ADDRESS OPS_ALERT_EMAIL \
-            PLATFORM_ADMIN_EMAILS CONTENT_SAFETY_BLOCKLIST CONTENT_SAFETY_BLOCK_SEVERITY; do
+            PLATFORM_ADMIN_EMAILS CONTENT_SAFETY_BLOCKLIST CONTENT_SAFETY_BLOCK_SEVERITY \
+            RUN_PLAN_JOB_TOKEN; do
   val="$(resolve "$name")"
-  if [[ -n "$val" ]]; then
-    SETTINGS+=("$name=$val")
-  else
+  if [[ -z "$val" ]]; then
     MISSING_SECRETS+=("$name")
+  elif [[ "$SECRET_NAMES" == *" $name "* ]]; then
+    add_secret "$name" "$(echo "$name" | tr 'A-Z_' 'a-z-' | cut -c1-20)" "$val"
+  else
+    SETTINGS+=("$name=$val")
   fi
 done
 
@@ -314,14 +328,14 @@ if [[ "$DRY_RUN" == "true" ]]; then
   exit 0
 fi
 
-if [[ -n "$CONTENT_SAFETY_KEY_VALUE" ]]; then
+if [[ ${#SECRET_DEFS[@]} -gt 0 ]]; then
   echo ""
-  echo "Setting the Content Safety key as a Container App secret..."
+  echo "Storing ${#SECRET_DEFS[@]} credential(s) as Container App secrets..."
   az containerapp secret set \
     --resource-group "$RESOURCE_GROUP" \
     --name "$APP_NAME" \
-    --secrets "${CONTENT_SAFETY_SECRET_NAME}=${CONTENT_SAFETY_KEY_VALUE}" \
-    --output none
+    --secrets "${SECRET_DEFS[@]}" \
+    --output none || { echo "❌ Failed to store secrets. Nothing was changed on the app's environment." >&2; exit 1; }
 fi
 
 echo ""

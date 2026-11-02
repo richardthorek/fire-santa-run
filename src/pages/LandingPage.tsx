@@ -990,13 +990,13 @@ export function LandingPage() {
                   color: 'var(--fire-red)',
                   margin: '1rem 0 0.25rem',
                 }}>
-                  $10
-                  <span style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--neutral-600)' }}>/year</span>
+                  Free
+                  <span style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--neutral-600)' }}> until New Year&apos;s</span>
                 </div>
                 <p style={{ color: 'var(--neutral-600)', fontSize: '0.9rem', margin: '0.5rem 0 1.5rem' }}>
-                  Unlimited use, less than a coffee — or $15 for a one-off month.
+                  Free trial with unlimited use.
                   <span style={{ display: 'block', fontSize: '0.8rem', marginTop: '0.25rem', color: 'var(--neutral-500)' }}>
-                    Included free with Station Manager&apos;s Basic and AI Pro plans.
+                    Included with a paid Station Kit subscription.
                   </span>
                 </p>
                 <ul style={{
@@ -1115,8 +1115,8 @@ export function LandingPage() {
                     What does it cost?
                   </h4>
                   <p style={{ color: 'var(--neutral-700)', margin: 0, fontSize: '0.95rem' }}>
-                    $10/year (unlimited use) or $15 for a one-off month — just enough to keep the servers
-                    running. It&apos;s also included free with Station Manager&apos;s Basic and AI Pro plans.
+                    Free as a trial until New Year&apos;s, with unlimited use. After that it&apos;s included with a
+                    paid Station Kit subscription.
                     You can explore the app and set up your brigade before enabling it; enabling it unlocks
                     route planning and live broadcasting.
                   </p>
@@ -1133,10 +1133,10 @@ export function LandingPage() {
 
                 <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--neutral-200)' }}>
                   <h4 style={{ color: 'var(--fire-red)', marginBottom: '0.5rem', fontSize: '1rem', fontWeight: 'bold' }}>
-                    Can we cancel anytime?
+                    Will it cost anything?
                   </h4>
                   <p style={{ color: 'var(--neutral-700)', margin: 0, fontSize: '0.95rem' }}>
-                    Absolutely—no long-term contracts, no lock-in. Cancel your subscription at any time.
+                    Not until New Year&apos;s. Fire Santa Run is a free trial until then.
                   </p>
                 </div>
               </div>

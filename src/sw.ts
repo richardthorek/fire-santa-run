@@ -91,11 +91,22 @@ registerRoute(
   })
 );
 
-// General API routes - Network First with cache fallback.
-// Same-origin only: cross-origin services that happen to use an `/api/` path
-// (Station Manager's auth endpoints on stationkit.com.au) must not be routed
-// through this cache — their availability should only affect auth, and a
-// cached session response could be served stale.
+// Signed-in API requests always go to the network and are never stored. The
+// cache key ignores the Authorization header, so a cached member response
+// could otherwise be served to the next user of a shared device.
+registerRoute(
+  ({ url, request }) =>
+    url.origin === self.location.origin &&
+    url.pathname.startsWith('/api/') &&
+    request.headers.has('authorization'),
+  new NetworkOnly()
+);
+
+// General API routes - Network First with cache fallback, for anonymous reads
+// only (public tracking). Same-origin only: cross-origin services that happen
+// to use an `/api/` path (Station Manager's auth endpoints on stationkit.com.au)
+// must not be routed through this cache — their availability should only affect
+// auth, and a cached session response could be served stale.
 registerRoute(
   ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/api/'),
   new NetworkFirst({

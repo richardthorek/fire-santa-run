@@ -367,6 +367,13 @@ export async function switchOrg(organizationId: string): Promise<SuiteSession> {
 export async function signOut(): Promise<void> {
   const token = getStoredToken();
   clearStoredToken();
+  // Drop any API responses cached during this session so the next person on a
+  // shared device cannot be shown them. Best-effort: caches may be unavailable.
+  try {
+    await caches.delete('api-cache');
+  } catch {
+    /* ignore */
+  }
   if (token) {
     try {
       await fetch(`${SUITE_AUTH_URL}/api/auth/logout`, {
