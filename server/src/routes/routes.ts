@@ -7,6 +7,8 @@ import { guardTextContent } from '../utils/moderation.js';
 import { emitMetric } from '../utils/telemetryMetrics.js';
 import { fromChunkedProps, toChunkedProps } from '../utils/chunkedJson.js';
 import { buildPlan, sendPlan, isPlausibleEmail } from '../utils/runPlanService.js';
+import { redactForPublic } from '../utils/routeRedaction.js';
+import { mergeRouteUpdate } from '../utils/routeMerge.js';
 
 const ROUTES_TABLE = isDevMode ? 'devroutes' : 'routes';
 
@@ -47,17 +49,6 @@ function entityToRoute(entity: any) {
     lastEditedBy: entity.lastEditedBy ? JSON.parse(entity.lastEditedBy) : undefined,
     comments: entity.comments ? JSON.parse(entity.comments) : undefined,
   };
-}
-
-/**
- * Strip organiser-only fields (creator reference, last editor, brigade-internal
- * comments) from a route served to anyone who is not a member of its brigade.
- */
-function redactForPublic<T extends { createdBy?: unknown; lastEditedBy?: unknown; comments?: unknown }>(
-  route: T,
-): Omit<T, 'createdBy' | 'lastEditedBy' | 'comments'> {
-  const { createdBy: _createdBy, lastEditedBy: _lastEditedBy, comments: _comments, ...publicRoute } = route;
-  return publicRoute;
 }
 
 function routeToEntity(route: any) {
@@ -428,19 +419,8 @@ routesRouter.put('/:id', async (c) => {
 
     const blocked = await moderateRoute(c, { ...route, id: routeId }, authResult.email || authResult.userId || 'unknown');
     if (blocked) return blocked;
-    // Start from the stored route so fields the client omitted keep their
-    // stored values (routeToEntity would otherwise default them to ''/0 and
-    // the Merge update would write those). Server-owned fields always come
-    // from storage, and updatedAt is stamped here rather than trusted.
-    const merged = {
-      ...(existingRoute ?? {}),
-      ...route,
-      id: routeId,
-      createdAt: existingRoute?.createdAt ?? route.createdAt,
-      createdBy: existingRoute?.createdBy ?? route.createdBy,
-      viewCount: existingRoute?.viewCount ?? route.viewCount,
-      updatedAt: new Date().toISOString(),
-    };
+    // Omitted fields keep their stored values; see utils/routeMerge.ts.
+    const merged = mergeRouteUpdate(existingRoute, route, routeId, new Date());
     await client.updateEntity(routeToEntity(merged), 'Merge');
     console.log(`Updated route: ${routeId} for brigade: ${route.brigadeId} by user: ${authResult.userId}`);
     return c.json(merged);

@@ -426,6 +426,7 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
           REALTIME_WS_SECRET: ${{ secrets.REALTIME_WS_SECRET }}
+          RUN_PLAN_JOB_TOKEN: ${{ secrets.RUN_PLAN_JOB_TOKEN }}
         run: |
           echo "🔐 Seeding secrets to Container App..."
 

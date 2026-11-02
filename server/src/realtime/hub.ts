@@ -21,6 +21,7 @@
 
 import type { WebSocket } from 'ws';
 import type { RealtimeRole } from './wsToken.js';
+import { aggregatePinCells } from '../utils/viewerPinCells.js';
 
 interface RouteConnections {
   viewers: Set<WebSocket>;
@@ -61,8 +62,6 @@ const MAX_VIEWER_PINS_PER_ROUTE = 2000;
  * smaller cells are withheld (k-anonymity with k = 3).
  */
 const MIN_PIN_GROUP = 3;
-/** Grid snap for aggregation: 3 dp ≈ 110m. Coordinates are already coarsened client-side. */
-const roundGrid = (n: number): number => Math.round(n * 1000) / 1000;
 
 function getRoute(routeId: string): RouteConnections {
   let conns = routes.get(routeId);
@@ -112,22 +111,10 @@ function pushViewerPins(routeId: string): void {
     }
   }
 
-  const cellMap = new Map<string, { lng: number; lat: number; count: number }>();
-  if (pins) {
-    for (const pin of pins.values()) {
-      const lng = roundGrid(pin.lng);
-      const lat = roundGrid(pin.lat);
-      const key = `${lng},${lat}`;
-      const cell = cellMap.get(key);
-      if (cell) cell.count += 1;
-      else cellMap.set(key, { lng, lat, count: 1 });
-    }
-  }
-
   const data = JSON.stringify({
     type: 'viewer-pins',
     routeId,
-    cells: [...cellMap.values()].filter((cell) => cell.count >= MIN_PIN_GROUP),
+    cells: aggregatePinCells(pins?.values() ?? [], MIN_PIN_GROUP),
     total: pins?.size ?? 0,
     timestamp: Date.now(),
   });
